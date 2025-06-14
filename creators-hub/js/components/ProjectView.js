@@ -160,6 +160,32 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
     return (
         <div className="glass-card p-6 lg:p-8 rounded-lg">
+            {/* Video Brief Section */}
+            <div className="mb-8 pb-6 border-b border-gray-700">
+                <h3 className="text-2xl font-bold text-blue-300 mb-3">{video.chosenTitle || video.title}</h3>
+                <p className="text-gray-300 mb-4">{video.concept}</p>
+                {(video.locations_featured?.length > 0 || video.targeted_keywords?.length > 0) && (
+                    <div className="space-y-2">
+                        {video.locations_featured?.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-gray-400">LOCATIONS:</span>
+                                {video.locations_featured.map(loc => (
+                                    <span key={loc} className="px-2.5 py-1 text-xs bg-sky-800 text-sky-200 rounded-full">{loc}</span>
+                                ))}
+                            </div>
+                        )}
+                        {video.targeted_keywords?.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-gray-400">KEYWORDS:</span>
+                                {video.targeted_keywords.map(kw => (
+                                    <span key={kw} className="px-2.5 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{kw}</span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+            
             {/* Stepper UI */}
             <div className="flex items-center justify-between mb-8">
                 {TASK_PIPELINE.map((task, index) => (
@@ -347,7 +373,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [activeVideoId, setActiveVideoId] = useState(null);
     const [editingProject, setEditingProject] = useState(false);
     const [editingVideo, setEditingVideo] = useState(null);
-    const [isDescriptionVisible, setIsDescriptionVisible] = useState(false); // State for description visibility
+    const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
