@@ -6,7 +6,7 @@ window.CREATOR_HUB_CONFIG = {
   // IMPORTANT: Replace with your actual Firebase API Key
   // You can find this in your Firebase project settings.
   FIREBASE_CONFIG: {
-    apiKey: "YOUR_API_KEY", 
+    apiKey: "AIzaSyDMyKgfdFF55V8OKp_1u684IWeWkpWtQNA", 
     authDomain: "aot-project-manager.firebaseapp.com",
     projectId: "aot-project-manager",
     storageBucket: "aot-project-manager.appspot.com",
