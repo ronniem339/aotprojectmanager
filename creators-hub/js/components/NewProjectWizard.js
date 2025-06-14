@@ -431,13 +431,6 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                 <textarea name="theme" value={inputs.theme} onChange={(e) => setInputs(p => ({ ...p, theme: e.target.value }))} placeholder="e.g., 'Exploring ancient castles and misty lochs'" rows="3" className="w-full form-textarea"></textarea>
                             </div>
                         </div>
-                        <div className="flex justify-between items-center mt-8">
-                             <p className="text-xs text-gray-500">Your progress is saved automatically.</p>
-                            <div className="flex gap-4">
-                                <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Save & Close</button>
-                                <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>
-                            </div>
-                        </div>
                     </div>
                 );
             case 2: // Footage Inventory
@@ -499,10 +492,6 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         </div>
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         {!isInventoryComplete && subLocations.length > 0 && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location with an amber border to continue.</p>}
-                        <div className="flex justify-between gap-4 mt-6">
-                            <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                            <button onClick={handleGenerateInitialOutline} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>
-                        </div>
                     </div>
                  );
             case 3: // Refine Playlist Title
@@ -526,13 +515,6 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                             <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make them more mysterious', 'Add the year', 'Focus on the adventure aspect'"/>
                         </div>
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                        <div className="flex justify-between gap-4 mt-6">
-                            <button onClick={() => setStep(2)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                            <div className="flex gap-4">
-                                <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                                <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(4); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
-                            </div>
-                        </div>
                     </div>
                 );
             case 4: // Refine Playlist Description
@@ -549,17 +531,9 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                             <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make it more personal', 'Mention the drone footage specifically'"/>
                         </div>
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                        <div className="flex justify-between gap-4 mt-6">
-                            <button onClick={() => setStep(3)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                            <div className="flex gap-4">
-                                <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                                <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(5); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
-                            </div>
-                        </div>
                     </div>
                  );
              case 5: // Review Video Plan
-                const allVideosAccepted = editableOutline?.videos.every(v => v.status === 'accepted');
                 return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 5 - Review Video Plan</h2>
@@ -611,26 +585,69 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                             </div>
                         )}
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                        <div className="flex justify-between gap-4 mt-8">
-                             <div>
-                                <button onClick={() => setStep(4)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                                <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="ml-4 px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
-                             </div>
-                            <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
-                        </div>
                     </div>
                 );
         }
     }
+    
+    const renderActionButtons = () => {
+        const subLocations = locations.slice(1);
+        const isInventoryComplete = subLocations.every(loc => {
+            const inventory = footageInventory[loc.place_id] || {};
+            return inventory.bRoll || inventory.onCamera || inventory.drone;
+        });
+        const allVideosAccepted = editableOutline?.videos.every(v => v.status === 'accepted');
+
+        return (
+            <div className="flex justify-between items-center w-full">
+                <div>
+                    <button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100">Start Over</button>
+                </div>
+                <div className="flex items-center gap-4">
+                     {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
+                     
+                     {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
+                     
+                     {step === 2 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
+                     
+                     {step === 3 && (
+                        <>
+                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(4); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
+                        </>
+                     )}
+                     
+                     {step === 4 && (
+                        <>
+                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(5); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
+                        </>
+                     )}
+                     
+                     {step === 5 && (
+                        <>
+                             <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
+                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
+                        </>
+                     )}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
             {showConfirmModal && <ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
-            <div className="glass-card rounded-lg p-8 w-full max-w-5xl relative">
-                <p className="absolute top-4 right-6 text-xs text-gray-500">Your progress is saved automatically.</p>
-                <button onClick={onClose} className="absolute top-4 left-6 text-gray-400 hover:text-white">&times; Close</button>
-                 {wizardStep()}
-                <button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100 mt-4 absolute bottom-4 left-8">Start Over</button>
+            <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col">
+                <div className="flex-shrink-0">
+                    <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                </div>
+                <div className="flex-grow overflow-y-auto">
+                    {wizardStep()}
+                </div>
+                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700">
+                    {renderActionButtons()}
+                </div>
             </div>
         </div>
     );
