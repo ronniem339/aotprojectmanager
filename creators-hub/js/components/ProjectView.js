@@ -2,10 +2,9 @@
 
 const { useState, useEffect, useMemo, useCallback } = React;
 
-// A simple map to define the tasks and their order
+// The pipeline is now simplified. "Record Script" is part of the first task.
 const TASK_PIPELINE = [
-    { id: 'scriptGenerated', title: 'Generate Script' },
-    { id: 'scriptRecorded', title: 'Record Script' },
+    { id: 'scriptFinalized', title: 'Scripting' },
     { id: 'videoEdited', title: 'Edit Video' },
     { id: 'feedbackProvided', title: 'Log Changes' },
     { id: 'metadataGenerated', title: 'Generate Metadata' },
@@ -44,12 +43,17 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
     const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || '');
     const [generating, setGenerating] = useState(null);
+    // New state for the interactive scripting task
+    const [scriptContent, setScriptContent] = useState(video.script || '');
+    const [refinementText, setRefinementText] = useState('');
+    
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || '');
-    }, [video.id]);
+        setScriptContent(video.script || '');
+    }, [video.id, video.script]);
 
     const updateTask = async (taskName, isComplete, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
@@ -58,7 +62,7 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         await videoDocRef.update(updateData);
     };
 
-    const handleGenerate = async (type) => {
+    const handleGenerate = async (type, currentContent, refinement) => {
         const apiKey = settings.geminiApiKey || "";
         if (!apiKey) { console.error("Please set your Gemini API Key in the settings first."); return; }
         setGenerating(type);
@@ -68,20 +72,32 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
         try {
             if (type === 'script') {
-                // This prompt is now much more explicit about what it should return.
-                const prompt = `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details.
+                const isRefining = !!currentContent;
+                const prompt = isRefining
+                    ? `Your task is to refine an existing voiceover script based on user feedback.
+Original Script:
+---
+${currentContent}
+---
+User's Refinement Instructions: "${refinement}"
+Rewrite the entire script to incorporate the feedback, maintaining the core message and adhering to the style guide.
+Style Guide: ${styleGuide}
+IMPORTANT: Your response MUST contain ONLY the updated voiceover script text.`
+                    : `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details.
 Video Title: "${video.chosenTitle || video.title}"
 Overall Project Theme: "${project.playlistDescription}"
 Style Guide: ${styleGuide}
 Knowledge Base: ${knowledgeBase}
-
 IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include titles, descriptions, metadata, or any other text outside of the script itself.`;
+
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
-                await updateTask('scriptGenerated', true, { script: result.candidates[0].content.parts[0].text });
+                setScriptContent(result.candidates[0].content.parts[0].text);
+                if(isRefining) setRefinementText('');
+
             } else if (type === 'metadata') {
                 const prompt = `${knowledgeBase}\n\nAct as a YouTube SEO expert. Based on the video titled "${video.chosenTitle || video.title}", generate an optimized metadata package. Your response MUST be a valid JSON object, with keys: "titleSuggestions" (array of 3 titles), "description" (string), "tags" (string of comma-separated tags), and "thumbnailConcepts" (array of 3 structured objects: {"imageSuggestion": "string", "textOverlay": "string"}).`;
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
@@ -113,7 +129,7 @@ IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for 
             setGenerating(null);
         }
     };
-
+    
     const tasks = video.tasks || {};
     const isTaskLocked = (index) => index > 0 && tasks[TASK_PIPELINE[index - 1].id] !== 'complete';
     
@@ -140,32 +156,50 @@ IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for 
                 )}
             </div>
             
-            <TaskItem title="1. Generate Script" status={tasks.scriptGenerated} isLocked={isTaskLocked(0)} onRevisit={() => updateTask('scriptGenerated', false)}>
-                {tasks.scriptGenerated !== 'complete' ? (
-                    <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button>
-                ) : ( <textarea readOnly value={video.script || ""} rows="10" className="w-full form-textarea bg-gray-800/50" /> )}
+            <TaskItem title="1. Scripting" status={tasks.scriptFinalized} isLocked={isTaskLocked(0)} onRevisit={() => updateTask('scriptFinalized', false)}>
+                {tasks.scriptFinalized !== 'complete' ? (
+                    <div>
+                        {!scriptContent ? (
+                             <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button>
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Script Draft</label>
+                                    <textarea value={scriptContent} onChange={(e) => setScriptContent(e.target.value)} rows="12" className="w-full form-textarea" />
+                                </div>
+                                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
+                                    <textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
+                                    <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <LoadingSpinner/> : 'Refine with AI'}</button>
+                                </div>
+                                <button onClick={() => updateTask('scriptFinalized', true, { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div>
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Locked)</h4>
+                        <textarea readOnly value={video.script || ""} rows="10" className="w-full form-textarea bg-gray-800/50" />
+                    </div>
+                )}
             </TaskItem>
 
-            <TaskItem title="2. Record Script" status={tasks.scriptRecorded} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('scriptRecorded', false)}>
-                {tasks.scriptRecorded !== 'complete' && <button onClick={() => updateTask('scriptRecorded', true)} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Recorded</button>}
-            </TaskItem>
-
-            <TaskItem title="3. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('videoEdited', false)}>
+            <TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', false)}>
                  {tasks.videoEdited !== 'complete' && <button onClick={() => updateTask('videoEdited', true)} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>}
             </TaskItem>
 
-            <TaskItem title="4. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('feedbackProvided', false)}>
+            <TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', false)}>
                 <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
                 {tasks.feedbackProvided !== 'complete' && <button onClick={() => updateTask('feedbackProvided', true, { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>}
             </TaskItem>
             
-            <TaskItem title="5. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('metadataGenerated', false)}>
+            <TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', false)}>
                  {tasks.metadataGenerated !== 'complete' ? (
                     <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'metadata' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}</button>
                  ) : ( <textarea readOnly value={video.metadata ? JSON.stringify(JSON.parse(video.metadata), null, 2) : ""} rows="10" className="w-full form-textarea bg-gray-800/50" /> )}
             </TaskItem>
             
-            <TaskItem title="6. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('thumbnailsGenerated', false, { 'tasks.generatedThumbnails': [] })}>
+            <TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', false, { 'tasks.generatedThumbnails': [] })}>
                 {tasks.thumbnailsGenerated !== 'complete' ? (
                     <button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button>
                 ) : (
@@ -173,7 +207,7 @@ IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for 
                 )}
             </TaskItem>
 
-            <TaskItem title="7. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(6)} onRevisit={() => updateTask('videoUploaded', false)}>
+            <TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', false)}>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
                 <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto" readOnly={tasks.videoUploaded === 'complete'}/>
                 {tasks.videoUploaded !== 'complete' && <button onClick={() => updateTask('videoUploaded', true, { 'tasks.publishDate': publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>}
