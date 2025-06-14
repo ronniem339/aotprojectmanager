@@ -93,3 +93,4 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
         </div>
     );
 };
+ 
