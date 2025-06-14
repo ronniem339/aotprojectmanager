@@ -140,19 +140,38 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 const result = await response.json();
                 await updateTask('metadataGenerated', 'complete', { metadata: result.candidates[0].content.parts[0].text, chosenTitle: JSON.parse(result.candidates[0].content.parts[0].text).titleSuggestions[0] });
             } else if (type === 'thumbnails') {
-                if (!video.metadata) return console.error("Metadata needed for thumbnails.");
-                const concepts = JSON.parse(video.metadata).thumbnailConcepts || [];
-                const generatedThumbnails = [];
-                for (const concept of concepts) {
+                let concepts;
+                try {
+                    if (!video.metadata) { throw new Error("Metadata must be generated before thumbnails."); }
+                    concepts = JSON.parse(video.metadata).thumbnailConcepts;
+                    if (!concepts || !Array.isArray(concepts) || concepts.length === 0) { throw new Error("No valid thumbnail concepts found in metadata."); }
+                } catch (e) {
+                    console.error("Thumbnail generation error:", e.message);
+                    setGenerating(null);
+                    return;
+                }
+                
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+                const thumbnailPromises = concepts.map(concept => {
                     const prompt = `A high-CTR YouTube thumbnail. Cinematic, professional photography. ${concept.imageSuggestion}. Text overlay reads: "${concept.textOverlay}".`;
                     const payload = { instances: [{ prompt }], parameters: { "sampleCount": 1 } };
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!response.ok) throw new Error(await response.text());
-                    const result = await response.json();
-                    if (result.predictions?.[0]?.bytesBase64Encoded) { generatedThumbnails.push(result.predictions[0].bytesBase64Encoded); }
+                    return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                    .then(response => {
+                        if (!response.ok) { console.error(`API Error for thumbnail concept "${concept.imageSuggestion}":`, response.statusText); return null; }
+                        return response.json();
+                    })
+                    .catch(err => { console.error(`Fetch error for thumbnail concept "${concept.imageSuggestion}":`, err); return null; });
+                });
+
+                const results = await Promise.all(thumbnailPromises);
+                const generatedThumbnails = results.filter(result => result && result.predictions?.[0]?.bytesBase64Encoded).map(result => result.predictions[0].bytesBase64Encoded);
+
+                if (generatedThumbnails.length > 0) {
+                    await updateTask('thumbnailsGenerated', 'complete', { 'tasks.generatedThumbnails': generatedThumbnails });
+                } else {
+                    console.error("All thumbnail generations failed. Please check the API key and concepts.");
                 }
-                await updateTask('thumbnailsGenerated', 'complete', { 'tasks.generatedThumbnails': generatedThumbnails });
+
             } else if (type === 'firstComment') {
                  const prompt = `Generate a friendly and engaging "first pinned comment" for a YouTube video titled "${video.chosenTitle}". The comment should ask a question to spark conversation and encourage viewers to subscribe or watch other videos.`;
                  const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
