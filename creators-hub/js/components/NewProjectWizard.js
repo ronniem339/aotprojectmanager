@@ -96,8 +96,11 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
             if (inputElement) {
                 inputElement.removeEventListener('keydown', handleKeyDown);
             }
+             // Clean up Google Maps widget's own DOM elements
+            const pacContainers = document.querySelectorAll('.pac-container');
+            pacContainers.forEach(container => container.remove());
         };
-    }, [existingLocations, onLocationsChange]); 
+    }, [onLocationsChange]); // Dependency array updated for stability
 
     const removeLocation = (place_id) => {
         onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
@@ -188,7 +191,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         }
     };
     
-    const handleLocationsUpdate = (newLocations) => {
+    const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
         setInputs(prev => ({ ...prev, location: newLocations[0]?.name || '' }));
 
@@ -199,7 +202,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
             };
         });
         setFootageInventory(newInventory);
-    };
+    }, [footageInventory]);
     
     const handleInventoryChange = (placeId, field, value) => {
         setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [field]: value } }));
@@ -257,7 +260,6 @@ Generate a complete project plan as a JSON object.
         try {
             const parsedJson = await callGeminiAPI(prompt);
             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
-                // Add a status to each video for tracking the refinement process
                 parsedJson.videos.forEach(video => video.status = 'pending');
                 setEditableOutline(parsedJson);
                 setStep(3);
@@ -328,11 +330,10 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
             const parsedJson = await callGeminiAPI(prompt);
             if (parsedJson && parsedJson.title && parsedJson.concept) {
                 const newVideos = [...editableOutline.videos];
-                // Update the specific video, but keep its status as 'pending' for re-review.
                 newVideos[videoIndex] = { ...parsedJson, status: 'pending' };
                 setEditableOutline(prev => ({ ...prev, videos: newVideos }));
                 setRefinement('');
-                setRefiningVideoIndex(null); // Close the refinement box
+                setRefiningVideoIndex(null);
             } else {
                 throw new Error("AI returned an invalid video structure.");
             }
@@ -348,7 +349,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         newVideos[videoIndex].status = 'accepted';
         setEditableOutline(prev => ({ ...prev, videos: newVideos }));
         if (refiningVideoIndex === videoIndex) {
-            setRefiningVideoIndex(null); // Close refine box if open
+            setRefiningVideoIndex(null);
         }
     };
 
