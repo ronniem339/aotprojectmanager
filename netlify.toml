@@ -1,0 +1,15 @@
+# This is the configuration file for Netlify.
+# It tells Netlify how to build and deploy your site.
+
+[build]
+  # This is the most important part. 
+  # It tells Netlify that your website's files are inside the "content-hub" folder.
+  publish = "content-hub"
+
+# This section sets up a rule for Single Page Applications (SPAs) like ours.
+# It ensures that if a user refreshes the page on a different "URL", 
+# it still loads your main index.html file, allowing React to handle the routing.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
