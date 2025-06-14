@@ -444,9 +444,19 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 locations: locations.map(loc => ({ ...loc, footage: footageInventory[loc.place_id] || {} })),
                 createdAt: new Date().toISOString()
             });
+
             editableOutline.videos.forEach((video) => {
                 const videoRef = projectRef.collection('videos').doc();
-                batch.set(videoRef, { title: video.title, concept: video.concept, script: '', metadata: '', blogPost: '', shortsIdeas: '', createdAt: new Date().toISOString() });
+                // THE FIX IS HERE: Spreading the video object to include all generated fields.
+                batch.set(videoRef, {
+                    ...video,
+                    chosenTitle: video.title, // Set initial chosenTitle to the generated title
+                    script: '',
+                    metadata: '',
+                    blogPost: '',
+                    shortsIdeas: '',
+                    createdAt: new Date().toISOString()
+                });
             });
             await batch.commit();
             const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
