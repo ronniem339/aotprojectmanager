@@ -13,6 +13,7 @@ function App() {
     const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState(null);
     const [showProjectSelection, setShowProjectSelection] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); // Add a general loading state
 
     const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
 
@@ -153,44 +154,55 @@ function App() {
         }
     };
 
-    const handleImportProject = async (projectData) => {
-        if (!user) return;
+    const handleAnalyzeImportedProject = async (projectData) => {
+        setIsLoading(true);
+        const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
+        const styleGuide = settings.styleGuideText ? `This is the user's personal style guide:\n${settings.styleGuideText}` : "No specific style guide was provided.";
+
+        const prompt = `You are a professional YouTube producer tasked with analyzing an imported, partially complete project.
+The user has provided the following data:
+- Playlist Title: "${projectData.playlistTitle}"
+- Playlist Description: "${projectData.playlistDescription || 'Not provided'}"
+- Existing Videos: ${JSON.stringify(projectData.videos, null, 2)}
+
+Your task is to analyze this data and generate a complete project plan to help the user finish their series.
+1.  **Analyze and Improve Playlist Title**: Based on the provided title and video concepts, generate 3 improved, SEO-friendly title suggestions. The first suggestion should be the user's original title if it's strong, or an improved version of it.
+2.  **Analyze and Improve Playlist Description**: If the user's description is short or missing, write a new, long-form (300-400 words) SEO-optimized description based on all the video concepts. If the description is already good, refine it slightly for better SEO and to match the user's style guide. Prioritize the SEO knowledge base, then infuse the style guide for tone.
+3.  **Complete the Video Series**: Analyze the existing videos. If it seems like a complete series, return them as is. If there are obvious gaps (e.g., a missing introduction or conclusion), suggest 1-2 new video ideas to make the series feel complete.
+4.  **Return a JSON object**: Your entire response MUST be a single, valid JSON object with the following structure: { "playlistTitleSuggestions": ["..."], "playlistDescription": "...", "videos": [{"title": "...", "concept": "...", "script": "...", "estimatedLengthMinutes": "8-10", "locations_featured": [], "targeted_keywords": []}] }`;
         
         try {
-            const searchTerm = projectData.playlistTitle || 'abstract';
-            const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
+            const apiKey = settings.geminiApiKey || "";
+            if (!apiKey) throw new Error("Please set your Gemini API Key in Settings.");
             
-            const batch = db.batch();
-            const projectRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc();
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) { const err = await response.json(); throw new Error(err?.error?.message || 'API Error'); }
             
-            batch.set(projectRef, {
-                playlistTitle: projectData.playlistTitle,
-                playlistDescription: projectData.playlistDescription,
-                thumbnailUrl: thumbnailUrl,
-                locations: [], // Imported projects won't have map locations initially
-                createdAt: new Date().toISOString()
-            });
-
-            projectData.videos.forEach((video) => {
-                const videoRef = projectRef.collection('videos').doc();
-                batch.set(videoRef, { 
-                    title: video.title, 
-                    concept: video.concept, 
-                    script: video.script, 
-                    metadata: '', 
-                    blogPost: '', 
-                    shortsIdeas: '', 
-                    createdAt: new Date().toISOString() 
+            const result = await response.json();
+            const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+            
+            if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
+                // Set the project draft with the AI's analysis and start the wizard at the refinement stage
+                setProjectDraft({
+                    ...parsedJson,
+                    step: 4, // Start at "Refine Title"
+                    // Carry over some initial inputs for context, though they aren't used for generation
+                    inputs: { location: projectData.playlistTitle, theme: '' },
+                    locations: [],
+                    footageInventory: {}
                 });
-            });
-
-            await batch.commit();
-            displayNotification('Project imported successfully!');
-            setCurrentView('dashboard');
-
+                setCurrentView('dashboard'); // Go back to dashboard view
+                setShowNewProjectWizard(true); // Open the wizard
+            } else {
+                throw new Error("AI returned an invalid project plan. Please check the imported data and try again.");
+            }
         } catch (e) {
-            console.error("Error importing project:", e);
-            displayNotification(`Error importing project: ${e.message}`);
+            console.error("Error analyzing project:", e);
+            displayNotification(`Analysis Error: ${e.message}`);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -203,7 +215,7 @@ function App() {
             case 'myStudio':
                 return <MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
             case 'importProject':
-                return <ImportProjectView onImport={handleImportProject} onBack={handleBackToDashboard} />;
+                return <ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} />;
             default:
                 return <Dashboard 
                             userId={user.uid} 
