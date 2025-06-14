@@ -7,12 +7,15 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     useEffect(() => {
         if (!inputRef.current || !window.google?.maps?.places) return;
         
+        // Initialize the Autocomplete widget
         autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
         autocompleteRef.current.setFields(['place_id', 'name', 'geometry']);
 
-        autocompleteRef.current.addListener('place_changed', () => {
+        // This listener fires when a user selects a suggestion from the dropdown 
+        // (by clicking or using arrow keys + enter, or our simulated click)
+        const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
-            if (place.geometry) {
+            if (place && place.geometry) {
                 const newLocation = {
                     name: place.name,
                     place_id: place.place_id,
@@ -23,17 +26,44 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsChange([...existingLocations, newLocation]);
                 }
-                if (inputRef.current) inputRef.current.value = ''; // Clear input after selection
-            }
-        });
-
-        // Cleanup listener on component unmount
-        return () => {
-            if (window.google && autocompleteRef.current) {
-                window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+                if (inputRef.current) {
+                    // Clear the input field for the next search
+                    inputRef.current.value = ''; 
+                }
             }
         };
-    }, [existingLocations, onLocationsChange]);
+        const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
+
+        // This is our new keyboard handler for the rapid-fire input
+        const handleKeyDown = (e) => {
+            // Check if the suggestions dropdown is visible
+            const suggestionsVisible = document.querySelector('.pac-container')?.style.display !== 'none';
+
+            if (e.key === 'Enter' && suggestionsVisible) {
+                e.preventDefault(); // Prevent form submission
+                
+                // Find the first suggestion in the dropdown and simulate a click
+                // This will trigger the 'place_changed' listener we defined above
+                const firstSuggestion = document.querySelector('.pac-item');
+                if (firstSuggestion) {
+                    firstSuggestion.click();
+                }
+            }
+        };
+
+        const inputElement = inputRef.current;
+        inputElement.addEventListener('keydown', handleKeyDown);
+
+        // Cleanup function to remove listeners when the component unmounts
+        return () => {
+            if (window.google) {
+                window.google.maps.event.removeListener(placeChangedListenerHandle);
+            }
+            if (inputElement) {
+                inputElement.removeEventListener('keydown', handleKeyDown);
+            }
+        };
+    }, [existingLocations, onLocationsChange]); 
 
     const removeLocation = (place_id) => {
         onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
@@ -65,6 +95,7 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         </div>
     );
 };
+
 
 const MockLocationSearchInput = () => {
     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
