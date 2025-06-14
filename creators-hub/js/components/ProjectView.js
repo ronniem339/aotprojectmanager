@@ -143,23 +143,29 @@ IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for 
         <div className="space-y-3">
              <div className="glass-card p-6 rounded-lg mb-6">
                 <h3 className="text-2xl font-bold text-blue-300 mb-3">{video.chosenTitle || video.title}</h3>
-                <p className="text-gray-300 mb-4">{video.concept}</p>
-                {(video.locations_featured?.length > 0 || video.targeted_keywords?.length > 0) && (
-                    <div className="space-y-2 pt-4 border-t border-gray-700">
-                        {video.locations_featured?.length > 0 && (
+                <p className="text-gray-300 mb-4">{video.concept || <span className="italic text-gray-500">No concept provided for this video.</span>}</p>
+                <div className="space-y-3 pt-4 border-t border-gray-700">
+                    <div>
+                        <span className="text-xs font-semibold text-gray-400 block mb-2">LOCATIONS FEATURED:</span>
+                        {video.locations_featured?.length > 0 ? (
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-semibold text-gray-400">LOCATIONS:</span>
                                 {video.locations_featured.map(loc => ( <span key={loc} className="px-2.5 py-1 text-xs bg-sky-800 text-sky-200 rounded-full">{loc}</span> ))}
                             </div>
-                        )}
-                        {video.targeted_keywords?.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-semibold text-gray-400">KEYWORDS:</span>
-                                {video.targeted_keywords.map(kw => ( <span key={kw} className="px-2.5 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{kw}</span> ))}
-                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 italic">No specific locations listed for this video.</p>
                         )}
                     </div>
-                )}
+                    <div>
+                        <span className="text-xs font-semibold text-gray-400 block mb-2">TARGETED KEYWORDS:</span>
+                        {video.targeted_keywords?.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                                {video.targeted_keywords.map(kw => ( <span key={kw} className="px-2.5 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{kw}</span> ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 italic">No keywords targeted for this video.</p>
+                        )}
+                    </div>
+                </div>
             </div>
             
             <TaskItem title="1. Scripting & Recording" status={tasks.scripting} isLocked={isTaskLocked(0)} onRevisit={() => updateTask('scripting', 'pending')}>
@@ -425,39 +431,33 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         
         const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
-            const videosData = querySnapshot.docs.map(doc => ({
+            let videosData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
                 tasks: doc.data().tasks || {}
             }));
             
-            // Set the video state immediately to render the UI.
-            if (videosData.length > 0 && videosData[0].order === undefined) {
-                 // If order is missing, sort by createdAt for display while migration runs
+            const needsMigration = videosData.some(v => v.order === undefined);
+
+            if (needsMigration) {
                 videosData.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
-            } else {
-                 // Otherwise, sort by the 'order' field
-                videosData.sort((a, b) => (a.order || 0) - (b.order || 0));
-            }
-            
-            setVideos(videosData);
-            
-            // One-time migration logic
-            if (videosData.length > 0 && videosData.some(v => v.order === undefined)) {
-                console.log("Running one-time order migration for older videos...");
+                
                 const batch = db.batch();
                 videosData.forEach((video, index) => {
-                    if (video.order === undefined) {
-                        const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-                        batch.update(docRef, { order: index });
-                    }
+                    const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+                    batch.update(docRef, { order: index });
                 });
                 batch.commit().then(() => {
                     console.log("Video order migration completed successfully.");
+                    // No need to re-fetch, the listener will do it.
                 }).catch(err => {
                     console.error("Video order migration failed:", err);
                 });
+            } else {
+                videosData.sort((a, b) => a.order - b.order);
             }
+            
+            setVideos(videosData);
 
             if (loading && videosData.length > 0 && !activeVideoId) {
                 setActiveVideoId(videosData[0].id);
