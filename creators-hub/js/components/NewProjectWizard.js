@@ -226,6 +226,12 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     const handleInventoryChange = (placeId, field, value) => {
         setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [field]: value } }));
     };
+    
+    const handleKeywordSelection = (keyword) => {
+        setSelectedKeywords(prev => 
+            prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
+        );
+    };
 
     const handleSelectAllFootage = (type, isChecked) => {
         const newInventory = { ...footageInventory };
@@ -426,7 +432,6 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         setIsLoading(true);
         setError('');
         try {
-            // Use a simpler search term for Unsplash to get more relevant images
             const searchTerm = inputs.location ? `${inputs.location}, ${inputs.theme}` : 'travel';
             const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
             
@@ -540,9 +545,9 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         <p className="text-gray-400 mb-6">Here are some popular search terms related to your project. Select the ones you want the AI to focus on when building the plan.</p>
                         {isLoading && <LoadingSpinner text="Generating keyword ideas..." />}
                         <div className="p-4 bg-gray-900/50 border border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto pr-2 flex flex-wrap gap-2">
-                            {keywordIdeas.map((keyword) => (
+                            {keywordIdeas.map((keyword, index) => (
                                 <button
-                                    key={keyword}
+                                    key={`${keyword}-${index}`}
                                     onClick={() => handleKeywordSelection(keyword)}
                                     className={`px-3 py-1.5 text-sm rounded-full transition-colors ${selectedKeywords.includes(keyword) ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
                                 >
@@ -660,7 +665,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         return (
             <div className="flex justify-between items-center w-full">
                 <div>
-                    <button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100">Start Over</button>
+                    {step > 1 && <button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100">Start Over</button>}
                 </div>
                 <div className="flex items-center gap-4">
                      {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
@@ -669,7 +674,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      
                      {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
                      
-                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
+                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
                      
                      {step === 4 && (
                         <>
