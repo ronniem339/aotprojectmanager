@@ -63,7 +63,6 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     const [isLoading, setIsLoading] = useState(false);
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
-    const knowledgeBase = window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
     const debouncedState = useDebounce({ step, inputs, locations, footageInventory, editableOutline }, 1000);
 
     useEffect(() => {
@@ -87,7 +86,6 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         }
     };
 
-    // ... other handlers like handleLocationsUpdate, handleFootageChange, etc.
     const handleLocationsUpdate = (newLocations) => { setLocations(newLocations); const newInventory = {}; newLocations.forEach(loc => { newInventory[loc.place_id] = footageInventory[loc.place_id] || { bRoll: false, onCamera: false, drone: false }; }); setFootageInventory(newInventory); };
     const handleFootageChange = (placeId, type) => { setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [type]: !prev[placeId][type] } })); };
     const handleOutlineChange = (e, videoIndex = null, field) => {
@@ -99,15 +97,20 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     };
 
     const handleGenerateOrRefineOutline = async (isRefinement = false) => {
-        // ... (Code for this function is long, but unchanged from app.js)
         const apiKey = settings.geminiApiKey || "";
         if (!apiKey) { setError("Please set your Gemini API Key in the settings first."); return; }
         setIsLoading(true); setError('');
         const inventorySummary = locations.map(loc => { const types = []; if (footageInventory[loc.place_id]?.bRoll) types.push("B-Roll"); if (footageInventory[loc.place_id]?.onCamera) types.push("On-camera segments"); if (footageInventory[loc.place_id]?.drone) types.push("Drone footage"); return `- ${loc.name}: ${types.join(', ')}`; }).join('\n');
         let prompt;
         const schema = `{ "playlistTitle": "...", "playlistDescription": "...", "videos": [ { "title": "...", "concept": "..." } ] }`;
-        if(isRefinement) { prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nYou previously generated the following JSON outline:\n\n${JSON.stringify(editableOutline, null, 2)}\n\nThe user has provided the following feedback to refine it: "${refinement}"\n\nPlease generate a NEW, updated JSON object that incorporates this feedback. The original footage inventory is still:\n${inventorySummary}\n\nYour response MUST be ONLY the updated JSON object, following this schema: ${schema}.`;
-        } else { prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nAct as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". The user has this footage inventory:\n${inventorySummary}\nBased ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`; }
+        const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
+        
+        if(isRefinement) { 
+            prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nYou previously generated the following JSON outline:\n\n${JSON.stringify(editableOutline, null, 2)}\n\nThe user has provided the following feedback to refine it: "${refinement}"\n\nPlease generate a NEW, updated JSON object that incorporates this feedback. The original footage inventory is still:\n${inventorySummary}\n\nYour response MUST be ONLY the updated JSON object, following this schema: ${schema}.`;
+        } else { 
+            prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nAct as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". The user has this footage inventory:\n${inventorySummary}\nBased ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`; 
+        }
+        
         try {
             const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -123,7 +126,6 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     };
 
     const handleCreateProject = async () => {
-        // ... (Code for this function is long, but unchanged from app.js)
         if (!editableOutline) return;
         setIsLoading(true);
         setError('');
