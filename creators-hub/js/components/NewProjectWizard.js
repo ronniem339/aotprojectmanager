@@ -226,12 +226,6 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     const handleInventoryChange = (placeId, field, value) => {
         setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [field]: value } }));
     };
-    
-    const handleKeywordSelection = (keyword) => {
-        setSelectedKeywords(prev => 
-            prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
-        );
-    };
 
     const handleSelectAllFootage = (type, isChecked) => {
         const newInventory = { ...footageInventory };
@@ -432,7 +426,10 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         setIsLoading(true);
         setError('');
         try {
-            const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(finalizedTitle || 'travel')}`;
+            // Use a simpler search term for Unsplash to get more relevant images
+            const searchTerm = inputs.location ? `${inputs.location}, ${inputs.theme}` : 'travel';
+            const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
+            
             const batch = db.batch();
             const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc();
             batch.set(projectRef, {
