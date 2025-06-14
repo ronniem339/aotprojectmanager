@@ -1,10 +1,20 @@
 // js/components/ProjectView.js
 
-// By wrapping VideoWorkflow in React.memo, we prevent it from re-rendering
-// unless its props have actually changed. This is the key to solving the focus issue.
-const VideoWorkflow = React.memo(({ video, settings, project, userId, feedbackText, setFeedbackText, publishDate, setPublishDate }) => {
+// Using React.memo to prevent unnecessary re-renders
+const VideoWorkflow = React.memo(({ video, settings, project, userId }) => {
+    // THIS IS THE FIX: State for the inputs now lives directly inside this component.
+    // It is initialized from the video prop and will not be reset on parent re-renders.
+    const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
+    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || '');
     const [generating, setGenerating] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+
+    // This effect ensures that if the user clicks a DIFFERENT video,
+    // the text boxes reset to show the new video's data.
+    useEffect(() => {
+        setFeedbackText(video.tasks?.feedbackText || '');
+        setPublishDate(video.tasks?.publishDate || '');
+    }, [video.id]); // It only runs when the video ID changes.
 
     const updateTask = async (taskName, data) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
@@ -159,10 +169,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [activeVideoId, setActiveVideoId] = useState(null);
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
-
-    const [feedbackText, setFeedbackText] = useState('');
-    const [publishDate, setPublishDate] = useState('');
-
+    
     useEffect(() => {
         if (!userId || !project?.id) return;
         
@@ -182,25 +189,13 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             setVideos(videosData);
 
             if (loading && videosData.length > 0) {
-                const firstVideo = videosData[0];
-                setActiveVideoId(firstVideo.id);
-                setFeedbackText(firstVideo.tasks?.feedbackText || '');
-                setPublishDate(firstVideo.tasks?.publishDate || '');
+                setActiveVideoId(videosData[0].id);
             }
             setLoading(false);
         }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
 
         return () => unsubscribe();
-    }, [userId, project.id, loading]); // `loading` is added to ensure initial setup runs once
-    
-    const handleVideoSelect = (videoId) => {
-        const currentVideo = videos.find(v => v.id === videoId);
-        if (currentVideo) {
-            setActiveVideoId(videoId);
-            setFeedbackText(currentVideo.tasks?.feedbackText || '');
-            setPublishDate(currentVideo.tasks?.publishDate || '');
-        }
-    };
+    }, [userId, project.id, loading]);
     
     const activeVideo = videos.find(v => v.id === activeVideoId);
     
@@ -234,7 +229,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                                 return (
                                     <button
                                         key={video.id}
-                                        onClick={() => handleVideoSelect(video.id)}
+                                        onClick={() => setActiveVideoId(video.id)}
                                         className={`w-full text-left p-3 rounded-lg transition-colors ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
                                     >
                                         <p className="font-semibold">{video.chosenTitle || video.title}</p>
@@ -248,15 +243,11 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                     </div>
                     <div className="md:w-2/3 lg:w-3/4">
                         {activeVideo && <VideoWorkflow 
-                                            // THE FIX: The key prop is removed from here
+                                            // The key is removed, and state is now managed inside VideoWorkflow
                                             video={activeVideo} 
                                             settings={settings} 
                                             project={project} 
                                             userId={userId}
-                                            feedbackText={feedbackText}
-                                            setFeedbackText={setFeedbackText}
-                                            publishDate={publishDate}
-                                            setPublishDate={setPublishDate}
                                          />}
                     </div>
                 </div>
