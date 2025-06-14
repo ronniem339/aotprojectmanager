@@ -11,7 +11,8 @@ function App() {
     const [notificationMessage, setNotificationMessage] = useState('');
     const [showNewProjectWizard, setShowNewProjectWizard] = useState(false);
     const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-    const [projectToDelete, setProjectToDelete] = useState(null); // State for delete confirmation
+    const [projectToDelete, setProjectToDelete] = useState(null);
+    const [showProjectSelection, setShowProjectSelection] = useState(false);
 
     const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
 
@@ -126,8 +127,6 @@ function App() {
         const videosCollectionRef = projectRef.collection('videos');
         
         try {
-            // Firestore doesn't support deleting subcollections directly from the client.
-            // We must delete all documents within the subcollection first.
             const videoSnapshot = await videosCollectionRef.get();
             const batch = db.batch();
             videoSnapshot.forEach(doc => {
@@ -135,17 +134,65 @@ function App() {
             });
             await batch.commit();
 
-            // Now that the subcollection is empty, delete the main project document.
             await projectRef.delete();
             
             displayNotification('Project deleted successfully.');
-            setProjectToDelete(null); // Close the modal
+            setProjectToDelete(null); 
         } catch (error) {
             console.error("Error deleting project:", error);
             displayNotification(`Error: ${error.message}`);
         }
     };
 
+    const handleSelectWorkflow = (type) => {
+        setShowProjectSelection(false);
+        if (type === 'post-trip') {
+            setShowNewProjectWizard(true);
+        } else if (type === 'import') {
+            setCurrentView('importProject');
+        }
+    };
+
+    const handleImportProject = async (projectData) => {
+        if (!user) return;
+        
+        try {
+            const searchTerm = projectData.playlistTitle || 'abstract';
+            const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
+            
+            const batch = db.batch();
+            const projectRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc();
+            
+            batch.set(projectRef, {
+                playlistTitle: projectData.playlistTitle,
+                playlistDescription: projectData.playlistDescription,
+                thumbnailUrl: thumbnailUrl,
+                locations: [], // Imported projects won't have map locations initially
+                createdAt: new Date().toISOString()
+            });
+
+            projectData.videos.forEach((video) => {
+                const videoRef = projectRef.collection('videos').doc();
+                batch.set(videoRef, { 
+                    title: video.title, 
+                    concept: video.concept, 
+                    script: video.script, 
+                    metadata: '', 
+                    blogPost: '', 
+                    shortsIdeas: '', 
+                    createdAt: new Date().toISOString() 
+                });
+            });
+
+            await batch.commit();
+            displayNotification('Project imported successfully!');
+            setCurrentView('dashboard');
+
+        } catch (e) {
+            console.error("Error importing project:", e);
+            displayNotification(`Error importing project: ${e.message}`);
+        }
+    };
 
     const renderView = () => {
         switch (currentView) {
@@ -155,13 +202,15 @@ function App() {
                 return <SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
             case 'myStudio':
                 return <MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
+            case 'importProject':
+                return <ImportProjectView onImport={handleImportProject} onBack={handleBackToDashboard} />;
             default:
                 return <Dashboard 
                             userId={user.uid} 
                             onSelectProject={handleSelectProject} 
                             onShowSettings={handleShowSettings} 
                             onShowMyStudio={handleShowMyStudio} 
-                            onShowNewProjectWizard={() => setShowNewProjectWizard(true)}
+                            onShowProjectSelection={() => setShowProjectSelection(true)}
                             onShowDeleteConfirm={handleShowDeleteConfirm}
                         />;
         }
@@ -172,6 +221,7 @@ function App() {
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
             {showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => setShowNewProjectWizard(false)} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
             {projectToDelete && <DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
+            {showProjectSelection && <ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} />}
             <main>
                 {!isAuthReady
                     ? <div className="min-h-screen flex justify-center items-center"><LoadingSpinner text="Initializing..." /></div>
