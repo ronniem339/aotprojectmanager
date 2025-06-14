@@ -34,32 +34,11 @@ const loadGoogleMapsScript = (apiKey, callback) => {
 const LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>{text && <p className="mt-3 text-sm text-gray-400">{text}</p>}</div>);
 
 const ImageComponent = ({ src, alt, className }) => {
-    // This placeholder is shown initially and if the Unsplash image fails to load.
+    const [imgSrc, setImgSrc] = useState(src);
     const placeholder = `https://placehold.co/600x400/1f2937/3b82f6?text=${encodeURIComponent(alt)}`;
-    const [imgSrc, setImgSrc] = useState(placeholder); // Start with the placeholder
-
-    useEffect(() => {
-        if (src) { // Only try to load if src is provided
-            const img = new Image();
-            img.src = src;
-
-            // When the image from Unsplash has loaded successfully, update the state to show it.
-            img.onload = () => {
-                setImgSrc(src);
-            };
-
-            // If the Unsplash image fails (e.g., 404 Not Found), the placeholder will remain.
-            img.onerror = () => {
-                // The placeholder is already set, so we can just log the error for debugging.
-                console.error(`Failed to load image from src: ${src}`);
-                setImgSrc(placeholder);
-            };
-        }
-    }, [src, placeholder]); // Re-run this effect if the src or placeholder changes
-
-    return <img src={imgSrc} alt={alt} className={className} />;
+    useEffect(() => { setImgSrc(src) }, [src]);
+    return <img src={imgSrc || placeholder} alt={alt} className={className} onError={() => setImgSrc(placeholder)} />;
 };
-
 
 const LoginScreen = ({ onLogin }) => (<div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white"><h1 className="text-5xl font-bold mb-4">Creator's Hub</h1><p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p><button onClick={onLogin} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105">Start Creating</button></div>);
 
