@@ -432,7 +432,8 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         setIsLoading(true);
         setError('');
         try {
-            const searchTerm = inputs.location ? `${inputs.location}, ${inputs.theme}` : 'travel';
+            // Corrected thumbnail URL generation
+            const searchTerm = inputs.location ? `${inputs.location}, ${inputs.theme}`.replace(/\s/g, ',') : 'travel';
             const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
             
             const batch = db.batch();
