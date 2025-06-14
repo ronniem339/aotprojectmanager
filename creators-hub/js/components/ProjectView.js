@@ -75,6 +75,9 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeVideoId, setActiveVideoId] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
 
@@ -93,6 +96,37 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
         return () => unsubscribe();
     }, [userId, project.id, activeVideoId]);
+    
+    const handleFileSelect = (e) => {
+        if (e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
+
+    const handleImageUpload = async () => {
+        if (!selectedFile || !project || !userId) return;
+
+        setUploading(true);
+        const storageRef = firebase.storage().ref();
+        const fileRef = storageRef.child(`artifacts/${appId}/users/${userId}/project_thumbnails/${project.id}/${selectedFile.name}`);
+        
+        try {
+            const snapshot = await fileRef.put(selectedFile);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+            
+            const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+            await projectDocRef.update({
+                thumbnailUrl: downloadURL
+            });
+            
+            setSelectedFile(null);
+        } catch (error) {
+            console.error("Error uploading image:", error);
+        } finally {
+            setUploading(false);
+        }
+    };
+
 
     const activeVideo = videos.find(v => v.id === activeVideoId);
 
@@ -104,6 +138,26 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             <div className="mb-8 p-4 glass-card">
                 <h2 className="text-2xl font-bold text-blue-300">{project.playlistTitle || project.title}</h2>
                 <p className="mt-2 text-gray-300 whitespace-pre-wrap">{project.playlistDescription || ''}</p>
+                 {/* Image Upload Section */}
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Project Thumbnail Image</label>
+                    <div className="flex items-center gap-4">
+                        <input type="file" onChange={handleFileSelect} className="form-input w-auto flex-grow" accept="image/*" />
+                        <button 
+                            onClick={handleImageUpload} 
+                            disabled={!selectedFile || uploading}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed"
+                        >
+                            {uploading ? <LoadingSpinner /> : 'Upload'}
+                        </button>
+                    </div>
+                     {project.thumbnailUrl && (
+                        <div className="mt-4">
+                            <p className="text-xs text-gray-400 mb-1">Current Thumbnail:</p>
+                            <img src={project.thumbnailUrl} alt="Project Thumbnail" className="w-32 h-20 object-cover rounded-lg"/>
+                        </div>
+                    )}
+                </div>
             </div>
             {loading ? <LoadingSpinner /> : (
                 <div className="flex flex-col md:flex-row gap-8">
