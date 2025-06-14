@@ -3,15 +3,22 @@
 const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     const inputRef = useRef(null);
     const autocompleteRef = useRef(null);
+    // Use a ref to hold the geocoder instance so it's not re-created on every render.
+    const geocoderRef = useRef(null);
 
     useEffect(() => {
         if (!inputRef.current || !window.google?.maps?.places) return;
         
+        // Initialize Geocoder only once
+        if (!geocoderRef.current) {
+            geocoderRef.current = new window.google.maps.Geocoder();
+        }
+
         // Initialize the Autocomplete widget
         autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
         autocompleteRef.current.setFields(['place_id', 'name', 'geometry']);
 
-        // This listener fires when a user selects a suggestion from the dropdown
+        // Standard listener for when a user clicks a suggestion
         const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
             if (place && place.geometry) {
@@ -21,70 +28,61 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
                 };
-                // Check for duplicates before adding to the list
                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsChange([...existingLocations, newLocation]);
                 }
                 if (inputRef.current) {
-                    inputRef.current.value = ''; // Clear input for the next entry
+                    inputRef.current.value = '';
                 }
             }
         };
         const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        // This is the robust keyboard handler for rapid-fire input.
+        // This is the new, robust keyboard handler for rapid-fire input.
         const handleKeyDown = (e) => {
-            // We only care about the 'Enter' key.
             if (e.key === 'Enter' && !e.defaultPrevented) {
-                
-                // Prevent the default 'Enter' action (e.g., form submission) immediately.
-                // This is crucial to stop the browser from submitting a form if one exists.
-                e.preventDefault();
+                e.preventDefault(); // Always prevent default to stop form submissions.
 
-                // This timeout gives the Google Places widget a moment to populate its
-                // suggestions dropdown after the user types. This helps prevent race conditions.
-                setTimeout(() => {
-                    const pacContainer = document.querySelector('.pac-container');
-                    // Check if the container is visible and has at least one suggestion item.
-                    if (pacContainer && pacContainer.offsetParent !== null && pacContainer.querySelector('.pac-item')) {
-                        
-                        // Dispatch an 'ArrowDown' event. This programmatically highlights
-                        // the first item in the suggestions list, just as a user would.
-                        const downArrowEvent = new KeyboardEvent('keydown', {
-                            key: 'ArrowDown',
-                            code: 'ArrowDown',
-                            keyCode: 40,
-                            which: 40,
-                            bubbles: true,
-                            cancelable: true,
+                // Find the first suggestion in the list.
+                const firstSuggestion = document.querySelector('.pac-container .pac-item');
+                if (firstSuggestion) {
+                    // Extract the main text and secondary text to build the full address string.
+                    const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
+                    const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
+                    const fullAddress = `${mainText} ${secondaryText}`.trim();
+                    
+                    if (fullAddress && geocoderRef.current) {
+                        // Manually geocode the address from the first suggestion.
+                        geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
+                            if (status === 'OK' && results[0]) {
+                                const place = results[0];
+                                const newLocation = {
+                                    name: place.formatted_address.split(',')[0], // Get a cleaner name
+                                    place_id: place.place_id,
+                                    lat: place.geometry.location.lat(),
+                                    lng: place.geometry.location.lng(),
+                                };
+                                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
+                                    onLocationsChange([...existingLocations, newLocation]);
+                                }
+                                if (inputRef.current) {
+                                    inputRef.current.value = ''; // Clear input for next entry.
+                                }
+                            } else {
+                                console.error('Geocode was not successful for the following reason: ' + status);
+                            }
                         });
-                        inputRef.current.dispatchEvent(downArrowEvent);
-
-                        // This second, nested timeout is critical. It gives the widget time
-                        // to process the 'ArrowDown' event and update its internal state
-                        // to register the highlight. Only then can we select it.
-                        setTimeout(() => {
-                            const enterEvent = new KeyboardEvent('keydown', {
-                               key: 'Enter',
-                               code: 'Enter',
-                               keyCode: 13,
-                               which: 13,
-                               bubbles: true,
-                               cancelable: true,
-                            });
-                            inputRef.current.dispatchEvent(enterEvent);
-                        }, 100); // 100ms is a safe delay for this.
                     }
-                }, 50); // 50ms is a brief wait for suggestions to appear.
+                }
             }
         };
 
         const inputElement = inputRef.current;
         inputElement.addEventListener('keydown', handleKeyDown);
 
-        // Cleanup listeners on component unmount
+        // Cleanup listeners
         return () => {
-            if (window.google?.maps?.event) {
+            if (window.google?.maps?.event && placeChangedListenerHandle) {
                 window.google.maps.event.removeListener(placeChangedListenerHandle);
             }
             if (inputElement) {
