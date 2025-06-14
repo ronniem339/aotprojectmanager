@@ -423,7 +423,6 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     useEffect(() => {
         if (!userId || !project?.id) return;
         
-        // Query now orders by the 'order' field
         const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).orderBy("order");
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             const videosData = querySnapshot.docs.map(doc => ({
@@ -432,16 +431,28 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                 tasks: doc.data().tasks || {}
             }));
             
-            // One-time migration for projects without the 'order' field
-            if (videosData.length > 0 && videosData[0].order === undefined) {
+            // Set the video state immediately to render the UI.
+            setVideos(videosData);
+            
+            // Then, handle the one-time migration if needed. This won't block the UI.
+            if (videosData.length > 0 && videosData.some(v => v.order === undefined)) {
+                console.log("Running one-time order migration for older videos...");
                 const batch = db.batch();
-                videosData.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach((video, index) => {
-                    const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-                    batch.update(docRef, { order: index });
+                // Create a sorted list based on original creation date
+                const sortedByDate = [...videosData].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+                
+                sortedByDate.forEach((video, index) => {
+                    // Only update documents that are missing the order field
+                    if (video.order === undefined) {
+                        const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+                        batch.update(docRef, { order: index });
+                    }
                 });
-                batch.commit().then(() => console.log("Video order migrated."));
-            } else {
-                 setVideos(videosData);
+                batch.commit().then(() => {
+                    console.log("Video order migration completed successfully.");
+                }).catch(err => {
+                    console.error("Video order migration failed:", err);
+                });
             }
 
             if (loading && videosData.length > 0 && !activeVideoId) {
@@ -454,7 +465,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         });
 
         return () => unsubscribe();
-    }, [userId, project.id, loading]);
+    }, [userId, project.id]);
 
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
     
