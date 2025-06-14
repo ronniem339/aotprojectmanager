@@ -11,7 +11,7 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
         autocompleteRef.current.setFields(['place_id', 'name', 'geometry']);
 
-        // This listener fires when a user selects a suggestion from the dropdown 
+        // This listener fires when a user selects a suggestion
         const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
             if (place && place.geometry) {
@@ -21,26 +21,41 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
                 };
-                // Check for duplicates before adding
+                // Check for duplicates before adding to the list
                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsChange([...existingLocations, newLocation]);
                 }
                 if (inputRef.current) {
-                    inputRef.current.value = ''; 
+                    inputRef.current.value = ''; // Clear input for the next entry
                 }
             }
         };
         const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        // Keyboard handler for rapid-fire input
+        // This is the new, more robust keyboard handler for rapid-fire input
         const handleKeyDown = (e) => {
-            const suggestionsVisible = document.querySelector('.pac-container')?.style.display !== 'none';
+            if (e.key === 'Enter' && !e.defaultPrevented) {
+                const pacContainer = document.querySelector('.pac-container');
+                // Check if the suggestions dropdown is visible
+                if (pacContainer && pacContainer.style.display !== 'none') {
+                    
+                    // Prevent the default 'Enter' action (like form submission)
+                    e.preventDefault();
 
-            if (e.key === 'Enter' && suggestionsVisible) {
-                e.preventDefault();
-                const firstSuggestion = document.querySelector('.pac-item');
-                if (firstSuggestion) {
-                    firstSuggestion.click();
+                    // Dispatch an 'ArrowDown' event to programmatically highlight the first suggestion
+                    const downArrowEvent = new KeyboardEvent('keydown', {
+                        bubbles: true, cancelable: true, key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40 
+                    });
+                    inputRef.current.dispatchEvent(downArrowEvent);
+
+                    // A brief delay is needed for the API to register the highlight
+                    setTimeout(() => {
+                        // Dispatch an 'Enter' event to select the highlighted suggestion
+                        const enterEvent = new KeyboardEvent('keydown', {
+                           bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 
+                        });
+                        inputRef.current.dispatchEvent(enterEvent);
+                    }, 100); // 100ms delay for robustness
                 }
             }
         };
@@ -48,9 +63,9 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         const inputElement = inputRef.current;
         inputElement.addEventListener('keydown', handleKeyDown);
 
-        // Cleanup listeners
+        // Cleanup listeners on component unmount
         return () => {
-            if (window.google) {
+            if (window.google?.maps?.event) {
                 window.google.maps.event.removeListener(placeChangedListenerHandle);
             }
             if (inputElement) {
@@ -131,12 +146,11 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
 
         const newInventory = {};
         newLocations.forEach(loc => {
-            // Initialize new locations with default footage info, including the new 'importance' field.
             newInventory[loc.place_id] = footageInventory[loc.place_id] || { 
                 bRoll: false, 
                 onCamera: false, 
                 drone: false, 
-                importance: 'major' // Default to 'major'
+                importance: 'major'
             };
         });
         setFootageInventory(newInventory);
@@ -165,17 +179,13 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         if (!apiKey) { setError("Please set your Gemini API Key in the settings first."); return; }
         setIsLoading(true); setError('');
 
-        // Build a more detailed summary of the inventory for the AI
         const inventorySummary = locations.map(loc => {
             const inventory = footageInventory[loc.place_id] || {};
             const types = [];
             if (inventory.bRoll) types.push("B-Roll");
             if (inventory.onCamera) types.push("On-camera segments");
             if (inventory.drone) types.push("Drone footage");
-            
-            // Add the importance label to the summary
             const importanceLabel = inventory.importance === 'major' ? 'Major Feature' : 'Quick Section';
-            
             return `- ${loc.name} (Role: ${importanceLabel}): Has ${types.join(', ') || 'unspecified footage'}.`;
         }).join('\n');
         
@@ -271,7 +281,6 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                     </div>
                 );
             case 2:
-                 const isInventoryComplete = locations.every(loc => Object.values(footageInventory[loc.place_id] || {}).some(v => v === true));
                  return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 3</h2>
@@ -298,8 +307,6 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                                 );
                             })}
                         </div>
-                        {!isInventoryComplete && <p className="text-amber-400 mt-4 text-sm">Pro-tip: Select at least one footage type for each location to give the AI more context.</p>}
-                        {error && <p className="text-red-400 mt-4">{error}</p>}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
                             <button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button>
