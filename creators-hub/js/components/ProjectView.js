@@ -1,19 +1,17 @@
 // js/components/ProjectView.js
 
-const VideoWorkflow = ({ video, settings, project, userId, feedbackText, setFeedbackText, publishDate, setPublishDate }) => {
-    // State is now correctly managed by the parent ProjectView component.
-    // This component receives the state and setter functions as props.
+// By wrapping VideoWorkflow in React.memo, we prevent it from re-rendering
+// unless its props have actually changed. This is the key to solving the focus issue.
+const VideoWorkflow = React.memo(({ video, settings, project, userId, feedbackText, setFeedbackText, publishDate, setPublishDate }) => {
     const [generating, setGenerating] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // A helper function to update the task status in Firestore
     const updateTask = async (taskName, data) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         const updateData = { [`tasks.${taskName}`]: 'complete', ...data };
         await videoDocRef.update(updateData);
     };
     
-    // Function to handle all AI generation API calls
     const handleGenerate = async (type) => {
         const apiKey = settings.geminiApiKey || "";
         if (!apiKey) {
@@ -153,7 +151,7 @@ const VideoWorkflow = ({ video, settings, project, userId, feedbackText, setFeed
             </TaskItem>
         </div>
     );
-};
+});
 
 const ProjectView = ({ project, userId, onBack, settings }) => {
     const [videos, setVideos] = useState([]);
@@ -162,7 +160,6 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // Lifted state for the input fields
     const [feedbackText, setFeedbackText] = useState('');
     const [publishDate, setPublishDate] = useState('');
 
@@ -183,8 +180,13 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             });
             videosData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             setVideos(videosData);
+
             if (videosData.length > 0 && !activeVideoId) {
-                setActiveVideoId(videosData[0].id);
+                const firstVideoId = videosData[0].id;
+                setActiveVideoId(firstVideoId);
+                // Set initial state for the first video
+                setFeedbackText(videosData[0].tasks?.feedbackText || '');
+                setPublishDate(videosData[0].tasks?.publishDate || '');
             }
             setLoading(false);
         }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
@@ -192,17 +194,16 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         return () => unsubscribe();
     }, [userId, project.id]);
     
-    // THIS IS THE FIX: This effect now ONLY runs when the activeVideoId changes.
-    // It no longer depends on the `videos` array, which was causing the re-renders
-    // and resetting the input fields.
-    useEffect(() => {
-        const currentVideo = videos.find(v => v.id === activeVideoId);
+    // This effect now correctly handles switching between videos
+    const handleVideoSelect = (videoId) => {
+        const currentVideo = videos.find(v => v.id === videoId);
         if (currentVideo) {
+            setActiveVideoId(videoId);
             setFeedbackText(currentVideo.tasks?.feedbackText || '');
             setPublishDate(currentVideo.tasks?.publishDate || '');
         }
-    }, [activeVideoId]);
-
+    };
+    
     const activeVideo = videos.find(v => v.id === activeVideoId);
     
     const calculateProgress = (tasks) => {
@@ -235,7 +236,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                                 return (
                                     <button
                                         key={video.id}
-                                        onClick={() => setActiveVideoId(video.id)}
+                                        onClick={() => handleVideoSelect(video.id)}
                                         className={`w-full text-left p-3 rounded-lg transition-colors ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
                                     >
                                         <p className="font-semibold">{video.chosenTitle || video.title}</p>
