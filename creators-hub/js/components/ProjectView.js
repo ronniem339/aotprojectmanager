@@ -417,20 +417,32 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [editingProject, setEditingProject] = useState(false);
     const [editingVideo, setEditingVideo] = useState(null);
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
+    const [draggedItem, setDraggedItem] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
         if (!userId || !project?.id) return;
         
-        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
+        // Query now orders by the 'order' field
+        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).orderBy("order");
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             const videosData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
                 tasks: doc.data().tasks || {}
-            })).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            }));
             
-            setVideos(videosData);
+            // One-time migration for projects without the 'order' field
+            if (videosData.length > 0 && videosData[0].order === undefined) {
+                const batch = db.batch();
+                videosData.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach((video, index) => {
+                    const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+                    batch.update(docRef, { order: index });
+                });
+                batch.commit().then(() => console.log("Video order migrated."));
+            } else {
+                 setVideos(videosData);
+            }
 
             if (loading && videosData.length > 0 && !activeVideoId) {
                 setActiveVideoId(videosData[0].id);
@@ -450,6 +462,43 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         const completedTasks = TASK_PIPELINE.filter(task => tasks[task.id] === 'complete').length;
         return (completedTasks / TASK_PIPELINE.length) * 100;
     };
+    
+    const handleDragStart = (e, video) => {
+        setDraggedItem(video);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target);
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = (e, targetItem) => {
+        if (!draggedItem || draggedItem.id === targetItem.id) return;
+
+        let reorderedVideos = [...videos];
+        const draggedItemIndex = reorderedVideos.findIndex(v => v.id === draggedItem.id);
+        const targetItemIndex = reorderedVideos.findIndex(v => v.id === targetItem.id);
+        
+        reorderedVideos.splice(draggedItemIndex, 1);
+        reorderedVideos.splice(targetItemIndex, 0, draggedItem);
+
+        setVideos(reorderedVideos); // Optimistically update UI
+
+        // Update Firestore
+        const batch = db.batch();
+        reorderedVideos.forEach((video, index) => {
+            const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+            batch.update(docRef, { order: index });
+        });
+        batch.commit().catch(err => {
+            console.error("Failed to reorder videos:", err);
+            // Optionally revert UI on failure
+        });
+        
+        setDraggedItem(null);
+    };
+
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -485,11 +534,20 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                             <div className="space-y-1">
                                 {videos.map(video => {
                                     const progress = calculateProgress(video.tasks);
+                                    const isDragging = draggedItem && draggedItem.id === video.id;
                                     return (
-                                        <div key={video.id} className={`flex items-center gap-2 rounded-lg transition-colors ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}>
+                                        <div key={video.id} 
+                                             draggable 
+                                             onDragStart={(e) => handleDragStart(e, video)}
+                                             onDrop={(e) => handleDrop(e, video)}
+                                             onDragOver={handleDragOver}
+                                             className={`flex items-center gap-2 rounded-lg transition-colors cursor-move ${isDragging ? 'opacity-50' : ''} ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}>
+                                            <div className="p-3 text-gray-500 hover:text-white">
+                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                                            </div>
                                             <button
                                                 onClick={() => setActiveVideoId(video.id)}
-                                                className="flex-grow text-left p-3"
+                                                className="flex-grow text-left p-3 pr-1"
                                             >
                                                 <p className="font-semibold text-white">{video.chosenTitle || video.title}</p>
                                                 <div className="w-full bg-gray-600 rounded-full h-1.5 mt-2">
