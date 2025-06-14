@@ -3,30 +3,41 @@
 const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     const inputRef = useRef(null);
     const autocompleteRef = useRef(null);
-    // Use a ref to hold the geocoder instance so it's not re-created on every render.
     const geocoderRef = useRef(null);
+
+    // This function intelligently sets a default importance based on Google's location types.
+    const determineDefaultImportance = (types) => {
+        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
+        // If any of the location's types match our list of major types, classify it as a major feature.
+        if (types.some(type => majorTypes.includes(type))) {
+            return 'major';
+        }
+        // Otherwise, default to a quick section.
+        return 'quick';
+    };
 
     useEffect(() => {
         if (!inputRef.current || !window.google?.maps?.places) return;
         
-        // Initialize Geocoder only once
         if (!geocoderRef.current) {
             geocoderRef.current = new window.google.maps.Geocoder();
         }
 
-        // Initialize the Autocomplete widget
+        // Initialize Autocomplete and request the 'types' field.
         autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
-        autocompleteRef.current.setFields(['place_id', 'name', 'geometry']);
+        autocompleteRef.current.setFields(['place_id', 'name', 'geometry', 'types']);
 
-        // Standard listener for when a user clicks a suggestion
         const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
-            if (place && place.geometry) {
+            if (place && place.geometry && place.types) {
                 const newLocation = {
                     name: place.name,
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
+                    // Pass the types and the determined importance up to the parent.
+                    importance: determineDefaultImportance(place.types),
+                    types: place.types
                 };
                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsChange([...existingLocations, newLocation]);
@@ -38,35 +49,32 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         };
         const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        // This is the new, robust keyboard handler for rapid-fire input.
         const handleKeyDown = (e) => {
             if (e.key === 'Enter' && !e.defaultPrevented) {
-                e.preventDefault(); // Always prevent default to stop form submissions.
-
-                // Find the first suggestion in the list.
+                e.preventDefault();
                 const firstSuggestion = document.querySelector('.pac-container .pac-item');
                 if (firstSuggestion) {
-                    // Extract the main text and secondary text to build the full address string.
                     const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
                     const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
                     const fullAddress = `${mainText} ${secondaryText}`.trim();
                     
                     if (fullAddress && geocoderRef.current) {
-                        // Manually geocode the address from the first suggestion.
                         geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
                             if (status === 'OK' && results[0]) {
                                 const place = results[0];
                                 const newLocation = {
-                                    name: place.formatted_address.split(',')[0], // Get a cleaner name
+                                    name: place.formatted_address.split(',')[0],
                                     place_id: place.place_id,
                                     lat: place.geometry.location.lat(),
                                     lng: place.geometry.location.lng(),
+                                    importance: determineDefaultImportance(place.types),
+                                    types: place.types
                                 };
                                  if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
                                     onLocationsChange([...existingLocations, newLocation]);
                                 }
                                 if (inputRef.current) {
-                                    inputRef.current.value = ''; // Clear input for next entry.
+                                    inputRef.current.value = '';
                                 }
                             } else {
                                 console.error('Geocode was not successful for the following reason: ' + status);
@@ -80,7 +88,6 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         const inputElement = inputRef.current;
         inputElement.addEventListener('keydown', handleKeyDown);
 
-        // Cleanup listeners
         return () => {
             if (window.google?.maps?.event && placeChangedListenerHandle) {
                 window.google.maps.event.removeListener(placeChangedListenerHandle);
@@ -163,11 +170,13 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
 
         const newInventory = {};
         newLocations.forEach(loc => {
+            // If footage info for this location already exists, keep it. Otherwise, initialize it.
             newInventory[loc.place_id] = footageInventory[loc.place_id] || { 
                 bRoll: false, 
                 onCamera: false, 
                 drone: false, 
-                importance: 'major'
+                // Use the new 'importance' passed up from the LocationSearchInput component.
+                importance: loc.importance 
             };
         });
         setFootageInventory(newInventory);
@@ -196,7 +205,8 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         if (!apiKey) { setError("Please set your Gemini API Key in the settings first."); return; }
         setIsLoading(true); setError('');
 
-        const inventorySummary = locations.map(loc => {
+        // The summary now only includes sub-locations (from index 1 onwards).
+        const inventorySummary = locations.slice(1).map(loc => {
             const inventory = footageInventory[loc.place_id] || {};
             const types = [];
             if (inventory.bRoll) types.push("B-Roll");
@@ -210,10 +220,11 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         const schema = `{ "playlistTitle": "...", "playlistDescription": "...", "videos": [ { "title": "...", "concept": "..." } ] }`;
         const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
         
+        // The core instruction now clearly distinguishes between the main location and the points of interest.
         const coreInstruction = `Act as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". 
-The user has this footage inventory for specific spots within that location:
-${inventorySummary}
-The user has also specified a role for each location ('Major Feature' or 'Quick Section'). You MUST allocate more time and narrative focus to Major Features and treat Quick Sections as brief, transitional, or supporting segments.
+The user will visit the following specific points of interest:
+${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
+For these points of interest, the user has specified a role ('Major Feature' or 'Quick Section'). You MUST allocate more time and narrative focus to Major Features and treat Quick Sections as brief, transitional, or supporting segments.
 Based ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`;
 
         if (isRefinement) { 
@@ -269,7 +280,7 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                 return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 3</h2>
-                        <p className="text-gray-400 mb-6">Define the project's foundation. The first location you add will be considered the main subject of your project.</p>
+                        <p className="text-gray-400 mb-6">Define the project's foundation. The first location you add will be the main subject. Add more for specific points of interest.</p>
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Project Locations</label>
@@ -301,9 +312,10 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                  return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 3</h2>
-                        <p className="text-gray-400 mb-6">Log the footage you have and its narrative importance.</p>
+                        <p className="text-gray-400 mb-6">Tell us about the specific spots you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>. We've set some smart defaults you can override.</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
-                            {locations.map(loc => {
+                            {/* We only show inventory cards for sub-locations (index > 0) */}
+                            {locations.slice(1).map(loc => {
                                 const inventory = footageInventory[loc.place_id] || {};
                                 return (
                                     <div key={loc.place_id} className="p-4 border border-gray-700 rounded-lg flex flex-col justify-between">
@@ -323,6 +335,11 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                                     </div>
                                 );
                             })}
+                             {locations.length <= 1 && (
+                                <div className="p-4 border border-dashed border-gray-600 rounded-lg text-center text-gray-400 col-span-1 md:col-span-2">
+                                    <p>Add more locations in the previous step to define your specific points of interest.</p>
+                                </div>
+                            )}
                         </div>
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
