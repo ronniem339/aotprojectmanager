@@ -60,8 +60,9 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                         <span className="text-xl font-semibold mt-2">New Project</span>
                     </button>
                     {projects.map(project => {
-                        // Use the custom uploaded thumbnail if it exists, otherwise fall back to Unsplash.
-                        const imageUrl = project.thumbnailUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
+                        // Dynamically generate the search term and Unsplash URL for each project here
+                        const searchTerm = generateImageSearchTerm(project.playlistTitle);
+                        const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
                         
                         return (
                             <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 transition-all overflow-hidden group">
