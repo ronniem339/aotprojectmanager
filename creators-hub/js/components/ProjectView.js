@@ -423,7 +423,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     useEffect(() => {
         if (!userId || !project?.id) return;
         
-        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).orderBy("order");
+        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             const videosData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -432,17 +432,21 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             }));
             
             // Set the video state immediately to render the UI.
+            if (videosData.length > 0 && videosData[0].order === undefined) {
+                 // If order is missing, sort by createdAt for display while migration runs
+                videosData.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+            } else {
+                 // Otherwise, sort by the 'order' field
+                videosData.sort((a, b) => (a.order || 0) - (b.order || 0));
+            }
+            
             setVideos(videosData);
             
-            // Then, handle the one-time migration if needed. This won't block the UI.
+            // One-time migration logic
             if (videosData.length > 0 && videosData.some(v => v.order === undefined)) {
                 console.log("Running one-time order migration for older videos...");
                 const batch = db.batch();
-                // Create a sorted list based on original creation date
-                const sortedByDate = [...videosData].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
-                
-                sortedByDate.forEach((video, index) => {
-                    // Only update documents that are missing the order field
+                videosData.forEach((video, index) => {
                     if (video.order === undefined) {
                         const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
                         batch.update(docRef, { order: index });
