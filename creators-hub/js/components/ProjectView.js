@@ -68,7 +68,14 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
         try {
             if (type === 'script') {
-                const prompt = `${knowledgeBase}\n${styleGuide}\n\nGenerate a complete, engaging voiceover script only for a YouTube video titled "${video.chosenTitle || video.title}". The overall project theme is "${project.playlistDescription}".`;
+                // This prompt is now much more explicit about what it should return.
+                const prompt = `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details.
+Video Title: "${video.chosenTitle || video.title}"
+Overall Project Theme: "${project.playlistDescription}"
+Style Guide: ${styleGuide}
+Knowledge Base: ${knowledgeBase}
+
+IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include titles, descriptions, metadata, or any other text outside of the script itself.`;
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
