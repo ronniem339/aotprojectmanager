@@ -312,7 +312,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose }) => {
     const [concept, setConcept] = useState(video.concept);
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(false);
-    const [showConfirmComplete, setShowConfirmComplete] = useState(false); // New state for confirmation
+    const [showConfirmComplete, setShowConfirmComplete] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
