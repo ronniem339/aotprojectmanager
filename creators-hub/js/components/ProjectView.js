@@ -1,9 +1,8 @@
 // js/components/ProjectView.js
 
-const VideoWorkflow = ({ video, settings, project, userId }) => {
-    // State is now initialized from the video prop to prevent focus loss on re-renders.
-    const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
-    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || '');
+const VideoWorkflow = ({ video, settings, project, userId, feedbackText, setFeedbackText, publishDate, setPublishDate }) => {
+    // State is now managed by the parent ProjectView component.
+    // This component receives the state and setter functions as props.
     const [generating, setGenerating] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -82,8 +81,6 @@ const VideoWorkflow = ({ video, settings, project, userId }) => {
         }
     };
     
-    // The TaskItem component now shows its children if it's not locked.
-    // The content inside the children will decide whether to show an action button or the result.
     const TaskItem = ({ title, status, isLocked, children }) => (
         <div className={`glass-card p-4 rounded-lg transition-all ${isLocked ? 'opacity-50' : ''}`}>
             <div className="flex justify-between items-center">
@@ -162,8 +159,12 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeVideoId, setActiveVideoId] = useState(null);
-    const [isDescriptionVisible, setIsDescriptionVisible] = useState(false); // State for description visibility
+    const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+
+    // Lifted state for the input fields
+    const [feedbackText, setFeedbackText] = useState('');
+    const [publishDate, setPublishDate] = useState('');
 
     useEffect(() => {
         if (!userId || !project?.id) return;
@@ -190,6 +191,15 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
 
         return () => unsubscribe();
     }, [userId, project.id]);
+    
+    // Effect to update the local state when the active video changes
+    useEffect(() => {
+        const currentVideo = videos.find(v => v.id === activeVideoId);
+        if (currentVideo) {
+            setFeedbackText(currentVideo.tasks?.feedbackText || '');
+            setPublishDate(currentVideo.tasks?.publishDate || '');
+        }
+    }, [activeVideoId, videos]);
 
     const activeVideo = videos.find(v => v.id === activeVideoId);
     
@@ -207,7 +217,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             <div className="mb-8 p-6 glass-card rounded-lg">
                 <div className="flex justify-between items-start">
                     <h2 className="text-3xl font-bold text-blue-300">{project.playlistTitle || project.title}</h2>
-                    <button onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} className="text-sm text-blue-400 hover:text-blue-300">
+                    <button onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 ml-4">
                         {isDescriptionVisible ? 'Hide Description' : 'Show Description'}
                     </button>
                 </div>
@@ -236,7 +246,17 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                         </div>
                     </div>
                     <div className="md:w-2/3 lg:w-3/4">
-                        {activeVideo && <VideoWorkflow key={activeVideo.id} video={activeVideo} settings={settings} project={project} userId={userId} />}
+                        {activeVideo && <VideoWorkflow 
+                                            key={activeVideo.id} 
+                                            video={activeVideo} 
+                                            settings={settings} 
+                                            project={project} 
+                                            userId={userId}
+                                            feedbackText={feedbackText}
+                                            setFeedbackText={setFeedbackText}
+                                            publishDate={publishDate}
+                                            setPublishDate={setPublishDate}
+                                         />}
                     </div>
                 </div>
             )}
