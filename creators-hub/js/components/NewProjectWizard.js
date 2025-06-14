@@ -213,7 +213,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
             if (inventory.onCamera) types.push("On-camera segments");
             if (inventory.drone) types.push("Drone footage");
             const importanceLabel = inventory.importance === 'major' ? 'Major Feature' : 'Quick Section';
-            return `- ${loc.name} (Role: ${importanceLabel}): Has ${types.join(', ') || 'unspecified footage'}.`;
+            return `- ${loc.name} (Role: ${importanceLabel}): Has ${types.join(', ')}.`;
         }).join('\n');
         
         let prompt;
@@ -309,16 +309,26 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                     </div>
                 );
             case 2:
+                 // Get the list of sub-locations (all except the first one)
+                 const subLocations = locations.slice(1);
+                 // Check if the inventory for all sub-locations is complete.
+                 const isInventoryComplete = subLocations.every(loc => {
+                     const inventory = footageInventory[loc.place_id] || {};
+                     // A card is complete if at least one footage type is checked.
+                     return inventory.bRoll || inventory.onCamera || inventory.drone;
+                 });
+
                  return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 3</h2>
                         <p className="text-gray-400 mb-6">Tell us about the specific spots you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>. We've set some smart defaults you can override.</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
-                            {/* We only show inventory cards for sub-locations (index > 0) */}
-                            {locations.slice(1).map(loc => {
+                            {subLocations.map(loc => {
                                 const inventory = footageInventory[loc.place_id] || {};
+                                // Determine if this specific card is complete for visual feedback.
+                                const isCardComplete = inventory.bRoll || inventory.onCamera || inventory.drone;
                                 return (
-                                    <div key={loc.place_id} className="p-4 border border-gray-700 rounded-lg flex flex-col justify-between">
+                                    <div key={loc.place_id} className={`p-4 border rounded-lg flex flex-col justify-between transition-colors ${isCardComplete ? 'border-gray-700' : 'border-amber-500'}`}>
                                         <p className="font-semibold text-lg text-blue-300">{loc.name}</p>
                                         <div className="flex flex-col gap-2 mt-3">
                                             <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.bRoll || false} onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>B-Roll</label>
@@ -341,9 +351,14 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                                 </div>
                             )}
                         </div>
+                        {/* Show a helpful message if the inventory is not complete */}
+                        {!isInventoryComplete && subLocations.length > 0 && (
+                            <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location to continue.</p>
+                        )}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                            <button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button>
+                            {/* Disable the button if the inventory is not complete */}
+                            <button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button>
                         </div>
                     </div>
                  );
