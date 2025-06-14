@@ -1,6 +1,6 @@
 // js/components/ImportProjectView.js
 
-const ImportProjectView = ({ onImport, onBack }) => {
+const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
     const [playlistTitle, setPlaylistTitle] = useState('');
     const [playlistDescription, setPlaylistDescription] = useState('');
     const [videos, setVideos] = useState([{ title: '', concept: '', script: '' }]);
@@ -20,7 +20,7 @@ const ImportProjectView = ({ onImport, onBack }) => {
         setVideos(newVideos);
     };
 
-    const handleImport = () => {
+    const handleAnalyzeClick = () => {
         // Basic validation
         if (!playlistTitle || videos.some(v => !v.title)) {
             alert('Please provide at least a playlist title and a title for each video.');
@@ -31,16 +31,21 @@ const ImportProjectView = ({ onImport, onBack }) => {
             playlistDescription,
             videos,
         };
-        onImport(projectData);
+        onAnalyze(projectData);
     };
 
     return (
         <div className="p-8">
+             {isLoading && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+                   <LoadingSpinner text="Analyzing your project and building a plan..." />
+                </div>
+            )}
             <button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6">
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-2">Import Existing Project</h1>
-            <p className="text-gray-400 mb-8">Paste your existing project content here to bring it into the Creator's Hub.</p>
+            <p className="text-gray-400 mb-8">Paste your existing project content here. We'll analyze it and help you complete the series.</p>
             
             <div className="space-y-6">
                 <div className="p-6 glass-card rounded-lg">
@@ -96,8 +101,8 @@ const ImportProjectView = ({ onImport, onBack }) => {
                     </button>
                 </div>
                  <div className="text-right">
-                    <button onClick={handleImport} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">
-                        Import Project
+                    <button onClick={handleAnalyzeClick} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition-colors">
+                        Analyze & Plan Project 🪄
                     </button>
                 </div>
             </div>
