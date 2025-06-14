@@ -1,7 +1,7 @@
 // --- Firebase Setup ---
 // IMPORTANT: Make sure your Firebase project has Anonymous Authentication enabled.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY", // Replace with your actual Firebase API Key
+  apiKey: "AIzaSyDMyKgfdFF55V8OKp_1u684IWeWkpWtQNA", // Replace with your actual Firebase API Key
   authDomain: "aot-project-manager.firebaseapp.com",
   projectId: "aot-project-manager",
   storageBucket: "aot-project-manager.appspot.com",
