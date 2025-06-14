@@ -324,7 +324,7 @@ Your Task:
 Generate a complete project plan as a JSON object.
 -   **playlistTitleSuggestions**: Create 3 diverse, catchy titles for the whole series, inspired by the targeted keywords.
 -   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description that naturally incorporates the targeted keywords. Prioritize the SEO knowledge base for structure, then infuse the user's style guide for tone.
--   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), and a 'locations_featured' array. Titles and concepts should be built around the targeted keywords and the user's inventory. The 'locations_featured' array MUST ONLY contain names from the provided list of points of interest.`;
+-   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), a 'locations_featured' array, and a 'targeted_keywords' array. The 'locations_featured' array MUST ONLY contain names from the provided list of points of interest. The 'targeted_keywords' array should contain the specific keywords from the user's selection that are most relevant to that video's concept.`;
 
         try {
             const parsedJson = await callGeminiAPI(prompt);
@@ -396,7 +396,8 @@ Original Video Idea: ${JSON.stringify(videoToRefine)}
 The user has provided this feedback to refine it: "${refinement}"
 Please generate a NEW, updated JSON object for only this video, incorporating the feedback. The overall project context (locations, theme, etc.) remains the same.
 The 'locations_featured' array MUST ONLY contain names from this list of available sub-locations: ${subLocationNames}.
-Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...]}`;
+The 'targeted_keywords' array should contain relevant keywords from this main list: ${selectedKeywords.join(', ')}.
+Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...], "targeted_keywords": [...]}`;
         try {
             const parsedJson = await callGeminiAPI(prompt);
             if (parsedJson && parsedJson.title && parsedJson.concept) {
@@ -435,7 +436,6 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         setIsLoading(true);
         setError('');
         try {
-            // Corrected thumbnail URL generation
             const searchTerm = inputs.location ? `${inputs.location}, ${inputs.theme}`.replace(/\s/g, ',') : 'travel';
             const thumbnailUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
             
@@ -619,16 +619,28 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                             {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
                                         </div>
                                         <p className="text-sm mt-3">{video.concept}</p>
-                                        {video.locations_featured && video.locations_featured.length > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-gray-700/50">
-                                                 <label className="block text-xs font-medium text-gray-400 mb-1">Locations Featured:</label>
-                                                 <div className="flex flex-wrap gap-2">
-                                                    {video.locations_featured.map(locName => (
-                                                        <span key={locName} className="px-2 py-0.5 text-xs bg-blue-900/70 text-blue-200 rounded-full">{locName}</span>
-                                                    ))}
-                                                 </div>
-                                            </div>
-                                        )}
+                                        <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-3">
+                                            {video.locations_featured && video.locations_featured.length > 0 && (
+                                                <div>
+                                                     <label className="block text-xs font-medium text-gray-400 mb-1">Locations Featured:</label>
+                                                     <div className="flex flex-wrap gap-2">
+                                                        {video.locations_featured.map(locName => (
+                                                            <span key={locName} className="px-2 py-0.5 text-xs bg-blue-900/70 text-blue-200 rounded-full">{locName}</span>
+                                                        ))}
+                                                     </div>
+                                                </div>
+                                            )}
+                                            {video.targeted_keywords && video.targeted_keywords.length > 0 && (
+                                                <div>
+                                                     <label className="block text-xs font-medium text-gray-400 mb-1">Targeted Keywords:</label>
+                                                     <div className="flex flex-wrap gap-2">
+                                                        {video.targeted_keywords.map(keyword => (
+                                                            <span key={keyword} className="px-2 py-0.5 text-xs bg-teal-900/70 text-teal-200 rounded-full">{keyword}</span>
+                                                        ))}
+                                                     </div>
+                                                </div>
+                                            )}
+                                        </div>
                                         {video.status === 'pending' && (
                                             <div className="mt-4 pt-4 border-t border-gray-700">
                                                 {refiningVideoIndex === index ? (
