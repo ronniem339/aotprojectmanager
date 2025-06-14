@@ -134,6 +134,20 @@ const MockLocationSearchInput = () => {
     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
 };
 
+const ConfirmationModal = ({ onConfirm, onCancel }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+        <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
+            <h3 className="text-2xl font-bold mb-4">Are you sure?</h3>
+            <p className="text-gray-300 mb-6">Starting over will permanently delete your current draft for this new project. This cannot be undone.</p>
+            <div className="flex justify-center gap-4">
+                <button onClick={onCancel} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
+                <button onClick={onConfirm} className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold">Yes, Start Over</button>
+            </div>
+        </div>
+    </div>
+);
+
+
 const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft }) => {
     // Shared state for the entire wizard
     const [step, setStep] = useState(initialDraft?.step || 1);
@@ -154,6 +168,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     // UI state
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     // Persist state to Firestore to allow resuming
@@ -175,20 +190,18 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     }, [debouncedState, userId]);
 
     const handleStartOver = async () => {
-        const userConfirmed = true; 
-        if (userConfirmed) {
-            const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
-            await draftRef.delete();
-            setStep(1);
-            setInputs({ location: '', theme: '' });
-            setLocations([]);
-            setFootageInventory({});
-            setEditableOutline(null);
-            setFinalizedTitle(null);
-            setFinalizedDescription(null);
-            setSelectedTitle('');
-            setError('');
-        }
+        const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
+        await draftRef.delete();
+        setStep(1);
+        setInputs({ location: '', theme: '' });
+        setLocations([]);
+        setFootageInventory({});
+        setEditableOutline(null);
+        setFinalizedTitle(null);
+        setFinalizedDescription(null);
+        setSelectedTitle('');
+        setError('');
+        setShowConfirmModal(false);
     };
     
     const handleLocationsUpdate = useCallback((newLocations) => {
@@ -365,6 +378,11 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
             setRefiningVideoIndex(null);
         }
     };
+    
+    const handleAcceptAllVideos = () => {
+        const newVideos = editableOutline.videos.map(video => ({ ...video, status: 'accepted' }));
+        setEditableOutline(prev => ({ ...prev, videos: newVideos }));
+    };
 
 
     const handleCreateProject = async () => {
@@ -413,9 +431,12 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                 <textarea name="theme" value={inputs.theme} onChange={(e) => setInputs(p => ({ ...p, theme: e.target.value }))} placeholder="e.g., 'Exploring ancient castles and misty lochs'" rows="3" className="w-full form-textarea"></textarea>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-4 mt-8">
-                            <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Cancel</button>
-                            <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next: Footage Inventory</button>
+                        <div className="flex justify-between items-center mt-8">
+                             <p className="text-xs text-gray-500">Your progress is saved automatically.</p>
+                            <div className="flex gap-4">
+                                <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Save & Close</button>
+                                <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>
+                            </div>
                         </div>
                     </div>
                 );
@@ -431,20 +452,20 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         <p className="text-gray-400 mb-6">Log your available footage for each spot you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>.</p>
                         <div className="max-h-[60vh] overflow-y-auto">
                            <table className="w-full text-left">
-                               <thead className="bg-gray-800/50 sticky top-0">
+                               <thead className="bg-gray-800/50 sticky top-0 backdrop-blur-sm">
                                    <tr>
                                        <th className="p-3 text-sm font-semibold">Location</th>
                                        <th className="p-3 text-sm font-semibold text-center w-24">
                                             B-Roll
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-28">
                                             On-Camera
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-24">
                                             Drone
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold w-48">Narrative Role</th>
                                    </tr>
@@ -591,7 +612,10 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         )}
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         <div className="flex justify-between gap-4 mt-8">
-                            <button onClick={() => setStep(4)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
+                             <div>
+                                <button onClick={() => setStep(4)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
+                                <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="ml-4 px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
+                             </div>
                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
                         </div>
                     </div>
@@ -601,9 +625,12 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-5xl">
-                {wizardStep()}
-                <button onClick={handleStartOver} className="text-xs text-gray-400 hover:text-red-400 mt-4 absolute bottom-4 left-8">Start Over</button>
+            {showConfirmModal && <ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
+            <div className="glass-card rounded-lg p-8 w-full max-w-5xl relative">
+                <p className="absolute top-4 right-6 text-xs text-gray-500">Your progress is saved automatically.</p>
+                <button onClick={onClose} className="absolute top-4 left-6 text-gray-400 hover:text-white">&times; Close</button>
+                 {wizardStep()}
+                <button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100 mt-4 absolute bottom-4 left-8">Start Over</button>
             </div>
         </div>
     );
