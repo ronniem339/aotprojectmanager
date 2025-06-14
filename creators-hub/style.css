@@ -1,0 +1,76 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #111827; /* bg-gray-900 */
+    color: #f9fafb; /* text-gray-50 */
+}
+.glass-card {
+    background: rgba(31, 41, 55, 0.6); /* bg-gray-800 with opacity */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.form-input, .form-textarea, .editable-field {
+    background-color: #374151; /* bg-gray-700 */
+    border: 1px solid #4b5563; /* border-gray-600 */
+    color: #f9fafb; /* text-gray-50 */
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    width: 100%;
+}
+.form-input:focus, .form-textarea:focus, .editable-field:focus {
+    outline: none;
+    border-color: #3b82f6; /* border-blue-500 */
+    box-shadow: 0 0 0 2px #1e40af; /* ring-blue-700 */
+}
+.editable-field-title {
+     background-color: transparent;
+     border-color: transparent;
+     font-weight: bold;
+     font-size: 1.25rem;
+     color: #93c5fd; /* text-blue-300 */
+}
+.editable-field-title:focus {
+     background-color: #374151;
+     border-color: #3b82f6;
+}
+ .editable-field-concept {
+     background-color: transparent;
+     border-color: transparent;
+     font-style: italic;
+     font-size: 0.875rem;
+     color: #d1d5db; /* text-gray-300 */
+}
+ .editable-field-concept:focus {
+     background-color: #374151;
+     border-color: #3b82f6;
+}
+.tab-button {
+    transition: all 0.2s ease-in-out;
+}
+.tab-button-active {
+    background-color: #3b82f6;
+    color: white;
+}
+
+/* For Google Places Autocomplete dropdown */
+.pac-container {
+    background-color: #374151;
+    border-radius: 0.5rem;
+    border: 1px solid #4b5563;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 1000 !important;
+}
+.pac-item {
+    padding: 0.5rem 1rem;
+    color: #f9fafb;
+    border-top: 1px solid #4b5563;
+    cursor: pointer;
+}
+.pac-item:first-child {
+    border-top: none;
+}
+.pac-item:hover {
+    background-color: #4b5563;
+}
+.pac-item-query {
+    font-weight: 600;
+}
