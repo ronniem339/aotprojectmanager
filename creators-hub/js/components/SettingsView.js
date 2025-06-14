@@ -22,8 +22,8 @@ const SettingsView = ({ settings, onSave, onBack }) => {
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-4">Technical Settings</h1>
-            <p className="text-gray-400 mb-8">Manage your API keys here. These are stored securely in your user profile and are never shared.</p>
-            <div className="space-y-6 max-w-lg">
+            <p className="text-gray-400 mb-8">Manage your API keys and customize the AI's knowledge base.</p>
+            <div className="space-y-6 max-w-2xl">
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Your Gemini API Key</label>
                     <input
@@ -46,10 +46,22 @@ const SettingsView = ({ settings, onSave, onBack }) => {
                         placeholder="Enter your Google Maps API Key (for location search)"
                     />
                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">YouTube SEO Knowledge Base</label>
+                    <p className="text-xs text-gray-400 mb-2">Customize the SEO best practices the AI uses for generation. If you leave this blank, it will use the default system knowledge base.</p>
+                     <textarea
+                        name="youtubeSeoKnowledgeBase"
+                        value={localSettings.youtubeSeoKnowledgeBase || ''}
+                        onChange={handleChange}
+                        rows="15"
+                        className="w-full form-textarea leading-relaxed"
+                        placeholder="Provide detailed information about YouTube SEO best practices..."
+                    />
+                </div>
             </div>
-            <div className="mt-8 text-right max-w-lg">
+            <div className="mt-8 text-right max-w-2xl">
                 <button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">
-                    Save Keys
+                    Save Settings
                 </button>
             </div>
         </div>
