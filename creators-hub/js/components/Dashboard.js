@@ -1,6 +1,6 @@
 // js/components/Dashboard.js
 
-const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, onShowNewProjectWizard, onShowDeleteConfirm }) => {
+const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, onShowProjectSelection, onShowDeleteConfirm }) => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const projectCardsRef = useRef(null);
@@ -41,9 +41,9 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
             </header>
             {loading ? <LoadingSpinner /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
-                    <button onClick={onShowNewProjectWizard} className="glass-card rounded-lg h-64 flex flex-col justify-center items-center text-gray-400 hover:text-white hover:border-blue-500 border-2 border-dashed border-gray-600 transition-all">
+                    <button onClick={onShowProjectSelection} className="glass-card rounded-lg h-64 flex flex-col justify-center items-center text-gray-400 hover:text-white hover:border-blue-500 border-2 border-dashed border-gray-600 transition-all">
                         <span className="text-5xl">✨</span>
-                        <span className="text-xl font-semibold mt-2">New AI Project</span>
+                        <span className="text-xl font-semibold mt-2">New Project</span>
                     </button>
                     {projects.map(project => (
                         <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 transition-all overflow-hidden group">
