@@ -30,6 +30,20 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
         onShowDeleteConfirm(project);
     };
 
+    // Helper function to generate a cleaner search term for Unsplash from a project title
+    const generateImageSearchTerm = (title) => {
+        if (!title) return 'travel,adventure';
+        // This logic creates a more focused search query for better image results.
+        return title
+            .replace(/\(.*?\)/g, '') // remove text in parentheses e.g. (2025)
+            .split(/[:\-|]/)[0]     // take the part before a colon, dash, or pipe
+            .trim()
+            .split(' ')
+            .slice(0, 3)            // take the first 3 words
+            .join(',');             // join with commas for the Unsplash API
+    };
+
+
     return (
         <div className="p-8">
             <header className="flex justify-between items-center mb-8">
@@ -45,29 +59,35 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                         <span className="text-5xl">✨</span>
                         <span className="text-xl font-semibold mt-2">New Project</span>
                     </button>
-                    {projects.map(project => (
-                        <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 transition-all overflow-hidden group">
-                             <div className="relative">
-                                <ImageComponent src={project.thumbnailUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
-                                <button 
-                                    onClick={(e) => handleDeleteClick(e, project)} 
-                                    className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
-                                    aria-label="Delete project"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="p-4">
-                                <div>
-                                    <h3 className="text-xl font-bold text-blue-300 truncate">{project.playlistTitle || project.title}</h3>
-                                    <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
+                    {projects.map(project => {
+                        // Dynamically generate the search term and Unsplash URL for each project here
+                        const searchTerm = generateImageSearchTerm(project.playlistTitle);
+                        const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
+                        
+                        return (
+                            <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 transition-all overflow-hidden group">
+                                 <div className="relative">
+                                    <ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
+                                    <button 
+                                        onClick={(e) => handleDeleteClick(e, project)} 
+                                        className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
+                                        aria-label="Delete project"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                        </svg>
+                                    </button>
                                 </div>
-                                <div className="text-xs text-gray-500 mt-2">Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</div>
+                                <div className="p-4">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-blue-300 truncate">{project.playlistTitle || project.title}</h3>
+                                        <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-2">Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
