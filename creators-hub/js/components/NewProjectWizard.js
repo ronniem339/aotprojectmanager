@@ -205,7 +205,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     };
     
     // --- AI Interaction Functions ---
-    const callGeminiAPI = async (prompt, schema) => {
+    const callGeminiAPI = async (prompt) => {
         const apiKey = settings.geminiApiKey || "";
         if (!apiKey) {
             setError("Please set your Gemini API Key in the settings first.");
@@ -213,7 +213,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         }
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json", responseSchema: schema }
+            generationConfig: { responseMimeType: "application/json" }
         };
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -240,26 +240,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         
         const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
         const styleGuide = settings.styleGuideText ? `This is the user's personal style guide:\n${settings.styleGuideText}` : "No specific style guide was provided.";
-        const schema = {
-            type: 'OBJECT',
-            properties: {
-                playlistTitleSuggestions: { type: 'ARRAY', items: { type: 'STRING' } },
-                playlistDescription: { type: 'STRING' },
-                videos: {
-                    type: 'ARRAY',
-                    items: {
-                        type: 'OBJECT',
-                        properties: {
-                            title: { type: 'STRING' },
-                            concept: { type: 'STRING' },
-                            estimatedLengthMinutes: { type: 'STRING' },
-                            locations_featured: { type: 'ARRAY', items: { type: 'STRING' } }
-                        }
-                    }
-                }
-            }
-        };
-
+        
         const prompt = `You are a professional YouTube producer creating a project plan about "${inputs.location}" with the theme "${inputs.theme}".
 Context:
 1.  YouTube SEO Knowledge Base: ${knowledgeBase}
@@ -273,11 +254,17 @@ Generate a complete project plan as a JSON object.
 -   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), and a 'locations_featured' array listing the focused sub-locations. Give more focus to 'Major Feature' locations.`;
 
         try {
-            const parsedJson = await callGeminiAPI(prompt, schema);
-            setEditableOutline(parsedJson);
-            setStep(3);
+            const parsedJson = await callGeminiAPI(prompt);
+            // **VALIDATION STEP:** Before setting state, ensure the AI response has the expected structure.
+            if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
+                setEditableOutline(parsedJson);
+                setStep(3);
+            } else {
+                // If the response is malformed, throw a specific error for the user.
+                throw new Error("AI returned an invalid or incomplete project plan. Please try again.");
+            }
         } catch (e) {
-            setError(`Failed to generate outline. ${e.message}`);
+            setError(`Failed to generate outline: ${e.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -285,18 +272,21 @@ Generate a complete project plan as a JSON object.
     
     const handleRefineTitle = async () => {
          setIsLoading(true); setError('');
-         const schema = { type: 'OBJECT', properties: { playlistTitleSuggestions: { type: 'ARRAY', items: { type: 'STRING' } } } };
          const prompt = `The user is creating a YouTube series about "${inputs.location}" with the theme "${inputs.theme}".
 Previous title suggestions were: ${editableOutline.playlistTitleSuggestions.join(', ')}.
 The user provided this feedback: "${refinement}".
-Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate this feedback.`;
+Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate this feedback. Return as a JSON object like: {"playlistTitleSuggestions": ["title1", "title2", "title3"]}`;
          try {
-             const parsedJson = await callGeminiAPI(prompt, schema);
-             setEditableOutline(prev => ({...prev, playlistTitleSuggestions: parsedJson.playlistTitleSuggestions}));
-             setSelectedTitle(parsedJson.playlistTitleSuggestions[0]); // Auto-select the new first suggestion
-             setRefinement('');
+             const parsedJson = await callGeminiAPI(prompt);
+             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions)) {
+                setEditableOutline(prev => ({...prev, playlistTitleSuggestions: parsedJson.playlistTitleSuggestions}));
+                setSelectedTitle(parsedJson.playlistTitleSuggestions[0]); // Auto-select the new first suggestion
+                setRefinement('');
+             } else {
+                 throw new Error("AI failed to return valid title suggestions.");
+             }
          } catch(e) {
-              setError(`Failed to refine titles. ${e.message}`);
+              setError(`Failed to refine titles: ${e.message}`);
          } finally {
              setIsLoading(false);
          }
@@ -304,18 +294,22 @@ Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate th
 
     const handleRefineDescription = async () => {
          setIsLoading(true); setError('');
-         const schema = { type: 'OBJECT', properties: { playlistDescription: { type: 'STRING' } } };
          const prompt = `The user is creating a YouTube series titled "${finalizedTitle}". The current playlist description is: "${editableOutline.playlistDescription}".
 The user provided this feedback for refinement: "${refinement}".
 Rewrite the playlist description to incorporate the feedback, ensuring it remains SEO-optimized (300-400 words) and aligns with the user's style guide if provided.
 Style Guide: ${settings.styleGuideText || 'Not provided.'}
-SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE}`;
+SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE}
+Return as a JSON object like: {"playlistDescription": "new description..."}`;
          try {
-             const parsedJson = await callGeminiAPI(prompt, schema);
-             setEditableOutline(prev => ({...prev, playlistDescription: parsedJson.playlistDescription}));
-             setRefinement('');
+             const parsedJson = await callGeminiAPI(prompt);
+             if(parsedJson && parsedJson.playlistDescription) {
+                setEditableOutline(prev => ({...prev, playlistDescription: parsedJson.playlistDescription}));
+                setRefinement('');
+             } else {
+                 throw new Error("AI failed to return a valid description.");
+             }
          } catch(e) {
-              setError(`Failed to refine description. ${e.message}`);
+              setError(`Failed to refine description: ${e.message}`);
          } finally {
              setIsLoading(false);
          }
@@ -413,6 +407,7 @@ SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CON
                                 </div>
                             )}
                         </div>
+                        {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         {!isInventoryComplete && subLocations.length > 0 && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location to continue.</p>}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
@@ -440,12 +435,12 @@ SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CON
                             <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
                             <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make them more mysterious', 'Add the year', 'Focus on the adventure aspect'"/>
                         </div>
-                        {error && <p className="text-red-400 mt-4">{error}</p>}
+                        {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(2)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
                             <div className="flex gap-4">
                                 <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                                <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(4); setRefinement(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
+                                <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(4); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                             </div>
                         </div>
                     </div>
@@ -463,12 +458,12 @@ SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CON
                             <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
                             <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make it more personal', 'Mention the drone footage specifically'"/>
                         </div>
-                        {error && <p className="text-red-400 mt-4">{error}</p>}
+                        {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(3)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
                             <div className="flex gap-4">
                                 <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                                <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(5); setRefinement('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
+                                <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(5); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                             </div>
                         </div>
                     </div>
@@ -501,7 +496,7 @@ SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CON
                             </div>
                         )}
                         {/* Note: In a future version, we could add refinement for the video plan itself */ }
-                        {error && <p className="text-red-400 mt-4">{error}</p>}
+                        {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         <div className="flex justify-between gap-4 mt-8">
                             <button onClick={() => setStep(4)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
                             <button onClick={handleCreateProject} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
