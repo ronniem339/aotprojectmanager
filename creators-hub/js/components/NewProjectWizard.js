@@ -11,7 +11,7 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
         autocompleteRef.current.setFields(['place_id', 'name', 'geometry']);
 
-        // This listener fires when a user selects a suggestion
+        // This listener fires when a user selects a suggestion from the dropdown
         const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
             if (place && place.geometry) {
@@ -32,30 +32,43 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         };
         const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        // This is the new, more robust keyboard handler for rapid-fire input
+        // This is the corrected keyboard handler for rapid-fire input.
         const handleKeyDown = (e) => {
+            // We only care about the 'Enter' key.
             if (e.key === 'Enter' && !e.defaultPrevented) {
+                // Check if the suggestions dropdown is visible.
                 const pacContainer = document.querySelector('.pac-container');
-                // Check if the suggestions dropdown is visible
-                if (pacContainer && pacContainer.style.display !== 'none') {
+                if (pacContainer && pacContainer.offsetParent !== null) {
                     
-                    // Prevent the default 'Enter' action (like form submission)
+                    // Prevent the default 'Enter' action (e.g., form submission).
                     e.preventDefault();
 
-                    // Dispatch an 'ArrowDown' event to programmatically highlight the first suggestion
+                    // Dispatch an 'ArrowDown' event. This is what the Google widget
+                    // listens for to highlight the first item in the list.
                     const downArrowEvent = new KeyboardEvent('keydown', {
-                        bubbles: true, cancelable: true, key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40 
+                        key: 'ArrowDown',
+                        code: 'ArrowDown',
+                        keyCode: 40,
+                        which: 40,
+                        bubbles: true,
+                        cancelable: true,
                     });
                     inputRef.current.dispatchEvent(downArrowEvent);
 
-                    // A brief delay is needed for the API to register the highlight
+                    // A brief delay is crucial. It gives the Google widget's internal
+                    // state time to update and register the highlight before we
+                    // programmatically "press" Enter to confirm the selection.
                     setTimeout(() => {
-                        // Dispatch an 'Enter' event to select the highlighted suggestion
                         const enterEvent = new KeyboardEvent('keydown', {
-                           bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 
+                           key: 'Enter',
+                           code: 'Enter',
+                           keyCode: 13,
+                           which: 13,
+                           bubbles: true,
+                           cancelable: true,
                         });
                         inputRef.current.dispatchEvent(enterEvent);
-                    }, 100); // 100ms delay for robustness
+                    }, 150); // Using 150ms for added reliability on slower connections.
                 }
             }
         };
