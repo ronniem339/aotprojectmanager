@@ -3,8 +3,8 @@
 
 [build]
   # This is the most important part. 
-  # It tells Netlify that your website's files are inside the "content-hub" folder.
-  publish = "content-hub"
+  # It tells Netlify that your website's files are inside the "creators-hub" folder.
+  publish = "creators-hub"
 
 # This section sets up a rule for Single Page Applications (SPAs) like ours.
 # It ensures that if a user refreshes the page on a different "URL", 
