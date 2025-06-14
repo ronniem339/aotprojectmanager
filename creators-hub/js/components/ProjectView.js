@@ -1,10 +1,10 @@
 // js/components/ProjectView.js
 
 const VideoWorkflow = ({ video, settings, project, userId }) => {
-    const [tasks, setTasks] = useState(video.tasks || {});
+    // State is now initialized from the video prop to prevent focus loss on re-renders.
+    const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
+    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || '');
     const [generating, setGenerating] = useState(null);
-    const [feedbackText, setFeedbackText] = useState('');
-    const [publishDate, setPublishDate] = useState('');
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     // A helper function to update the task status in Firestore
@@ -82,6 +82,8 @@ const VideoWorkflow = ({ video, settings, project, userId }) => {
         }
     };
     
+    // The TaskItem component now shows its children if it's not locked.
+    // The content inside the children will decide whether to show an action button or the result.
     const TaskItem = ({ title, status, isLocked, children }) => (
         <div className={`glass-card p-4 rounded-lg transition-all ${isLocked ? 'opacity-50' : ''}`}>
             <div className="flex justify-between items-center">
@@ -92,7 +94,7 @@ const VideoWorkflow = ({ video, settings, project, userId }) => {
                     <h4 className="text-lg font-semibold">{title}</h4>
                 </div>
             </div>
-            {(status !== 'complete' && !isLocked) && <div className="mt-4 pl-11">{children}</div>}
+            {!isLocked && <div className="mt-4 pl-11">{children}</div>}
         </div>
     );
     
@@ -100,38 +102,44 @@ const VideoWorkflow = ({ video, settings, project, userId }) => {
 
     return (
         <div className="space-y-4">
-            <TaskItem title="Generate Script" status={videoTasks.scriptGenerated} isLocked={false}>
-                <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
-                    {generating === 'script' ? <LoadingSpinner /> : '🪄 Generate'}
-                </button>
+            <TaskItem title="1. Generate Script" status={videoTasks.scriptGenerated} isLocked={false}>
+                {videoTasks.scriptGenerated !== 'complete' && (
+                    <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
+                        {generating === 'script' ? <LoadingSpinner /> : '🪄 Generate'}
+                    </button>
+                )}
                 {video.script && <textarea readOnly value={video.script} rows="10" className="w-full form-textarea mt-4 bg-gray-800/50" />}
             </TaskItem>
 
-            <TaskItem title="Record Script" status={videoTasks.scriptRecorded} isLocked={!videoTasks.scriptGenerated}>
-                 <button onClick={() => updateTask('scriptRecorded')} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Complete</button>
+            <TaskItem title="2. Record Script" status={videoTasks.scriptRecorded} isLocked={!videoTasks.scriptGenerated}>
+                 {videoTasks.scriptRecorded !== 'complete' && <button onClick={() => updateTask('scriptRecorded')} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Complete</button>}
             </TaskItem>
             
-            <TaskItem title="Edit Video" status={videoTasks.videoEdited} isLocked={!videoTasks.scriptRecorded}>
-                 <button onClick={() => updateTask('videoEdited')} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Complete</button>
+            <TaskItem title="3. Edit Video" status={videoTasks.videoEdited} isLocked={!videoTasks.scriptRecorded}>
+                 {videoTasks.videoEdited !== 'complete' && <button onClick={() => updateTask('videoEdited')} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Complete</button>}
             </TaskItem>
             
-            <TaskItem title="Log Production Changes" status={videoTasks.feedbackProvided} isLocked={!videoTasks.videoEdited}>
+            <TaskItem title="4. Log Production Changes" status={videoTasks.feedbackProvided} isLocked={!videoTasks.videoEdited}>
                 <p className="text-sm text-gray-400 mb-2">Did anything change during production? Describe any refinements to the script or structure.</p>
-                <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="4" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations and added more drone shots of the coastline...'"></textarea>
-                <button onClick={() => updateTask('feedbackProvided', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="4" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations and added more drone shots of the coastline...'" readOnly={videoTasks.feedbackProvided === 'complete'}></textarea>
+                {videoTasks.feedbackProvided !== 'complete' && <button onClick={() => updateTask('feedbackProvided', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>}
             </TaskItem>
             
-            <TaskItem title="Generate Video Metadata" status={videoTasks.metadataGenerated} isLocked={!videoTasks.feedbackProvided}>
-                 <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
-                     {generating === 'metadata' ? <LoadingSpinner /> : '🪄 Generate'}
-                 </button>
+            <TaskItem title="5. Generate Video Metadata" status={videoTasks.metadataGenerated} isLocked={!videoTasks.feedbackProvided}>
+                 {videoTasks.metadataGenerated !== 'complete' && (
+                    <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
+                        {generating === 'metadata' ? <LoadingSpinner /> : '🪄 Generate'}
+                    </button>
+                 )}
                  {video.metadata && <textarea readOnly value={JSON.stringify(JSON.parse(video.metadata), null, 2)} rows="10" className="w-full form-textarea mt-4 bg-gray-800/50" />}
             </TaskItem>
             
-            <TaskItem title="Generate Video Thumbnails" status={videoTasks.thumbnailsGenerated} isLocked={!videoTasks.metadataGenerated}>
-                 <button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
-                     {generating === 'thumbnails' ? <LoadingSpinner /> : '🪄 Generate (x3)'}
-                 </button>
+            <TaskItem title="6. Generate Video Thumbnails" status={videoTasks.thumbnailsGenerated} isLocked={!videoTasks.metadataGenerated}>
+                 {videoTasks.thumbnailsGenerated !== 'complete' && (
+                    <button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
+                        {generating === 'thumbnails' ? <LoadingSpinner /> : '🪄 Generate (x3)'}
+                    </button>
+                 )}
                  {videoTasks.generatedThumbnails && (
                     <div className="flex gap-4 mt-4">
                         {videoTasks.generatedThumbnails.map((base64, index) => (
@@ -141,10 +149,10 @@ const VideoWorkflow = ({ video, settings, project, userId }) => {
                  )}
             </TaskItem>
 
-            <TaskItem title="Upload to YouTube" status={videoTasks.videoUploaded} isLocked={!videoTasks.thumbnailsGenerated}>
+            <TaskItem title="7. Upload to YouTube" status={videoTasks.videoUploaded} isLocked={!videoTasks.thumbnailsGenerated}>
                  <p className="text-sm text-gray-400 mb-2">After uploading to YouTube, confirm here and set the scheduled publish date.</p>
-                 <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto"/>
-                 <button onClick={() => updateTask('videoUploaded', { 'tasks.publishDate': publishDate })} disabled={!publishDate} className="ml-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Date</button>
+                 <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto" readOnly={videoTasks.videoUploaded === 'complete'}/>
+                 {videoTasks.videoUploaded !== 'complete' && <button onClick={() => updateTask('videoUploaded', { 'tasks.publishDate': publishDate })} disabled={!publishDate} className="ml-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Date</button>}
             </TaskItem>
         </div>
     );
@@ -154,6 +162,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeVideoId, setActiveVideoId] = useState(null);
+    const [isDescriptionVisible, setIsDescriptionVisible] = useState(false); // State for description visibility
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
@@ -168,7 +177,6 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                 videosData.push({ 
                     id: doc.id, 
                     ...data,
-                    // Ensure tasks object exists for progress calculation
                     tasks: data.tasks || {} 
                 }); 
             });
@@ -181,7 +189,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
 
         return () => unsubscribe();
-    }, [userId, project.id, activeVideoId]);
+    }, [userId, project.id]);
 
     const activeVideo = videos.find(v => v.id === activeVideoId);
     
@@ -197,8 +205,13 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                 ⬅️ Back to Dashboard
             </button>
             <div className="mb-8 p-6 glass-card rounded-lg">
-                <h2 className="text-3xl font-bold text-blue-300">{project.playlistTitle || project.title}</h2>
-                <p className="mt-2 text-gray-300 whitespace-pre-wrap">{project.playlistDescription || ''}</p>
+                <div className="flex justify-between items-start">
+                    <h2 className="text-3xl font-bold text-blue-300">{project.playlistTitle || project.title}</h2>
+                    <button onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} className="text-sm text-blue-400 hover:text-blue-300">
+                        {isDescriptionVisible ? 'Hide Description' : 'Show Description'}
+                    </button>
+                </div>
+                {isDescriptionVisible && <p className="mt-4 text-gray-300 whitespace-pre-wrap border-t border-gray-700 pt-4">{project.playlistDescription || ''}</p>}
             </div>
             {loading ? <LoadingSpinner /> : (
                 <div className="flex flex-col md:flex-row gap-8">
@@ -206,14 +219,14 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                         <h3 className="text-xl font-semibold mb-4">Videos</h3>
                         <div className="space-y-2">
                             {videos.map(video => {
-                                const progress = calculateProgress(video.tasks);
+                                const progress = calculateProgress(video.tasks || {});
                                 return (
                                     <button
                                         key={video.id}
                                         onClick={() => setActiveVideoId(video.id)}
                                         className={`w-full text-left p-3 rounded-lg transition-colors ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
                                     >
-                                        <p>{video.chosenTitle || video.title}</p>
+                                        <p className="font-semibold">{video.chosenTitle || video.title}</p>
                                         <div className="w-full bg-gray-500 rounded-full h-1.5 mt-2">
                                           <div className="bg-green-500 h-1.5 rounded-full" style={{width: `${progress}%`}}></div>
                                         </div>
