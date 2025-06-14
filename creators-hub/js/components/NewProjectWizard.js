@@ -170,12 +170,10 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
 
         const newInventory = {};
         newLocations.forEach(loc => {
-            // If footage info for this location already exists, keep it. Otherwise, initialize it.
             newInventory[loc.place_id] = footageInventory[loc.place_id] || { 
                 bRoll: false, 
                 onCamera: false, 
                 drone: false, 
-                // Use the new 'importance' passed up from the LocationSearchInput component.
                 importance: loc.importance 
             };
         });
@@ -205,7 +203,6 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         if (!apiKey) { setError("Please set your Gemini API Key in the settings first."); return; }
         setIsLoading(true); setError('');
 
-        // The summary now only includes sub-locations (from index 1 onwards).
         const inventorySummary = locations.slice(1).map(loc => {
             const inventory = footageInventory[loc.place_id] || {};
             const types = [];
@@ -217,15 +214,19 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         }).join('\n');
         
         let prompt;
-        const schema = `{ "playlistTitle": "...", "playlistDescription": "...", "videos": [ { "title": "...", "concept": "..." } ] }`;
+        // The new schema includes the 'locations_featured' array for each video.
+        const schema = `{ "playlistTitle": "...", "playlistDescription": "...", "videos": [ { "title": "...", "concept": "...", "locations_featured": ["Location Name 1", "Location Name 2"] } ] }`;
         const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
         
-        // The core instruction now clearly distinguishes between the main location and the points of interest.
         const coreInstruction = `Act as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". 
 The user will visit the following specific points of interest:
 ${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
-For these points of interest, the user has specified a role ('Major Feature' or 'Quick Section'). You MUST allocate more time and narrative focus to Major Features and treat Quick Sections as brief, transitional, or supporting segments.
-Based ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`;
+
+Your task is to generate a complete project outline as a JSON object. Follow these rules precisely:
+1.  **Playlist Description:** The 'playlistDescription' MUST be a long-form, detailed, and SEO-optimized summary for the entire series, around 300-400 words. Use the provided knowledge base to craft this. It should serve as a compelling introduction to the whole playlist.
+2.  **Video Structure:** For each video in the 'videos' array, you MUST populate the 'locations_featured' array with the exact names of the sub-locations that are the main focus of that video. This field is mandatory for each video object.
+3.  **Narrative Weight:** You MUST allocate more time and narrative focus to locations marked as a 'Major Feature' and treat 'Quick Section' locations as brief, transitional, or supporting segments in your proposed video structure.
+4.  **JSON Format:** Your entire response MUST be a single, valid JSON object, adhering strictly to this schema: ${schema}. Do not include any other text, markdown, or explanations before or after the JSON object.`;
 
         if (isRefinement) { 
             prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nYou previously generated this JSON outline:\n\n${JSON.stringify(editableOutline, null, 2)}\n\nThe user wants to refine it with this instruction: "${refinement}"\n\nPlease generate a NEW, updated JSON object that incorporates this feedback, keeping the original context in mind:\n${coreInstruction}`;
@@ -309,12 +310,9 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                     </div>
                 );
             case 2:
-                 // Get the list of sub-locations (all except the first one)
                  const subLocations = locations.slice(1);
-                 // Check if the inventory for all sub-locations is complete.
                  const isInventoryComplete = subLocations.every(loc => {
                      const inventory = footageInventory[loc.place_id] || {};
-                     // A card is complete if at least one footage type is checked.
                      return inventory.bRoll || inventory.onCamera || inventory.drone;
                  });
 
@@ -325,7 +323,6 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
                             {subLocations.map(loc => {
                                 const inventory = footageInventory[loc.place_id] || {};
-                                // Determine if this specific card is complete for visual feedback.
                                 const isCardComplete = inventory.bRoll || inventory.onCamera || inventory.drone;
                                 return (
                                     <div key={loc.place_id} className={`p-4 border rounded-lg flex flex-col justify-between transition-colors ${isCardComplete ? 'border-gray-700' : 'border-amber-500'}`}>
@@ -351,19 +348,65 @@ Based ONLY on this information, create an intelligent project outline. Your resp
                                 </div>
                             )}
                         </div>
-                        {/* Show a helpful message if the inventory is not complete */}
                         {!isInventoryComplete && subLocations.length > 0 && (
                             <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location to continue.</p>
                         )}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                            {/* Disable the button if the inventory is not complete */}
                             <button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button>
                         </div>
                     </div>
                  );
             case 3:
-                return (<div><h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 3</h2><p className="text-gray-400 mb-6">Review, edit, and refine the AI-generated outline.</p>{editableOutline ? (<div className="space-y-6 text-left p-4 border border-gray-600 rounded-lg max-h-[60vh] overflow-y-auto pr-2"><div><label className="block text-sm font-medium text-gray-300 mb-1">Playlist Title</label><input name="playlistTitle" value={editableOutline.playlistTitle || ''} onChange={(e) => handleOutlineChange(e, null, 'playlistTitle')} className="w-full editable-field editable-field-title"/><label className="block text-sm font-medium text-gray-300 mb-1 mt-2">Playlist Description</label><textarea name="playlistDescription" value={editableOutline.playlistDescription || ''} onChange={(e) => handleOutlineChange(e, null, 'playlistDescription')} rows="2" className="w-full editable-field editable-field-concept"/></div><div className="border-t border-gray-600 pt-4"><h4 className="font-semibold text-lg mb-2">Proposed Videos:</h4><div className="space-y-4">{editableOutline.videos.map((video, index) => (<div key={index}><label className="block text-sm font-medium text-gray-300 mb-1">Video {index+1} Title</label><input name="title" value={video.title} onChange={(e) => handleOutlineChange(e, index, 'title')} className="w-full editable-field font-semibold"/><label className="block text-sm font-medium text-gray-300 mb-1 mt-2">Video {index+1} Concept</label><textarea name="concept" value={video.concept} onChange={(e) => handleOutlineChange(e, index, 'concept')} rows="2" className="w-full editable-field text-sm"/></div>))}</div></div><div className="mt-4"><label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label><textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the titles more mysterious.' or 'Change video 2 to focus on food.'"/></div></div>) : <LoadingSpinner text="Generating initial outline..." />}{error && <p className="text-red-400 mt-4">{error}</p>}<div className="flex justify-between gap-4 mt-8"><button onClick={() => setStep(2)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button><div className="flex gap-4"><button onClick={() => handleGenerateOrRefineOutline(true)} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🔁 Refine Outline'}</button><button onClick={handleCreateProject} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button></div></div></div>);
+                return (
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 3</h2>
+                        <p className="text-gray-400 mb-6">Review, edit, and refine the AI-generated outline.</p>
+                        {editableOutline ? (
+                            <div className="space-y-6 text-left p-4 border border-gray-600 rounded-lg max-h-[70vh] overflow-y-auto pr-2">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-1">Playlist Title</label>
+                                    <input name="playlistTitle" value={editableOutline.playlistTitle || ''} onChange={(e) => handleOutlineChange(e, null, 'playlistTitle')} className="w-full editable-field editable-field-title"/>
+                                    
+                                    <label className="block text-sm font-medium text-gray-300 mb-1 mt-4">Playlist Description</label>
+                                    <textarea name="playlistDescription" value={editableOutline.playlistDescription || ''} onChange={(e) => handleOutlineChange(e, null, 'playlistDescription')} rows="8" className="w-full editable-field editable-field-concept text-sm leading-relaxed"/>
+                                </div>
+                                <div className="border-t border-gray-600 pt-4">
+                                    <h4 className="font-semibold text-lg mb-2">Proposed Videos:</h4>
+                                    <div className="space-y-4">
+                                        {editableOutline.videos && editableOutline.videos.map((video, index) => (
+                                            <div key={index} className="p-3 bg-gray-900/50 rounded-lg">
+                                                <label className="block text-sm font-medium text-gray-300 mb-1">Video {index+1} Title</label>
+                                                <input name="title" value={video.title} onChange={(e) => handleOutlineChange(e, index, 'title')} className="w-full editable-field font-semibold"/>
+                                                
+                                                <label className="block text-sm font-medium text-gray-300 mb-1 mt-2">Video {index+1} Concept</label>
+                                                <textarea name="concept" value={video.concept} onChange={(e) => handleOutlineChange(e, index, 'concept')} rows="3" className="w-full editable-field text-sm"/>
+
+                                                {video.locations_featured && video.locations_featured.length > 0 && (
+                                                    <div className="mt-3">
+                                                         <label className="block text-xs font-medium text-gray-400 mb-1">Locations Featured:</label>
+                                                         <div className="flex flex-wrap gap-2">
+                                                            {video.locations_featured.map(locName => (
+                                                                <span key={locName} className="px-2 py-0.5 text-xs bg-blue-900/70 text-blue-200 rounded-full">{locName}</span>
+                                                            ))}
+                                                         </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : <LoadingSpinner text="Generating initial outline..." />}
+                        {error && <p className="text-red-400 mt-4">{error}</p>}
+                        <div className="flex justify-between gap-4 mt-8">
+                            <button onClick={() => setStep(2)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
+                            <div className="flex gap-4">
+                                <button onClick={handleCreateProject} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
+                            </div>
+                        </div>
+                    </div>
+                );
         }
     }
 
