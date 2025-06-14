@@ -12,7 +12,6 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         autocompleteRef.current.setFields(['place_id', 'name', 'geometry']);
 
         // This listener fires when a user selects a suggestion from the dropdown 
-        // (by clicking or using arrow keys + enter, or our simulated click)
         const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
             if (place && place.geometry) {
@@ -22,28 +21,23 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
                 };
-                // Check for duplicates before adding to the list
+                // Check for duplicates before adding
                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsChange([...existingLocations, newLocation]);
                 }
                 if (inputRef.current) {
-                    // Clear the input field for the next search
                     inputRef.current.value = ''; 
                 }
             }
         };
         const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        // This is our new keyboard handler for the rapid-fire input
+        // Keyboard handler for rapid-fire input
         const handleKeyDown = (e) => {
-            // Check if the suggestions dropdown is visible
             const suggestionsVisible = document.querySelector('.pac-container')?.style.display !== 'none';
 
             if (e.key === 'Enter' && suggestionsVisible) {
-                e.preventDefault(); // Prevent form submission
-                
-                // Find the first suggestion in the dropdown and simulate a click
-                // This will trigger the 'place_changed' listener we defined above
+                e.preventDefault();
                 const firstSuggestion = document.querySelector('.pac-item');
                 if (firstSuggestion) {
                     firstSuggestion.click();
@@ -54,7 +48,7 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         const inputElement = inputRef.current;
         inputElement.addEventListener('keydown', handleKeyDown);
 
-        // Cleanup function to remove listeners when the component unmounts
+        // Cleanup listeners
         return () => {
             if (window.google) {
                 window.google.maps.event.removeListener(placeChangedListenerHandle);
@@ -71,21 +65,17 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
 
     return (
         <div>
-            {/* The input field for adding new locations via Google Places Autocomplete */}
             <input 
                 ref={inputRef} 
                 type="text" 
                 placeholder="Search for and add locations..." 
                 className="w-full form-input" 
             />
-            
-            {/* The list of currently added locations */}
             <div className="flex flex-wrap gap-2 mt-3">
                 {existingLocations.length > 0 ? existingLocations.map((loc, index) => (
                     <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
                         <span>
                             {loc.name}
-                            {/* The first location in the list is always considered the "Overall" or "Main" one */}
                             {index === 0 && <span className="text-xs font-semibold text-blue-200 ml-1">(Main)</span>}
                         </span>
                         <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
@@ -137,20 +127,31 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     
     const handleLocationsUpdate = (newLocations) => {
         setLocations(newLocations);
-        
-        // The first location in the array is always considered the "overall" project location.
-        // This updates the main 'location' theme whenever the list changes.
         setInputs(prev => ({ ...prev, location: newLocations[0]?.name || '' }));
 
-        // Sync footage inventory with the new locations list
         const newInventory = {};
         newLocations.forEach(loc => {
-            newInventory[loc.place_id] = footageInventory[loc.place_id] || { bRoll: false, onCamera: false, drone: false };
+            // Initialize new locations with default footage info, including the new 'importance' field.
+            newInventory[loc.place_id] = footageInventory[loc.place_id] || { 
+                bRoll: false, 
+                onCamera: false, 
+                drone: false, 
+                importance: 'major' // Default to 'major'
+            };
         });
         setFootageInventory(newInventory);
     };
+    
+    const handleInventoryChange = (placeId, field, value) => {
+        setFootageInventory(prev => ({
+            ...prev,
+            [placeId]: {
+                ...prev[placeId],
+                [field]: value
+            }
+        }));
+    };
 
-    const handleFootageChange = (placeId, type) => { setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [type]: !prev[placeId][type] } })); };
     const handleOutlineChange = (e, videoIndex = null, field) => {
         const { value } = e.target;
         setEditableOutline(prev => {
@@ -163,15 +164,35 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         const apiKey = settings.geminiApiKey || "";
         if (!apiKey) { setError("Please set your Gemini API Key in the settings first."); return; }
         setIsLoading(true); setError('');
-        const inventorySummary = locations.map(loc => { const types = []; if (footageInventory[loc.place_id]?.bRoll) types.push("B-Roll"); if (footageInventory[loc.place_id]?.onCamera) types.push("On-camera segments"); if (footageInventory[loc.place_id]?.drone) types.push("Drone footage"); return `- ${loc.name}: ${types.join(', ')}`; }).join('\n');
+
+        // Build a more detailed summary of the inventory for the AI
+        const inventorySummary = locations.map(loc => {
+            const inventory = footageInventory[loc.place_id] || {};
+            const types = [];
+            if (inventory.bRoll) types.push("B-Roll");
+            if (inventory.onCamera) types.push("On-camera segments");
+            if (inventory.drone) types.push("Drone footage");
+            
+            // Add the importance label to the summary
+            const importanceLabel = inventory.importance === 'major' ? 'Major Feature' : 'Quick Section';
+            
+            return `- ${loc.name} (Role: ${importanceLabel}): Has ${types.join(', ') || 'unspecified footage'}.`;
+        }).join('\n');
+        
         let prompt;
         const schema = `{ "playlistTitle": "...", "playlistDescription": "...", "videos": [ { "title": "...", "concept": "..." } ] }`;
         const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
         
-        if(isRefinement) { 
-            prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nYou previously generated the following JSON outline:\n\n${JSON.stringify(editableOutline, null, 2)}\n\nThe user has provided the following feedback to refine it: "${refinement}"\n\nPlease generate a NEW, updated JSON object that incorporates this feedback. The original footage inventory is still:\n${inventorySummary}\n\nYour response MUST be ONLY the updated JSON object, following this schema: ${schema}.`;
+        const coreInstruction = `Act as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". 
+The user has this footage inventory for specific spots within that location:
+${inventorySummary}
+The user has also specified a role for each location ('Major Feature' or 'Quick Section'). You MUST allocate more time and narrative focus to Major Features and treat Quick Sections as brief, transitional, or supporting segments.
+Based ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`;
+
+        if (isRefinement) { 
+            prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nYou previously generated this JSON outline:\n\n${JSON.stringify(editableOutline, null, 2)}\n\nThe user wants to refine it with this instruction: "${refinement}"\n\nPlease generate a NEW, updated JSON object that incorporates this feedback, keeping the original context in mind:\n${coreInstruction}`;
         } else { 
-            prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\nAct as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". The user has this footage inventory for specific spots within that location:\n${inventorySummary}\nBased ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`; 
+            prompt = `Using the following YouTube knowledge base:\n${knowledgeBase}\n\n${coreInstruction}`; 
         }
         
         try {
@@ -251,7 +272,40 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
                 );
             case 2:
                  const isInventoryComplete = locations.every(loc => Object.values(footageInventory[loc.place_id] || {}).some(v => v === true));
-                 return (<div><h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 3</h2><p className="text-gray-400 mb-6">Log the footage you already have for each location.</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">{locations.map(loc => (<div key={loc.place_id} className="p-4 border border-gray-700 rounded-lg"><p className="font-semibold text-lg text-blue-300">{loc.name}</p><div className="flex flex-col gap-2 mt-2"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={footageInventory[loc.place_id]?.bRoll || false} onChange={() => handleFootageChange(loc.place_id, 'bRoll')} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>B-Roll</label><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={footageInventory[loc.place_id]?.onCamera || false} onChange={() => handleFootageChange(loc.place_id, 'onCamera')} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>On-Camera</label><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={footageInventory[loc.place_id]?.drone || false} onChange={() => handleFootageChange(loc.place_id, 'drone')} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>Drone</label></div></div>))}</div>{!isInventoryComplete && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location.</p>}{error && <p className="text-red-400 mt-4">{error}</p>}<div className="flex justify-between gap-4 mt-6"><button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button><button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button></div></div>);
+                 return (
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 3</h2>
+                        <p className="text-gray-400 mb-6">Log the footage you have and its narrative importance.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+                            {locations.map(loc => {
+                                const inventory = footageInventory[loc.place_id] || {};
+                                return (
+                                    <div key={loc.place_id} className="p-4 border border-gray-700 rounded-lg flex flex-col justify-between">
+                                        <p className="font-semibold text-lg text-blue-300">{loc.name}</p>
+                                        <div className="flex flex-col gap-2 mt-3">
+                                            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.bRoll || false} onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>B-Roll</label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>On-Camera</label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>Drone</label>
+                                        </div>
+                                        <div className="mt-4 pt-4 border-t border-gray-600">
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Location's Role</label>
+                                            <div className="flex gap-2">
+                                                 <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major Feature</button>
+                                                 <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick Section</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {!isInventoryComplete && <p className="text-amber-400 mt-4 text-sm">Pro-tip: Select at least one footage type for each location to give the AI more context.</p>}
+                        {error && <p className="text-red-400 mt-4">{error}</p>}
+                        <div className="flex justify-between gap-4 mt-6">
+                            <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
+                            <button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button>
+                        </div>
+                    </div>
+                 );
             case 3:
                 return (<div><h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 3</h2><p className="text-gray-400 mb-6">Review, edit, and refine the AI-generated outline.</p>{editableOutline ? (<div className="space-y-6 text-left p-4 border border-gray-600 rounded-lg max-h-[60vh] overflow-y-auto pr-2"><div><label className="block text-sm font-medium text-gray-300 mb-1">Playlist Title</label><input name="playlistTitle" value={editableOutline.playlistTitle || ''} onChange={(e) => handleOutlineChange(e, null, 'playlistTitle')} className="w-full editable-field editable-field-title"/><label className="block text-sm font-medium text-gray-300 mb-1 mt-2">Playlist Description</label><textarea name="playlistDescription" value={editableOutline.playlistDescription || ''} onChange={(e) => handleOutlineChange(e, null, 'playlistDescription')} rows="2" className="w-full editable-field editable-field-concept"/></div><div className="border-t border-gray-600 pt-4"><h4 className="font-semibold text-lg mb-2">Proposed Videos:</h4><div className="space-y-4">{editableOutline.videos.map((video, index) => (<div key={index}><label className="block text-sm font-medium text-gray-300 mb-1">Video {index+1} Title</label><input name="title" value={video.title} onChange={(e) => handleOutlineChange(e, index, 'title')} className="w-full editable-field font-semibold"/><label className="block text-sm font-medium text-gray-300 mb-1 mt-2">Video {index+1} Concept</label><textarea name="concept" value={video.concept} onChange={(e) => handleOutlineChange(e, index, 'concept')} rows="2" className="w-full editable-field text-sm"/></div>))}</div></div><div className="mt-4"><label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label><textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the titles more mysterious.' or 'Change video 2 to focus on food.'"/></div></div>) : <LoadingSpinner text="Generating initial outline..." />}{error && <p className="text-red-400 mt-4">{error}</p>}<div className="flex justify-between gap-4 mt-8"><button onClick={() => setStep(2)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button><div className="flex gap-4"><button onClick={() => handleGenerateOrRefineOutline(true)} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🔁 Refine Outline'}</button><button onClick={handleCreateProject} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button></div></div></div>);
         }
