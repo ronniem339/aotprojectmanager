@@ -181,12 +181,12 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             videosData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             setVideos(videosData);
 
-            if (videosData.length > 0 && !activeVideoId) {
-                const firstVideoId = videosData[0].id;
-                setActiveVideoId(firstVideoId);
-                // Set initial state for the first video
-                setFeedbackText(videosData[0].tasks?.feedbackText || '');
-                setPublishDate(videosData[0].tasks?.publishDate || '');
+            // This logic is now safer and only runs when the component first loads
+            if (loading && videosData.length > 0) {
+                const firstVideo = videosData[0];
+                setActiveVideoId(firstVideo.id);
+                setFeedbackText(firstVideo.tasks?.feedbackText || '');
+                setPublishDate(firstVideo.tasks?.publishDate || '');
             }
             setLoading(false);
         }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
@@ -194,7 +194,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         return () => unsubscribe();
     }, [userId, project.id]);
     
-    // This effect now correctly handles switching between videos
+    // This handler explicitly sets the state when you click on a different video
     const handleVideoSelect = (videoId) => {
         const currentVideo = videos.find(v => v.id === videoId);
         if (currentVideo) {
