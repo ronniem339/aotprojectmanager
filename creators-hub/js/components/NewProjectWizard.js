@@ -255,7 +255,7 @@ Your Task:
 Generate a complete project plan as a JSON object.
 -   **playlistTitleSuggestions**: Create 3 diverse, catchy, SEO-friendly titles for the whole series.
 -   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description. Prioritize the SEO knowledge base, then infuse the user's style guide for tone.
--   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), and a 'locations_featured' array listing the focused sub-locations. Give more focus to 'Major Feature' locations.`;
+-   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), and a 'locations_featured' array listing the focused sub-locations. Give more focus to 'Major Feature' locations. The 'locations_featured' array for each video MUST ONLY contain names from the provided list of points of interest. Do NOT add any locations that are not in the list.`;
 
         try {
             const parsedJson = await callGeminiAPI(prompt);
@@ -321,10 +321,12 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
     const handleRefineVideo = async (videoIndex) => {
         setIsLoading(true); setError('');
         const videoToRefine = editableOutline.videos[videoIndex];
+        const subLocationNames = locations.slice(1).map(l => l.name).join(', ');
         const prompt = `A user is planning a YouTube series titled "${finalizedTitle}". You previously suggested this video idea as part of the series:
 Original Video Idea: ${JSON.stringify(videoToRefine)}
 The user has provided this feedback to refine it: "${refinement}"
 Please generate a NEW, updated JSON object for only this video, incorporating the feedback. The overall project context (locations, theme, etc.) remains the same.
+The 'locations_featured' array MUST ONLY contain names from this list of available sub-locations: ${subLocationNames}.
 Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...]}`;
         try {
             const parsedJson = await callGeminiAPI(prompt);
