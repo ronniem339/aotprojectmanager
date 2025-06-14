@@ -181,7 +181,6 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             videosData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             setVideos(videosData);
 
-            // This logic is now safer and only runs when the component first loads
             if (loading && videosData.length > 0) {
                 const firstVideo = videosData[0];
                 setActiveVideoId(firstVideo.id);
@@ -192,9 +191,8 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
 
         return () => unsubscribe();
-    }, [userId, project.id]);
+    }, [userId, project.id, loading]); // `loading` is added to ensure initial setup runs once
     
-    // This handler explicitly sets the state when you click on a different video
     const handleVideoSelect = (videoId) => {
         const currentVideo = videos.find(v => v.id === videoId);
         if (currentVideo) {
@@ -250,7 +248,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                     </div>
                     <div className="md:w-2/3 lg:w-3/4">
                         {activeVideo && <VideoWorkflow 
-                                            key={activeVideo.id} 
+                                            // THE FIX: The key prop is removed from here
                                             video={activeVideo} 
                                             settings={settings} 
                                             project={project} 
