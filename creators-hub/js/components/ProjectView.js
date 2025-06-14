@@ -347,6 +347,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     const [activeVideoId, setActiveVideoId] = useState(null);
     const [editingProject, setEditingProject] = useState(false);
     const [editingVideo, setEditingVideo] = useState(null);
+    const [isDescriptionVisible, setIsDescriptionVisible] = useState(false); // State for description visibility
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
@@ -372,7 +373,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         });
 
         return () => unsubscribe();
-    }, [userId, project.id]);
+    }, [userId, project.id, loading]);
 
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
     
@@ -397,7 +398,12 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
                         </button>
                     </div>
-                    <p className="text-gray-400 mt-1">{project.playlistDescription || ''}</p>
+                    <div className="mt-2">
+                        <button onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} className="text-sm text-blue-400 hover:text-blue-300">
+                             {isDescriptionVisible ? 'Hide' : 'Show'} Description
+                        </button>
+                    </div>
+                    {isDescriptionVisible && <p className="text-gray-400 mt-2 max-w-2xl">{project.playlistDescription || ''}</p>}
                 </div>
             </header>
             
