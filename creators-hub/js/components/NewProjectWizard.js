@@ -207,6 +207,17 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     const handleInventoryChange = (placeId, field, value) => {
         setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [field]: value } }));
     };
+
+    const handleSelectAllFootage = (type, isChecked) => {
+        const newInventory = { ...footageInventory };
+        locations.slice(1).forEach(loc => {
+            if (!newInventory[loc.place_id]) {
+                newInventory[loc.place_id] = { bRoll: false, onCamera: false, drone: false, importance: 'major' };
+            }
+            newInventory[loc.place_id][type] = isChecked;
+        });
+        setFootageInventory(newInventory);
+    };
     
     // --- AI Interaction Functions ---
     const callGeminiAPI = async (prompt) => {
@@ -417,37 +428,56 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                  return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 5</h2>
-                        <p className="text-gray-400 mb-6">Tell us about the specific spots you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>. We've set some smart defaults you can override.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
-                           {subLocations.map(loc => {
-                                const inventory = footageInventory[loc.place_id] || {};
-                                const isCardComplete = inventory.bRoll || inventory.onCamera || inventory.drone;
-                                return (
-                                    <div key={loc.place_id} className={`p-4 border rounded-lg flex flex-col justify-between transition-colors ${isCardComplete ? 'border-gray-700' : 'border-amber-500'}`}>
-                                        <p className="font-semibold text-lg text-blue-300">{loc.name}</p>
-                                        <div className="flex flex-col gap-2 mt-3">
-                                            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.bRoll || false} onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>B-Roll</label>
-                                            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>On-Camera</label>
-                                            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>Drone</label>
-                                        </div>
-                                        <div className="mt-4 pt-4 border-t border-gray-600">
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Location's Role</label>
-                                            <div className="flex gap-2">
-                                                 <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major Feature</button>
-                                                 <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick Section</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                             {locations.length <= 1 && (
-                                <div className="p-4 border border-dashed border-gray-600 rounded-lg text-center text-gray-400 col-span-1 md:col-span-2">
+                        <p className="text-gray-400 mb-6">Log your available footage for each spot you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>.</p>
+                        <div className="max-h-[60vh] overflow-y-auto">
+                           <table className="w-full text-left">
+                               <thead className="bg-gray-800/50 sticky top-0">
+                                   <tr>
+                                       <th className="p-3 text-sm font-semibold">Location</th>
+                                       <th className="p-3 text-sm font-semibold text-center w-24">
+                                            B-Roll
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                       </th>
+                                       <th className="p-3 text-sm font-semibold text-center w-28">
+                                            On-Camera
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                       </th>
+                                       <th className="p-3 text-sm font-semibold text-center w-24">
+                                            Drone
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                       </th>
+                                       <th className="p-3 text-sm font-semibold w-48">Narrative Role</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   {subLocations.map(loc => {
+                                       const inventory = footageInventory[loc.place_id] || {};
+                                       const isCardComplete = inventory.bRoll || inventory.onCamera || inventory.drone;
+                                       return (
+                                           <tr key={loc.place_id} className={`border-b transition-colors ${isCardComplete ? 'border-gray-700' : 'border-amber-500'}`}>
+                                               <td className="p-3 font-semibold text-blue-300">{loc.name}</td>
+                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.bRoll || false} onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/></td>
+                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/></td>
+                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/></td>
+                                               <td className="p-3">
+                                                    <div className="flex gap-1">
+                                                        <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major Feature</button>
+                                                        <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick Section</button>
+                                                    </div>
+                                               </td>
+                                           </tr>
+                                       );
+                                   })}
+                               </tbody>
+                           </table>
+                            {locations.length <= 1 && (
+                                <div className="p-4 border border-dashed border-gray-600 rounded-lg text-center text-gray-400 mt-4">
                                     <p>Add more locations in the previous step to define your specific points of interest.</p>
                                 </div>
                             )}
                         </div>
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                        {!isInventoryComplete && subLocations.length > 0 && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location to continue.</p>}
+                        {!isInventoryComplete && subLocations.length > 0 && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location with an amber border to continue.</p>}
                         <div className="flex justify-between gap-4 mt-6">
                             <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
                             <button onClick={handleGenerateInitialOutline} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>
@@ -571,7 +601,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-4xl">
+            <div className="glass-card rounded-lg p-8 w-full max-w-5xl">
                 {wizardStep()}
                 <button onClick={handleStartOver} className="text-xs text-gray-400 hover:text-red-400 mt-4 absolute bottom-4 left-8">Start Over</button>
             </div>
