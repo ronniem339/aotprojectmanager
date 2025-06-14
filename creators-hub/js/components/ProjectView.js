@@ -53,6 +53,7 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [generating, setGenerating] = useState(null);
     const [scriptContent, setScriptContent] = useState(video.script || '');
     const [refinementText, setRefinementText] = useState('');
+    const [isConceptVisible, setIsConceptVisible] = useState(false); // State for video concept visibility
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -60,6 +61,7 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || '');
         setScriptContent(video.script || '');
+        setIsConceptVisible(false); // Reset on video change
     }, [video.id, video.script]);
 
     const updateTask = async (taskName, status, extraData = {}) => {
@@ -142,8 +144,15 @@ IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for 
     return (
         <div className="space-y-3">
              <div className="glass-card p-6 rounded-lg mb-6">
-                <h3 className="text-2xl font-bold text-blue-300 mb-3">{video.chosenTitle || video.title}</h3>
-                <p className="text-gray-300 mb-4">{video.concept || <span className="italic text-gray-500">No concept provided for this video.</span>}</p>
+                <div className="flex justify-between items-start">
+                    <h3 className="text-2xl font-bold text-blue-300 mb-3">{video.chosenTitle || video.title}</h3>
+                    <button onClick={() => setIsConceptVisible(!isConceptVisible)} className="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0 ml-4">
+                        {isConceptVisible ? 'Hide Concept' : 'Show Concept'}
+                    </button>
+                </div>
+                
+                {isConceptVisible && <p className="text-gray-300 mb-4">{video.concept || <span className="italic text-gray-500">No concept provided for this video.</span>}</p>}
+                
                 <div className="space-y-3 pt-4 border-t border-gray-700">
                     <div>
                         <span className="text-xs font-semibold text-gray-400 block mb-2">LOCATIONS FEATURED:</span>
@@ -429,7 +438,7 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     useEffect(() => {
         if (!userId || !project?.id) return;
         
-        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
+        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             let videosData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -449,7 +458,6 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
                 });
                 batch.commit().then(() => {
                     console.log("Video order migration completed successfully.");
-                    // No need to re-fetch, the listener will do it.
                 }).catch(err => {
                     console.error("Video order migration failed:", err);
                 });
