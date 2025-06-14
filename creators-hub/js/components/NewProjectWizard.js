@@ -32,44 +32,50 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         };
         const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        // This is the corrected keyboard handler for rapid-fire input.
+        // This is the robust keyboard handler for rapid-fire input.
         const handleKeyDown = (e) => {
             // We only care about the 'Enter' key.
             if (e.key === 'Enter' && !e.defaultPrevented) {
-                // Check if the suggestions dropdown is visible.
-                const pacContainer = document.querySelector('.pac-container');
-                if (pacContainer && pacContainer.offsetParent !== null) {
-                    
-                    // Prevent the default 'Enter' action (e.g., form submission).
-                    e.preventDefault();
+                
+                // Prevent the default 'Enter' action (e.g., form submission) immediately.
+                // This is crucial to stop the browser from submitting a form if one exists.
+                e.preventDefault();
 
-                    // Dispatch an 'ArrowDown' event. This is what the Google widget
-                    // listens for to highlight the first item in the list.
-                    const downArrowEvent = new KeyboardEvent('keydown', {
-                        key: 'ArrowDown',
-                        code: 'ArrowDown',
-                        keyCode: 40,
-                        which: 40,
-                        bubbles: true,
-                        cancelable: true,
-                    });
-                    inputRef.current.dispatchEvent(downArrowEvent);
-
-                    // A brief delay is crucial. It gives the Google widget's internal
-                    // state time to update and register the highlight before we
-                    // programmatically "press" Enter to confirm the selection.
-                    setTimeout(() => {
-                        const enterEvent = new KeyboardEvent('keydown', {
-                           key: 'Enter',
-                           code: 'Enter',
-                           keyCode: 13,
-                           which: 13,
-                           bubbles: true,
-                           cancelable: true,
+                // This timeout gives the Google Places widget a moment to populate its
+                // suggestions dropdown after the user types. This helps prevent race conditions.
+                setTimeout(() => {
+                    const pacContainer = document.querySelector('.pac-container');
+                    // Check if the container is visible and has at least one suggestion item.
+                    if (pacContainer && pacContainer.offsetParent !== null && pacContainer.querySelector('.pac-item')) {
+                        
+                        // Dispatch an 'ArrowDown' event. This programmatically highlights
+                        // the first item in the suggestions list, just as a user would.
+                        const downArrowEvent = new KeyboardEvent('keydown', {
+                            key: 'ArrowDown',
+                            code: 'ArrowDown',
+                            keyCode: 40,
+                            which: 40,
+                            bubbles: true,
+                            cancelable: true,
                         });
-                        inputRef.current.dispatchEvent(enterEvent);
-                    }, 150); // Using 150ms for added reliability on slower connections.
-                }
+                        inputRef.current.dispatchEvent(downArrowEvent);
+
+                        // This second, nested timeout is critical. It gives the widget time
+                        // to process the 'ArrowDown' event and update its internal state
+                        // to register the highlight. Only then can we select it.
+                        setTimeout(() => {
+                            const enterEvent = new KeyboardEvent('keydown', {
+                               key: 'Enter',
+                               code: 'Enter',
+                               keyCode: 13,
+                               which: 13,
+                               bubbles: true,
+                               cancelable: true,
+                            });
+                            inputRef.current.dispatchEvent(enterEvent);
+                        }, 100); // 100ms is a safe delay for this.
+                    }
+                }, 50); // 50ms is a brief wait for suggestions to appear.
             }
         };
 
