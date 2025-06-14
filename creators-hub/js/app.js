@@ -162,12 +162,13 @@ function App() {
         const prompt = `You are a professional YouTube producer tasked with analyzing an imported, partially complete project.
 The user has provided the following data:
 - Playlist Title: "${projectData.playlistTitle}"
-- Playlist Description: "${projectData.playlistDescription || 'Not provided'}"
+- Overall Project Plan/Concept: "${projectData.projectOutline || 'Not provided'}"
+- Existing Playlist Description: "${projectData.playlistDescription || 'Not provided'}"
 - Existing Videos: ${JSON.stringify(projectData.videos, null, 2)}
 
 Your task is to analyze this data and generate a complete project plan to help the user finish their series.
 1.  **Analyze and Improve Playlist Title**: Based on the provided title and video concepts, generate 3 improved, SEO-friendly title suggestions. The first suggestion should be the user's original title if it's strong, or an improved version of it.
-2.  **Analyze and Improve Playlist Description**: If the user's description is short or missing, write a new, long-form (300-400 words) SEO-optimized description based on all the video concepts. If the description is already good, refine it slightly for better SEO and to match the user's style guide. Prioritize the SEO knowledge base, then infuse the style guide for tone.
+2.  **Analyze and Improve Playlist Description**: Synthesize information from the "Overall Project Plan/Concept" and the "Existing Playlist Description". Use this synthesis to create a single, new, long-form (300-400 words) SEO-optimized description. If one field is empty, rely on the other. If both are empty, create a description from the video concepts. Prioritize the SEO knowledge base, then infuse the user's style guide for tone.
 3.  **Complete the Video Series**: Analyze the existing videos. If it seems like a complete series, return them as is. If there are obvious gaps (e.g., a missing introduction or conclusion), suggest 1-2 new video ideas to make the series feel complete.
 4.  **Return a JSON object**: Your entire response MUST be a single, valid JSON object with the following structure: { "playlistTitleSuggestions": ["..."], "playlistDescription": "...", "videos": [{"title": "...", "concept": "...", "script": "...", "estimatedLengthMinutes": "8-10", "locations_featured": [], "targeted_keywords": []}] }`;
         
@@ -184,13 +185,15 @@ Your task is to analyze this data and generate a complete project plan to help t
             const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
             
             if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
-                // Set the project draft with the AI's analysis and start the wizard at the refinement stage
+                // **FIXED LOGIC HERE**
+                // Structure the draft correctly so the wizard can read it.
+                // The AI response is nested inside the 'editableOutline' property.
                 setProjectDraft({
-                    ...parsedJson,
                     step: 4, // Start at "Refine Title"
-                    // Carry over some initial inputs for context, though they aren't used for generation
-                    inputs: { location: projectData.playlistTitle, theme: '' },
-                    locations: [],
+                    editableOutline: parsedJson, // This is the key change
+                    // Carry over some initial inputs for context
+                    inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
+                    locations: [], // No locations for imported projects
                     footageInventory: {}
                 });
                 setCurrentView('dashboard'); // Go back to dashboard view
@@ -231,7 +234,7 @@ Your task is to analyze this data and generate a complete project plan to help t
     return (
         <div className="min-h-screen bg-gray-900">
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => setShowNewProjectWizard(false)} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
+            {showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
             {projectToDelete && <DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             {showProjectSelection && <ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} />}
             <main>
