@@ -185,17 +185,15 @@ Your task is to analyze this data and generate a complete project plan to help t
             const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
             
             if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
-                // Set the project draft with the AI's analysis and start the wizard at the refinement stage
                 setProjectDraft({
-                    step: 4, // Start at "Refine Title"
+                    step: 4, 
                     editableOutline: parsedJson,
-                    // Carry over some initial inputs for context
                     inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
-                    locations: [], // No locations for imported projects
+                    locations: [], 
                     footageInventory: {}
                 });
-                setCurrentView('dashboard'); // Go back to dashboard view
-                setShowNewProjectWizard(true); // Open the wizard
+                setCurrentView('dashboard'); 
+                setShowNewProjectWizard(true);
             } else {
                 throw new Error("AI returned an invalid project plan. Please check the imported data and try again.");
             }
