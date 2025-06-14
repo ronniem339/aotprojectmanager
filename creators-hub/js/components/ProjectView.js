@@ -1,7 +1,7 @@
 // js/components/ProjectView.js
 
 const VideoWorkflow = ({ video, settings, project, userId, feedbackText, setFeedbackText, publishDate, setPublishDate }) => {
-    // State is now managed by the parent ProjectView component.
+    // State is now correctly managed by the parent ProjectView component.
     // This component receives the state and setter functions as props.
     const [generating, setGenerating] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -192,14 +192,16 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
         return () => unsubscribe();
     }, [userId, project.id]);
     
-    // Effect to update the local state when the active video changes
+    // THIS IS THE FIX: This effect now ONLY runs when the activeVideoId changes.
+    // It no longer depends on the `videos` array, which was causing the re-renders
+    // and resetting the input fields.
     useEffect(() => {
         const currentVideo = videos.find(v => v.id === activeVideoId);
         if (currentVideo) {
             setFeedbackText(currentVideo.tasks?.feedbackText || '');
             setPublishDate(currentVideo.tasks?.publishDate || '');
         }
-    }, [activeVideoId, videos]);
+    }, [activeVideoId]);
 
     const activeVideo = videos.find(v => v.id === activeVideoId);
     
