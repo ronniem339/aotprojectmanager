@@ -106,10 +106,17 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        const firebaseConfig = JSON.parse(firebaseConfigStr);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'creators-hub-default';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyDMyKgfdFF55V8OKp_1u684IWeWkpWtQNA",
+          authDomain: "aot-project-manager.firebaseapp.com",
+          projectId: "aot-project-manager",
+          storageBucket: "aot-project-manager.appspot.com",
+          messagingSenderId: "732535263997",
+          appId: "1:732535263997:web:c9281e5696b8830f0f6494"
+        };
+        const appId = 'creators-hub-deploy'; // Custom App ID for deployment
+        const initialAuthToken = null; // No initial token for public deployment
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -178,6 +185,60 @@
             const handleChange = (e) => { const { name, value } = e.target; setLocalSettings(prev => ({...prev, [name]: value})); };
             return (<div className="p-8"><button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6">⬅️ Back to Dashboard</button><h1 className="text-4xl font-bold mb-4">Technical Settings</h1><p className="text-gray-400 mb-8">Manage your API keys here.</p><div className="space-y-6"><div><label className="block text-sm font-medium text-gray-300 mb-2">Your Gemini API Key</label><input type="password" name="geminiApiKey" value={localSettings.geminiApiKey || ''} onChange={handleChange} className="w-full form-input" placeholder="Enter your Gemini API Key"/></div><div><label className="block text-sm font-medium text-gray-300 mb-2">Your Google Maps API Key</label><input type="password" name="googleMapsApiKey" value={localSettings.googleMapsApiKey || ''} onChange={handleChange} className="w-full form-input" placeholder="Enter your Google Maps API Key (for location search)"/></div></div><div className="mt-8 text-right"><button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save Keys</button></div></div>);
         };
+        const ProjectView = ({ project, userId, onBack, settings }) => {
+            const [videos, setVideos] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [activeVideoId, setActiveVideoId] = useState(null);
+            
+            useEffect(() => {
+                if (!userId || !project?.id) return;
+                const videosCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
+                const q = query(videosCollectionRef);
+                const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                    const videosData = [];
+                    querySnapshot.forEach((doc) => { videosData.push({ id: doc.id, ...doc.data() }); });
+                    setVideos(videosData);
+                    if (videosData.length > 0 && !activeVideoId) {
+                        setActiveVideoId(videosData[0].id);
+                    }
+                    setLoading(false);
+                }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
+                return () => unsubscribe();
+            }, [userId, project.id, activeVideoId]);
+
+            const activeVideo = videos.find(v => v.id === activeVideoId);
+
+            return (
+                <div className="p-4 md:p-8">
+                    <button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6">⬅️ Back to Dashboard</button>
+                    <div className="mb-8 p-4 glass-card">
+                        <h2 className="text-2xl font-bold text-blue-300">{project.playlistTitle || project.title}</h2>
+                        <p className="mt-2 text-gray-300 whitespace-pre-wrap">{project.playlistDescription || ''}</p>
+                    </div>
+                    {loading ? <LoadingSpinner/> : (
+                         <div className="flex flex-col md:flex-row gap-8">
+                            <div className="md:w-1/4">
+                                <h3 className="text-xl font-semibold mb-4">Videos</h3>
+                                <div className="space-y-2">
+                                    {videos.map(video => (
+                                        <button 
+                                            key={video.id} 
+                                            onClick={() => setActiveVideoId(video.id)}
+                                            className={`w-full text-left p-3 rounded-lg transition-colors ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                                        >
+                                            {video.chosenTitle || video.title}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="md:w-3/4">
+                                {activeVideo && <VideoProductionModule key={activeVideo.id} video={activeVideo} settings={settings} project={project} userId={userId} />}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
         const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
             const [locations, setLocations] = useState(existingLocations);
             const autocompleteInput = useRef(null);
@@ -244,7 +305,7 @@
                 setIsLoading(true); setError('');
                 const inventorySummary = locations.map(loc => { const types = []; if (footageInventory[loc.place_id]?.bRoll) types.push("B-Roll"); if (footageInventory[loc.place_id]?.onCamera) types.push("On-camera segments"); if (footageInventory[loc.place_id]?.drone) types.push("Drone footage"); return `- ${loc.name}: ${types.join(', ')}`; }).join('\n');
                 let prompt;
-                const schema = `{ "playlistTitle": "A catchy, SEO-friendly title for the entire video series/playlist.", "playlistDescription": "A compelling 2-3 sentence description for the playlist.", "videos": [ { "title": "Title for Video 1", "concept": "A brief concept for the first video, referencing available footage." }, { "title": "Title for Video 2", "concept": "A brief concept for the second video." }, { "title": "Title for Video 3", "concept": "A brief concept for the third video." } ] }`;
+                const schema = `{ "playlistTitle": "...", "playlistDescription": "...", "videos": [ { "title": "...", "concept": "..." } ] }`;
                 if(isRefinement) { prompt = `Using the following YouTube knowledge base:\n${YOUTUBE_SEO_KNOWLEDGE_BASE}\n\nYou previously generated the following JSON outline:\n\n${JSON.stringify(editableOutline, null, 2)}\n\nThe user has provided the following feedback to refine it: "${refinement}"\n\nPlease generate a NEW, updated JSON object that incorporates this feedback. The original footage inventory is still:\n${inventorySummary}\n\nYour response MUST be ONLY the updated JSON object, following this schema: ${schema}.`;
                 } else { prompt = `Using the following YouTube knowledge base:\n${YOUTUBE_SEO_KNOWLEDGE_BASE}\n\nAct as a professional YouTube video producer. Create a project plan for a video series about "${inputs.location}". The overarching theme is: "${inputs.theme}". The user has this footage inventory:\n${inventorySummary}\nBased ONLY on this information, create an intelligent project outline. Your response MUST be a valid JSON object with NO other text before or after it, following this schema: ${schema}`; }
                 try {
