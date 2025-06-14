@@ -2,6 +2,7 @@
 
 const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
     const [playlistTitle, setPlaylistTitle] = useState('');
+    const [projectOutline, setProjectOutline] = useState('');
     const [playlistDescription, setPlaylistDescription] = useState('');
     const [videos, setVideos] = useState([{ title: '', concept: '', script: '' }]);
 
@@ -28,6 +29,7 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
         }
         const projectData = {
             playlistTitle,
+            projectOutline,
             playlistDescription,
             videos,
         };
@@ -61,13 +63,23 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
                         />
                     </div>
                     <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Playlist Description</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Overall Project Plan / Concept <span className="text-gray-400">(Optional)</span></label>
+                        <textarea
+                            value={projectOutline}
+                            onChange={(e) => setProjectOutline(e.target.value)}
+                            rows="4"
+                            className="w-full form-textarea"
+                            placeholder="Provide a brief outline or concept for the entire video series."
+                        ></textarea>
+                    </div>
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Existing Playlist Description <span className="text-gray-400">(Optional)</span></label>
                         <textarea
                             value={playlistDescription}
                             onChange={(e) => setPlaylistDescription(e.target.value)}
                             rows="5"
                             className="w-full form-textarea"
-                            placeholder="Paste the overall description for the playlist here"
+                            placeholder="If you have a full playlist description already written, paste it here."
                         ></textarea>
                     </div>
                 </div>
