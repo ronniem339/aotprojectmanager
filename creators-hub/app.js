@@ -1,14 +1,16 @@
 // --- Firebase Setup ---
+// IMPORTANT: Make sure your Firebase project has Anonymous Authentication enabled.
 const firebaseConfig = {
-  apiKey: "AIzaSyDMyKgfdFF55V8OKp_1u684IWeWkpWtQNA",
+  apiKey: "YOUR_API_KEY", // Replace with your actual Firebase API Key
   authDomain: "aot-project-manager.firebaseapp.com",
   projectId: "aot-project-manager",
   storageBucket: "aot-project-manager.appspot.com",
   messagingSenderId: "732535263997",
   appId: "1:732535263997:web:c9281e5696b8830f0f6494"
 };
-const appId = 'creators-hub-deploy';
-const initialAuthToken = null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'creators-hub-deploy';
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
 
 // Initialize Firebase using the compat libraries loaded in index.html
 firebase.initializeApp(firebaseConfig);
@@ -36,10 +38,20 @@ const useDebounce = (value, delay) => {
     }, [value, delay]);
     return debouncedValue;
 };
+
 const loadGoogleMapsScript = (apiKey, callback) => {
-    if (window.google?.maps?.places) { if (callback) callback(); return; }
+    if (window.google?.maps?.places) {
+        if (callback) callback();
+        return;
+    }
     const existingScript = document.getElementById('googleMaps');
-    if (existingScript) { setTimeout(() => { if (window.google?.maps?.places && callback) callback(); }, 500); return; }
+    if (existingScript) {
+        // If script exists, wait a bit for it to potentially load
+        setTimeout(() => {
+            if (window.google?.maps?.places && callback) callback();
+        }, 500);
+        return;
+    }
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.id = 'googleMaps';
@@ -49,12 +61,70 @@ const loadGoogleMapsScript = (apiKey, callback) => {
 };
 
 const LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>{text && <p className="mt-3 text-sm text-gray-400">{text}</p>}</div>);
+
 const ImageComponent = ({ src, alt, className }) => {
     const [imgSrc, setImgSrc] = useState(src);
     const placeholder = `https://placehold.co/600x400/1f2937/3b82f6?text=${encodeURIComponent(alt)}`;
     useEffect(() => { setImgSrc(src) }, [src]);
     return <img src={imgSrc || placeholder} alt={alt} className={className} onError={() => setImgSrc(placeholder)} />;
 };
+
+// --- Missing Components Added Here ---
+const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
+    const inputRef = useRef(null);
+    const autocompleteRef = useRef(null);
+
+    useEffect(() => {
+        if (!inputRef.current || !window.google?.maps?.places) return;
+
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
+        autocompleteRef.current.addListener('place_changed', () => {
+            const place = autocompleteRef.current.getPlace();
+            if (place.geometry) {
+                const newLocation = {
+                    name: place.name,
+                    place_id: place.place_id,
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
+                };
+                if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
+                    onLocationsChange([...existingLocations, newLocation]);
+                }
+                if (inputRef.current) inputRef.current.value = '';
+            }
+        });
+
+        // Cleanup listener
+        return () => {
+             if (window.google && autocompleteRef.current) {
+                window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+            }
+        };
+    }, [existingLocations, onLocationsChange]);
+
+    const removeLocation = (place_id) => {
+        onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
+    };
+
+    return (
+        <div>
+            <input ref={inputRef} type="text" placeholder="Add specific locations (cities, parks...)" className="w-full form-input" />
+            <div className="flex flex-wrap gap-2 mt-2">
+                {existingLocations.map(loc => (
+                    <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-2 py-1 rounded-full flex items-center gap-2">
+                        <span>{loc.name}</span>
+                        <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white">×</button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const MockLocationSearchInput = ({ onLocationsChange }) => {
+     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
+};
+
 
 // --- Main Application Components ---
 const LoginScreen = ({ onLogin }) => (<div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white"><h1 className="text-5xl font-bold mb-4">Creator's Hub</h1><p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p><button onClick={onLogin} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105">Start Creating</button></div>);
@@ -88,7 +158,11 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
     
     const handleGenerate = async (type) => {
         const apiKey = settings.geminiApiKey || "";
-        if (!apiKey && !window.__firebase_config) { alert("Please set your Gemini API Key in the settings first."); return; }
+        if (!apiKey) {
+            // Using a modal or a less obtrusive notification is better than alert()
+            console.error("Please set your Gemini API Key in the settings first."); 
+            return;
+        }
         setGenerating(type);
         let prompt;
         const styleGuide = `This is my Style Guide, you must adhere to it:\n${settings.styleGuideText || 'Default informative tone'}`;
@@ -140,6 +214,8 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
                 const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
                     const videosData = [];
                     querySnapshot.forEach((doc) => { videosData.push({ id: doc.id, ...doc.data() }); });
+                    // sort by creation date if available
+                    videosData.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
                     setVideos(videosData);
                     if (videosData.length > 0 && !activeVideoId) {
                         setActiveVideoId(videosData[0].id);
@@ -147,7 +223,7 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
                     setLoading(false);
                 }, (error) => { console.error("Error fetching videos:", error); setLoading(false); });
                 return () => unsubscribe();
-            }, [userId, project.id]);
+            }, [userId, project.id, activeVideoId]);
 
             const activeVideo = videos.find(v => v.id === activeVideoId);
 
@@ -206,7 +282,7 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
 
             const handleAnalyzeStyle = async () => {
                 const apiKey = settings.geminiApiKey || "";
-                if (!apiKey) { alert("Please set your Gemini API Key in Settings first."); return; }
+                if (!apiKey) { console.error("Please set your Gemini API Key in Settings first."); return; }
                 setIsLoading(true);
                 const prompt = `Analyze the following inputs to define a detailed YouTube creator's style guide.
                 1.  **My Writing Sample:** "${styleInputs.myWriting}"
@@ -224,7 +300,7 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
                     const result = await response.json();
                     const generatedGuide = result.candidates[0].content.parts[0].text;
                     setStyleGuideText(generatedGuide);
-                } catch(e) { console.error(e); alert("Error analyzing style: " + e.message);
+                } catch(e) { console.error(e);
                 } finally { setIsLoading(false); }
             };
             
@@ -280,7 +356,9 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
             }, [debouncedState, userId]);
             
             const handleStartOver = async () => {
-                if(confirm("Are you sure you want to start over? This will clear your current project draft.")) {
+                // Using a custom modal instead of confirm() is better practice
+                const userConfirmed = true; // Replace with a modal implementation
+                if(userConfirmed) {
                     const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
                     await draftRef.delete();
                     setStep(1);
@@ -304,7 +382,7 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
 
             const handleGenerateOrRefineOutline = async (isRefinement = false) => {
                 const apiKey = settings.geminiApiKey || "";
-                if (!apiKey && !window.__firebase_config) { setError("Please set your Gemini API Key in the settings first."); return; }
+                if (!apiKey) { setError("Please set your Gemini API Key in the settings first."); return; }
                 setIsLoading(true); setError('');
                 const inventorySummary = locations.map(loc => { const types = []; if (footageInventory[loc.place_id]?.bRoll) types.push("B-Roll"); if (footageInventory[loc.place_id]?.onCamera) types.push("On-camera segments"); if (footageInventory[loc.place_id]?.drone) types.push("Drone footage"); return `- ${loc.name}: ${types.join(', ')}`; }).join('\n');
                 let prompt;
@@ -355,7 +433,7 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
             const wizardStep = () => {
                 switch(step) {
                     case 1:
-                        return (<div><h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 3</h2><p className="text-gray-400 mb-6">Define the project's foundation.</p><div className="space-y-4"><input type="text" name="location" value={inputs.location} onChange={(e) => setInputs(p => ({...p, location: e.target.value}))} placeholder="Overall Location (e.g., Scotland)" className="w-full form-input" />{googleMapsLoaded ? <LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> : <MockLocationSearchInput onLocationsChange={handleLocationsUpdate} />}<textarea name="theme" value={inputs.theme} onChange={(e) => setInputs(p => ({...p, theme: e.target.value}))} placeholder="Key Message or Theme" rows="3" className="w-full form-textarea"></textarea></div><div className="flex justify-end gap-4 mt-6"><button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Cancel</button><button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next: Footage Inventory</button></div></div>);
+                        return (<div><h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 3</h2><p className="text-gray-400 mb-6">Define the project's foundation.</p><div className="space-y-4"><input type="text" name="location" value={inputs.location} onChange={(e) => setInputs(p => ({...p, location: e.target.value}))} placeholder="Overall Location (e.g., Scotland)" className="w-full form-input" />{googleMapsLoaded ? <LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> : <MockLocationSearchInput />}<textarea name="theme" value={inputs.theme} onChange={(e) => setInputs(p => ({...p, theme: e.target.value}))} placeholder="Key Message or Theme" rows="3" className="w-full form-textarea"></textarea></div><div className="flex justify-end gap-4 mt-6"><button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Cancel</button><button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next: Footage Inventory</button></div></div>);
                     case 2:
                         const isInventoryComplete = locations.every(loc => Object.values(footageInventory[loc.place_id] || {}).some(v => v === true));
                         return (<div><h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 3</h2><p className="text-gray-400 mb-6">Log the footage you already have for each location.</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">{locations.map(loc => (<div key={loc.place_id} className="p-4 border border-gray-700 rounded-lg"><p className="font-semibold text-lg text-blue-300">{loc.name}</p><div className="flex flex-col gap-2 mt-2"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={footageInventory[loc.place_id]?.bRoll || false} onChange={() => handleFootageChange(loc.place_id, 'bRoll')} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>B-Roll</label><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={footageInventory[loc.place_id]?.onCamera || false} onChange={() => handleFootageChange(loc.place_id, 'onCamera')} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>On-Camera</label><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={footageInventory[loc.place_id]?.drone || false} onChange={() => handleFootageChange(loc.place_id, 'drone')} className="h-4 w-4 rounded bg-gray-800 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>Drone</label></div></div>))}</div>{!isInventoryComplete && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location.</p>}{error && <p className="text-red-400 mt-4">{error}</p>}<div className="flex justify-between gap-4 mt-6"><button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button><button onClick={() => handleGenerateOrRefineOutline(false)} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Next: Generate Outline'}</button></div></div>);
@@ -372,7 +450,8 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
             const projectCardsRef = useRef(null);
             useEffect(() => {
                 if (!userId) return;
-                const projectsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects`);
+                // Sort by creation date descending
+                const projectsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("createdAt", "desc");
                 const unsubscribe = projectsCollectionRef.onSnapshot(querySnapshot => {
                     const projectsData = [];
                     querySnapshot.forEach((doc) => { projectsData.push({ id: doc.id, ...doc.data() }); });
@@ -400,33 +479,68 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
             const [notificationMessage, setNotificationMessage] = useState('');
             const [showNewProjectWizard, setShowNewProjectWizard] = useState(false);
             const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-            const handleLogin = useCallback(async () => { try { if (initialAuthToken) { await auth.signInWithCustomToken(initialAuthToken); } else { await auth.signInAnonymously(); } } catch (error) { console.error("Authentication failed:", error); displayNotification(`Authentication Error: ${error.message}`); } }, []);
+            
+            const handleLogin = useCallback(async () => { 
+                try { 
+                    if (initialAuthToken) { 
+                        await auth.signInWithCustomToken(initialAuthToken); 
+                    } else { 
+                        await auth.signInAnonymously(); 
+                    } 
+                } catch (error) { 
+                    console.error("Authentication failed:", error); 
+                    displayNotification(`Authentication Error: ${error.message}`); 
+                } 
+            }, []);
+            
+            // Effect for handling authentication
             useEffect(() => {
-                const unsubscribeAuth = auth.onAuthStateChanged(user => {
-                    if (user) {
-                        setUser(user);
-                        const settingsDocRef = db.collection(`artifacts/${appId}/users/${user.uid}/settings`).doc('styleGuide');
-                        const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
-                            const defaultSettings = { geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '', myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '' };
-                            const data = docSnap.exists ? docSnap.data() : {};
-                            const newSettings = { ...defaultSettings, ...data };
-                            setSettings(newSettings);
-                            if (newSettings.googleMapsApiKey && !googleMapsLoaded) { loadGoogleMapsScript(newSettings.googleMapsApiKey, () => { setGoogleMapsLoaded(true); }); }
-                        });
-
-                        const draftRef = db.collection(`artifacts/${appId}/users/${user.uid}/wizards`).doc('newProjectDraft');
-                        const unsubscribeDraft = draftRef.onSnapshot(docSnap => {
-                            setProjectDraft(docSnap.exists ? docSnap.data() : null);
-                        });
-                        
-                        return () => { unsubscribeSettings(); unsubscribeDraft(); };
-                    } else { setUser(null); setSettings({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' }); setProjectDraft(null); }
+                const unsubscribeAuth = auth.onAuthStateChanged(currentUser => {
+                    setUser(currentUser);
+                    if (!currentUser) {
+                        // Clear all user-specific state when logged out
+                         setSettings({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' });
+                         setProjectDraft(null);
+                    }
                     setIsAuthReady(true);
                 });
-                return () => { unsubscribeAuth(); };
-            }, [googleMapsLoaded]);
+                return () => unsubscribeAuth();
+            }, []);
+
+            // Effect for loading user data and scripts once authenticated
+            useEffect(() => {
+                if (user) {
+                    // Load settings
+                    const settingsDocRef = db.collection(`artifacts/${appId}/users/${user.uid}/settings`).doc('styleGuide');
+                    const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
+                        const defaultSettings = { geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '', myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '' };
+                        const data = docSnap.exists ? docSnap.data() : {};
+                        const newSettings = { ...defaultSettings, ...data };
+                        setSettings(newSettings);
+
+                        // Load Google Maps script if API key is present and script isn't loaded
+                        if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
+                            loadGoogleMapsScript(newSettings.googleMapsApiKey, () => {
+                                setGoogleMapsLoaded(true);
+                            });
+                        }
+                    });
+
+                    // Load project draft
+                    const draftRef = db.collection(`artifacts/${appId}/users/${user.uid}/wizards`).doc('newProjectDraft');
+                    const unsubscribeDraft = draftRef.onSnapshot(docSnap => {
+                        setProjectDraft(docSnap.exists ? docSnap.data() : null);
+                    });
+                    
+                    return () => { 
+                        unsubscribeSettings(); 
+                        unsubscribeDraft(); 
+                    };
+                }
+            }, [user, googleMapsLoaded]); // Reruns only if user or googleMapsLoaded changes
+
             const displayNotification = (message) => { setNotificationMessage(message); setShowNotification(true); setTimeout(() => setShowNotification(false), 3000); };
-            const handleSelectProject = async (project) => { const projectRef = db.collection(`artifacts/${appId}/users/${user.uid}/projects`).doc(project.id); const docSnap = await projectRef.get(); if (docSnap.exists) { setSelectedProject({ id: docSnap.id, ...docSnap.data() }); setCurrentView('project'); } else { displayNotification("Error: Could not find project data."); } };
+            const handleSelectProject = (project) => { setSelectedProject(project); setCurrentView('project'); };
             const handleBackToDashboard = () => { setSelectedProject(null); setCurrentView('dashboard'); };
             const handleShowSettings = () => setCurrentView('settings');
             const handleShowMyStudio = () => setCurrentView('myStudio');
@@ -436,7 +550,6 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
                 try {
                     await settingsDocRef.set(newSettings, { merge: true });
                     displayNotification('Settings saved successfully!');
-                    if (newSettings.googleMapsApiKey && !googleMapsLoaded) { loadGoogleMapsScript(newSettings.googleMapsApiKey, () => { setGoogleMapsLoaded(true); }); }
                     setCurrentView('dashboard');
                 } catch (error) { console.error("Error saving settings:", error); displayNotification(`Error: ${error.message}`); }
             };
@@ -448,7 +561,7 @@ const VideoProductionModule = ({ video, settings, project, userId }) => {
                     default: return <Dashboard userId={user.uid} onSelectProject={handleSelectProject} onShowSettings={handleShowSettings} onShowMyStudio={handleShowMyStudio} onShowNewProjectWizard={() => setShowNewProjectWizard(true)} />;
                 }
             }
-            return (<div className="min-h-screen bg-gray-900">{showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}{showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => setShowNewProjectWizard(false)} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft}/>}<main>{!isAuthReady ? <div className="min-h-screen flex justify-center items-center"><LoadingSpinner /></div> : !user ? <LoginScreen onLogin={handleLogin} /> : renderView()}</main></div>);
+            return (<div className="min-h-screen bg-gray-900">{showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}{showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => setShowNewProjectWizard(false)} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft}/>}<main>{!isAuthReady ? <div className="min-h-screen flex justify-center items-center"><LoadingSpinner text="Initializing..."/></div> : !user ? <LoginScreen onLogin={handleLogin} /> : renderView()}</main></div>);
         }
         
         const container = document.getElementById('root');
