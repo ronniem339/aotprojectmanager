@@ -11,6 +11,7 @@ function App() {
     const [notificationMessage, setNotificationMessage] = useState('');
     const [showNewProjectWizard, setShowNewProjectWizard] = useState(false);
     const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+    const [projectToDelete, setProjectToDelete] = useState(null); // State for delete confirmation
 
     const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
 
@@ -57,14 +58,10 @@ function App() {
                     youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE
                 };
                 const data = docSnap.exists ? docSnap.data() : {};
-                // If the user has saved an empty string for the knowledge base, we don't want to overwrite it with the default.
-                // So we check if the property exists in their saved data. If not, THEN we use the default.
                 if (data.youtubeSeoKnowledgeBase === undefined) {
                     data.youtubeSeoKnowledgeBase = defaultSettings.youtubeSeoKnowledgeBase;
                 }
-                
                 const newSettings = { ...defaultSettings, ...data };
-
                 setSettings(newSettings);
 
                 if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
@@ -117,6 +114,38 @@ function App() {
             displayNotification(`Error: ${error.message}`);
         }
     };
+    
+    const handleShowDeleteConfirm = (project) => {
+        setProjectToDelete(project);
+    };
+    
+    const handleConfirmDelete = async (projectId) => {
+        if (!user || !projectId) return;
+
+        const projectRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
+        const videosCollectionRef = projectRef.collection('videos');
+        
+        try {
+            // Firestore doesn't support deleting subcollections directly from the client.
+            // We must delete all documents within the subcollection first.
+            const videoSnapshot = await videosCollectionRef.get();
+            const batch = db.batch();
+            videoSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            // Now that the subcollection is empty, delete the main project document.
+            await projectRef.delete();
+            
+            displayNotification('Project deleted successfully.');
+            setProjectToDelete(null); // Close the modal
+        } catch (error) {
+            console.error("Error deleting project:", error);
+            displayNotification(`Error: ${error.message}`);
+        }
+    };
+
 
     const renderView = () => {
         switch (currentView) {
@@ -127,7 +156,14 @@ function App() {
             case 'myStudio':
                 return <MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
             default:
-                return <Dashboard userId={user.uid} onSelectProject={handleSelectProject} onShowSettings={handleShowSettings} onShowMyStudio={handleShowMyStudio} onShowNewProjectWizard={() => setShowNewProjectWizard(true)} />;
+                return <Dashboard 
+                            userId={user.uid} 
+                            onSelectProject={handleSelectProject} 
+                            onShowSettings={handleShowSettings} 
+                            onShowMyStudio={handleShowMyStudio} 
+                            onShowNewProjectWizard={() => setShowNewProjectWizard(true)}
+                            onShowDeleteConfirm={handleShowDeleteConfirm}
+                        />;
         }
     }
 
@@ -135,6 +171,7 @@ function App() {
         <div className="min-h-screen bg-gray-900">
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
             {showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => setShowNewProjectWizard(false)} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
+            {projectToDelete && <DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             <main>
                 {!isAuthReady
                     ? <div className="min-h-screen flex justify-center items-center"><LoadingSpinner text="Initializing..." /></div>
