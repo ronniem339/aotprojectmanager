@@ -271,8 +271,11 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
             return;
         }
         setIsLoading(true); setError('');
-
-        const prompt = `Act as a YouTube SEO expert and keyword research tool, like the Google Ads Keyword Planner. Based on the project theme "${inputs.theme}" for a video series about "${inputs.location}", generate a list of 50 potential search terms. Provide a mix of:
+        
+        const subLocationNames = locations.slice(1).map(l => l.name).join(', ');
+        const prompt = `Act as a YouTube SEO expert and keyword research tool. The user is planning a video series about "${inputs.location}" with the theme "${inputs.theme}".
+The series will feature these specific locations: ${subLocationNames}.
+Generate a list of 50 potential search terms related to the main location, the sub-locations, and the overall theme. Provide a mix of:
 - Short-tail keywords (e.g., "Scotland travel")
 - Long-tail keywords (e.g., "best castles to visit in Scottish Highlands")
 - Question-based keywords (e.g., "what to pack for a trip to Scotland")
