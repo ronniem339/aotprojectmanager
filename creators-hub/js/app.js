@@ -45,9 +45,26 @@ function App() {
         if (user) {
             const settingsDocRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
-                const defaultSettings = { geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '', myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '' };
+                const defaultSettings = {
+                    geminiApiKey: '',
+                    googleMapsApiKey: '',
+                    styleGuideText: '',
+                    myWriting: '',
+                    admiredWriting: '',
+                    keywords: '',
+                    dosAndDonts: '',
+                    excludedPhrases: '',
+                    youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE
+                };
                 const data = docSnap.exists ? docSnap.data() : {};
+                // If the user has saved an empty string for the knowledge base, we don't want to overwrite it with the default.
+                // So we check if the property exists in their saved data. If not, THEN we use the default.
+                if (data.youtubeSeoKnowledgeBase === undefined) {
+                    data.youtubeSeoKnowledgeBase = defaultSettings.youtubeSeoKnowledgeBase;
+                }
+                
                 const newSettings = { ...defaultSettings, ...data };
+
                 setSettings(newSettings);
 
                 if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
