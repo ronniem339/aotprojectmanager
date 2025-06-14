@@ -53,7 +53,7 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [generating, setGenerating] = useState(null);
     const [scriptContent, setScriptContent] = useState(video.script || '');
     const [refinementText, setRefinementText] = useState('');
-    const [isConceptVisible, setIsConceptVisible] = useState(false); // State for video concept visibility
+    const [isConceptVisible, setIsConceptVisible] = useState(false);
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -61,7 +61,7 @@ const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || '');
         setScriptContent(video.script || '');
-        setIsConceptVisible(false); // Reset on video change
+        setIsConceptVisible(false);
     }, [video.id, video.script]);
 
     const updateTask = async (taskName, status, extraData = {}) => {
@@ -438,7 +438,8 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
     useEffect(() => {
         if (!userId || !project?.id) return;
         
-        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}`);
+        // THE FIX: This now points to the correct 'videos' subcollection.
+        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             let videosData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -448,24 +449,26 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
             
             const needsMigration = videosData.some(v => v.order === undefined);
 
-            if (needsMigration) {
-                videosData.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+            if (needsMigration && videosData.length > 0) {
+                 console.log("Running one-time order migration for older videos...");
+                // Sort by original creation date for the migration
+                const sortedByDate = [...videosData].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
                 
                 const batch = db.batch();
-                videosData.forEach((video, index) => {
+                sortedByDate.forEach((video, index) => {
                     const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
                     batch.update(docRef, { order: index });
                 });
-                batch.commit().then(() => {
-                    console.log("Video order migration completed successfully.");
-                }).catch(err => {
+                batch.commit().catch(err => {
                     console.error("Video order migration failed:", err);
                 });
+                // Display the date-sorted list while migration runs
+                setVideos(sortedByDate);
             } else {
-                videosData.sort((a, b) => a.order - b.order);
+                 // If no migration is needed, sort by the 'order' field
+                videosData.sort((a, b) => (a.order || 0) - (b.order || 0));
+                setVideos(videosData);
             }
-            
-            setVideos(videosData);
 
             if (loading && videosData.length > 0 && !activeVideoId) {
                 setActiveVideoId(videosData[0].id);
