@@ -177,7 +177,7 @@ Your task is to analyze this data and generate a complete project plan to help t
             if (!apiKey) throw new Error("Please set your Gemini API Key in Settings.");
             
             const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) { const err = await response.json(); throw new Error(err?.error?.message || 'API Error'); }
             
@@ -185,19 +185,15 @@ Your task is to analyze this data and generate a complete project plan to help t
             const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
             
             if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
-                // **FIXED LOGIC HERE**
-                // Structure the draft correctly so the wizard can read it.
-                // The AI response is nested inside the 'editableOutline' property.
                 setProjectDraft({
-                    step: 4, // Start at "Refine Title"
-                    editableOutline: parsedJson, // This is the key change
-                    // Carry over some initial inputs for context
+                    step: 4, 
+                    editableOutline: parsedJson,
                     inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
-                    locations: [], // No locations for imported projects
+                    locations: [], 
                     footageInventory: {}
                 });
-                setCurrentView('dashboard'); // Go back to dashboard view
-                setShowNewProjectWizard(true); // Open the wizard
+                setCurrentView('dashboard'); 
+                setShowNewProjectWizard(true);
             } else {
                 throw new Error("AI returned an invalid project plan. Please check the imported data and try again.");
             }
