@@ -146,6 +146,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
 
     // State for refinement inputs
     const [refinement, setRefinement] = useState('');
+    const [refiningVideoIndex, setRefiningVideoIndex] = useState(null);
     
     // UI state
     const [error, setError] = useState('');
@@ -255,12 +256,12 @@ Generate a complete project plan as a JSON object.
 
         try {
             const parsedJson = await callGeminiAPI(prompt);
-            // **VALIDATION STEP:** Before setting state, ensure the AI response has the expected structure.
             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
+                // Add a status to each video for tracking the refinement process
+                parsedJson.videos.forEach(video => video.status = 'pending');
                 setEditableOutline(parsedJson);
                 setStep(3);
             } else {
-                // If the response is malformed, throw a specific error for the user.
                 throw new Error("AI returned an invalid or incomplete project plan. Please try again.");
             }
         } catch (e) {
@@ -280,7 +281,7 @@ Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate th
              const parsedJson = await callGeminiAPI(prompt);
              if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions)) {
                 setEditableOutline(prev => ({...prev, playlistTitleSuggestions: parsedJson.playlistTitleSuggestions}));
-                setSelectedTitle(parsedJson.playlistTitleSuggestions[0]); // Auto-select the new first suggestion
+                setSelectedTitle(parsedJson.playlistTitleSuggestions[0]); 
                 setRefinement('');
              } else {
                  throw new Error("AI failed to return valid title suggestions.");
@@ -315,6 +316,42 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
          }
     };
 
+    const handleRefineVideo = async (videoIndex) => {
+        setIsLoading(true); setError('');
+        const videoToRefine = editableOutline.videos[videoIndex];
+        const prompt = `A user is planning a YouTube series titled "${finalizedTitle}". You previously suggested this video idea as part of the series:
+Original Video Idea: ${JSON.stringify(videoToRefine)}
+The user has provided this feedback to refine it: "${refinement}"
+Please generate a NEW, updated JSON object for only this video, incorporating the feedback. The overall project context (locations, theme, etc.) remains the same.
+Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...]}`;
+        try {
+            const parsedJson = await callGeminiAPI(prompt);
+            if (parsedJson && parsedJson.title && parsedJson.concept) {
+                const newVideos = [...editableOutline.videos];
+                // Update the specific video, but keep its status as 'pending' for re-review.
+                newVideos[videoIndex] = { ...parsedJson, status: 'pending' };
+                setEditableOutline(prev => ({ ...prev, videos: newVideos }));
+                setRefinement('');
+                setRefiningVideoIndex(null); // Close the refinement box
+            } else {
+                throw new Error("AI returned an invalid video structure.");
+            }
+        } catch(e) {
+            setError(`Failed to refine video: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const handleAcceptVideo = (videoIndex) => {
+        const newVideos = [...editableOutline.videos];
+        newVideos[videoIndex].status = 'accepted';
+        setEditableOutline(prev => ({ ...prev, videos: newVideos }));
+        if (refiningVideoIndex === videoIndex) {
+            setRefiningVideoIndex(null); // Close refine box if open
+        }
+    };
+
 
     const handleCreateProject = async () => {
         if (!finalizedTitle || !finalizedDescription || !editableOutline.videos) return;
@@ -333,7 +370,6 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
             });
             editableOutline.videos.forEach((video) => {
                 const videoRef = projectRef.collection('videos').doc();
-                // We're just saving the initial plan here. Detailed generation happens later.
                 batch.set(videoRef, { title: video.title, concept: video.concept, script: '', metadata: '', blogPost: '', shortsIdeas: '', createdAt: new Date().toISOString() });
             });
             await batch.commit();
@@ -469,17 +505,23 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
                     </div>
                  );
              case 5: // Review Video Plan
+                const allVideosAccepted = editableOutline?.videos.every(v => v.status === 'accepted');
                 return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 5 - Review Video Plan</h2>
-                        <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review the structure before creating the project.</p>
+                        <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review and accept each video idea to finalize the project.</p>
                         {isLoading && !editableOutline?.videos && <LoadingSpinner text="Generating..." />}
                         {editableOutline?.videos && (
                             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                                {editableOutline.videos.map((video, index) => (
-                                    <div key={index} className="p-4 bg-gray-800/60 rounded-lg border border-gray-700">
-                                        <h3 className="font-bold text-lg text-blue-300">{`Video ${index + 1}: ${video.title}`}</h3>
-                                        <p className="text-sm text-gray-400 mt-1 italic">Est. Length: {video.estimatedLengthMinutes} minutes</p>
+                                    <div key={index} className={`p-4 bg-gray-800/60 rounded-lg border transition-all ${video.status === 'accepted' ? 'border-green-500' : 'border-gray-700'}`}>
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className="font-bold text-lg text-blue-300">{`Video ${index + 1}: ${video.title}`}</h3>
+                                                <p className="text-sm text-gray-400 mt-1 italic">Est. Length: {video.estimatedLengthMinutes} minutes</p>
+                                            </div>
+                                            {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
+                                        </div>
                                         <p className="text-sm mt-3">{video.concept}</p>
                                         {video.locations_featured && video.locations_featured.length > 0 && (
                                             <div className="mt-3 pt-3 border-t border-gray-700/50">
@@ -491,15 +533,33 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
                                                  </div>
                                             </div>
                                         )}
+                                        {video.status === 'pending' && (
+                                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                                {refiningVideoIndex === index ? (
+                                                     <div>
+                                                        <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
+                                                        <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Focus more on the history of this place'"/>
+                                                        <div className="flex justify-end gap-2 mt-2">
+                                                            <button onClick={() => setRefiningVideoIndex(null)} className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Cancel</button>
+                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-md flex items-center gap-1">{isLoading ? <LoadingSpinner/> : 'Submit'}</button>
+                                                        </div>
+                                                     </div>
+                                                ) : (
+                                                    <div className="flex justify-end gap-2">
+                                                        <button onClick={() => { setRefiningVideoIndex(index); setRefinement(''); }} className="text-sm px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Refine</button>
+                                                        <button onClick={() => handleAcceptVideo(index)} className="text-sm px-3 py-1 bg-green-700 hover:bg-green-600 rounded-md">Accept</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         )}
-                        {/* Note: In a future version, we could add refinement for the video plan itself */ }
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                         <div className="flex justify-between gap-4 mt-8">
                             <button onClick={() => setStep(4)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>
-                            <button onClick={handleCreateProject} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
+                            <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
                         </div>
                     </div>
                 );
