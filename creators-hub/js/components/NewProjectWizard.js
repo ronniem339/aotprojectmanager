@@ -155,6 +155,10 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     const [locations, setLocations] = useState(initialDraft?.locations || []);
     const [footageInventory, setFootageInventory] = useState(initialDraft?.footageInventory || {});
     
+    // State for keyword research
+    const [keywordIdeas, setKeywordIdeas] = useState(initialDraft?.keywordIdeas || []);
+    const [selectedKeywords, setSelectedKeywords] = useState(initialDraft?.selectedKeywords || []);
+
     // State for the generated plan and its individual parts
     const [editableOutline, setEditableOutline] = useState(initialDraft?.editableOutline || null);
     const [finalizedTitle, setFinalizedTitle] = useState(initialDraft?.finalizedTitle || null);
@@ -172,7 +176,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     // Persist state to Firestore to allow resuming
-    const debouncedState = useDebounce({ step, inputs, locations, footageInventory, editableOutline, finalizedTitle, finalizedDescription, selectedTitle }, 1000);
+    const debouncedState = useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle }, 1000);
 
     useEffect(() => {
         // Set the selected title to the first suggestion when the outline is first loaded.
@@ -196,6 +200,8 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         setInputs({ location: '', theme: '' });
         setLocations([]);
         setFootageInventory({});
+        setKeywordIdeas([]);
+        setSelectedKeywords([]);
         setEditableOutline(null);
         setFinalizedTitle(null);
         setFinalizedDescription(null);
@@ -219,6 +225,12 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     
     const handleInventoryChange = (placeId, field, value) => {
         setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [field]: value } }));
+    };
+    
+    const handleKeywordSelection = (keyword) => {
+        setSelectedKeywords(prev => 
+            prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
+        );
     };
 
     const handleSelectAllFootage = (type, isChecked) => {
@@ -252,6 +264,35 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
         const result = await response.json();
         return JSON.parse(result.candidates[0].content.parts[0].text);
     };
+    
+    const handleGenerateKeywords = async () => {
+        if (keywordIdeas.length > 0) { 
+            setStep(3);
+            return;
+        }
+        setIsLoading(true); setError('');
+
+        const prompt = `Act as a YouTube SEO expert and keyword research tool, like the Google Ads Keyword Planner. Based on the project theme "${inputs.theme}" for a video series about "${inputs.location}", generate a list of 50 potential search terms. Provide a mix of:
+- Short-tail keywords (e.g., "Scotland travel")
+- Long-tail keywords (e.g., "best castles to visit in Scottish Highlands")
+- Question-based keywords (e.g., "what to pack for a trip to Scotland")
+Return the list as a JSON object like: {"keywords": ["keyword one", "keyword two", ...]}`;
+
+        try {
+            const parsedJson = await callGeminiAPI(prompt);
+             if (parsedJson && Array.isArray(parsedJson.keywords)) {
+                setKeywordIdeas(parsedJson.keywords);
+                setStep(3);
+            } else {
+                throw new Error("AI returned an invalid keyword format.");
+            }
+        } catch (e) {
+            setError(`Failed to generate keywords: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
     const handleGenerateInitialOutline = async () => {
         setIsLoading(true); setError('');
@@ -274,19 +315,20 @@ Context:
 1.  YouTube SEO Knowledge Base: ${knowledgeBase}
 2.  User's Style Guide: ${styleGuide}
 3.  User's Inventory: ${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
+4.  User's Targeted Keywords: ${selectedKeywords.join(', ')}
 
 Your Task:
 Generate a complete project plan as a JSON object.
--   **playlistTitleSuggestions**: Create 3 diverse, catchy, SEO-friendly titles for the whole series.
--   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description. Prioritize the SEO knowledge base, then infuse the user's style guide for tone.
--   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), and a 'locations_featured' array listing the focused sub-locations. Give more focus to 'Major Feature' locations. The 'locations_featured' array for each video MUST ONLY contain names from the provided list of points of interest. Do NOT add any locations that are not in the list.`;
+-   **playlistTitleSuggestions**: Create 3 diverse, catchy titles for the whole series, inspired by the targeted keywords.
+-   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description that naturally incorporates the targeted keywords. Prioritize the SEO knowledge base for structure, then infuse the user's style guide for tone.
+-   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), and a 'locations_featured' array. Titles and concepts should be built around the targeted keywords and the user's inventory. The 'locations_featured' array MUST ONLY contain names from the provided list of points of interest.`;
 
         try {
             const parsedJson = await callGeminiAPI(prompt);
             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
                 parsedJson.videos.forEach(video => video.status = 'pending');
                 setEditableOutline(parsedJson);
-                setStep(3);
+                setStep(4);
             } else {
                 throw new Error("AI returned an invalid or incomplete project plan. Please try again.");
             }
@@ -419,7 +461,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
             case 1: // Define Foundation
                 return (
                     <div>
-                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 5</h2>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 6</h2>
                         <p className="text-gray-400 mb-6">Define the project's foundation. The first location you add will be the main subject. Add more for specific points of interest.</p>
                         <div className="space-y-6">
                             <div>
@@ -441,7 +483,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                  });
                  return (
                     <div>
-                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 5</h2>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 6</h2>
                         <p className="text-gray-400 mb-6">Log your available footage for each spot you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>.</p>
                         <div className="max-h-[60vh] overflow-y-auto">
                            <table className="w-full text-left">
@@ -494,10 +536,30 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         {!isInventoryComplete && subLocations.length > 0 && <p className="text-amber-400 mt-4 text-sm">Please select at least one footage type for each location with an amber border to continue.</p>}
                     </div>
                  );
-            case 3: // Refine Playlist Title
+            case 3: // Keyword Strategy
                 return (
                     <div>
-                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 5 - Refine Title</h2>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 6 - Keyword Strategy</h2>
+                        <p className="text-gray-400 mb-6">Here are some popular search terms related to your project. Select the ones you want the AI to focus on when building the plan.</p>
+                        {isLoading && <LoadingSpinner text="Generating keyword ideas..." />}
+                        <div className="p-4 bg-gray-900/50 border border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto pr-2 flex flex-wrap gap-2">
+                            {keywordIdeas.map((keyword) => (
+                                <button
+                                    key={keyword}
+                                    onClick={() => handleKeywordSelection(keyword)}
+                                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${selectedKeywords.includes(keyword) ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                                >
+                                    {keyword}
+                                </button>
+                            ))}
+                        </div>
+                        {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
+                    </div>
+                );
+            case 4: // Refine Playlist Title
+                return (
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 4 of 6 - Refine Title</h2>
                         <p className="text-gray-400 mb-6">Choose the best title for your series, or ask for new ideas.</p>
                         {isLoading && <LoadingSpinner text="Thinking..." />}
                         {editableOutline?.playlistTitleSuggestions && (
@@ -517,10 +579,10 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     </div>
                 );
-            case 4: // Refine Playlist Description
+            case 5: // Refine Playlist Description
                  return (
                     <div>
-                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 4 of 5 - Refine Description</h2>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 6 - Refine Description</h2>
                         <p className="text-gray-400 mb-6">Review the AI-generated description for your playlist. Refine it if needed.</p>
                         {isLoading && !editableOutline?.playlistDescription && <LoadingSpinner text="Generating..." />}
                         {editableOutline?.playlistDescription && (
@@ -533,10 +595,10 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     </div>
                  );
-             case 5: // Review Video Plan
+             case 6: // Review Video Plan
                 return (
                     <div>
-                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 5 - Review Video Plan</h2>
+                        <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 6 of 6 - Review Video Plan</h2>
                         <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review and accept each video idea to finalize the project.</p>
                         {isLoading && !editableOutline?.videos && <LoadingSpinner text="Generating..." />}
                         {editableOutline?.videos && (
@@ -608,23 +670,25 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      
                      {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
                      
-                     {step === 2 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
+                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
                      
-                     {step === 3 && (
-                        <>
-                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                            <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(4); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
-                        </>
-                     )}
+                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
                      
                      {step === 4 && (
                         <>
-                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                            <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(5); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
+                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                         </>
                      )}
                      
                      {step === 5 && (
+                        <>
+                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
+                        </>
+                     )}
+                     
+                     {step === 6 && (
                         <>
                              <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
                              <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
