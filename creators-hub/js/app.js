@@ -228,7 +228,7 @@ Your task is to analyze this data and generate a complete project plan to help t
     }
 
     return (
-        <div className="min-h-screen bg-gray-900">
+        <div className="min-h-screen bg-gray-900"> {/* Body background is now handled by style.css */}
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
             {showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
             {projectToDelete && <DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
