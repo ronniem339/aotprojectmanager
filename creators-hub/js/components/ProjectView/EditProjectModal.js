@@ -5,7 +5,7 @@ const EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoaded
     const [description, setDescription] = useState(project.playlistDescription);
     const [locations, setLocations] = useState(project.locations || []);
     const [refinement, setRefinement] = useState('');
-    const [generating, setGenerating] = useState(false);
+    const [generating, setGenerating] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
 
@@ -78,8 +78,8 @@ const EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoaded
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title more mysterious' or 'Add more about the history in the description'"/>
                         <div className="flex gap-4 mt-2">
-                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <LoadingSpinner/> : 'Refine Title'}</button>
-                             <button onClick={() => handleRefine('description')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'description' ? <LoadingSpinner/> : 'Refine Description'}</button>
+                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <LoadingSpinner/> : 'Refine Title'}</button>
+                             <button onClick={() => handleRefine('description')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'description' ? <LoadingSpinner/> : 'Refine Description'}</button>
                         </div>
                     </div>
                 </div>
