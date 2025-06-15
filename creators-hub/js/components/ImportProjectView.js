@@ -281,7 +281,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 });
 
                 return {
-                    id: item.id, // Use item.id for video ID
+                    id: item.id, // Keep `id` for internal use (e.g., potential Firestore ID later)
+                    youtubeVideoId: item.id, // Store the actual YouTube video ID separately
                     title: item.snippet.title,
                     description: rawDescription,    // Store the raw description
                     concept: cleanedConcept,        // Store the cleaned concept
@@ -323,7 +324,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             // Filter out initial empty manual video if YouTube data is fetched
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             // Ensure no duplicate videos from YouTube fetch (e.g., if re-fetching the same playlist)
-            const newFetchedVideos = videos.filter(newVid => !prevVideos.some(pVid => pVid.id === newVid.id));
+            const newFetchedVideos = videos.filter(newVid => !prevVideos.some(pVid => pVid.youtubeVideoId === newVid.youtubeVideoId)); // Check for YouTube ID to avoid duplicates
             return [...newFetchedVideos, ...existingManualVideos];
         });
     };
@@ -373,11 +374,12 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
 
 
         const fetchedVideo = {
-            id: videoId,
+            id: videoId, // Keep `id` for internal use
+            youtubeVideoId: videoId, // Store the actual YouTube video ID separately
             title: videoSnippet.title,
             description: rawDescription,    // Store the raw description
             concept: cleanedConcept,        // Store the cleaned concept
-            thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
+            thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
             estimatedLengthMinutes: parseDuration(contentDetails.duration),
             chapters: extractedChapters,    // Store extracted chapters
             locations_featured: aiExtractedData.locations_featured, // Use AI-generated locations
@@ -487,6 +489,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             playlistDescription: manualPlaylistDescription,
             coverImageUrl: projectCoverImageUrl, // Pass the fetched project cover image URL
             videos: videosToImport.map(v => ({
+                id: v.id, // Preserve the temporary/Firestore ID for internal use
+                youtubeVideoId: v.youtubeVideoId || null, // Preserve the YouTube video ID if it exists
                 title: v.title,
                 concept: v.concept,             // Cleaned concept for internal use
                 description: v.description,     // Raw YouTube description for metadata
