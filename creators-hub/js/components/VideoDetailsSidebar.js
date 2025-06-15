@@ -2,8 +2,7 @@
 
 const { useState } = React;
 
-// Generic Modal Component (moved here from common or created if not existing)
-// This ensures that the modal is self-contained and reusable.
+// Generic Modal Component (reusable for any modal content)
 window.Modal = ({ onClose, title, children }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
@@ -20,14 +19,18 @@ window.Modal = ({ onClose, title, children }) => {
 window.VideoDetailsSidebar = ({ video }) => {
     const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
+    // Placeholder image for when no thumbnail is available
     const placeholderThumbnail = `https://placehold.co/600x400/1f2937/00bfff?text=${encodeURIComponent('No Thumbnail')}`;
 
     return (
-        <div className="glass-card p-6 rounded-lg space-y-6">
+        <div className="glass-card p-6 rounded-lg space-y-6 lg:h-full lg:overflow-y-auto"> {/* Added overflow for long content */}
+            {/* Video Title - now displayed at the top of the sidebar */}
+            <h3 className="text-xl font-bold text-primary-accent mb-2">{video.chosenTitle || video.title}</h3>
+
             {/* Video Thumbnail */}
             <div>
                 <window.ImageComponent 
-                    src={video.thumbnailUrl || placeholderThumbnail} 
+                    src={video.thumbnailUrl || video.generatedThumbnails?.[0] || placeholderThumbnail} 
                     alt={video.title || 'Video Thumbnail'} 
                     className="w-full h-40 object-cover rounded-md mb-4" 
                 />
