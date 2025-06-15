@@ -61,12 +61,19 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
     // New: Function to fetch video statistics from YouTube
     const fetchVideoStats = useCallback(async () => {
+        console.log("[fetchVideoStats] Attempting to fetch stats...");
+        console.log("[fetchVideoStats] YouTube API Key:", settings.youtubeApiKey ? "SET" : "NOT SET");
+        console.log("[fetchVideoStats] Video ID:", video.id);
+        console.log("[fetchVideoStats] Video Uploaded Task Status:", video.tasks?.videoUploaded);
+
         if (!settings.youtubeApiKey) {
-            console.warn("YouTube Data API Key not set. Cannot fetch video statistics.");
+            console.warn("[fetchVideoStats] YouTube Data API Key not set. Cannot fetch video statistics.");
+            setIsFetchingStats(false); // Ensure loading state is reset
             return;
         }
         if (!video.id || video.tasks?.videoUploaded !== 'complete') {
-            // Only fetch stats for published videos with a YouTube ID
+            console.log("[fetchVideoStats] Video not eligible for stats fetch (missing ID or not marked as uploaded).");
+            setIsFetchingStats(false); // Ensure loading state is reset
             return;
         }
 
@@ -75,18 +82,25 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
 
         if (lastFetchTimestamp > twentyFourHoursAgo && videoStats) {
-            // Stats are recent, no need to refetch unless forced by a button click
+            console.log("[fetchVideoStats] Stats are recent. Skipping automatic fetch.");
             return;
         }
 
         setIsFetchingStats(true);
         try {
             const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.id}&key=${settings.youtubeApiKey}`;
+            console.log("[fetchVideoStats] Fetching from URL:", statsApiUrl);
             const response = await fetch(statsApiUrl);
             const data = await response.json();
+            console.log("[fetchVideoStats] API Response status:", response.status);
+            console.log("[fetchVideoStats] API Response data:", data);
 
             if (!response.ok || !data.items || data.items.length === 0) {
-                console.error("Failed to fetch video statistics:", data.error?.message || "Video not found or API error.");
+                console.error("[fetchVideoStats] Failed to fetch video statistics:", data.error?.message || "Video not found or API error details are missing.");
+                // If there's an error, but we have old stats, keep displaying them
+                if (!videoStats) { // Only set to null if no stats were ever loaded
+                    setVideoStats(null);
+                }
                 return;
             }
 
@@ -102,13 +116,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             // Update Firestore with the new stats
             const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
             await videoDocRef.update({ stats: newStats });
+            console.log("[fetchVideoStats] Successfully fetched and updated stats:", newStats);
 
         } catch (error) {
-            console.error("Error fetching video stats:", error);
+            console.error("[fetchVideoStats] Error during fetch operation:", error);
         } finally {
             setIsFetchingStats(false);
         }
-    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id]);
+    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats]); // Added videoStats to dependencies to avoid stale closure warning
 
 
     // Effect to trigger stats fetch when video data or API key changes
