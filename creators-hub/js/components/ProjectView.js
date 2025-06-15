@@ -113,7 +113,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                     
                     {/* Main content area, now split into two columns on larger screens */}
                     {activeVideo ? (
-                        <div className="lg:flex-grow lg:flex lg:flex-row gap-6"> {/* Added flex-row and flex-grow */}
+                        <div className="lg:flex-grow flex flex-col lg:flex-row gap-6"> {/* Main content area with flex-row for 2nd and 3rd columns */}
                             {/* Left column for video workspace (tasks) */}
                             <div className="lg:w-2/3 xl:w-3/4"> {/* Takes 2/3 or 3/4 of the available space */}
                                 <window.VideoWorkspace 
