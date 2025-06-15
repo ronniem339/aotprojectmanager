@@ -6,12 +6,14 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const [generating, setGenerating] = useState(false);
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
     const [error, setError] = useState('');
+    const [refinementPrompt, setRefinementPrompt] = useState('');
 
     const taskStatus = video.tasks?.scripting || 'pending';
 
     useEffect(() => {
         setScriptContent(video.script || '');
         setError(''); // Clear error when video changes
+        setRefinementPrompt(''); // Clear refinement prompt
     }, [video.script, video.id]);
 
     /**
@@ -39,16 +41,12 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
         My Persona: "${settings.knowledgeBases?.youtube?.whoAmI || 'An engaging and informative travel vlogger.'}"
         My Style Guide: "${settings.styleGuideText || 'Friendly, slightly witty, and knowledgeable.'}"
 
-        Please provide the response as a raw text script, ready to be used.`;
+        IMPORTANT: Your response must be only the raw text of the script. Do not include any introductory phrases, titles, or explanations outside of the script itself.`;
         
         try {
-            // We call the Gemini API directly from the utility, but ask for a text response
             const payload = {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
-                generationConfig: {
-                    // Important: For a text script, we should expect plain text.
-                    responseMimeType: "text/plain", 
-                }
+                generationConfig: { responseMimeType: "text/plain" }
             };
     
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -64,7 +62,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
             }
             const result = await response.json();
             
-            // For text/plain responses, the content is directly in the text field
             const generatedScript = result.candidates[0].content.parts[0].text;
             setScriptContent(generatedScript);
 
@@ -75,6 +72,61 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
             setGenerating(false);
         }
     };
+    
+    /**
+     * Calls the Gemini API to refine the existing script based on user feedback.
+     */
+    const handleRefineScript = async () => {
+        if (!refinementPrompt) return;
+        setGenerating(true);
+        setError('');
+
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            setError("Gemini API Key is not set.");
+            setGenerating(false);
+            return;
+        }
+
+        const prompt = `You are a professional script editor. The user has provided an existing video script and an instruction to refine it.
+        Your task is to rewrite the script based on the instruction.
+
+        Original Script:
+        ---
+        ${scriptContent}
+        ---
+        
+        User's Refinement Instruction: "${refinementPrompt}"
+
+        IMPORTANT: Please provide only the complete, rewritten, raw text script as your response. Do not include any explanations, apologies, or conversational text.`;
+
+        try {
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "text/plain" }
+            };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err?.error?.message || 'API Error');
+            }
+            const result = await response.json();
+            const refinedScript = result.candidates[0].content.parts[0].text;
+            setScriptContent(refinedScript);
+            setRefinementPrompt(''); // Clear the prompt after use
+        } catch (err) {
+            console.error("Error refining script:", err);
+            setError(`Failed to refine script: ${err.message}`);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
 
     const handleConfirmScript = () => {
         onUpdateTask('scripting', 'complete', { script: scriptContent });
@@ -92,6 +144,27 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 placeholder="Paste your script here, or click the button below to generate one with AI."
                 readOnly={taskStatus === 'complete'}
             />
+            
+            {/* --- Refinement UI --- */}
+            {scriptContent && taskStatus !== 'complete' && (
+                 <div className="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
+                    <textarea 
+                        value={refinementPrompt}
+                        onChange={(e) => setRefinementPrompt(e.target.value)}
+                        rows="2" 
+                        className="w-full form-textarea" 
+                        placeholder="e.g., 'Make the intro more exciting', 'Add a section about the local food', 'Make it 2 minutes longer'"
+                    />
+                    <div className="text-right mt-2">
+                         <button onClick={handleRefineScript} disabled={generating || !refinementPrompt} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center ml-auto gap-2">
+                            {generating ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- Main Action Buttons --- */}
             <div className="flex flex-col sm:flex-row gap-3 mt-4">
                 {!scriptContent && (
                     <button onClick={handleGenerateScript} disabled={generating || isLocked} className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
