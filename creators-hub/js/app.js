@@ -263,7 +263,7 @@ window.App = () => { // Exposing App component globally
         const draftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId);
         try {
             const docSnap = await draftRef.get();
-            if (docSnap.exists()) {
+            if (docSnap.exists) {
                 setActiveDraftId(draftId);
                 setActiveProjectDraft({ id: docSnap.id, ...docSnap.data() });
                 setShowProjectSelection(false);
