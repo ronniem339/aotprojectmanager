@@ -9,7 +9,19 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     // States for user review and AI parsing steps
     const [manualPlaylistTitle, setManualPlaylistTitle] = useState('');
     const [manualPlaylistDescription, setManualPlaylistDescription] = useState('');
-    const [videosToImport, setVideosToImport] = useState([]); // Array of video objects after fetching and initial parsing
+    // Initialize videosToImport with one empty manual video by default if no YouTube data is fetched yet
+    const [videosToImport, setVideosToImport] = useState([{
+        id: `manual-${Date.now()}-0`, // Unique ID for manual entry
+        title: '',
+        concept: '',
+        script: '',
+        locations_featured: [],
+        targeted_keywords: [],
+        estimatedLengthMinutes: '',
+        thumbnailUrl: '', // No thumbnail for manual
+        isManual: true, // Flag to identify manual entries
+        status: 'pending'
+    }]);
 
     // Regex to extract Playlist ID or Video ID from YouTube URLs
     const extractYoutubeId = (url) => {
@@ -107,15 +119,22 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         setFetchedYoutubeData({ playlistTitle, playlistDescription, videos });
         setManualPlaylistTitle(playlistTitle);
         setManualPlaylistDescription(playlistDescription);
-        setVideosToImport(videos.map(video => ({
-            ...video,
-            concept: video.description, // Initial concept from YouTube description
-            script: '', // Transcripts need separate fetching/AI parsing
-            locations_featured: [],
-            targeted_keywords: [],
-            estimatedLengthMinutes: '', // Placeholder, would need YouTube API for video duration
-            status: 'pending' // For internal review process
-        })));
+        // Combine fetched videos with existing manual videos (if any)
+        setVideosToImport(prevVideos => {
+            // Filter out initial empty manual video if YouTube data is fetched
+            const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
+            const newFetchedVideos = videos.map(video => ({
+                ...video,
+                concept: video.description, // Initial concept from YouTube description
+                script: '', // Transcripts need separate fetching/AI parsing
+                locations_featured: [],
+                targeted_keywords: [],
+                estimatedLengthMinutes: '', // Placeholder, would need YouTube API for video duration
+                isManual: false, // Flag to identify fetched entries
+                status: 'pending' // For internal review process
+            }));
+            return [...newFetchedVideos, ...existingManualVideos];
+        });
     };
 
     const fetchSingleVideo = async (videoId, apiKey) => {
@@ -155,20 +174,47 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         });
         setManualPlaylistTitle(fetchedVideo.title);
         setManualPlaylistDescription(fetchedVideo.description);
-        setVideosToImport([{
-            ...fetchedVideo,
-            concept: fetchedVideo.description,
-            script: '',
-            locations_featured: [],
-            targeted_keywords: [],
-            status: 'pending'
-        }]);
+        setVideosToImport(prevVideos => {
+            const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
+            const newFetchedVideo = {
+                ...fetchedVideo,
+                concept: fetchedVideo.description,
+                script: '',
+                locations_featured: [],
+                targeted_keywords: [],
+                isManual: false,
+                status: 'pending'
+            };
+            return [newFetchedVideo, ...existingManualVideos];
+        });
     };
 
     const handleVideoImportChange = (index, field, value) => {
         const newVideos = [...videosToImport];
         newVideos[index][field] = value;
         setVideosToImport(newVideos);
+    };
+
+    const addManualVideo = () => {
+        setVideosToImport(prevVideos => [
+            ...prevVideos,
+            {
+                id: `manual-${Date.now()}-${prevVideos.length}`,
+                title: '',
+                concept: '',
+                script: '',
+                locations_featured: [],
+                targeted_keywords: [],
+                estimatedLengthMinutes: '',
+                thumbnailUrl: '',
+                isManual: true,
+                status: 'pending'
+            }
+        ]);
+    };
+
+    const removeVideo = (idToRemove) => {
+        setVideosToImport(prevVideos => prevVideos.filter(video => video.id !== idToRemove));
     };
 
     // AI Analysis Function (placeholder for now, to be expanded)
@@ -181,7 +227,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     };
 
     const handleAnalyzeClick = () => {
-        // This will now pass the parsed YouTube data
+        // This will now pass the parsed YouTube data and manual entries
         if (!manualPlaylistTitle || videosToImport.length === 0 || videosToImport.some(v => !v.title)) {
             console.error('Please ensure playlist title and video titles are present.');
             setFetchError('Please ensure playlist title and video titles are present.');
@@ -215,7 +261,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-2">Import Existing Project</h1>
-            <p className="text-gray-400 mb-8">Import your existing YouTube playlists or videos for management and future AI features.</p>
+            <p className="text-gray-400 mb-8">Import your existing YouTube playlists or videos for management and future AI features. You can also add unreleased videos manually.</p>
             
             <div className="glass-card p-6 rounded-lg mb-6">
                 <h2 className="text-2xl font-semibold mb-4">YouTube Import</h2>
@@ -241,10 +287,11 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 )}
             </div>
 
-            {fetchedYoutubeData && (
+            {/* Display fetched/manual project details and videos */}
+            {(fetchedYoutubeData || videosToImport.some(v => v.isManual)) && ( // Show this section if any data is present
                 <div className="space-y-6">
                     <div className="p-6 glass-card rounded-lg">
-                        <h2 className="text-2xl font-semibold mb-4">Project Details from YouTube</h2>
+                        <h2 className="text-2xl font-semibold mb-4">Project Details</h2>
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-1">Playlist Title</label>
                             <input 
@@ -271,13 +318,30 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                         <h2 className="text-2xl font-semibold mb-4">Videos to Import</h2>
                         <div className="space-y-6">
                             {videosToImport.map((video, index) => (
-                                <div key={video.id || index} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 relative flex gap-4">
-                                    <div className="flex-shrink-0">
-                                        <window.ImageComponent src={video.thumbnailUrl} alt={video.title} className="w-28 h-20 object-cover rounded-md" />
-                                    </div>
+                                <div key={video.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 relative flex gap-4">
+                                    {video.thumbnailUrl && (
+                                        <div className="flex-shrink-0">
+                                            <window.ImageComponent src={video.thumbnailUrl} alt={video.title} className="w-28 h-20 object-cover rounded-md" />
+                                        </div>
+                                    )}
                                     <div className="flex-grow">
-                                        <h3 className="text-lg font-bold text-primary-accent">{video.title}</h3>
-                                        <p className="text-sm text-gray-400 mt-1 mb-2 line-clamp-2">{video.description}</p>
+                                        <div className="flex justify-between items-start">
+                                            <h3 className="text-lg font-bold text-primary-accent">{video.title || (video.isManual ? 'New Video' : 'Untitled Video')}</h3>
+                                            {videosToImport.length > 1 && (
+                                                <button onClick={() => removeVideo(video.id)} className="text-red-400 hover:text-red-300 text-sm">&times; Remove</button>
+                                            )}
+                                        </div>
+                                        {video.description && !video.isManual && (
+                                            <p className="text-sm text-gray-400 mt-1 mb-2 line-clamp-2">{video.description}</p>
+                                        )}
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
+                                        <input
+                                            type="text"
+                                            value={video.title}
+                                            onChange={(e) => handleVideoImportChange(index, 'title', e.target.value)}
+                                            className="w-full form-input mb-2"
+                                            placeholder="Enter video title"
+                                        />
                                         <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept / Summary</label>
                                         <textarea 
                                             value={video.concept} 
@@ -296,6 +360,9 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                 </div>
                             ))}
                         </div>
+                        <button onClick={addManualVideo} className="mt-6 px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg text-sm font-semibold">
+                            + Add Another Video (Manual)
+                        </button>
                     </div>
 
                     <div className="text-right">
