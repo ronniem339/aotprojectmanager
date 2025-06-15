@@ -158,7 +158,8 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     };
     
     const tasks = video.tasks || {};
-    const isTaskLocked = (index) => index > 0 && tasks[window.CREATOR_HUB_CONFIG.TASK_PIPELINE[index - 1].id] !== 'complete'; // Use window.CREATOR_HUB_CONFIG.TASK_PIPELINE
+    // Allow revisiting if status is 'locked' or 'complete'
+    const isTaskLocked = (index) => index > 0 && tasks[window.CREATOR_HUB_CONFIG.TASK_PIPELINE[index - 1].id] !== 'complete'; 
     
     const handleChapterChange = (index, value) => {
         const newChapters = [...chapters];
@@ -204,9 +205,48 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     </div>
                 </div>
                 
-                <window.TaskItem title="1. Scripting & Recording" status={tasks.scripting} isLocked={isTaskLocked(0)} onRevisit={() => updateTask('scripting', 'pending')}>
-                    {tasks.scripting === 'complete' ? ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Recorded)</h4><textarea readOnly value={scriptContent || ""} rows="10" className="w-full form-textarea bg-gray-800/50" /></div> ) : tasks.scripting === 'locked' ? ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Script Locked - Ready to Record</h4><textarea readOnly value={scriptContent} rows="10" className="w-full form-textarea bg-gray-800/50 mb-4" /><button onClick={() => updateTask('scripting', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Recorded</button></div> ) : ( <div>{!scriptContent ? ( <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> ) : ( <div className="space-y-4"><div><label className="block text-sm font-medium text-gray-300 mb-2">Script Draft</label><textarea value={scriptContent} onChange={(e) => setScriptContent(e.target.value)} rows="12" className="w-full form-textarea" /></div><div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700"><label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label><textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
-                                        <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}</button></div><button onClick={() => updateTask('scripting', 'locked', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button><button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold ml-4">View Fullscreen Script</button></div> )}</div>)}
+                <window.TaskItem 
+                    title="1. Scripting & Recording" 
+                    status={tasks.scripting} 
+                    isLocked={isTaskLocked(0)} 
+                    // Allow revisit if locked or complete
+                    onRevisit={tasks.scripting === 'locked' || tasks.scripting === 'complete' ? () => updateTask('scripting', 'pending', { script: scriptContent }) : undefined}
+                >
+                    {tasks.scripting === 'complete' || tasks.scripting === 'locked' ? ( 
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Recorded)</h4>
+                            <textarea readOnly value={scriptContent || ""} rows="10" className="w-full form-textarea bg-gray-800/50" />
+                            {/* Always show Fullscreen Script button if scriptContent exists and task is locked/complete */}
+                            {scriptContent && (tasks.scripting === 'locked' || tasks.scripting === 'complete') && (
+                                <button onClick={() => setShowFullScreenScript(true)} className="mt-4 px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                            )}
+                        </div> 
+                    ) : ( 
+                        <div>
+                            {!scriptContent ? ( 
+                                <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
+                            ) : ( 
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Script Draft</label>
+                                        <textarea value={scriptContent} onChange={(e) => setScriptContent(e.target.value)} rows="12" className="w-full form-textarea" />
+                                    </div>
+                                    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
+                                        <textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
+                                        <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}</button>
+                                    </div>
+                                    <div className="flex justify-start gap-4">
+                                        <button onClick={() => updateTask('scripting', 'locked', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                                        {/* Show Fullscreen Script button here as well, before locking */}
+                                        {scriptContent && (
+                                            <button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                                        )}
+                                    </div>
+                                </div> 
+                            )}
+                        </div>
+                    )}
                 </window.TaskItem>
 
                 <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
