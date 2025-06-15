@@ -90,10 +90,10 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
             {loading ? (
                 <div className="flex justify-center mt-16 flex-grow"><window.LoadingSpinner text="Loading Project..." /></div>
             ) : (
-                <div className="flex flex-grow flex-col lg:flex-row gap-6">
-                    {/* VideoList Sidebar/Drawer */}
-                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/3 xl:w-1/4 lg:flex-shrink-0 flex flex-col`}>
-                        <div className="p-4 flex justify-between items-center lg:hidden">
+                <div className="flex flex-grow flex-col lg:flex-row gap-6 relative"> {/* Added relative for sidebar positioning */}
+                    {/* VideoList Sidebar/Drawer for mobile and desktop */}
+                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/3 xl:w-1/4 lg:flex-shrink-0 flex flex-col rounded-lg`}> {/* Added rounded-lg */}
+                        <div className="p-4 flex justify-between items-center lg:hidden border-b border-gray-700"> {/* Added border for mobile header */}
                             <h2 className="text-lg font-semibold text-white">Videos</h2>
                             <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
                         </div>
@@ -107,7 +107,8 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                             />
                         </div>
                     </div>
-                    {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>} {/* Overlay for mobile */}
+                    {/* Overlay for mobile sidebar */}
+                    {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
                     
                     {/* VideoWorkspace Main Content */}
                     {activeVideo ? (
