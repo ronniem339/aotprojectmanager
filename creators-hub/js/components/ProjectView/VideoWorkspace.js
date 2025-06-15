@@ -14,8 +14,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     // A single, memoized function to update Firestore for any task
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        const updatePayload = { [`tasks.${taskName}`]: status, ...extraData };
-        await videoDocRef.update(updatePayload);
+        // Ensure the task name is correctly nested under the 'tasks' object in the payload
+        const payload = { [`tasks.${taskName}`]: status, ...extraData };
+        await videoDocRef.update(payload);
     }, [userId, project.id, video.id, appId]);
 
     // Determines if a task should be locked based on the completion of the previous task
@@ -53,7 +54,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                  return <window.FirstCommentTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
 
             default:
-                return <p>Task component not found.</p>;
+                return <p>Task component for '{task.id}' not found.</p>;
         }
     };
 
@@ -65,10 +66,19 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     const status = video.tasks?.[task.id] || 'pending';
                     const locked = isTaskLocked(index);
                     const onRevisit = () => {
-                         // When revisiting, reset the task status and any relevant data.
-                         // This logic can be expanded per task if needed.
-                         const resetData = { 'tasks.feedbackText': '', 'metadata': '', 'tasks.firstComment': '' };
-                         updateTask(task.id, 'pending', resetData);
+                         // When revisiting, reset the task status.
+                         // Specific data resets should be handled within the task component's logic or triggered from here.
+                         updateTask(task.id, 'pending', {
+                             // Reset specific fields when revisiting if necessary
+                             'tasks.feedbackText': task.id === 'feedbackProvided' ? '' : video.tasks?.feedbackText,
+                             'metadata': task.id === 'metadataGenerated' ? '' : video.metadata,
+                             'chosenTitle': task.id === 'metadataGenerated' ? '' : video.chosenTitle,
+                             'tasks.firstComment': task.id === 'firstCommentGenerated' ? '' : video.tasks?.firstComment,
+                             'tasks.thumbnailConcepts': task.id === 'thumbnailsGenerated' ? [] : video.tasks?.thumbnailConcepts,
+                             'tasks.acceptedConcepts': task.id === 'thumbnailsGenerated' ? [] : video.tasks?.acceptedConcepts,
+                             'tasks.rejectedConcepts': task.id === 'thumbnailsGenerated' ? [] : video.tasks?.rejectedConcepts,
+                             'tasks.currentConceptIndex': task.id === 'thumbnailsGenerated' ? 0 : video.tasks?.currentConceptIndex,
+                         });
                     };
 
                     return (
