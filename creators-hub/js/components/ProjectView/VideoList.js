@@ -7,9 +7,9 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
 
     const calculateProgress = (tasks) => {
         if (!tasks) return 0;
-        // Assuming TASK_PIPELINE is globally accessible or passed down
-        const completedTasks = window.TASK_PIPELINE.filter(task => tasks[task.id] === 'complete').length;
-        return (completedTasks / window.TASK_PIPELINE.length) * 100;
+        // Use the globally accessible TASK_PIPELINE from config.js
+        const completedTasks = window.CREATOR_HUB_CONFIG.TASK_PIPELINE.filter(task => tasks[task.id] === 'complete').length;
+        return (completedTasks / window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) * 100;
     };
 
     const handleDragStart = (e, video) => {
