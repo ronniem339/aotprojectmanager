@@ -51,20 +51,20 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                 <div className="flex gap-4">
                     <button onClick={onShowMyStudio} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">🎨 My Studio</button>
                     <button onClick={onShowSettings} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">⚙️ Settings</button>
-                    {/* Moved New Project button here */}
+                    {/* Moved New Project button here as requested */}
                     <button onClick={onShowProjectSelection} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">✨ New Project</button>
                 </div>
             </header>
             {loading ? <LoadingSpinner /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
-                    {/* Removed the large "New Project" tile from here */}
+                    {/* Removed the large "New Project" tile from here as it's now in the header */}
                     {projects.map(project => {
                         // Dynamically generate the search term and Unsplash URL for each project here
                         const searchTerm = generateImageSearchTerm(project.playlistTitle);
                         const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
                         
                         return (
-                            <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-1 transition-all overflow-hidden group">
+                            <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group">
                                  <div className="relative">
                                     <ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
                                     <button 
@@ -79,7 +79,7 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                                 </div>
                                 <div className="p-4">
                                     <div>
-                                        <h3 className="text-xl font-bold text-blue-300 truncate">{project.playlistTitle || project.title}</h3>
+                                        <h3 className="text-xl font-bold text-primary-accent truncate">{project.playlistTitle || project.title}</h3>
                                         <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
                                     </div>
                                     <div className="text-xs text-gray-500 mt-2">Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</div>
