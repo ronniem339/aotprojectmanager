@@ -210,6 +210,8 @@ Generate a complete project plan as a JSON object.
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
+                // Remove asterisks from the description
+                parsedJson.playlistDescription = parsedJson.playlistDescription.replace(/\*\*/g, '');
                 parsedJson.videos.forEach(video => {
                     video.status = 'pending';
                     video.description = video.concept; // For new videos, concept is the initial description
@@ -273,7 +275,9 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
          try {
              const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
              if(parsedJson && parsedJson.playlistDescription) {
-                setEditableOutline(prev => ({...prev, playlistDescription: parsedJson.playlistDescription}));
+                // Remove asterisks from the refined description
+                const cleanedDescription = parsedJson.playlistDescription.replace(/\*\*/g, '');
+                setEditableOutline(prev => ({...prev, playlistDescription: cleanedDescription}));
                 setRefinement('');
              } else {
                  throw new Error("AI failed to return a valid description.");
@@ -542,10 +546,16 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                  return (
                     <div className="max-h-[70vh] overflow-y-auto pr-4"> {/* Added max-h and overflow for scrollability */}
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 6 - Refine Description</h2>
-                        <p className="text-gray-400 mb-6">Review the AI-generated description for your playlist. Refine it if needed.</p>
+                        <p className="text-gray-400 mb-6">Review the AI-generated description for your playlist. You can edit it directly or use the refinement box below.</p>
                         {isLoading && !editableOutline?.playlistDescription && <window.LoadingSpinner text="Generating..." />}
                         {editableOutline?.playlistDescription && (
-                             <textarea value={isLoading ? 'Regenerating...' : editableOutline.playlistDescription} readOnly={isLoading} rows="10" className="w-full form-textarea leading-relaxed bg-gray-800/60"/>
+                             <textarea 
+                                value={isLoading ? 'Regenerating...' : editableOutline.playlistDescription} 
+                                onChange={(e) => setEditableOutline(prev => ({ ...prev, playlistDescription: e.target.value.replace(/\*\*/g, '') }))}
+                                readOnly={isLoading} 
+                                rows="10" 
+                                className="w-full form-textarea leading-relaxed bg-gray-800/60"
+                             />
                         )}
                         <div className="mt-6">
                             <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
