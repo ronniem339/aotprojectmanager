@@ -361,9 +361,9 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
 
     return (
         <main className="flex-grow"> {/* This width will now be controlled by ProjectView's flex layout */}
+            <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
             <div className="space-y-4"> {/* Increased gap for overall cleaner look */}
-                {/* Removed Video Title as it's now displayed in VideoDetailsSidebar */}
-
+                
                 {/* Display API Error Message prominently */}
                 {statsErrorMessage && (
                     <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm mb-4">
