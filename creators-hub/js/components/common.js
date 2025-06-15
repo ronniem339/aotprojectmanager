@@ -37,27 +37,26 @@ window.loadGoogleMapsScript = (apiKey, callback) => {
 
 
 window.LoadingSpinner = ({ text = "", isButton = false }) => {
+    // Made the dots larger and with more space for better prominence
     const spinner = (
-        <div className="flex items-center justify-center space-x-1">
-            <div className="h-2 w-2 bg-primary-accent rounded-full animate-pulse"></div>
-            <div className="h-2 w-2 bg-primary-accent rounded-full animate-pulse [animation-delay:0.1s]"></div>
-            <div className="h-2 w-2 bg-primary-accent rounded-full animate-pulse [animation-delay:0.2s]"></div>
+        <div className="flex items-center justify-center space-x-2">
+            <div className="h-3 w-3 bg-primary-accent rounded-full animate-pulse" style={{ animationDuration: '1.2s' }}></div>
+            <div className="h-3 w-3 bg-primary-accent rounded-full animate-pulse" style={{ animationDelay: '0.2s', animationDuration: '1.2s' }}></div>
+            <div className="h-3 w-3 bg-primary-accent rounded-full animate-pulse" style={{ animationDelay: '0.4s', animationDuration: '1.2s' }}></div>
         </div>
     );
 
+    // If used inside a button, we only want the spinner dots.
     if (isButton) {
-        return (
-            <div className="flex items-center justify-center gap-2 h-5"> {/* Set fixed height */}
-                {spinner}
-                {text && <span className="text-white">{text}</span>}
-            </div>
-        );
+        return spinner;
     }
 
+    // This is for a standalone loader, taking up its own space.
+    // It has no background itself, just padding for the text.
     return (
-        <div className="flex flex-col justify-center items-center p-4">
+        <div className="flex flex-col justify-center items-center py-4">
             {spinner}
-            {text && <p className="mt-3 text-sm text-gray-400">{text}</p>}
+            {text && <p className="mt-4 text-sm text-gray-400">{text}</p>}
         </div>
     );
 };
@@ -143,7 +142,7 @@ window.LoginScreen = ({ onLogin }) => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 disabled:bg-gray-500"
+                        className="w-full px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
                     >
                         {isLoading ? <window.LoadingSpinner isButton={true} /> : (isRegister ? 'Register Account' : 'Login')}
                     </button>
