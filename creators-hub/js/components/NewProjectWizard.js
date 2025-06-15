@@ -578,7 +578,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                             )}
                                             {video.chapters && video.chapters.length > 0 && ( // Display extracted chapters
                                                 <div>
-                                                     <label className="block text-xs font-medium text-gray-400 mb-1">Extracted Chapters:</label>
+                                                    <label className="block text-xs font-medium text-gray-400 mb-1">Extracted Chapters:</label>
                                                      <ul className="text-sm text-gray-300 list-disc pl-5">
                                                         {video.chapters.map((chap, i) => (
                                                             <li key={i}>{chap.timestamp} - {chap.title}</li>
@@ -670,9 +670,11 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+        // Outer fixed div acts as the overlay. Clicking it closes the modal.
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4" onClick={onClose}>
             {showConfirmModal && <window.ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
-            <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col">
+            {/* Inner modal content. Clicks inside should not close the modal. */}
+            <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex-shrink-0">
                     <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
