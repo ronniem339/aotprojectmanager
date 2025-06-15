@@ -2,59 +2,8 @@
 
 const { useState, useEffect, useMemo } = React;
 
-// Expose TaskItem and CopyButton globally so ProjectWorkspace can access them
-window.TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const isCurrent = !isLocked && status !== 'complete' && status !== 'locked';
-
-    useEffect(() => {
-        setIsExpanded(isCurrent);
-    }, [isCurrent]);
-
-    const statusClasses = useMemo(() => {
-        if (status === 'complete') return 'bg-green-500 border-green-500';
-        if (status === 'locked') return 'bg-amber-500 border-amber-500';
-        if (isCurrent) return 'bg-primary-accent border-primary-accent';
-        return 'bg-gray-700 border-gray-600';
-    }, [status, isCurrent]);
-
-    return (
-        <div className={`glass-card p-4 rounded-lg transition-all ${isLocked ? 'opacity-50' : ''} ${isCurrent ? 'border-2 border-primary-accent' : 'border border-gray-700'}`}>
-            <div className="flex justify-between items-center cursor-pointer" onClick={() => !isCurrent && setIsExpanded(!isExpanded)}>
-                <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${statusClasses}`}>
-                        {status === 'complete' && <span className="text-white">✓</span>}
-                    </div>
-                    <h4 className="text-lg font-semibold">{title}</h4>
-                </div>
-                {status === 'complete' && onRevisit && (
-                     <button onClick={(e) => { e.stopPropagation(); onRevisit(); }} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-3 py-1 rounded-full hover:bg-gray-700">Revisit</button>
-                )}
-            </div>
-            {isExpanded && <div className="mt-4 pt-4 border-t border-gray-700">{children}</div>}
-        </div>
-    );
-};
-
-window.CopyButton = ({ textToCopy }) => {
-    const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy: ', err);
-        }
-        document.body.removeChild(textArea);
-    };
-    return <button onClick={handleCopy} className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded-md">{copied ? 'Copied!' : 'Copy'}</button>;
-};
-
+// No longer need to define TASK_PIPELINE or expose TaskItem/CopyButton globally here,
+// as they are now handled via window.CREATOR_HUB_CONFIG.TASK_PIPELINE and other window. exposures in common.js.
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
@@ -178,7 +127,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     };
     
     const tasks = video.tasks || {};
-    const isTaskLocked = (index) => index > 0 && tasks[window.TASK_PIPELINE[index - 1].id] !== 'complete'; // Use window.TASK_PIPELINE
+    const isTaskLocked = (index) => index > 0 && tasks[window.CREATOR_HUB_CONFIG.TASK_PIPELINE[index - 1].id] !== 'complete'; // Use window.CREATOR_HUB_CONFIG.TASK_PIPELINE
     
     const handleChapterChange = (index, value) => {
         const newChapters = [...chapters];
