@@ -38,8 +38,16 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
             if (!parsedJson.thumbnailConcepts || !Array.isArray(parsedJson.thumbnailConcepts)) {
                 throw new Error("AI returned an invalid format for thumbnail concepts.");
             }
-            // Append new concepts to the existing list
-            const allConcepts = [...concepts, ...parsedJson.thumbnailConcepts];
+            
+            // **FIX**: Filter out any malformed or empty concepts from the AI response.
+            const validNewConcepts = parsedJson.thumbnailConcepts.filter(c => c && c.textOverlay && c.textOverlay.trim() !== '');
+
+            if (validNewConcepts.length === 0) {
+                throw new Error("AI failed to generate any valid concepts. Please try again.");
+            }
+
+            // Append new valid concepts to the existing list
+            const allConcepts = [...concepts, ...validNewConcepts];
             await onUpdateTask('thumbnailsGenerated', 'pending', { 'tasks.thumbnailConcepts': allConcepts });
         } catch (err) {
             console.error("Error generating thumbnails:", err);
@@ -84,6 +92,9 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
     // The concept currently being displayed to the user
     const currentConcept = concepts[currentIndex];
     
+    // **FIX**: Add a more robust check to ensure the concept is valid before rendering the card.
+    const isCurrentConceptValid = currentConcept && currentConcept.textOverlay;
+
     // UI for when the task is marked as complete
     if (video.tasks?.thumbnailsGenerated === 'complete') {
         return (
@@ -110,8 +121,8 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
         <div className="text-center">
              {isLocked && <p className="text-xs text-amber-400 mb-2">Please complete previous steps first.</p>}
             
-            {/* Display the Tinder-style card if a concept is available */}
-            {currentConcept && !isLocked ? (
+            {/* Display the Tinder-style card if a concept is available and valid */}
+            {isCurrentConceptValid && !isLocked ? (
                 <div className="relative p-6 bg-gray-900/50 rounded-lg border border-gray-700 aspect-video flex flex-col justify-center items-center transition-opacity duration-300">
                     <p className="text-sm text-gray-400 mb-2">{currentConcept.imageSuggestion}</p>
                     <h4 className="text-2xl font-bold text-center text-white">{currentConcept.textOverlay}</h4>
@@ -121,7 +132,7 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
                     </div>
                 </div>
             ) : (
-                // Show the generate button if no concepts are available
+                // Show the generate button if no concepts are available or the current one is invalid
                  <div className="py-8">
                      <button onClick={handleGenerate} disabled={generating || isLocked} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto">
                         {generating ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Concepts'}
