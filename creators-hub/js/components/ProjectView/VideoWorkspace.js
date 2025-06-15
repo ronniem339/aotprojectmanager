@@ -2,17 +2,8 @@
 
 const { useState, useEffect, useMemo } = React;
 
-const TASK_PIPELINE = [
-    { id: 'scripting', title: 'Scripting & Recording' },
-    { id: 'videoEdited', title: 'Edit Video' },
-    { id: 'feedbackProvided', title: 'Log Changes' },
-    { id: 'metadataGenerated', title: 'Generate Metadata' },
-    { id: 'thumbnailsGenerated', title: 'Generate Thumbnails' },
-    { id: 'videoUploaded', title: 'Upload to YouTube' },
-    { id: 'firstCommentGenerated', title: 'Generate First Comment'}
-];
-
-const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
+// Expose TaskItem and CopyButton globally so ProjectWorkspace can access them
+window.TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const isCurrent = !isLocked && status !== 'complete' && status !== 'locked';
 
@@ -37,7 +28,7 @@ const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
                     <h4 className="text-lg font-semibold">{title}</h4>
                 </div>
                 {status === 'complete' && onRevisit && (
-                     <button onClick={(e) => { e.stopPropagation(); onRevisit(); }} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-3 py-1 rounded-full hover:bg-gray-700">Revisit</button> {/* Corrected comment syntax */}
+                     <button onClick={(e) => { e.stopPropagation(); onRevisit(); }} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-3 py-1 rounded-full hover:bg-gray-700">Revisit</button>
                 )}
             </div>
             {isExpanded && <div className="mt-4 pt-4 border-t border-gray-700">{children}</div>}
@@ -45,7 +36,7 @@ const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
     );
 };
 
-const CopyButton = ({ textToCopy }) => {
+window.CopyButton = ({ textToCopy }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
         const textArea = document.createElement("textarea");
@@ -64,7 +55,8 @@ const CopyButton = ({ textToCopy }) => {
     return <button onClick={handleCopy} className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded-md">{copied ? 'Copied!' : 'Copy'}</button>;
 };
 
-const VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
+
+window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
     const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || '');
     const [generating, setGenerating] = useState(null);
@@ -186,7 +178,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     };
     
     const tasks = video.tasks || {};
-    const isTaskLocked = (index) => index > 0 && tasks[TASK_PIPELINE[index - 1].id] !== 'complete';
+    const isTaskLocked = (index) => index > 0 && tasks[window.TASK_PIPELINE[index - 1].id] !== 'complete'; // Use window.TASK_PIPELINE
     
     const handleChapterChange = (index, value) => {
         const newChapters = [...chapters];
@@ -232,29 +224,29 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     </div>
                 </div>
                 
-                <TaskItem title="1. Scripting & Recording" status={tasks.scripting} isLocked={isTaskLocked(0)} onRevisit={() => updateTask('scripting', 'pending')}>
-                    {tasks.scripting === 'complete' ? ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Recorded)</h4><textarea readOnly value={video.script || ""} rows="10" className="w-full form-textarea bg-gray-800/50" /></div> ) : tasks.scripting === 'locked' ? ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Script Locked - Ready to Record</h4><textarea readOnly value={scriptContent} rows="10" className="w-full form-textarea bg-gray-800/50 mb-4" /><button onClick={() => updateTask('scripting', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Recorded</button></div> ) : ( <div>{!scriptContent ? ( <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> ) : ( <div className="space-y-4"><div><label className="block text-sm font-medium text-gray-300 mb-2">Script Draft</label><textarea value={scriptContent} onChange={(e) => setScriptContent(e.target.value)} rows="12" className="w-full form-textarea" /></div><div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700"><label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label><textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
-                                        <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <LoadingSpinner/> : 'Refine with AI'}</button></div><button onClick={() => updateTask('scripting', 'locked', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button></div> )}</div>)}
-                </TaskItem>
+                <window.TaskItem title="1. Scripting & Recording" status={tasks.scripting} isLocked={isTaskLocked(0)} onRevisit={() => updateTask('scripting', 'pending')}>
+                    {tasks.scripting === 'complete' ? ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Recorded)</h4><textarea readOnly value={scriptContent || ""} rows="10" className="w-full form-textarea bg-gray-800/50" /></div> ) : tasks.scripting === 'locked' ? ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Script Locked - Ready to Record</h4><textarea readOnly value={scriptContent} rows="10" className="w-full form-textarea bg-gray-800/50 mb-4" /><button onClick={() => updateTask('scripting', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Recorded</button></div> ) : ( <div>{!scriptContent ? ( <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> ) : ( <div className="space-y-4"><div><label className="block text-sm font-medium text-gray-300 mb-2">Script Draft</label><textarea value={scriptContent} onChange={(e) => setScriptContent(e.target.value)} rows="12" className="w-full form-textarea" /></div><div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700"><label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label><textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
+                                        <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}</button></div><button onClick={() => updateTask('scripting', 'locked', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button></div> )}</div>)}
+                </window.TaskItem>
 
-                <TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
+                <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
                      {tasks.videoEdited !== 'complete' && <button onClick={() => updateTask('videoEdited', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>}
-                </TaskItem>
+                </window.TaskItem>
 
-                <TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
+                <window.TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
                     {tasks.feedbackProvided !== 'complete' && <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>}
-                </TaskItem>
+                </window.TaskItem>
                 
-                <TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending')}>
-                     {tasks.metadataGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'metadata' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}</button>) : 
+                <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending')}>
+                     {tasks.metadataGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}</button>) : 
                      ( metadata ? <div className="space-y-6">
                          <div>
                              <label className="block text-sm font-semibold text-gray-400 mb-2">Title Suggestions</label>
                              <div className="space-y-2">{metadata.titleSuggestions.map(title => ( <label key={title} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 cursor-pointer"><input type="radio" name={`title-${video.id}`} value={title} checked={video.chosenTitle === title} onChange={() => updateTask('metadataGenerated', 'complete', { chosenTitle: title })} className="h-4 w-4 bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/><span>{title}</span></label>))}</div>
                          </div>
                          <div>
-                             <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Description</label><CopyButton textToCopy={metadata.description} /></div>
+                             <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Description</label><window.CopyButton textToCopy={metadata.description} /></div>
                              <textarea readOnly value={metadata.description} rows="10" className="w-full form-textarea bg-gray-800/50"/>
                          </div>
                          <div>
@@ -263,25 +255,25 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                              <button onClick={applyTimestamps} className="mt-3 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps</button>
                          </div>
                           <div>
-                             <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Tags</label><CopyButton textToCopy={metadata.tags} /></div>
+                             <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Tags</label><window.CopyButton textToCopy={metadata.tags} /></div>
                              <div className="p-3 rounded-lg bg-gray-800/50 text-sm text-gray-300 whitespace-pre-wrap">{metadata.tags}</div>
                          </div>
                      </div> : <p className="text-gray-500">Could not parse metadata.</p> )}
-                </TaskItem>
+                </window.TaskItem>
                 
-                <TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'tasks.generatedThumbnails': [] })}>
-                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{tasks.generatedThumbnails?.map((base64, index) => ( <img key={index} src={`data:image/png;base64,${base64}`} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )}
-                </TaskItem>
+                <window.TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'tasks.generatedThumbnails': [] })}>
+                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{tasks.generatedThumbnails?.map((base64, index) => ( <img key={index} src={`data:image/png;base64,${base64}`} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )}
+                </window.TaskItem>
 
-                <TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', 'pending')}>
+                <window.TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', 'pending')}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
                     <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto" readOnly={tasks.videoUploaded === 'complete'}/>
                     {tasks.videoUploaded !== 'complete' && <button onClick={() => updateTask('videoUploaded', 'complete', { 'tasks.publishDate': publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>}
-                </TaskItem>
+                </window.TaskItem>
                 
-                <TaskItem title="7. Generate First Comment" status={tasks.firstCommentGenerated} isLocked={isTaskLocked(6)} onRevisit={() => updateTask('firstCommentGenerated', 'pending')}>
-                    {tasks.firstCommentGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'firstComment' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Comment'}</button> ) : ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4><textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" /></div> )}
-                </TaskItem>
+                <window.TaskItem title="7. Generate First Comment" status={tasks.firstCommentGenerated} isLocked={isTaskLocked(6)} onRevisit={() => updateTask('firstCommentGenerated', 'pending')}>
+                    {tasks.firstCommentGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Comment'}</button> ) : ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4><textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" /></div> )}
+                </window.TaskItem>
             </div>
         </main>
     );
