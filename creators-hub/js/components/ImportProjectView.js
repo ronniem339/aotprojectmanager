@@ -243,54 +243,74 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         }
 
         const videoDetailsResults = await Promise.all(videoDetailsPromises);
-        videoDetailsResults.forEach(data => {
-            if (data.items) {
-                data.items.forEach(item => {
-                    const rawDescription = item.snippet.description || '';
-                    const extractedChapters = extractChaptersFromDescription(rawDescription);
-                    const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
-                    const publishedAtDate = item.snippet.publishedAt ? new Date(item.snippet.publishedAt).toISOString().split('T')[0] : ''; // Format to YYYY-MM-DD
+        
+        // Use Promise.all for AI calls to run them concurrently
+        const videosWithAiDataPromises = videoDetailsResults.flatMap(data => {
+            if (!data.items) return [];
 
-                    // Construct a basic metadata object from available info
-                    const importedMetadata = JSON.stringify({
-                        titleSuggestions: [item.snippet.title],
-                        description: rawDescription, // Original description for metadata
-                        tags: '', // YouTube API does not return tags via playlistItems or video snippets directly for public videos
-                        chapters: extractedChapters,
-                        thumbnailConcepts: [{
-                            imageSuggestion: `A thumbnail for a video titled "${item.snippet.title}"`,
-                            textOverlay: item.snippet.title
-                        }]
-                    });
+            return data.items.map(async item => {
+                const rawDescription = item.snippet.description || '';
+                const extractedChapters = extractChaptersFromDescription(rawDescription);
+                const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
+                const publishedAtDate = item.snippet.publishedAt ? new Date(item.snippet.publishedAt).toISOString().split('T')[0] : '';
 
-                    videos.push({
-                        id: item.id, // Use item.id for video ID
-                        title: item.snippet.title,
-                        description: rawDescription,    // Store the raw description
-                        concept: cleanedConcept,        // Store the cleaned concept
-                        thumbnailUrl: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-                        chapters: extractedChapters,    // Store extracted chapters
-                        estimatedLengthMinutes: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : '',
-                        isManual: false,
-                        // Set initial task statuses for imported videos
-                        tasks: {
-                            scripting: 'pending', // Assume script needs review/generation unless provided
-                            videoEdited: 'complete',
-                            feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
-                            metadataGenerated: 'complete', // Metadata is largely available
-                            thumbnailsGenerated: 'complete',
-                            videoUploaded: 'complete',
-                            firstCommentGenerated: 'complete' // Assume first comment is handled
-                        },
-                        publishDate: publishedAtDate, // Store the published date
-                        metadata: importedMetadata, // Store constructed metadata
-                        generatedThumbnails: [item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url], // Store primary thumbnail
-                        chosenTitle: item.snippet.title, // Use original title as chosen title
-                        script: '' // Script needs to be provided by user or AI generated later
+                // Call AI to extract locations and keywords
+                let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
+                try {
+                    aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
+                        videoTitle: item.snippet.title,
+                        videoDescription: rawDescription,
+                        settings: settings
                     });
+                } catch (aiError) {
+                    console.error("Error extracting AI metadata for video:", item.snippet.title, aiError);
+                    // Continue with empty arrays if AI extraction fails
+                }
+
+                // Construct a basic metadata object from available info
+                const importedMetadata = JSON.stringify({
+                    titleSuggestions: [item.snippet.title],
+                    description: rawDescription, // Original description for metadata
+                    tags: aiExtractedData.targeted_keywords.join(', '), // Use AI-generated tags
+                    chapters: extractedChapters,
+                    thumbnailConcepts: [{
+                        imageSuggestion: `A thumbnail for a video titled "${item.snippet.title}"`,
+                        textOverlay: item.snippet.title
+                    }]
                 });
-            }
+
+                return {
+                    id: item.id, // Use item.id for video ID
+                    title: item.snippet.title,
+                    description: rawDescription,    // Store the raw description
+                    concept: cleanedConcept,        // Store the cleaned concept
+                    thumbnailUrl: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+                    chapters: extractedChapters,    // Store extracted chapters
+                    estimatedLengthMinutes: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : '',
+                    locations_featured: aiExtractedData.locations_featured, // Use AI-generated locations
+                    targeted_keywords: aiExtractedData.targeted_keywords,   // Use AI-generated keywords
+                    isManual: false,
+                    // Set initial task statuses for imported videos
+                    tasks: {
+                        scripting: 'pending', // Assume script needs review/generation unless provided
+                        videoEdited: 'complete',
+                        feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
+                        metadataGenerated: 'complete', // Metadata is largely available
+                        thumbnailsGenerated: 'complete',
+                        videoUploaded: 'complete',
+                        firstCommentGenerated: 'complete' // Assume first comment is handled
+                    },
+                    publishDate: publishedAtDate, // Store the published date
+                    metadata: importedMetadata, // Store constructed metadata
+                    generatedThumbnails: [item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail (filter Boolean to remove nulls/undefined)
+                    chosenTitle: item.snippet.title, // Use original title as chosen title
+                    script: '' // Script needs to be provided by user or AI generated later
+                };
+            });
         });
+
+        // Resolve all video promises including AI calls
+        videos = await Promise.all(videosWithAiDataPromises);
 
 
         setFetchedYoutubeData({ playlistTitle, playlistDescription, videos });
@@ -302,12 +322,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             // Filter out initial empty manual video if YouTube data is fetched
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             // Ensure no duplicate videos from YouTube fetch (e.g., if re-fetching the same playlist)
-            const newFetchedVideos = videos.filter(newVid => !prevVideos.some(pVid => pVid.id === newVid.id)).map(video => ({
-                ...video,
-                // Ensure default values for properties not directly from API but expected by app
-                locations_featured: video.locations_featured || [],
-                targeted_keywords: video.targeted_keywords || [],
-            }));
+            const newFetchedVideos = videos.filter(newVid => !prevVideos.some(pVid => pVid.id === newVid.id));
             return [...newFetchedVideos, ...existingManualVideos];
         });
     };
@@ -329,11 +344,24 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
         const publishedAtDate = videoSnippet.publishedAt ? new Date(videoSnippet.publishedAt).toISOString().split('T')[0] : '';
 
+        // Call AI to extract locations and keywords
+        let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
+        try {
+            aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
+                videoTitle: videoSnippet.title,
+                videoDescription: rawDescription,
+                settings: settings
+            });
+        } catch (aiError) {
+            console.error("Error extracting AI metadata for single video:", videoSnippet.title, aiError);
+            // Continue with empty arrays if AI extraction fails
+        }
+
         // Construct a basic metadata object from available info
         const importedMetadata = JSON.stringify({
             titleSuggestions: [videoSnippet.title],
             description: rawDescription, // Original description for metadata
-            tags: '', // YouTube API does not return tags via playlistItems or video snippets directly for public videos
+            tags: aiExtractedData.targeted_keywords.join(', '), // Use AI-generated tags
             chapters: extractedChapters,
             thumbnailConcepts: [{
                 imageSuggestion: `A thumbnail for a video titled "${videoSnippet.title}"`,
@@ -350,6 +378,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
             estimatedLengthMinutes: parseDuration(contentDetails.duration),
             chapters: extractedChapters,    // Store extracted chapters
+            locations_featured: aiExtractedData.locations_featured, // Use AI-generated locations
+            targeted_keywords: aiExtractedData.targeted_keywords,   // Use AI-generated keywords
             // Set initial task statuses for imported video
             tasks: {
                 scripting: 'pending', // Assume script needs review/generation unless provided
@@ -362,7 +392,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             },
             publishDate: publishedAtDate, // Store the published date
             metadata: importedMetadata, // Store constructed metadata
-            generatedThumbnails: [videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url], // Store primary thumbnail
+            generatedThumbnails: [videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail
             chosenTitle: videoSnippet.title, // Use original title as chosen title
             script: '' // Script needs to be provided by user or AI generated later
         };
@@ -379,6 +409,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             const newFetchedVideo = {
                 ...fetchedVideo,
+                // Ensure default values for properties not directly from API but expected by app
+                // These are already populated by aiExtractedData, but keep for robustness
                 locations_featured: fetchedVideo.locations_featured || [],
                 targeted_keywords: fetchedVideo.targeted_keywords || [],
             };
