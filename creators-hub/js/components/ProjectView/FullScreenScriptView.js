@@ -44,8 +44,8 @@ const FullScreenScriptView = ({ scriptContent, onClose }) => {
                 &times;
             </button>
 
-            {/* Script content area */}
-            <div className="flex-grow overflow-y-auto w-full max-w-screen-lg mx-auto py-8">
+            {/* Script content area - now uses more width */}
+            <div className="flex-grow overflow-y-auto w-full px-4 py-8"> {/* Removed max-w-screen-lg and mx-auto */}
                 <pre className="font-sans text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-relaxed whitespace-pre-wrap">
                     {scriptContent}
                 </pre>
