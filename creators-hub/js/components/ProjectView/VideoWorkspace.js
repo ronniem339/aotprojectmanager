@@ -1,6 +1,6 @@
 // js/components/ProjectView/VideoWorkspace.js
 
-const { useState, useEffect, useMemo, useCallback } = React; // Removed useCallback import if not used elsewhere
+const { useState, useEffect, useMemo, useCallback } = React; // Added useCallback
 
 // A new common Accordion component for collapsible sections
 const Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isLocked = false, onRevisit }) => {
@@ -71,8 +71,12 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [isConceptVisible, setIsConceptVisible] = useState(false);
     const [chapters, setChapters] = useState(video.chapters || []);
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
-    // Removed videoStats, isFetchingStats, statsErrorMessage states
+    const [videoStats, setVideoStats] = useState(video.stats || null);
+    const [isFetchingStats, setIsFetchingStats] = useState(false);
+    const [statsErrorMessage, setStatsErrorMessage] = useState('');
 
+    // State to manage open/closed state of each accordion task
+    const [openTask, setOpenTask] = useState(null); // Stores the ID of the currently open task
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -82,9 +86,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setScriptContent(video.script || '');
         setIsConceptVisible(false);
         setChapters(video.chapters || []);
-        // Removed setVideoStats and setStatsErrorMessage here
+        setVideoStats(video.stats || null);
+        setStatsErrorMessage(''); // Clear stats error on video change
         setOpenTask(null); // Collapse all tasks on video change
-    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks]); // Removed video.stats from dependencies
+    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks, video.stats]);
     
     useEffect(() => {
         if (video.metadata) {
@@ -107,10 +112,69 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         });
     };
 
-    // Removed fetchVideoStats function and its useCallback wrapper
+    const fetchVideoStats = useCallback(async () => {
+        setStatsErrorMessage('');
 
-    // Removed useEffect that triggers fetchVideoStats
-    
+        if (!settings.youtubeApiKey) {
+            setStatsErrorMessage("YouTube Data API Key is not set in settings. Cannot fetch video statistics.");
+            setIsFetchingStats(false);
+            return;
+        }
+        if (!video.id || video.tasks?.videoUploaded !== 'complete') {
+            setStatsErrorMessage("Video is not marked as uploaded or YouTube ID is missing. Cannot fetch statistics.");
+            setIsFetchingStats(false);
+            return;
+        }
+
+        const lastFetchTimestamp = video.stats?.lastFetch ? new Date(video.stats.lastFetch).getTime() : 0;
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+
+        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats && !isFetchingStats) {
+            return;
+        }
+
+        setIsFetchingStats(true);
+        try {
+            const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.id}&key=${settings.youtubeApiKey}`;
+            const response = await fetch(statsApiUrl);
+            const data = await response.json();
+
+            if (!response.ok || !data.items || data.items.length === 0) {
+                const errorMessage = data.error?.message || "Video not found or API error details are missing. Please check video ID and API key restrictions.";
+                setStatsErrorMessage(`Failed to fetch video statistics: ${errorMessage}`);
+                if (!videoStats) { 
+                    setVideoStats(null); 
+                }
+                return;
+            }
+
+            const stats = data.items[0].statistics;
+            const newStats = {
+                viewCount: stats.viewCount || '0',
+                likeCount: stats.likeCount || '0',
+                commentCount: stats.commentCount || '0',
+                lastFetch: new Date().toISOString()
+            };
+
+            setVideoStats(newStats);
+            const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+            await videoDocRef.update({ stats: newStats });
+
+        } catch (error) {
+            console.error("Error during fetch operation:", error);
+            setStatsErrorMessage(`Error fetching stats: ${error.message}.`);
+        } finally {
+            setIsFetchingStats(false);
+        }
+    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]);
+
+
+    useEffect(() => {
+        if (video.tasks?.videoUploaded === 'complete' && video.id) {
+            fetchVideoStats();
+        }
+    }, [video.id, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]);
+
 
     const handleGenerate = async (type, currentContent, refinement) => {
         const apiKey = settings.geminiApiKey || "";
@@ -150,7 +214,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     Rewrite the entire script to incorporate the feedback, maintaining the core message and adhering to the style guide and user persona.
                     User Persona (Who Am I): ${whoAmIKb || 'N/A'}
                     Style Guide: ${styleGuideText || 'N/A'}
-                    IMPORTANT: Your response MUST contain ONLY the updated voiceover script text. Do NOT include any production notes like [MUSIC CUE], [SOUND EFFECT], or [B-ROLL FOOTAGE]. The script should be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction).`
+                    IMPORTANT: Your response MUST contain ONLY the updated voiceover script text. Do NOT include any production notes like [MUSIC CUE], [SOUND EFFECT], or [B-ROLL FOOTAGE]. The script should be broken down into logical sections using markdown headings (e.e.g., # Hook, # Introduction).` // Fixed typo "e.e.g." to "e.g."
                     : `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details.
                     Video Title: "${video.chosenTitle || video.title}".
                     Overall Project Theme: "${project.playlistDescription}".
@@ -165,7 +229,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     The script should follow a structure similar to this example, adapted to the video's specific content:
                     ${commonVideoStructure}
 
-                    IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include production notes (e.g., [MUSIC CUE], [SOUND EFFECT], [B-ROLL FOOTAGE]), titles, descriptions, metadata, or any other text outside of the script itself. The script must be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction, # Location: [Location Name], # Outro). Focus on the words the narrator needs to say.`;
+                    IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include production notes (e.g., [MUSIC CUE], [SOUND EFFECT], or [B-ROLL FOOTAGE]), titles, descriptions, metadata, or any other text outside of the script itself. The script must be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction, # Location: [Location Name], # Outro). Focus on the words the narrator needs to say.`;
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -317,10 +381,12 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
 
                 {/* Removed Video Statistics Section entirely */}
                 
-                <window.TaskItem 
+                <Accordion 
                     title="1. Scripting & Recording" 
-                    status={initialScriptingStatus} // Use calculated status
-                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} // Lock only if previous task incomplete AND not being revisited
+                    isOpen={openTask === 'scripting'} 
+                    onToggle={() => setOpenTask(openTask === 'scripting' ? null : 'scripting')}
+                    status={initialScriptingStatus} 
+                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} 
                     onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
                 >
                     {/* Content when script is available (either imported or generated/locked/revisited) */}
@@ -353,18 +419,47 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                         // Content when script is not available and task is pending (needs generation)
                         <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
                     )}
-                </window.TaskItem>
+                </Accordion>
 
-                <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
-                     {tasks.videoEdited !== 'complete' ? <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button> : <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>}
-                </window.TaskItem>
+                <Accordion 
+                    title="2. Edit Video" 
+                    isOpen={openTask === 'videoEdited'} 
+                    onToggle={() => setOpenTask(openTask === 'videoEdited' ? null : 'videoEdited')}
+                    status={tasks.videoEdited} 
+                    isLocked={isTaskLocked(1)} 
+                    onRevisit={() => updateTask('videoEdited', 'pending')}
+                >
+                    {tasks.videoEdited !== 'complete' ? (
+                        <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
+                    )}
+                </Accordion>
 
-                <window.TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
+                <Accordion 
+                    title="3. Log Production Changes" 
+                    isOpen={openTask === 'feedbackProvided'} 
+                    onToggle={() => setOpenTask(openTask === 'feedbackProvided' ? null : 'feedbackProvided')}
+                    status={tasks.feedbackProvided} 
+                    isLocked={isTaskLocked(2)} 
+                    onRevisit={() => updateTask('feedbackProvided', 'pending')}
+                >
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
-                    {tasks.feedbackProvided !== 'complete' ? <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button> : <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>}
-                </window.TaskItem>
+                    {tasks.feedbackProvided !== 'complete' ? (
+                        <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
+                    )}
+                </Accordion>
                 
-                <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}> {/* Reset metadata on revisit */}
+                <Accordion 
+                    title="4. Generate Metadata" 
+                    isOpen={openTask === 'metadataGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'metadataGenerated' ? null : 'metadataGenerated')}
+                    status={tasks.metadataGenerated} 
+                    isLocked={isTaskLocked(3)} 
+                    onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}
+                >
                      {tasks.metadataGenerated !== 'complete' ? ( 
                         <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
                             {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}
@@ -416,7 +511,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                      )}
                 </Accordion>
                 
-                <window.TaskItem 
+                <Accordion 
                     title="5. Generate Thumbnails" 
                     isOpen={openTask === 'thumbnailsGenerated'} 
                     onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
@@ -441,7 +536,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     )}
                 </Accordion>
 
-                <window.TaskItem 
+                <Accordion 
                     title="6. Upload to YouTube" 
                     isOpen={openTask === 'videoUploaded'} 
                     onToggle={() => setOpenTask(openTask === 'videoUploaded' ? null : 'videoUploaded')}
@@ -458,7 +553,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     )}
                 </Accordion>
                 
-                <window.TaskItem 
+                <Accordion 
                     title="7. Generate First Comment" 
                     isOpen={openTask === 'firstCommentGenerated'} 
                     onToggle={() => setOpenTask(openTask === 'firstCommentGenerated' ? null : 'firstCommentGenerated')}
