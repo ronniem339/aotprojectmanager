@@ -263,43 +263,9 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 const result = await response.json();
                 await updateTask('metadataGenerated', 'complete', { metadata: result.candidates[0].content.parts[0].text, chosenTitle: JSON.parse(result.candidates[0].content.parts[0].text).titleSuggestions[0] });
             } else if (type === 'thumbnails') {
-                let concepts;
-                try {
-                    if (!video.metadata) { throw new Error("Metadata must be generated before thumbnails."); }
-                    concepts = JSON.parse(video.metadata).thumbnailConcepts;
-                    if (!concepts || !Array.isArray(concepts) || concepts.length === 0) { throw new Error("No valid thumbnail concepts found in metadata."); }
-                } catch (e) {
-                    console.error("Thumbnail generation error:", e.message);
-                    setGenerating(null);
-                    return;
-                }
-                
-                const prompt = `Generate a high-CTR YouTube thumbnail. Cinematic, professional photography. ${concepts[0].imageSuggestion}. Text overlay reads: "${concepts[0].textOverlay}".
-                YouTube Thumbnail Idea Guidelines: ${thumbnailIdeasKb || 'N/A'}`; // Add thumbnail KB to prompt
-
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-                const thumbnailPromises = concepts.map(concept => {
-                    // For multiple concepts, generate distinct prompts
-                    const individualPrompt = `A high-CTR YouTube thumbnail. Cinematic, professional photography. ${concept.imageSuggestion}. Text overlay reads: "${concept.textOverlay}".
-                    YouTube Thumbnail Idea Guidelines: ${thumbnailIdeasKb || 'N/A'}`;
-                    const payload = { instances: [{ prompt: individualPrompt }], parameters: { "sampleCount": 1 } };
-                    return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                    .then(response => {
-                        if (!response.ok) { console.error(`API Error for thumbnail concept "${concept.imageSuggestion}":`, response.statusText); return null; }
-                        return response.json();
-                    })
-                    .catch(err => { console.error(`Fetch error for thumbnail concept "${concept.imageSuggestion}":`, err); return null; });
-                });
-
-                const results = await Promise.all(thumbnailPromises);
-                const generatedThumbnails = results.filter(result => result && result.predictions?.[0]?.bytesBase64Encoded).map(result => `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`); // Store as data URLs
-
-                if (generatedThumbnails.length > 0) {
-                    await updateTask('thumbnailsGenerated', 'complete', { generatedThumbnails: generatedThumbnails });
-                } else {
-                    console.error("All thumbnail generations failed. Please check the API key and concepts.");
-                }
-
+                 // For thumbnails, we now only need to mark the task as complete.
+                 // The actual creation happens on Canva via the new button.
+                await updateTask('thumbnailsGenerated', 'complete');
             } else if (type === 'firstComment') {
                  const prompt = `Act as a first pinned comment expert for YouTube. Generate a friendly and engaging "first pinned comment" for a YouTube video titled "${video.chosenTitle}". The comment should ask a question to spark conversation and encourage viewers to subscribe or watch other videos.
                  User Persona (Who Am I): ${whoAmIKb || 'N/A'}
@@ -312,9 +278,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                  const result = await response.json();
                  await updateTask('firstCommentGenerated', 'complete', { 'tasks.firstComment': result.candidates[0].content.parts[0].text });
             }
-            // Add Shorts Idea Generation here later if needed
-            // else if (type === 'shortsIdea') { ... }
-
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
         } finally {
@@ -324,7 +287,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     
     const tasks = video.tasks || {};
     // isTaskLocked now only checks if the PREVIOUS task is NOT complete.
-    // It does not directly affect whether 'revisit' or 'fullscreen' are available.
     const isTaskLocked = (index) => index > 0 && tasks[window.CREATOR_HUB_CONFIG.TASK_PIPELINE[index - 1].id] !== 'complete'; 
     
     // Stricter check for metadata generation
@@ -347,7 +309,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
         }
         const newDescription = parsedMeta.description ? parsedMeta.description.replace('{{CHAPTERS}}', chapterText) : (parsedMeta.description || '') + '\n\n' + chapterText; // Ensure placeholder replacement, or append
         
-        // Update both metadata and chapters array
         updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify({ ...parsedMeta, description: newDescription, chapters: chapters }), chapters: chapters });
     };
 
@@ -357,17 +318,12 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
         } catch { return null; }
     }, [video.metadata]);
     
-    // Determine initial status of Scripting & Recording task
-    // If video.script has content AND the task is not explicitly 'pending' (e.g., after AI generation),
-    // then it's considered 'complete'. Otherwise, respect existing task status or default to 'pending'.
     const initialScriptingStatus = (video.script && tasks.scripting !== 'pending') ? 'complete' : (tasks.scripting || 'pending');
 
     return (
-        <main className="flex-grow"> {/* This width will now be controlled by ProjectView's flex layout */}
+        <main className="flex-grow">
             <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
-            <div className="space-y-4"> {/* Increased gap for overall cleaner look */}
-                
-                {/* Display API Error Message prominently */}
+            <div className="space-y-4">
                 {statsErrorMessage && (
                     <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm mb-4">
                         <p className="font-semibold mb-1">YouTube API Error:</p>
@@ -376,7 +332,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     </div>
                 )}
 
-                {/* Main Accordion Tasks */}
                 <Accordion 
                     title="1. Scripting & Recording" 
                     isOpen={openTask === 'scripting'} 
@@ -395,7 +350,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                             placeholder="Paste your script here, or click the button below to generate one with AI."
                             readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} 
                         />
-
                         <div className="flex flex-col sm:flex-row gap-3 mt-4">
                             {!scriptContent && (
                                 <button 
@@ -406,7 +360,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                                     {generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Script with AI'}
                                 </button>
                             )}
-
                             {scriptContent && (
                                 <>
                                     <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
@@ -418,7 +371,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                                 </>
                             )}
                         </div>
-
                         {scriptContent && (initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited') && (
                             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
@@ -434,7 +386,6 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                         )}
                     </div>
                 </Accordion>
-
 
                 <Accordion 
                     title="2. Edit Video" 
@@ -546,22 +497,34 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
                     status={tasks.thumbnailsGenerated} 
                     isLocked={isTaskLocked(4)} 
-                    onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'generatedThumbnails': [] })}
+                    onRevisit={() => updateTask('thumbnailsGenerated', 'pending')}
                 >
                     {tasks.thumbnailsGenerated !== 'complete' ? (
-                        <button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                            {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Thumbnails'}
+                        <button 
+                            onClick={() => handleGenerate('thumbnails')} 
+                            disabled={generating === 'thumbnails' || !metadata}
+                            className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2"
+                        >
+                            {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : 'Mark as Complete & View Concepts'}
                         </button>
-                    ) : ( 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {video.generatedThumbnails?.length > 0 ? (
-                                video.generatedThumbnails.map((src, index) => ( 
-                                    <window.ImageComponent key={index} src={src} className="rounded-lg object-cover w-full h-auto" alt={`Generated Thumbnail ${index + 1}`}/> 
-                                ))
-                            ) : (
-                                <p className="col-span-full text-gray-500 text-center py-2 text-sm">No thumbnails generated yet.</p>
-                            )}
-                        </div> 
+                    ) : (
+                        <div className="space-y-4">
+                            {metadata?.thumbnailConcepts?.map((concept, index) => (
+                                <div key={index} className="glass-card p-4 rounded-lg">
+                                    <p className="font-semibold">Concept {index + 1}:</p>
+                                    <p className="text-sm text-gray-300 mt-1"><strong>Image Suggestion:</strong> {concept.imageSuggestion}</p>
+                                    <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {concept.textOverlay}</p>
+                                    <a 
+                                        href="https://www.canva.com/create/youtube-thumbnails/"
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-block mt-3 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+                                    >
+                                        Create on Canva
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </Accordion>
 
