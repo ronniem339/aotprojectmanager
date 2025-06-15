@@ -7,19 +7,43 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     const projectCardsRef = useRef(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
+    // Helper function to generate a consistent, unique color for each project
+    const getColorForString = (str) => {
+        // A palette of visually appealing border colors from Tailwind's default set
+        const colorPalette = [
+            'border-sky-500', 
+            'border-amber-500', 
+            'border-emerald-500', 
+            'border-rose-500', 
+            'border-indigo-500',
+            'border-teal-500',
+            'border-fuchsia-500',
+            'border-lime-500'
+        ];
+
+        let hash = 0;
+        if (str.length === 0) return colorPalette[0];
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        const index = Math.abs(hash % colorPalette.length);
+        return colorPalette[index];
+    };
+
+
     useEffect(() => {
         if (!userId) return;
         
         const projectsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("createdAt", "desc");
         
-        // This onSnapshot listener will now also fetch video data to calculate progress.
         const unsubscribe = projectsCollectionRef.onSnapshot(async (querySnapshot) => {
             const projectsData = [];
             querySnapshot.forEach((doc) => {
                 projectsData.push({ id: doc.id, ...doc.data() });
             });
 
-            // For each project, fetch its videos and calculate the progress.
             const projectsWithProgress = await Promise.all(projectsData.map(async (project) => {
                 const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
                 const videosSnapshot = await videosCollectionRef.get();
@@ -102,9 +126,12 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
                     {projects.map(project => {
                         const imageUrl = project.coverImageUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
+                        // **FIX**: Generate a unique and consistent border color class for each project
+                        const borderColorClass = getColorForString(project.id);
                         
                         return (
-                            <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group">
+                             // **FIX**: Added left border with the unique color
+                            <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
                                  <div className="relative">
                                     <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
                                     <button 
@@ -123,7 +150,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                                         <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
                                     </div>
                                     
-                                    {/* --- NEW: Project Progress Bar --- */}
+                                    {/* --- Project Progress Bar --- */}
                                     <div className="mt-4">
                                          <div className="flex justify-between items-center mb-1">
                                             <span className="text-xs font-semibold text-gray-400">Progress</span>
