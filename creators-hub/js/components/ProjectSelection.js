@@ -2,8 +2,32 @@
 
 const { useState, useEffect, useRef } = React; // Import useEffect and useRef
 
-window.ProjectSelection = ({ onSelectWorkflow, onClose }) => {
+window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, onDeleteDraft }) => {
     const modalRef = useRef(null); // Create a ref for the modal content
+    const [drafts, setDrafts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+
+    useEffect(() => {
+        // Fetch drafts from Firestore
+        if (!userId) {
+            setLoading(false);
+            return;
+        };
+        const draftsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).orderBy("updatedAt", "desc");
+        const unsubscribe = draftsCollectionRef.onSnapshot(querySnapshot => {
+            const draftsData = [];
+            querySnapshot.forEach((doc) => {
+                draftsData.push({ id: doc.id, ...doc.data() });
+            });
+            setDrafts(draftsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching drafts:", error);
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }, [userId, appId]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -42,6 +66,15 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose }) => {
         }
     ];
 
+    const getDraftDate = (draft) => {
+        if (draft.updatedAt) {
+            const date = draft.updatedAt.toDate ? draft.updatedAt.toDate() : draft.updatedAt;
+            return new Date(date).toLocaleString();
+        }
+        return 'N/A';
+    };
+
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
             <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative"> {/* Attach ref here */}
@@ -63,6 +96,34 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose }) => {
                             </div>
                         </button>
                     ))}
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                    <h3 className="text-2xl font-bold mb-4 text-center">Or Resume a Draft</h3>
+                    {loading ? <window.LoadingSpinner /> : (
+                        drafts.length > 0 ? (
+                            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                {drafts.map(draft => (
+                                    <div key={draft.id} className="glass-card p-4 rounded-lg flex justify-between items-center transition-all hover:bg-gray-700/50">
+                                        <div>
+                                            <p className="font-semibold text-primary-accent">{draft.inputs?.location || 'Untitled Draft'}</p>
+                                            <p className="text-xs text-gray-400 mt-1">Last updated: {getDraftDate(draft)}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => onResumeDraft(draft.id)} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">Resume</button>
+                                            <button onClick={() => onDeleteDraft(draft.id)} className="px-3 py-2 text-sm bg-red-800/80 hover:bg-red-700 text-white rounded-lg">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-gray-400 text-center italic py-4">No saved drafts.</p>
+                        )
+                    )}
                 </div>
             </div>
         </div>
