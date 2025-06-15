@@ -14,7 +14,7 @@ window.ConfirmationModal = ({ onConfirm, onCancel }) => (
 );
 
 
-window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft }) => {
+window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft, draftId }) => {
     // Shared state for the entire wizard
     const [step, setStep] = useState(initialDraft?.step || 1);
     const [inputs, setInputs] = useState(initialDraft?.inputs || { location: '', theme: '' });
@@ -67,28 +67,20 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
 
 
     useEffect(() => {
-        if (userId) {
-            const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
-            draftRef.set(debouncedState, { merge: true });
+        if (userId && draftId) {
+            const draftRef = db.collection(`artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/wizards`).doc(draftId);
+            const stateToSave = { ...debouncedState, updatedAt: new Date() };
+            draftRef.set(stateToSave, { merge: true });
         }
-    }, [debouncedState, userId]);
+    }, [debouncedState, userId, draftId]);
 
     const handleStartOver = async () => {
-        const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
-        await draftRef.delete();
-        setStep(1);
-        setInputs({ location: '', theme: '' });
-        setLocations([]);
-        setFootageInventory({});
-        setKeywordIdeas([]);
-        setSelectedKeywords([]);
-        setEditableOutline(null);
-        setFinalizedTitle(null);
-        setFinalizedDescription(null);
-        setSelectedTitle('');
-        setCoverImageUrl(''); // Reset cover image URL
-        setError('');
+        if (draftId) {
+            const draftRef = db.collection(`artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/wizards`).doc(draftId);
+            await draftRef.delete();
+        }
         setShowConfirmModal(false);
+        onClose();
     };
     
     const handleLocationsUpdate = useCallback((newLocations) => {
@@ -171,7 +163,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         const thumbnailIdeasKb = settings.knowledgeBases?.youtube?.thumbnailIdeas || '';
         const styleGuideText = settings.styleGuideText; // General style guide text
 
-        const prompt = `You are a professional YouTube producer creating a project plan about "${inputs.location}" with the theme "${inputs.theme}".
+        const prompt = `You are a professional YouTube producer creating a project plan about "<span class="math-inline">\{inputs\.location\}" with the theme "</span>{inputs.theme}".
 Context:
 1.  YouTube SEO Knowledge Base: ${youtubeSeoKb || 'N/A'}
 2.  User's Style Guide: ${styleGuideText || 'N/A'}
@@ -217,9 +209,9 @@ Generate a complete project plan as a JSON object.
          setIsLoading(true); setError('');
          const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
 
-         const prompt = `The user is creating a YouTube series about "${inputs.location}" with the theme "${inputs.theme}".
-Previous title suggestions were: ${editableOutline.playlistTitleSuggestions.join(', ')}.
-The user provided this feedback: "${refinement}".
+         const prompt = `The user is creating a YouTube series about "<span class="math-inline">\{inputs\.location\}" with the theme "</span>{inputs.theme}".
+Previous title suggestions were: <span class="math-inline">\{editableOutline\.playlistTitleSuggestions\.join\(', '\)\}\.
+The user provided this feedback\: "</span>{refinement}".
 Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate this feedback, following these guidelines: ${videoTitlesKb || 'N/A'}. Return as a JSON object like: {"playlistTitleSuggestions": ["title1", "title2", "title3"]}`;
          try {
              const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
@@ -243,7 +235,7 @@ Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate th
          const styleGuideText = settings.styleGuideText; // General style guide text
          const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
 
-         const prompt = `The user is creating a YouTube series titled "${finalizedTitle}". The current playlist description is: "${editableOutline.playlistDescription}".
+         const prompt = `The user is creating a YouTube series titled "<span class="math-inline">\{finalizedTitle\}"\. The current playlist description is\: "</span>{editableOutline.playlistDescription}".
 The user provided this feedback for refinement: "${refinement}".
 Rewrite the playlist description to incorporate the feedback, ensuring it remains SEO-optimized (300-400 words) and aligns with the user's style guide if provided.
 Style Guide: ${styleGuideText || 'Not provided.'}
@@ -274,8 +266,8 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
 
 
         const prompt = `A user is planning a YouTube series titled "${finalizedTitle}". You previously suggested this video idea as part of the series:
-Original Video Idea: ${JSON.stringify(videoToRefine)}
-The user has provided this feedback to refine it: "${refinement}"
+Original Video Idea: <span class="math-inline">\{JSON\.stringify\(videoToRefine\)\}
+The user has provided this feedback to refine it\: "</span>{refinement}"
 Please generate a NEW, updated JSON object for only this video, incorporating the feedback. The overall project context (locations, theme, etc.) remains the same.
 User Persona (Who Am I): ${whoAmIKb || 'N/A'}
 User's Style Guide: ${styleGuideText || 'N/A'}
@@ -332,7 +324,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         setError('');
         try {
             const batch = db.batch();
-            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc();
+            const projectRef = db.collection(`artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/projects`).doc();
             batch.set(projectRef, {
                 playlistTitle: finalizedTitle,
                 playlistDescription: finalizedDescription,
@@ -366,8 +358,11 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 });
             });
             await batch.commit();
-            const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc('newProjectDraft');
-            await draftRef.delete();
+            
+            if (draftId) {
+                const draftRef = db.collection(`artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/wizards`).doc(draftId);
+                await draftRef.delete();
+            }
             onClose();
         } catch(e) { console.error("Error creating project:", e); setError(`Failed to save project. ${e.message}`);
         } finally { setIsLoading(false); }
@@ -481,7 +476,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         <div className="p-4 bg-gray-900/50 border border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto pr-2 flex flex-wrap gap-2">
                             {keywordIdeas.map((keyword, index) => (
                                 <button
-                                    key={`${keyword}-${index}`}
+                                    key={`<span class="math-inline">\{keyword\}\-</span>{index}`}
                                     onClick={() => handleKeywordSelection(keyword)}
                                     className={`px-3 py-1.5 text-sm rounded-full transition-colors ${selectedKeywords.includes(keyword) ? 'bg-primary-accent text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
                                 >
@@ -546,145 +541,3 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                 <h3 className="font-bold text-lg text-primary-accent">{`Video ${index + 1}: ${video.title}`}</h3>
                                                 <p className="text-sm text-gray-400 mt-1 italic">Est. Length: {video.estimatedLengthMinutes} minutes</p>
                                             </div>
-                                            {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
-                                        </div>
-                                        <p className="text-sm mt-3">{video.concept}</p> {/* Displaying the cleaned concept */}
-                                        {video.description && video.description !== video.concept && ( // Show raw description if different from concept
-                                            <div className="mt-2 text-xs text-gray-500">
-                                                <h4 className="font-semibold text-gray-400">Original YouTube Description:</h4>
-                                                <p className="line-clamp-3">{video.description}</p>
-                                            </div>
-                                        )}
-                                        <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-3">
-                                            {video.locations_featured && video.locations_featured.length > 0 && (
-                                                <div>
-                                                     <label className="block text-xs font-medium text-gray-400 mb-1">Locations Featured:</label>
-                                                     <div className="flex flex-wrap gap-2">
-                                                        {video.locations_featured.map(locName => (
-                                                            <span key={locName} className="px-2 py-0.5 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{locName}</span>
-                                                        ))}
-                                                     </div>
-                                                </div>
-                                            )}
-                                            {video.targeted_keywords && video.targeted_keywords.length > 0 && (
-                                                <div>
-                                                     <label className="block text-xs font-medium text-gray-400 mb-1">Targeted Keywords:</label>
-                                                     <div className="flex flex-wrap gap-2">
-                                                        {video.targeted_keywords.map(keyword => (
-                                                            <span key={keyword} className="px-2 py-0.5 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{keyword}</span>
-                                                        ))}
-                                                     </div>
-                                                </div>
-                                            )}
-                                            {video.chapters && video.chapters.length > 0 && ( // Display extracted chapters
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-400 mb-1">Extracted Chapters:</label>
-                                                     <ul className="text-sm text-gray-300 list-disc pl-5">
-                                                        {video.chapters.map((chap, i) => (
-                                                            <li key={i}>{chap.timestamp} - {chap.title}</li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                            {video.publishDate && ( // Display publish date
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-400 mb-1">Published Date:</label>
-                                                    <p className="text-sm text-gray-300">{video.publishDate}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {video.status === 'pending' && (
-                                            <div className="mt-4 pt-4 border-t border-gray-700">
-                                                {refiningVideoIndex === index ? (
-                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
-                                                        <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Focus more on the history of this place'"/>
-                                                        <div className="flex justify-end gap-2 mt-2">
-                                                            <button onClick={() => setRefiningVideoIndex(null)} className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Cancel</button>
-                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-primary-accent hover:bg-primary-accent-darker rounded-md flex items-center gap-1">{isLoading ? <window.LoadingSpinner/> : 'Submit'}</button>
-                                                        </div>
-                                                     </div>
-                                                ) : (
-                                                    <div className="flex justify-end gap-2">
-                                                        <button onClick={() => { setRefiningVideoIndex(index); setRefinement(''); }} className="text-sm px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Refine</button>
-                                                        <button onClick={() => handleAcceptVideo(index)} className="text-sm px-3 py-1 bg-green-700 hover:bg-green-600 rounded-md">Accept</button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {error && <p className="text-red-400 mt-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                    </div>
-                );
-        }
-    }
-    
-    const renderActionButtons = () => {
-        const subLocations = locations.slice(1);
-        const isInventoryComplete = subLocations.length === 0 || subLocations.every(loc => {
-            const inventory = footageInventory[loc.place_id] || {};
-            return inventory.bRoll || inventory.onCamera || inventory.drone;
-        });
-        const allVideosAccepted = editableOutline?.videos.every(v => v.status === 'accepted');
-
-        return (
-            <div className="flex justify-between items-center w-full">
-                <div>
-                    {step > 1 && <button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100">Start Over</button>}
-                </div>
-                <div className="flex items-center gap-4">
-                     {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
-                     
-                     {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
-                     
-                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
-                     
-                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
-                     
-                     {step === 4 && (
-                        <>
-                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                            <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
-                        </>
-                     )}
-                     
-                     {step === 5 && (
-                        <>
-                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
-                            <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
-                        </>
-                     )}
-                     
-                     {step === 6 && (
-                        <>
-                             <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
-                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
-                        </>
-                     )}
-                </div>
-            </div>
-        );
-    };
-
-    return (
-        // Outer fixed div acts as the overlay. Clicking it closes the modal.
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4" onClick={onClose}>
-            {showConfirmModal && <window.ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
-            {/* Inner modal content. Clicks inside should not close the modal. */}
-            <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="flex-shrink-0">
-                    <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                </div>
-                <div className="flex-grow overflow-y-auto"> {/* This div should also allow scrolling if the entire wizard content is too tall */}
-                    {wizardStep()}
-                </div>
-                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700">
-                    {renderActionButtons()}
-                </div>
-            </div>
-        </div>
-    );
-};
