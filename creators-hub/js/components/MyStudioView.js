@@ -59,7 +59,7 @@ const MyStudioView = ({ settings, onSave, onBack }) => {
 
     return (
         <div className="p-8">
-            <button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6">
+            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-4">🎨 My Studio</h1>
@@ -73,7 +73,7 @@ const MyStudioView = ({ settings, onSave, onBack }) => {
                         <div><label className="block text-sm font-medium text-gray-300 mb-2">Keywords describing your style</label><input type="text" value={styleInputs.keywords} onChange={(e) => setStyleInputs(p => ({ ...p, keywords: e.target.value }))} className="form-input" placeholder="e.g., witty, cinematic, fast-paced, educational" /></div>
                         <div><label className="block text-sm font-medium text-gray-300 mb-2">Style Dos and Don'ts</label><textarea value={styleInputs.dosAndDonts} onChange={(e) => setStyleInputs(p => ({ ...p, dosAndDonts: e.target.value }))} rows="3" className="form-textarea" placeholder="e.g., DO use humor. DON'T be too formal."></textarea></div>
                         <div><label className="block text-sm font-medium text-gray-300 mb-2">Excluded Phrases & Words</label><textarea value={styleInputs.excludedPhrases} onChange={(e) => setStyleInputs(p => ({ ...p, excludedPhrases: e.target.value }))} rows="3" className="form-textarea" placeholder="e.g., synergy, circle back, at the end of the day"></textarea></div>
-                        <button onClick={handleAnalyzeStyle} disabled={isLoading} className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner /> : '🧬 Analyze & Create Style Guide'}</button>
+                        <button onClick={handleAnalyzeStyle} disabled={isLoading} className="w-full px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-gray-500">{isLoading ? <LoadingSpinner /> : '🧬 Analyze & Create Style Guide'}</button>
                     </div>
                 </div>
                 <div>
