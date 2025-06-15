@@ -79,5 +79,51 @@ window.aiUtils = {
         } else {
             throw new Error("AI returned an invalid keyword format.");
         }
+    },
+
+    /**
+     * Extracts and infers video metadata (locations and keywords/tags) using Gemini AI.
+     * This is useful for parsing content from imported sources like YouTube descriptions.
+     *
+     * @param {object} params - Parameters for metadata extraction.
+     * @param {string} params.videoTitle - The title of the video.
+     * @param {string} params.videoDescription - The raw description of the video.
+     * @param {object} params.settings - User settings containing API key.
+     * @returns {Promise<object>} - A promise that resolves to an object like:
+     * `{"locations_featured": ["Location 1", "Location 2"], "targeted_keywords": ["keyword1", "keyword2"]}`.
+     * @throws {Error} If the API call fails or returns an invalid format.
+     */
+    extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Cannot extract video metadata.");
+        }
+
+        const prompt = `Analyze the following YouTube video title and description.
+        Infer the most relevant geographical locations featured in the video and the most important keywords/tags for SEO.
+        
+        Video Title: "${videoTitle}"
+        Video Description: "${videoDescription}"
+        
+        Provide the output as a JSON object with two keys:
+        - "locations_featured": An array of strings, listing inferred locations (e.g., ["Paris", "Eiffel Tower"]). If no specific locations can be inferred, return an empty array.
+        - "targeted_keywords": An array of strings, listing relevant SEO keywords/tags (e.g., ["travel vlog", "Paris guide", "Eiffel Tower climb"]). Include about 10-15 keywords.
+        
+        Example output:
+        {
+          "locations_featured": ["New York City", "Statue of Liberty"],
+          "targeted_keywords": ["NYC travel", "New York guide", "Statue of Liberty tour", "city break", "USA vlog"]
+        }`;
+
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+
+        if (parsedJson && Array.isArray(parsedJson.locations_featured) && Array.isArray(parsedJson.targeted_keywords)) {
+            return {
+                locations_featured: parsedJson.locations_featured,
+                targeted_keywords: parsedJson.targeted_keywords
+            };
+        } else {
+            throw new Error("AI returned an invalid format for video metadata extraction.");
+        }
     }
 };
