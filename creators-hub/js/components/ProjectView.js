@@ -9,6 +9,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
     const [editingProject, setEditingProject] = useState(false);
     const [editingVideo, setEditingVideo] = useState(null);
     const [currentProject, setCurrentProject] = useState(project);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State to control sidebar visibility on mobile
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     // Listen for real-time updates to the project itself (e.g., if locations change)
@@ -67,10 +68,15 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         });
     };
 
+    const handleSelectVideoAndCloseSidebar = (videoId) => {
+        setActiveVideoId(videoId);
+        setIsSidebarOpen(false); // Close sidebar on mobile after selecting a video
+    };
+
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
     
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 min-h-screen flex flex-col">
             {editingProject && <window.EditProjectModal project={currentProject} userId={userId} settings={settings} onClose={() => setEditingProject(false)} googleMapsLoaded={googleMapsLoaded} />}
             {editingVideo && <window.EditVideoModal video={editingVideo} userId={userId} project={currentProject} settings={settings} onClose={() => setEditingVideo(null)} googleMapsLoaded={googleMapsLoaded} />}
 
@@ -78,31 +84,45 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                 project={currentProject} 
                 onBack={onBack} 
                 onEdit={() => setEditingProject(true)} 
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} // Pass toggle function
             />
             
             {loading ? (
-                <div className="flex justify-center mt-16"><window.LoadingSpinner text="Loading Project..." /></div>
+                <div className="flex justify-center mt-16 flex-grow"><window.LoadingSpinner text="Loading Project..." /></div>
             ) : (
-                <div className="flex flex-col lg:flex-row gap-8">
-                    <window.VideoList 
-                        videos={videos}
-                        activeVideoId={activeVideoId}
-                        onSelectVideo={setActiveVideoId}
-                        onEditVideo={setEditingVideo}
-                        onReorder={handleReorderVideos}
-                    />
+                <div className="flex flex-grow flex-col lg:flex-row gap-6">
+                    {/* VideoList Sidebar/Drawer */}
+                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/3 xl:w-1/4 lg:flex-shrink-0 flex flex-col`}>
+                        <div className="p-4 flex justify-between items-center lg:hidden">
+                            <h2 className="text-lg font-semibold text-white">Videos</h2>
+                            <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+                        </div>
+                        <div className="flex-grow overflow-y-auto">
+                            <window.VideoList 
+                                videos={videos}
+                                activeVideoId={activeVideoId}
+                                onSelectVideo={handleSelectVideoAndCloseSidebar} // Use new handler
+                                onEditVideo={setEditingVideo}
+                                onReorder={handleReorderVideos}
+                            />
+                        </div>
+                    </div>
+                    {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>} {/* Overlay for mobile */}
                     
+                    {/* VideoWorkspace Main Content */}
                     {activeVideo ? (
-                        <window.VideoWorkspace 
-                            video={activeVideo} 
-                            settings={settings} 
-                            project={currentProject} 
-                            userId={userId}
-                        />
+                        <div className="lg:flex-grow lg:w-2/3 xl:w-3/4">
+                            <window.VideoWorkspace 
+                                video={activeVideo} 
+                                settings={settings} 
+                                project={currentProject} 
+                                userId={userId}
+                            />
+                        </div>
                     ) : (
-                        <main className="lg:w-2/3 xl:w-3/4 flex items-center justify-center h-full glass-card p-8 rounded-lg">
-                            <p className="text-gray-400">Select a video to begin.</p>
-                        </main>
+                        <div className="lg:flex-grow lg:w-2/3 xl:w-3/4 flex items-center justify-center h-full glass-card p-8 rounded-lg min-h-[400px]">
+                            <p className="text-gray-400">Select a video to begin working on it.</p>
+                        </div>
                     )}
                 </div>
             )}
