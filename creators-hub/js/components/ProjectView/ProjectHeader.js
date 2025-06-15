@@ -6,7 +6,7 @@ const ProjectHeader = ({ project, onBack, onEdit }) => {
     return (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <div>
-                 <button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-2">
+                 <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-2">
                     ⬅️ Back to All Projects
                 </button>
                 <div className="flex items-center gap-3">
@@ -16,7 +16,7 @@ const ProjectHeader = ({ project, onBack, onEdit }) => {
                     </button>
                 </div>
                 <div className="mt-2">
-                    <button onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} className="text-sm text-blue-400 hover:text-blue-300">
+                    <button onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} className="text-sm text-secondary-accent hover:text-secondary-accent-light">
                          {isDescriptionVisible ? 'Hide' : 'Show'} Description
                     </button>
                 </div>
