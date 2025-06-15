@@ -1,6 +1,6 @@
 // js/components/SettingsView.js
 
-const SettingsView = ({ settings, onSave, onBack }) => {
+window.SettingsView = ({ settings, onSave, onBack }) => {
     const [localSettings, setLocalSettings] = useState(settings);
 
     useEffect(() => {
@@ -18,7 +18,7 @@ const SettingsView = ({ settings, onSave, onBack }) => {
 
     return (
         <div className="p-8">
-            <button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6">
+            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-4">Technical Settings</h1>
