@@ -144,7 +144,10 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
     const isConfirmationMatching = confirmText === 'YES';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"> {/* Increased z-index to ensure it's on top */}
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"
+            onMouseDown={e => e.stopPropagation()} // Stop mousedown event from bubbling up to document
+        >
             <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
                 <h3 className="text-2xl font-bold text-red-400 mb-4">Delete {project.playlistTitle === 'this draft' ? 'Draft' : 'Project'}</h3>
                 <p className="text-gray-300 mb-2">This action is irreversible and will permanently delete the {project.playlistTitle === 'this draft' ? 'draft' : 'project'}:</p>
