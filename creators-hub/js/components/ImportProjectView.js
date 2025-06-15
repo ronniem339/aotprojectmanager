@@ -1,124 +1,310 @@
 // js/components/ImportProjectView.js
 
-window.ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
-    const [playlistTitle, setPlaylistTitle] = useState('');
-    const [projectOutline, setProjectOutline] = useState('');
-    const [playlistDescription, setPlaylistDescription] = useState('');
-    const [videos, setVideos] = useState([{ title: '', concept: '', script: '' }]);
+window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
+    const [youtubeUrlOrId, setYoutubeUrlOrId] = useState('');
+    const [fetchError, setFetchError] = useState('');
+    const [isFetchingYoutube, setIsFetchingYoutube] = useState(false);
+    const [fetchedYoutubeData, setFetchedYoutubeData] = useState(null); // { playlistTitle, playlistDescription, videos: [{id, title, description, thumbnailUrl}] }
+    
+    // States for user review and AI parsing steps
+    const [manualPlaylistTitle, setManualPlaylistTitle] = useState('');
+    const [manualPlaylistDescription, setManualPlaylistDescription] = useState('');
+    const [videosToImport, setVideosToImport] = useState([]); // Array of video objects after fetching and initial parsing
 
-    const handleVideoChange = (index, field, value) => {
-        const newVideos = [...videos];
+    // Regex to extract Playlist ID or Video ID from YouTube URLs
+    const extractYoutubeId = (url) => {
+        const playlistIdMatch = url.match(/[?&]list=([^&]+)/);
+        if (playlistIdMatch && playlistIdMatch[1]) {
+            return { type: 'playlist', id: playlistIdMatch[1] };
+        }
+        const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([\w-]{11})/);
+        if (videoIdMatch && videoIdMatch[1]) {
+            return { type: 'video', id: videoIdMatch[1] };
+        }
+        // If not a URL, assume it's directly an ID
+        if (url.length === 24 && url.startsWith('PL')) { // Common playlist ID format
+            return { type: 'playlist', id: url };
+        }
+        if (url.length === 11) { // Common video ID format
+            return { type: 'video', id: url };
+        }
+        return null;
+    };
+
+    const fetchYoutubeData = async () => {
+        const apiKey = settings.youtubeApiKey;
+        if (!apiKey) {
+            setFetchError("Please set your YouTube Data API Key in Technical Settings to use this feature.");
+            return;
+        }
+
+        const idInfo = extractYoutubeId(youtubeUrlOrId);
+        if (!idInfo) {
+            setFetchError("Invalid YouTube URL or ID. Please enter a valid Playlist URL/ID or Video URL/ID.");
+            return;
+        }
+
+        setIsFetchingYoutube(true);
+        setFetchError('');
+        setFetchedYoutubeData(null); // Clear previous data
+
+        try {
+            if (idInfo.type === 'playlist') {
+                await fetchPlaylistVideos(idInfo.id, apiKey);
+            } else if (idInfo.type === 'video') {
+                await fetchSingleVideo(idInfo.id, apiKey);
+            }
+        } catch (error) {
+            console.error("Error fetching YouTube data:", error);
+            setFetchError(`Failed to fetch data from YouTube: ${error.message}. Please check the ID/URL and your API key.`);
+        } finally {
+            setIsFetchingYoutube(false);
+        }
+    };
+
+    const fetchPlaylistVideos = async (playlistId, apiKey) => {
+        let playlistTitle = '';
+        let playlistDescription = '';
+        let videos = [];
+        let nextPageToken = '';
+
+        // Fetch playlist details
+        const playlistDetailsUrl = `https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${playlistId}&key=${apiKey}`;
+        const playlistDetailsResponse = await fetch(playlistDetailsUrl);
+        const playlistDetailsData = await playlistDetailsResponse.json();
+
+        if (!playlistDetailsResponse.ok || playlistDetailsData.items.length === 0) {
+            throw new Error(playlistDetailsData.error?.message || "Playlist not found or API error.");
+        }
+
+        const playlistSnippet = playlistDetailsData.items[0].snippet;
+        playlistTitle = playlistSnippet.title;
+        playlistDescription = playlistSnippet.description;
+
+        // Fetch videos in the playlist
+        do {
+            const playlistItemsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+            const response = await fetch(playlistItemsUrl);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || "Failed to fetch playlist items.");
+            }
+
+            data.items.forEach(item => {
+                if (item.snippet.resourceId.kind === 'youtube#video') {
+                    videos.push({
+                        id: item.snippet.resourceId.videoId,
+                        title: item.snippet.title,
+                        description: item.snippet.description,
+                        thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url
+                    });
+                }
+            });
+            nextPageToken = data.nextPageToken;
+        } while (nextPageToken);
+
+        setFetchedYoutubeData({ playlistTitle, playlistDescription, videos });
+        setManualPlaylistTitle(playlistTitle);
+        setManualPlaylistDescription(playlistDescription);
+        setVideosToImport(videos.map(video => ({
+            ...video,
+            concept: video.description, // Initial concept from YouTube description
+            script: '', // Transcripts need separate fetching/AI parsing
+            locations_featured: [],
+            targeted_keywords: [],
+            estimatedLengthMinutes: '', // Placeholder, would need YouTube API for video duration
+            status: 'pending' // For internal review process
+        })));
+    };
+
+    const fetchSingleVideo = async (videoId, apiKey) => {
+        const videoDetailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
+        const response = await fetch(videoDetailsUrl);
+        const data = await response.json();
+
+        if (!response.ok || data.items.length === 0) {
+            throw new Error(data.error?.message || "Video not found or API error.");
+        }
+
+        const videoSnippet = data.items[0].snippet;
+        const contentDetails = data.items[0].contentDetails;
+
+        // Helper to convert ISO 8601 duration to minutes
+        const parseDuration = (iso) => {
+            const matches = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (!matches) return '';
+            const hours = parseInt(matches[1] || 0, 10);
+            const minutes = parseInt(matches[2] || 0, 10);
+            const seconds = parseInt(matches[3] || 0, 10);
+            return (hours * 60 + minutes + Math.round(seconds / 60)).toString();
+        };
+
+        const fetchedVideo = {
+            id: videoId,
+            title: videoSnippet.title,
+            description: videoSnippet.description,
+            thumbnailUrl: videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
+            estimatedLengthMinutes: parseDuration(contentDetails.duration)
+        };
+
+        setFetchedYoutubeData({
+            playlistTitle: fetchedVideo.title, // Use video title as playlist title for single video import
+            playlistDescription: fetchedVideo.description, // Use video description as playlist description
+            videos: [fetchedVideo]
+        });
+        setManualPlaylistTitle(fetchedVideo.title);
+        setManualPlaylistDescription(fetchedVideo.description);
+        setVideosToImport([{
+            ...fetchedVideo,
+            concept: fetchedVideo.description,
+            script: '',
+            locations_featured: [],
+            targeted_keywords: [],
+            status: 'pending'
+        }]);
+    };
+
+    const handleVideoImportChange = (index, field, value) => {
+        const newVideos = [...videosToImport];
         newVideos[index][field] = value;
-        setVideos(newVideos);
+        setVideosToImport(newVideos);
     };
 
-    const addVideo = () => {
-        setVideos([...videos, { title: '', concept: '', script: '' }]);
-    };
-
-    const removeVideo = (index) => {
-        const newVideos = videos.filter((_, i) => i !== index);
-        setVideos(newVideos);
+    // AI Analysis Function (placeholder for now, to be expanded)
+    const handleAIAnalyzeVideo = async (video, index) => {
+        // This is where you'd call Gemini to parse concept, keywords, locations from description/transcript
+        // For now, we just indicate it's processed.
+        const newVideos = [...videosToImport];
+        newVideos[index] = { ...video, status: 'processed' }; // Mark as AI processed
+        setVideosToImport(newVideos);
     };
 
     const handleAnalyzeClick = () => {
-        // Basic validation
-        if (!playlistTitle || videos.some(v => !v.title)) {
-            // Replaced alert with console.error as per instructions.
-            console.error('Please provide at least a playlist title and a title for each video.');
+        // This will now pass the parsed YouTube data
+        if (!manualPlaylistTitle || videosToImport.length === 0 || videosToImport.some(v => !v.title)) {
+            console.error('Please ensure playlist title and video titles are present.');
+            setFetchError('Please ensure playlist title and video titles are present.');
             return;
         }
+        
         const projectData = {
-            playlistTitle,
-            projectOutline,
-            playlistDescription,
-            videos,
+            playlistTitle: manualPlaylistTitle,
+            projectOutline: manualPlaylistDescription, // Using description as outline for import
+            playlistDescription: manualPlaylistDescription,
+            videos: videosToImport.map(v => ({
+                title: v.title,
+                concept: v.concept,
+                script: v.script,
+                estimatedLengthMinutes: v.estimatedLengthMinutes,
+                locations_featured: v.locations_featured,
+                targeted_keywords: v.targeted_keywords
+            })),
         };
         onAnalyze(projectData);
     };
 
     return (
         <div className="p-8">
-             {isLoading && (
+             {(isLoading || isFetchingYoutube) && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-                   <window.LoadingSpinner text="Analyzing your project and building a plan..." />
+                   <window.LoadingSpinner text={isFetchingYoutube ? "Fetching from YouTube..." : "Analyzing your project..."} />
                 </div>
             )}
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-2">Import Existing Project</h1>
-            <p className="text-gray-400 mb-8">Paste your existing project content here. We'll analyze it and help you complete the series.</p>
+            <p className="text-gray-400 mb-8">Import your existing YouTube playlists or videos for management and future AI features.</p>
             
-            <div className="space-y-6">
-                <div className="p-6 glass-card rounded-lg">
-                    <h2 className="text-2xl font-semibold mb-4">Playlist Details</h2>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Playlist Title</label>
-                        <input 
+            <div className="glass-card p-6 rounded-lg mb-6">
+                <h2 className="text-2xl font-semibold mb-4">YouTube Import</h2>
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="flex-grow">
+                        <label className="block text-sm font-medium text-gray-300 mb-1">YouTube Playlist or Video URL/ID</label>
+                        <input
                             type="text"
-                            value={playlistTitle}
-                            onChange={(e) => setPlaylistTitle(e.target.value)}
+                            value={youtubeUrlOrId}
+                            onChange={(e) => setYoutubeUrlOrId(e.target.value)}
                             className="w-full form-input"
-                            placeholder="Enter the title for the entire series"
+                            placeholder="e.g., https://www.youtube.com/playlist?list=PL_... or a video ID"
                         />
                     </div>
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Overall Project Plan / Concept <span className="text-gray-400">(Optional)</span></label>
-                        <textarea
-                            value={projectOutline}
-                            onChange={(e) => setProjectOutline(e.target.value)}
-                            rows="4"
-                            className="w-full form-textarea"
-                            placeholder="Provide a brief outline or concept for the entire video series."
-                        ></textarea>
-                    </div>
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Existing Playlist Description <span className="text-gray-400">(Optional)</span></label>
-                        <textarea
-                            value={playlistDescription}
-                            onChange={(e) => setPlaylistDescription(e.target.value)}
-                            rows="5"
-                            className="w-full form-textarea"
-                            placeholder="If you have a full playlist description already written, paste it here."
-                        ></textarea>
-                    </div>
-                </div>
-
-                <div className="p-6 glass-card rounded-lg">
-                    <h2 className="text-2xl font-semibold mb-4">Videos</h2>
-                    <div className="space-y-6">
-                        {videos.map((video, index) => (
-                            <div key={index} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 relative">
-                                <h3 className="text-lg font-bold text-primary-accent mb-3">Video {index + 1}</h3>
-                                {videos.length > 1 && (
-                                    <button onClick={() => removeVideo(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-300">&times; Remove</button>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
-                                    <input type="text" value={video.title} onChange={(e) => handleVideoChange(index, 'title', e.target.value)} className="w-full form-input" placeholder="Title for this specific video"/>
-                                </div>
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">Concept / Description</label>
-                                    <textarea value={video.concept} onChange={(e) => handleVideoChange(index, 'concept', e.target.value)} rows="3" className="w-full form-textarea" placeholder="Brief concept or description for this video"></textarea>
-                                </div>
-                                 <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">Full Script / Transcript (Optional)</label>
-                                    <textarea value={video.script} onChange={(e) => handleVideoChange(index, 'script', e.target.value)} rows="8" className="w-full form-textarea" placeholder="Paste the full script here if you have it. This will improve AI suggestions later."></textarea>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <button onClick={addVideo} className="mt-6 px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg text-sm font-semibold">
-                        + Add Another Video
+                    <button onClick={fetchYoutubeData} disabled={isFetchingYoutube || !youtubeUrlOrId.trim()} className="px-6 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex-shrink-0">
+                        Fetch from YouTube
                     </button>
                 </div>
-                 <div className="text-right">
-                    <button onClick={handleAnalyzeClick} className="px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold transition-colors">
-                        Analyze & Plan Project 🪄
-                    </button>
-                </div>
+                {fetchError && (
+                    <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm mt-4">
+                        {fetchError}
+                    </div>
+                )}
             </div>
+
+            {fetchedYoutubeData && (
+                <div className="space-y-6">
+                    <div className="p-6 glass-card rounded-lg">
+                        <h2 className="text-2xl font-semibold mb-4">Project Details from YouTube</h2>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Playlist Title</label>
+                            <input 
+                                type="text"
+                                value={manualPlaylistTitle}
+                                onChange={(e) => setManualPlaylistTitle(e.target.value)}
+                                className="w-full form-input"
+                                placeholder="Enter the title for the entire series"
+                            />
+                        </div>
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Playlist Description</label>
+                            <textarea
+                                value={manualPlaylistDescription}
+                                onChange={(e) => setManualPlaylistDescription(e.target.value)}
+                                rows="5"
+                                className="w-full form-textarea"
+                                placeholder="If you have a full playlist description already written, paste it here."
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div className="p-6 glass-card rounded-lg">
+                        <h2 className="text-2xl font-semibold mb-4">Videos to Import</h2>
+                        <div className="space-y-6">
+                            {videosToImport.map((video, index) => (
+                                <div key={video.id || index} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 relative flex gap-4">
+                                    <div className="flex-shrink-0">
+                                        <window.ImageComponent src={video.thumbnailUrl} alt={video.title} className="w-28 h-20 object-cover rounded-md" />
+                                    </div>
+                                    <div className="flex-grow">
+                                        <h3 className="text-lg font-bold text-primary-accent">{video.title}</h3>
+                                        <p className="text-sm text-gray-400 mt-1 mb-2 line-clamp-2">{video.description}</p>
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept / Summary</label>
+                                        <textarea 
+                                            value={video.concept} 
+                                            onChange={(e) => handleVideoImportChange(index, 'concept', e.target.value)} 
+                                            rows="3" 
+                                            className="w-full form-textarea" 
+                                            placeholder="AI will help summarize this later, or you can edit."
+                                        ></textarea>
+                                        <div className="flex gap-2 mt-2">
+                                            {/* This button will trigger AI parsing for this specific video */}
+                                            <button onClick={() => handleAIAnalyzeVideo(video, index)} disabled={video.status === 'processed'} className="px-3 py-1 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500">
+                                                {video.status === 'processed' ? 'AI Processed' : 'AI Analyze'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="text-right">
+                        <button onClick={handleAnalyzeClick} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">
+                            Prepare Project for AI Plan 🪄
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
