@@ -5,7 +5,7 @@ window.App = () => { // Exposing App component globally
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedProject, setSelectedProject] = useState(null);
-    const [settings, setSettings] = useState({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' });
+    const [settings, setSettings] = useState({ geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '' }); // Added youtubeApiKey
     const [projectDraft, setProjectDraft] = useState(null);
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
@@ -32,7 +32,7 @@ window.App = () => { // Exposing App component globally
             if (!currentUser) {
                 // IMPORTANT: Removed automatic anonymous sign-in here.
                 // The LoginScreen is now responsible for handling user authentication.
-                setSettings({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' }); // Clear settings for unauthenticated user
+                setSettings({ geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '' }); // Clear settings for unauthenticated user, including youtubeApiKey
                 setProjectDraft(null);
             }
             setIsAuthReady(true);
@@ -49,6 +49,7 @@ window.App = () => { // Exposing App component globally
                 const defaultSettings = {
                     geminiApiKey: '',
                     googleMapsApiKey: '',
+                    youtubeApiKey: '', // Default for youtubeApiKey
                     styleGuideText: '',
                     myWriting: '',
                     admiredWriting: '',
@@ -103,6 +104,7 @@ window.App = () => { // Exposing App component globally
 
     // Updated navigation handlers
     const handleShowSettings = () => setCurrentView('settingsMenu'); // Navigate to the new settings menu
+    const handleShowTechnicalSettings = () => setCurrentView('settings'); // Navigate to the specific Technical Settings view
     const handleShowStyleAndTone = () => setCurrentView('myStudio'); // Renamed from myStudio to styleAndTone view
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
 
@@ -114,7 +116,7 @@ window.App = () => { // Exposing App component globally
             displayNotification('Settings saved successfully!');
             // After saving, go back to the settings menu if applicable, otherwise dashboard
             if (currentView === 'settings' || currentView === 'myStudio' || currentView === 'knowledgeBases') {
-                setCurrentView('settingsMenu'); // Go back to the settings menu
+                setCurrentView('settingsMenu'); // Go back to the settings menu after saving a sub-setting
             }
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -215,14 +217,14 @@ Your task is to analyze this data and generate a complete project plan to help t
         switch (currentView) {
             case 'project':
                 return <window.ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
-            case 'settingsMenu': // NEW CASE: For the Settings Menu
-                return <window.SettingsMenu onBack={handleBackToDashboard} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
-            case 'settings': // Technical Settings View (previously just 'settings')
+            case 'settingsMenu': // For the Settings Menu
+                return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
+            case 'settings': // Technical Settings View
                 return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
-            case 'myStudio': // Renamed to Style & Tone
+            case 'myStudio': // Style & Tone View
                 return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
             case 'importProject':
-                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} />;
+                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} />; // Pass settings to ImportProjectView
             case 'knowledgeBases':
                 return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
             default:
