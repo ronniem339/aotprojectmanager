@@ -1,6 +1,6 @@
 // js/components/ProjectView/VideoWorkspace.js
 
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useCallback } = React; // Added useCallback
 
 // No longer need to define TASK_PIPELINE or expose TaskItem/CopyButton globally here,
 // as they are now handled via window.CREATOR_HUB_CONFIG.TASK_PIPELINE and other window. exposures in common.js.
@@ -14,6 +14,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [isConceptVisible, setIsConceptVisible] = useState(false);
     const [chapters, setChapters] = useState(video.chapters || []); // Initialize with imported chapters
     const [showFullScreenScript, setShowFullScreenScript] = useState(false); // New state for full-screen script
+    const [videoStats, setVideoStats] = useState(video.stats || null); // New state for video statistics
+    const [isFetchingStats, setIsFetchingStats] = useState(false); // New state for stats loading indicator
+
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -23,7 +26,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setScriptContent(video.script || ''); // Update scriptContent if video.script changes
         setIsConceptVisible(false);
         setChapters(video.chapters || []); // Update chapters if video changes
-    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks]); // Added video.tasks to dependencies
+        setVideoStats(video.stats || null); // Update stats if video object changes
+    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks, video.stats]); // Added video.stats to dependencies
     
     useEffect(() => {
         // This effect runs when video.metadata changes.
@@ -54,6 +58,67 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             ...extraData // This will apply chosenTitle, metadata, script, etc.
         });
     };
+
+    // New: Function to fetch video statistics from YouTube
+    const fetchVideoStats = useCallback(async () => {
+        if (!settings.youtubeApiKey) {
+            console.warn("YouTube Data API Key not set. Cannot fetch video statistics.");
+            return;
+        }
+        if (!video.id || video.tasks?.videoUploaded !== 'complete') {
+            // Only fetch stats for published videos with a YouTube ID
+            return;
+        }
+
+        // Check if stats were fetched recently (e.g., within the last 24 hours)
+        const lastFetchTimestamp = video.stats?.lastFetch ? new Date(video.stats.lastFetch).getTime() : 0;
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+
+        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats) {
+            // Stats are recent, no need to refetch unless forced by a button click
+            return;
+        }
+
+        setIsFetchingStats(true);
+        try {
+            const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.id}&key=${settings.youtubeApiKey}`;
+            const response = await fetch(statsApiUrl);
+            const data = await response.json();
+
+            if (!response.ok || !data.items || data.items.length === 0) {
+                console.error("Failed to fetch video statistics:", data.error?.message || "Video not found or API error.");
+                return;
+            }
+
+            const stats = data.items[0].statistics;
+            const newStats = {
+                viewCount: stats.viewCount || '0',
+                likeCount: stats.likeCount || '0',
+                commentCount: stats.commentCount || '0',
+                lastFetch: new Date().toISOString() // Store ISO string for consistency
+            };
+
+            setVideoStats(newStats);
+            // Update Firestore with the new stats
+            const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+            await videoDocRef.update({ stats: newStats });
+
+        } catch (error) {
+            console.error("Error fetching video stats:", error);
+        } finally {
+            setIsFetchingStats(false);
+        }
+    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id]);
+
+
+    // Effect to trigger stats fetch when video data or API key changes
+    useEffect(() => {
+        // Only attempt to fetch if the video is uploaded and has a YouTube ID
+        if (video.tasks?.videoUploaded === 'complete' && video.id) {
+            fetchVideoStats();
+        }
+    }, [video.id, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]); // Re-run if these dependencies change
+
 
     const handleGenerate = async (type, currentContent, refinement) => {
         const apiKey = settings.geminiApiKey || "";
@@ -256,6 +321,43 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                         </div>
                     </div>
                 </div>
+
+                {/* New Section for Video Statistics */}
+                {(video.tasks?.videoUploaded === 'complete' && video.id) && (
+                    <div className="glass-card p-6 rounded-lg">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-semibold text-white">📈 Video Statistics</h3>
+                            <button 
+                                onClick={fetchVideoStats} 
+                                disabled={isFetchingStats}
+                                className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-50"
+                            >
+                                {isFetchingStats ? <window.LoadingSpinner /> : 'Refresh Stats'}
+                            </button>
+                        </div>
+                        {videoStats ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                                <div className="p-3 bg-gray-800/50 rounded-lg">
+                                    <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.viewCount).toLocaleString()}</p>
+                                    <p className="text-sm text-gray-400">Views</p>
+                                </div>
+                                <div className="p-3 bg-gray-800/50 rounded-lg">
+                                    <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.likeCount).toLocaleString()}</p>
+                                    <p className="text-sm text-gray-400">Likes</p>
+                                </div>
+                                <div className="p-3 bg-gray-800/50 rounded-lg">
+                                    <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.commentCount).toLocaleString()}</p>
+                                    <p className="text-sm text-gray-400">Comments</p>
+                                </div>
+                                {videoStats.lastFetch && (
+                                    <p className="col-span-full text-xs text-gray-500 mt-2">Last fetched: {new Date(videoStats.lastFetch).toLocaleString()}</p>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-gray-500">No statistics available yet or failed to fetch. Ensure the video is uploaded and publicly accessible.</p>
+                        )}
+                    </div>
+                )}
                 
                 <window.TaskItem 
                     title="1. Scripting & Recording" 
