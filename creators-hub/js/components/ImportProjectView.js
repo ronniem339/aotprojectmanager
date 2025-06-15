@@ -257,14 +257,18 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 // Call AI to extract locations and keywords
                 let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
                 try {
+                    console.log(`[AI Input] Processing video "${item.snippet.title}" for metadata extraction.`);
+                    console.log(`[AI Input] Raw Description for "${item.snippet.title}":`, rawDescription);
                     aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
                         videoTitle: item.snippet.title,
                         videoDescription: rawDescription,
                         settings: settings
                     });
+                    console.log(`[AI Output] Extracted data for "${item.snippet.title}":`, aiExtractedData);
                 } catch (aiError) {
-                    console.error("Error extracting AI metadata for video:", item.snippet.title, aiError);
-                    // Continue with empty arrays if AI extraction fails
+                    console.error(`[AI Error] Failed to extract AI metadata for video "${item.snippet.title}":`, aiError);
+                    // Ensure aiExtractedData remains correctly structured even on error
+                    aiExtractedData = { locations_featured: [], targeted_keywords: [] };
                 }
 
                 // Construct a basic metadata object from available info
@@ -292,7 +296,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     isManual: false,
                     // Set initial task statuses for imported videos
                     tasks: {
-                        scripting: 'complete', // Marked as complete if user provides script or it's inferred. For now, assume pending by default unless script exists.
+                        scripting: 'pending', // Marked as complete if user provides script or it's inferred. For now, assume pending by default unless script exists.
                         videoEdited: 'complete',
                         feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
                         metadataGenerated: 'complete', // Metadata is largely available
@@ -347,14 +351,18 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         // Call AI to extract locations and keywords
         let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
         try {
+            console.log(`[AI Input] Processing single video "${videoSnippet.title}" for metadata extraction.`);
+            console.log(`[AI Input] Raw Description for "${videoSnippet.title}":`, rawDescription);
             aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
                 videoTitle: videoSnippet.title,
                 videoDescription: rawDescription,
                 settings: settings
             });
+            console.log(`[AI Output] Extracted data for "${videoSnippet.title}":`, aiExtractedData);
         } catch (aiError) {
-            console.error("Error extracting AI metadata for single video:", videoSnippet.title, aiError);
+            console.error(`[AI Error] Failed to extract AI metadata for single video "${videoSnippet.title}":`, aiError);
             // Continue with empty arrays if AI extraction fails
+            aiExtractedData = { locations_featured: [], targeted_keywords: [] };
         }
 
         // Construct a basic metadata object from available info
@@ -380,9 +388,10 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             chapters: extractedChapters,    // Store extracted chapters
             locations_featured: aiExtractedData.locations_featured, // Use AI-generated locations
             targeted_keywords: aiExtractedData.targeted_keywords,   // Use AI-generated keywords
+            isManual: false,
             // Set initial task statuses for imported video
             tasks: {
-                scripting: 'complete', // Marked as complete if user provides script or it's inferred. For now, assume pending by default unless script exists.
+                scripting: 'pending', // Assume script needs review/generation unless provided
                 videoEdited: 'complete',
                 feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
                 metadataGenerated: 'complete', // Metadata is largely available
@@ -645,7 +654,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                                 onChange={(e) => handleVideoImportChange(index, 'script', e.target.value)}
                                                 rows="6"
                                                 className="w-full form-textarea"
-                                                placeholder="Paste the script for this video here, if you have one."
+                                                placeholder="Paste the script for this video here, if you have one. This will mark the 'Scripting' task as complete."
                                             ></textarea>
                                             <p className="text-xs text-gray-500 mt-1">Providing the script will mark the 'Scripting' task as complete and help future AI tasks.</p>
                                         </div>
