@@ -282,6 +282,7 @@ window.App = () => { // Exposing App component globally
                         videoUploaded: 'complete',
                         firstCommentGenerated: 'complete',
                     },
+                    // Removed stats and lastFetch from here as they are no longer stored from import
                     status: 'accepted' // Mark imported videos as accepted by default
                 }))
             },
