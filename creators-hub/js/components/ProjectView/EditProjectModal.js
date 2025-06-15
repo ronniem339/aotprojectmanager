@@ -8,6 +8,8 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
     const [locations, setLocations] = useState(project.locations || []);
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(null);
+    // Add state for cover image URL
+    const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || ''); 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
 
@@ -19,7 +21,8 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
         await projectDocRef.update({
             playlistTitle: title,
             playlistDescription: description,
-            locations: locations
+            locations: locations,
+            coverImageUrl: coverImageUrl // Save the new cover image URL
         });
         onClose();
     };
@@ -75,6 +78,22 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                             ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> 
                             : <window.MockLocationSearchInput />
                         }
+                    </div>
+                    {/* New field for Cover Image URL */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Cover Image URL (e.g., from Unsplash)</label>
+                        <input 
+                            type="url" 
+                            value={coverImageUrl} 
+                            onChange={(e) => setCoverImageUrl(e.target.value)} 
+                            className="w-full form-input" 
+                            placeholder="Paste image URL here (e.g., from Unsplash)"
+                        />
+                        {coverImageUrl && (
+                            <div className="mt-2 text-center">
+                                <img src={coverImageUrl} alt="Project Cover Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: '150px', objectFit: 'cover' }} />
+                            </div>
+                        )}
                     </div>
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
