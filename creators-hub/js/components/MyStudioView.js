@@ -60,9 +60,9 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     return (
         <div className="p-8">
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ Back to Dashboard
+                ⬅️ Back to Settings Menu {/* Updated back button text */}
             </button>
-            <h1 className="text-4xl font-bold mb-4">🎨 My Studio</h1>
+            <h1 className="text-4xl font-bold mb-4">🎨 Style & Tone</h1> {/* Updated title */}
             <p className="text-gray-400 mb-8">Train the AI on your unique creative style. The more detail you provide, the better the AI's suggestions will be.</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div>
