@@ -198,8 +198,37 @@ Return a JSON object with one key: {"newDescription": "..."}`;
     };
 
     const applyTimestampsAndComplete = () => {
-        // Strip the temporary 'id' field before saving
-        const finalChapters = chapters.map(({ id, ...rest }) => rest);
+        // **FIX**: Logic to determine if timestamps need padding
+        const requiresPadding = chapters.some(chap => {
+            const parts = chap.timestamp.split(':');
+            if (parts.length === 2) return parseInt(parts[0], 10) >= 10;
+            if (parts.length === 3) return true; // HH:MM:SS format always gets padding
+            return false;
+        });
+
+        const formatTimestamp = (timestamp, forcePadding) => {
+            if (!forcePadding) return timestamp;
+            const parts = timestamp.split(':');
+            if (parts.length === 2) {
+                let [minutes, seconds] = parts;
+                if (minutes.length === 1) minutes = '0' + minutes;
+                if (seconds.length === 1) seconds = '0' + seconds;
+                return `${minutes}:${seconds}`;
+            }
+            if (parts.length === 3) {
+                let [hours, minutes, seconds] = parts;
+                if (minutes.length === 1) minutes = '0' + minutes;
+                if (seconds.length === 1) seconds = '0' + seconds;
+                return `${hours}:${minutes}:${seconds}`;
+            }
+            return timestamp;
+        };
+
+        const finalChapters = chapters.map(({ id, ...rest }) => ({
+            ...rest,
+            timestamp: formatTimestamp(rest.timestamp, requiresPadding)
+        }));
+
         const chapterText = finalChapters.map(c => `${c.timestamp} - ${c.title}`).join('\n');
         const finalDescription = (metadata.description || '').replace('{{CHAPTERS}}', chapterText);
         const finalMetadata = { ...metadata, description: finalDescription, chapters: finalChapters };
