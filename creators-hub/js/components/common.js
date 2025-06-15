@@ -206,3 +206,80 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
 window.MockLocationSearchInput = () => {
     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
 };
+
+// New components to be exposed globally
+
+// TaskItem Component
+const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
+    const statusColors = {
+        'complete': 'border-green-500 bg-green-900/20',
+        'pending': 'border-blue-500 bg-blue-900/20',
+        'locked': 'border-gray-700 bg-gray-800/50 opacity-60',
+        'revisited': 'border-orange-500 bg-orange-900/20',
+    };
+    const statusTextColors = {
+        'complete': 'text-green-400',
+        'pending': 'text-blue-400',
+        'locked': 'text-gray-400',
+        'revisited': 'text-orange-400',
+    };
+
+    return (
+        <div className={`glass-card p-6 rounded-lg border ${statusColors[status] || 'border-gray-700 bg-gray-800/50'}`}>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-white">{title}</h3>
+                <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${statusTextColors[status] || 'text-gray-400'}`}>
+                        {status === 'complete' && 'Complete'}
+                        {status === 'pending' && 'Pending'}
+                        {status === 'locked' && 'Locked'}
+                        {status === 'revisited' && 'Revisited'}
+                        {!status && 'Not Started'}
+                    </span>
+                    {status === 'complete' && onRevisit && (
+                        <button onClick={onRevisit} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-2 py-1 rounded">Revisit</button>
+                    )}
+                </div>
+            </div>
+            {isLocked ? (
+                <div className="p-4 bg-gray-900/50 rounded-lg text-gray-400 text-center">
+                    This task is locked until previous steps are completed.
+                </div>
+            ) : (
+                children
+            )}
+        </div>
+    );
+};
+
+// CopyButton Component
+const CopyButton = ({ textToCopy }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 text-xs text-secondary-accent hover:text-secondary-accent-light transition-colors"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            {copied ? 'Copied!' : 'Copy'}
+        </button>
+    );
+};
+
+// EXPOSE NEW COMPONENTS GLOBALLY
+window.TaskItem = TaskItem;
+window.CopyButton = CopyButton;
