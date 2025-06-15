@@ -28,6 +28,7 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar }) => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between sm:justify-end flex-grow gap-3 mt-4 sm:mt-0">
                 <div className="flex items-center gap-3 w-full"> {/* Ensure this div takes full width to allow text truncation */}
                     {/* Project title: Left-aligned, responsive font size, truncate to one line */}
+                    {/* Adjusted text sizing for better single-line fit, using truncate */}
                     <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white leading-tight truncate flex-grow text-left">{project.playlistTitle || 'Untitled Project'}</h1>
                     <button onClick={onEdit} className="p-2 rounded-full bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-colors flex-shrink-0">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
