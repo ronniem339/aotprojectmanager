@@ -47,7 +47,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, o
     return (
         <div className="p-8">
             <header className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold">Creator's Hub</h1>
+                {/* Removed the "Creator's Hub" title */}
                 <div className="flex gap-4">
                     <button onClick={onShowMyStudio} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">🎨 My Studio</button>
                     <button onClick={onShowSettings} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">⚙️ Settings</button>
