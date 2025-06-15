@@ -7,38 +7,52 @@ const { useState, useEffect, useMemo } = React;
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
-    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || '');
+    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || video.publishDate || ''); // Use video.publishDate directly
     const [generating, setGenerating] = useState(null);
     const [scriptContent, setScriptContent] = useState(video.script || '');
     const [refinementText, setRefinementText] = useState('');
     const [isConceptVisible, setIsConceptVisible] = useState(false);
-    const [chapters, setChapters] = useState([]);
+    const [chapters, setChapters] = useState(video.chapters || []); // Initialize with imported chapters
     const [showFullScreenScript, setShowFullScreenScript] = useState(false); // New state for full-screen script
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
-        setPublishDate(video.tasks?.publishDate || '');
+        setPublishDate(video.tasks?.publishDate || video.publishDate || '');
         setScriptContent(video.script || '');
         setIsConceptVisible(false);
-    }, [video.id, video.script]);
+        setChapters(video.chapters || []); // Update chapters if video changes
+    }, [video.id, video.script, video.publishDate, video.chapters]);
     
     useEffect(() => {
+        // This effect runs when video.metadata changes.
+        // It's crucial for re-parsing chapters if metadata is generated AFTER import
+        // or if it changes for a non-imported video.
         if (video.metadata) {
             try {
                 const parsed = JSON.parse(video.metadata);
                 if(parsed.chapters) {
+                    // Only update chapters from metadata if the video isn't imported with its own chapters
+                    // Or if metadata generation explicitly provides new/updated chapters.
+                    // This logic might need refinement based on exact workflow.
+                    // For now, prioritize metadata chapters if they exist.
                     setChapters(parsed.chapters.map(ch => ({ ...ch, timestamp: ch.timestamp || '00:00' })));
                 }
             } catch(e) { console.error("Could not parse chapters from metadata", e); }
+        } else if (video.chapters) {
+            // If no metadata, but video has pre-existing chapters (from import), use them.
+            setChapters(video.chapters.map(ch => ({ ...ch, timestamp: ch.timestamp || '00:00' })));
         }
-    }, [video.metadata]);
-    
+    }, [video.metadata, video.chapters]); // Added video.chapters as dependency
+
     const updateTask = async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        const updateData = { [`tasks.${taskName}`]: status, ...extraData };
-        await videoDocRef.update(updateData);
+        // Merge the extraData into the video document directly, and update the task status
+        await videoDocRef.update({ 
+            [`tasks.${taskName}`]: status, 
+            ...extraData // This will apply chosenTitle, metadata, script, etc.
+        });
     };
 
     const handleGenerate = async (type, currentContent, refinement) => {
@@ -77,7 +91,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     Overall Project Theme: "${project.playlistDescription}".
                     Video Concept: "${video.concept}".
                     Locations Featured: ${video.locations_featured?.join(', ') || 'N/A'}.
-                    Targeted Keywords: ${video.targeted_keywords?.join(', ') || 'N/A'}.
+                    Targeted Keywords: ${video.targeted_keywords?.join(', ')}
+
                     Style Guide: ${styleGuide}.
                     Knowledge Base: ${knowledgeBase}
                     
@@ -91,6 +106,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
                 setScriptContent(result.candidates[0].content.parts[0].text);
+                // After generating or refining, set script and mark task as pending for review
+                await updateTask('scripting', 'pending', { script: result.candidates[0].content.parts[0].text });
                 if (isRefining) setRefinementText('');
             } else if (type === 'metadata') {
                 const prompt = `Act as a YouTube SEO expert. Based on the video script provided below, generate an optimized metadata package.
@@ -107,6 +124,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
+                // Store the raw metadata string and update chosenTitle
                 await updateTask('metadataGenerated', 'complete', { metadata: result.candidates[0].content.parts[0].text, chosenTitle: JSON.parse(result.candidates[0].content.parts[0].text).titleSuggestions[0] });
             } else if (type === 'thumbnails') {
                 let concepts;
@@ -133,10 +151,11 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 });
 
                 const results = await Promise.all(thumbnailPromises);
-                const generatedThumbnails = results.filter(result => result && result.predictions?.[0]?.bytesBase64Encoded).map(result => result.predictions[0].bytesBase64Encoded);
+                const generatedThumbnails = results.filter(result => result && result.predictions?.[0]?.bytesBase64Encoded).map(result => `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`); // Store as data URLs
 
                 if (generatedThumbnails.length > 0) {
-                    await updateTask('thumbnailsGenerated', 'complete', { 'tasks.generatedThumbnails': generatedThumbnails });
+                    // Update 'generatedThumbnails' directly on the video object, and mark task complete
+                    await updateTask('thumbnailsGenerated', 'complete', { generatedThumbnails: generatedThumbnails });
                 } else {
                     console.error("All thumbnail generations failed. Please check the API key and concepts.");
                 }
@@ -170,9 +189,17 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
 
     const applyTimestamps = () => {
         const chapterText = chapters.map(c => `${c.timestamp} - ${c.title}`).join('\n');
-        const parsedMeta = JSON.parse(video.metadata);
-        const newDescription = parsedMeta.description.replace('{{CHAPTERS}}', chapterText);
-        updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify({ ...parsedMeta, description: newDescription, chapters: chapters }) });
+        let parsedMeta = {};
+        try {
+            parsedMeta = video.metadata ? JSON.parse(video.metadata) : {};
+        } catch (e) {
+            console.error("Error parsing video metadata for chapters:", e);
+            parsedMeta = {};
+        }
+        const newDescription = parsedMeta.description ? parsedMeta.description.replace('{{CHAPTERS}}', chapterText) : chapterText; // Ensure placeholder replacement
+        
+        // Update both metadata and chapters array
+        updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify({ ...parsedMeta, description: newDescription, chapters: chapters }), chapters: chapters });
     };
 
     const metadata = useMemo(() => {
@@ -181,6 +208,9 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
         } catch { return null; }
     }, [video.metadata]);
     
+    // Determine initial status of Scripting & Recording task
+    const initialScriptingStatus = video.script ? 'complete' : (tasks.scripting || 'pending');
+
     return (
         <main className="lg:w-2/3 xl:w-3/4">
             <div className="space-y-3">
@@ -208,61 +238,51 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 
                 <window.TaskItem 
                     title="1. Scripting & Recording" 
-                    status={tasks.scripting} 
-                    isLocked={isTaskLocked(0)} 
-                    // onRevisit is available if script is locked OR complete
-                    onRevisit={tasks.scripting === 'locked' || tasks.scripting === 'complete' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
+                    status={initialScriptingStatus} // Use calculated status
+                    isLocked={isTaskLocked(0) && !video.script} // Lock only if previous task incomplete AND no script provided
+                    onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
                 >
-                    {/* Content when script is locked or complete (final state) */}
-                    {(tasks.scripting === 'complete' || tasks.scripting === 'locked') && ( 
+                    {/* Content when script is available (either imported or generated/locked) */}
+                    {(initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' || initialScriptingStatus === 'revisited' || video.script) ? ( 
                         <div>
-                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Ready)</h4>
-                            <textarea readOnly value={scriptContent || ""} rows="10" className="w-full form-textarea bg-gray-800/50" />
-                            {/* Always show Fullscreen Script button if scriptContent exists and task is locked/complete */}
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
+                            <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && !video.script} /> {/* Allow editing if revisited or not complete */}
+                            {/* Show Fullscreen Script button if scriptContent exists */}
                             {scriptContent && (
-                                <button onClick={() => setShowFullScreenScript(true)} className="mt-4 px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                                <div className="flex gap-4 mt-4">
+                                    <button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                                    {initialScriptingStatus !== 'complete' && ( // Only show lock button if not already complete
+                                        <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                                    )}
+                                </div>
+                            )}
+                            {/* Refinement section for existing script */}
+                            { (initialScriptingStatus !== 'complete' || initialScriptingStatus === 'revisited') && scriptContent && (
+                                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
+                                    <textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
+                                    <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}</button>
+                                </div>
                             )}
                         </div> 
-                    )}
-                    {/* Content when script is pending or not started (editable state) */}
-                    {tasks.scripting !== 'complete' && tasks.scripting !== 'locked' && (
-                        <div>
-                            {!scriptContent ? ( 
-                                <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
-                            ) : ( 
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Script Draft</label>
-                                        <textarea value={scriptContent} onChange={(e) => setScriptContent(e.target.value)} rows="12" className="w-full form-textarea" />
-                                    </div>
-                                    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
-                                        <textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
-                                        <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}</button>
-                                    </div>
-                                    <div className="flex justify-start gap-4">
-                                        <button onClick={() => updateTask('scripting', 'locked', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
-                                        {/* Show Fullscreen Script button here as well, if scriptContent exists */}
-                                        {scriptContent && (
-                                            <button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
-                                        )}
-                                    </div>
-                                </div> 
-                            )}
-                        </div>
+                    ) : ( 
+                        // Content when script is not available and task is pending (needs generation)
+                        <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
                     )}
                 </window.TaskItem>
 
                 <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
                      {tasks.videoEdited !== 'complete' && <button onClick={() => updateTask('videoEdited', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>}
+                     {tasks.videoEdited === 'complete' && <p className="text-gray-400">This task is marked as complete.</p>}
                 </window.TaskItem>
 
                 <window.TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
                     {tasks.feedbackProvided !== 'complete' && <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>}
+                    {tasks.feedbackProvided === 'complete' && <p className="text-gray-400">This task is marked as complete.</p>}
                 </window.TaskItem>
                 
-                <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending')}>
+                <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}> {/* Reset metadata on revisit */}
                      {tasks.metadataGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}</button>) : 
                      ( metadata ? <div className="space-y-6">
                          <div>
@@ -285,14 +305,15 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                      </div> : <p className="text-gray-500">Could not parse metadata.</p> )}
                 </window.TaskItem>
                 
-                <window.TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'tasks.generatedThumbnails': [] })}>
-                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{tasks.generatedThumbnails?.map((base64, index) => ( <img key={index} src={`data:image/png;base64,${base64}`} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )}
+                <window.TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'generatedThumbnails': [] })}>
+                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{video.generatedThumbnails?.map((src, index) => ( <window.ImageComponent key={index} src={src} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )}
                 </window.TaskItem>
 
                 <window.TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', 'pending')}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
                     <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto" readOnly={tasks.videoUploaded === 'complete'}/>
-                    {tasks.videoUploaded !== 'complete' && <button onClick={() => updateTask('videoUploaded', 'complete', { 'tasks.publishDate': publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>}
+                    {tasks.videoUploaded !== 'complete' && <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>}
+                    {tasks.videoUploaded === 'complete' && <p className="text-gray-400 mt-2">Video was uploaded on: {publishDate}</p>}
                 </window.TaskItem>
                 
                 <window.TaskItem title="7. Generate First Comment" status={tasks.firstCommentGenerated} isLocked={isTaskLocked(6)} onRevisit={() => updateTask('firstCommentGenerated', 'pending')}>
