@@ -1,12 +1,15 @@
 // js/components/ProjectView/VideoList.js
 
-const VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReorder }) => {
+const { useState } = React; // Add React import for useState
+
+window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReorder }) => {
     const [draggedItem, setDraggedItem] = useState(null);
 
     const calculateProgress = (tasks) => {
         if (!tasks) return 0;
-        const completedTasks = TASK_PIPELINE.filter(task => tasks[task.id] === 'complete').length;
-        return (completedTasks / TASK_PIPELINE.length) * 100;
+        // Assuming TASK_PIPELINE is globally accessible or passed down
+        const completedTasks = window.TASK_PIPELINE.filter(task => tasks[task.id] === 'complete').length;
+        return (completedTasks / window.TASK_PIPELINE.length) * 100;
     };
 
     const handleDragStart = (e, video) => {
