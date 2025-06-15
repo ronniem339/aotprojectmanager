@@ -1,8 +1,8 @@
 // js/components/ProjectView/EditVideoModal.js
 
-const { useState, useCallback } = React;
+const { useState, useCallback } = React; // Add React import for useState and useCallback
 
-const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsLoaded }) => {
+window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsLoaded }) => {
     // Basic Details
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
@@ -65,7 +65,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsL
 
     const handleMarkAllComplete = async () => {
         const completedTasks = {};
-        TASK_PIPELINE.forEach(task => {
+        window.TASK_PIPELINE.forEach(task => { // Use window.TASK_PIPELINE
             completedTasks[task.id] = 'complete';
         });
         await videoDocRef.update({ tasks: completedTasks });
@@ -123,8 +123,8 @@ const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsL
                         <label className="block text-sm font-medium text-gray-300 mb-2">Locations Featured</label>
                          <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
                              {googleMapsLoaded 
-                                ? <LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locationsFeatured} /> 
-                                : <MockLocationSearchInput />
+                                ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locationsFeatured} /> 
+                                : <window.MockLocationSearchInput />
                             }
                         </div>
                     </div>
@@ -155,8 +155,8 @@ const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsL
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title catchier' or 'Focus the concept on the hiking aspect'"/>
                         <div className="flex gap-4 mt-2">
-                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <LoadingSpinner/> : 'Refine Title'}</button>
-                             <button onClick={() => handleRefine('concept')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'concept' ? <LoadingSpinner/> : 'Refine Concept'}</button>
+                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <window.LoadingSpinner/> : 'Refine Title'}</button>
+                             <button onClick={() => handleRefine('concept')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'concept' ? <window.LoadingSpinner/> : 'Refine Concept'}</button>
                         </div>
                     </div>
                     
