@@ -17,35 +17,42 @@ window.App = () => { // Exposing App component globally
 
     const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
 
+    // The handleLogin function now is simpler because LoginScreen handles its own auth calls
     const handleLogin = useCallback(async () => {
-        try {
-            if (INITIAL_AUTH_TOKEN) {
-                await auth.signInWithCustomToken(INITIAL_AUTH_TOKEN);
-            } else {
-                await auth.signInAnonymously();
-            }
-        } catch (error) {
-            console.error("Authentication failed:", error);
-            displayNotification(`Authentication Error: ${error.message}`);
-        }
-    }, [INITIAL_AUTH_TOKEN]);
+        // This function can be empty or trigger specific post-login actions if needed,
+        // as authentication is handled within LoginScreen directly.
+        // The onAuthStateChanged listener will update the user state.
+    }, []);
 
     // Effect for handling authentication state changes
     useEffect(() => {
+        // onAuthStateChanged is the primary way to manage user state in Firebase
         const unsubscribeAuth = auth.onAuthStateChanged(currentUser => {
             setUser(currentUser);
             if (!currentUser) {
-                setSettings({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' });
+                // If no user (logged out or initial state), attempt anonymous sign-in if no token,
+                // or ensure settings/drafts are cleared for security.
+                if (typeof INITIAL_AUTH_TOKEN !== 'undefined' && INITIAL_AUTH_TOKEN !== null) {
+                     auth.signInWithCustomToken(INITIAL_AUTH_TOKEN).catch(error => {
+                        console.error("Custom token sign-in failed:", error);
+                        // Fallback to anonymous if custom token fails (e.g., expired)
+                        auth.signInAnonymously().catch(anonError => console.error("Anonymous sign-in failed:", anonError));
+                    });
+                } else {
+                    auth.signInAnonymously().catch(error => console.error("Anonymous sign-in failed:", error));
+                }
+                setSettings({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' }); // Clear settings for unauthenticated user
                 setProjectDraft(null);
             }
             setIsAuthReady(true);
         });
         return () => unsubscribeAuth();
-    }, []);
+    }, [INITIAL_AUTH_TOKEN]); // Depend on INITIAL_AUTH_TOKEN if it changes, though usually it's static.
+
 
     // Effect for loading user data and scripts once authenticated
     useEffect(() => {
-        if (user) {
+        if (user && user.uid) { // Ensure user and uid exist
             const settingsDocRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
@@ -66,6 +73,7 @@ window.App = () => { // Exposing App component globally
                 const newSettings = { ...defaultSettings, ...data };
                 setSettings(newSettings);
 
+                // Load Google Maps script only once and if API key is present
                 if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
                     window.loadGoogleMapsScript(newSettings.googleMapsApiKey, () => {
                         setGoogleMapsLoaded(true);
@@ -83,7 +91,8 @@ window.App = () => { // Exposing App component globally
                 unsubscribeDraft();
             };
         }
-    }, [user, googleMapsLoaded]);
+    }, [user, googleMapsLoaded]); // Depend on user and googleMapsLoaded
+
 
     const displayNotification = (message) => {
         setNotificationMessage(message);
@@ -122,7 +131,7 @@ window.App = () => { // Exposing App component globally
     };
     
     const handleConfirmDelete = async (projectId) => {
-        if (!user || !projectId) return;
+        if (!user) return; // Ensure user is authenticated
 
         const projectRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
         const videosCollectionRef = projectRef.collection('videos');
@@ -173,16 +182,7 @@ Your task is to analyze this data and generate a complete project plan to help t
 4.  **Return a JSON object**: Your entire response MUST be a single, valid JSON object with the following structure: { "playlistTitleSuggestions": ["..."], "playlistDescription": "...", "videos": [{"title": "...", "concept": "...", "script": "...", "estimatedLengthMinutes": "8-10", "locations_featured": [], "targeted_keywords": []}] }`;
         
         try {
-            const apiKey = settings.geminiApiKey || "";
-            if (!apiKey) throw new Error("Please set your Gemini API Key in Settings.");
-            
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) { const err = await response.json(); throw new Error(err?.error?.message || 'API Error'); }
-            
-            const result = await response.json();
-            const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             
             if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
                 setProjectDraft({
@@ -206,6 +206,16 @@ Your task is to analyze this data and generate a complete project plan to help t
     };
 
     const renderView = () => {
+        // Only render main app content if authentication is ready and user is logged in
+        if (!isAuthReady) {
+            return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing..." /></div>;
+        }
+        
+        if (!user) {
+            // Render LoginScreen if no user is authenticated
+            return <window.LoginScreen onLogin={handleLogin} />;
+        }
+
         switch (currentView) {
             case 'project':
                 return <window.ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
@@ -228,18 +238,13 @@ Your task is to analyze this data and generate a complete project plan to help t
     }
 
     return (
-        <div className="min-h-screen"> {/* Removed bg-gray-900 as body handles */}
+        <div className="min-h-screen"> 
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
+            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
             {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} />}
             <main>
-                {!isAuthReady
-                    ? <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing..." /></div>
-                    : !user
-                        ? <window.LoginScreen onLogin={handleLogin} />
-                        : renderView()
-                }
+                {renderView()}
             </main>
         </div>
     );
