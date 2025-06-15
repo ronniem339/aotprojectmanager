@@ -11,6 +11,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     // States for user review and AI parsing steps
     const [manualPlaylistTitle, setManualPlaylistTitle] = useState('');
     const [manualPlaylistDescription, setManualPlaylistDescription] = useState('');
+    const [projectCoverImageUrl, setProjectCoverImageUrl] = useState(''); // New state for project cover image
     // Initialize videosToImport with one empty manual video by default if no YouTube data is fetched yet
     const [videosToImport, setVideosToImport] = useState([{
         id: `manual-${Date.now()}-0`, // Unique ID for manual entry
@@ -138,6 +139,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     const fetchPlaylistVideos = async (playlistId, apiKey) => {
         let playlistTitle = '';
         let playlistDescription = '';
+        let playlistThumbnailUrl = ''; // New variable to store playlist thumbnail
         let videos = [];
         let nextPageToken = '';
 
@@ -153,6 +155,11 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         const playlistSnippet = playlistDetailsData.items[0].snippet;
         playlistTitle = playlistSnippet.title;
         playlistDescription = playlistSnippet.description;
+        // Extract playlist thumbnail, preferring higher quality
+        playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
+                               playlistSnippet.thumbnails.high?.url ||
+                               playlistSnippet.thumbnails.medium?.url ||
+                               playlistSnippet.thumbnails.default?.url || '';
 
         // Fetch videos in the playlist
         do {
@@ -186,6 +193,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         setFetchedYoutubeData({ playlistTitle, playlistDescription, videos });
         setManualPlaylistTitle(playlistTitle);
         setManualPlaylistDescription(playlistDescription);
+        setProjectCoverImageUrl(playlistThumbnailUrl); // Set the project cover image from playlist thumbnail
         // Combine fetched videos with existing manual videos (if any)
         setVideosToImport(prevVideos => {
             // Filter out initial empty manual video if YouTube data is fetched
@@ -246,6 +254,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         });
         setManualPlaylistTitle(fetchedVideo.title);
         setManualPlaylistDescription(fetchedVideo.description);
+        setProjectCoverImageUrl(fetchedVideo.thumbnailUrl); // Set project cover image from single video thumbnail
         setVideosToImport(prevVideos => {
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             const newFetchedVideo = {
@@ -310,6 +319,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             playlistTitle: manualPlaylistTitle,
             projectOutline: manualPlaylistDescription, // Using description as outline for import
             playlistDescription: manualPlaylistDescription,
+            coverImageUrl: projectCoverImageUrl, // Pass the fetched project cover image URL
             videos: videosToImport.map(v => ({
                 title: v.title,
                 concept: v.concept,
@@ -384,6 +394,22 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                 className="w-full form-textarea"
                                 placeholder="If you have a full playlist description already written, paste it here."
                             ></textarea>
+                        </div>
+                        {/* New section for Project Cover Image */}
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Project Cover Image URL (from YouTube)</label>
+                            <input 
+                                type="text"
+                                value={projectCoverImageUrl}
+                                onChange={(e) => setProjectCoverImageUrl(e.target.value)}
+                                className="w-full form-input"
+                                placeholder="Auto-populated from YouTube, or paste your own URL"
+                            />
+                            {projectCoverImageUrl && (
+                                <div className="mt-2 text-center">
+                                    <window.ImageComponent src={projectCoverImageUrl} alt="Project Cover Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: '150px', objectFit: 'cover' }} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
