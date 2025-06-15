@@ -42,9 +42,7 @@
     <script src="js/components/common.js" type="text/babel"></script>
     <script src="js/components/Dashboard.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard.js" type="text/babel"></script>
-    <!-- IMPORTANT: Renamed SettingsView.js to SettingsMenu.js -->
     <script src="js/components/SettingsMenu.js" type="text/babel"></script> 
-    <!-- IMPORTANT: This is the NEW SettingsView.js for API keys -->
     <script src="js/components/SettingsView.js" type="text/babel"></script> 
     <script src="js/components/MyStudioView.js" type="text/babel"></script>
     <script src="js/components/ProjectSelection.js" type="text/babel"></script>
@@ -52,18 +50,30 @@
     <script src="js/components/KnowledgeBaseView.js" type="text/babel"></script> 
 
 
-    <!-- NEW ProjectView Components -->
+    <!-- ProjectView Components -->
+    <script src="js/utils/aiUtils.js" type="text/babel"></script>
     <script src="js/components/ProjectView/ProjectHeader.js" type="text/babel"></script>
     <script src="js/components/ProjectView/VideoList.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/VideoWorkspace.js" type="text/babel"></script>
     <script src="js/components/ProjectView/EditProjectModal.js" type="text/babel"></script>
     <script src="js/components/ProjectView/VideoModal.js" type="text/babel"></script> 
     <script src="js/components/ProjectView/FullScreenScriptView.js" type="text/babel"></script>
     <script src="js/components/ProjectView/VideoDetailsSidebar.js" type="text/babel"></script> 
-    <!-- NEW UTILS -->
-    <script src="js/utils/aiUtils.js" type="text/babel"></script>
+
+    <!-- REFACTORED TASK COMPONENTS (NEW) -->
+    <script src="js/components/ProjectView/tasks/SimpleConfirmationTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/ScriptingTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/LogChangesTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/MetadataTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/ThumbnailTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/FirstCommentTask.js" type="text/babel"></script>
+    
+    <!-- The main orchestrator for the tasks -->
+    <script src="js/components/ProjectView/VideoWorkspace.js" type="text/babel"></script>
+    
+    <!-- The main view that ties the project components together -->
     <script src="js/components/ProjectView.js" type="text/babel"></script>
 
+    <!-- The main App component -->
     <script src="js/app.js" type="text/babel"></script>
 
 </body>
