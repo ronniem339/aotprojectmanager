@@ -1,6 +1,8 @@
 // js/components/ProjectView/ProjectHeader.js
 
-const ProjectHeader = ({ project, onBack, onEdit }) => {
+const { useState } = React;
+
+window.ProjectHeader = ({ project, onBack, onEdit }) => {
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
 
     return (
