@@ -1,76 +1,114 @@
+/* Custom Stylesheet */
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #111827; /* bg-gray-900 */
-    color: #f9fafb; /* text-gray-50 */
+    background-color: #333333; /* Main background color */
+    color: #ffffff; /* Main text color */
 }
+
+/* Glassmorphism card effect adjustments */
 .glass-card {
-    background: rgba(31, 41, 55, 0.6); /* bg-gray-800 with opacity */
+    background: rgba(51, 51, 51, 0.6); /* Based on new main background, with opacity */
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* Form input, textarea, and editable field styles */
 .form-input, .form-textarea, .editable-field {
-    background-color: #374151; /* bg-gray-700 */
-    border: 1px solid #4b5563; /* border-gray-600 */
-    color: #f9fafb; /* text-gray-50 */
+    background-color: #2a2a2a; /* Darker than main background for input fields */
+    border: 1px solid #555555; /* Slightly lighter border for input fields */
+    color: #ffffff; /* Main text color */
     border-radius: 0.5rem;
     padding: 0.5rem;
     width: 100%;
 }
+
+/* Focus styles for form elements */
 .form-input:focus, .form-textarea:focus, .editable-field:focus {
     outline: none;
-    border-color: #3b82f6; /* border-blue-500 */
-    box-shadow: 0 0 0 2px #1e40af; /* ring-blue-700 */
+    border-color: #dc493a !important; /* Accent color for border */
+    box-shadow: 0 0 0 2px rgba(220, 73, 58, 0.5) !important; /* Accent color for ring/shadow */
 }
+
+/* Specific styles for editable titles */
 .editable-field-title {
      background-color: transparent;
      border-color: transparent;
      font-weight: bold;
      font-size: 1.25rem;
-     color: #93c5fd; /* text-blue-300 */
+     color: #dc493a; /* Accent color for titles */
 }
 .editable-field-title:focus {
-     background-color: #374151;
-     border-color: #3b82f6;
+     background-color: #2a2a2a; /* Match form-input background on focus */
+     border-color: #dc493a; /* Accent color for border on focus */
 }
- .editable-field-concept {
+
+/* Specific styles for editable concepts */
+.editable-field-concept {
      background-color: transparent;
      border-color: transparent;
      font-style: italic;
      font-size: 0.875rem;
-     color: #d1d5db; /* text-gray-300 */
+     color: #cccccc; /* Lighter gray for concept text */
 }
- .editable-field-concept:focus {
-     background-color: #374151;
-     border-color: #3b82f6;
+.editable-field-concept:focus {
+     background-color: #2a2a2a; /* Match form-input background on focus */
+     border-color: #dc493a; /* Accent color for border on focus */
 }
+
+/* Tab button active state */
 .tab-button {
     transition: all 0.2s ease-in-out;
 }
 .tab-button-active {
-    background-color: #3b82f6;
+    background-color: #dc493a !important; /* Accent color for active tabs */
     color: white;
 }
 
-/* For Google Places Autocomplete dropdown */
+/* Styles for Google Places Autocomplete dropdown */
 .pac-container {
-    background-color: #374151;
+    background-color: #2a2a2a; /* Match form-input background */
     border-radius: 0.5rem;
-    border: 1px solid #4b5563;
+    border: 1px solid #555555; /* Match form-input border */
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     z-index: 1000 !important;
 }
 .pac-item {
     padding: 0.5rem 1rem;
-    color: #f9fafb;
-    border-top: 1px solid #4b5563;
+    color: #ffffff; /* Main text color */
+    border-top: 1px solid #555555; /* Match form-input border */
     cursor: pointer;
 }
 .pac-item:first-child {
     border-top: none;
 }
 .pac-item:hover {
-    background-color: #4b5563;
+    background-color: #3c3c3c; /* Slightly lighter hover background for list items */
 }
 .pac-item-query {
     font-weight: 600;
 }
+
+/* Custom Tailwind-like classes for the new color scheme */
+
+/* Primary Accent: #dc493a */
+.bg-primary-accent { background-color: #dc493a; }
+.hover\:bg-primary-accent-darker:hover { background-color: #c03d30; }
+.text-primary-accent { color: #dc493a; }
+.border-primary-accent { border-color: #dc493a; }
+.focus\:ring-primary-accent:focus { box-shadow: 0 0 0 2px rgba(220, 73, 58, 0.5); }
+
+/* Secondary Accent: #4e8098 */
+.bg-secondary-accent { background-color: #4e8098; }
+.hover\:bg-secondary-accent-darker:hover { background-color: #416a7f; }
+.text-secondary-accent { color: #4e8098; }
+.border-secondary-accent { border-color: #4e8098; }
+.text-secondary-accent-light { color: #85b0c9; } /* Lighter shade for hover effects */
+.bg-secondary-accent-darker-opacity { background-color: rgba(78, 128, 152, 0.7); } /* For backgrounds like 'locations featured' tags */
+.text-secondary-accent-lighter-text { color: #bfd9e6; } /* For text on darker secondary accent backgrounds */
+
+/* General Gray Adjustments for consistency with new dark background */
+.bg-dark-surface { background-color: #444444; } /* A general dark surface for elements */
+.bg-dark-input { background-color: #2a2a2a; } /* Explicit for input backgrounds */
+.border-dark-input { border-color: #555555; } /* Explicit for input borders */
+.text-dark-light-gray { color: #cccccc; } /* General lighter gray text */
+.text-dark-gray { color: #888888; } /* For muted/disabled text */
