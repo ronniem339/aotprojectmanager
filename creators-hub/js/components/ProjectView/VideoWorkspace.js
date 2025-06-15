@@ -158,7 +158,8 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     };
     
     const tasks = video.tasks || {};
-    // Allow revisiting if status is 'locked' or 'complete'
+    // isTaskLocked now only checks if the PREVIOUS task is NOT complete.
+    // It does not directly affect whether 'revisit' or 'fullscreen' are available.
     const isTaskLocked = (index) => index > 0 && tasks[window.CREATOR_HUB_CONFIG.TASK_PIPELINE[index - 1].id] !== 'complete'; 
     
     const handleChapterChange = (index, value) => {
@@ -209,19 +210,22 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     title="1. Scripting & Recording" 
                     status={tasks.scripting} 
                     isLocked={isTaskLocked(0)} 
-                    // Allow revisit if locked or complete
-                    onRevisit={tasks.scripting === 'locked' || tasks.scripting === 'complete' ? () => updateTask('scripting', 'pending', { script: scriptContent }) : undefined}
+                    // onRevisit is available if script is locked OR complete
+                    onRevisit={tasks.scripting === 'locked' || tasks.scripting === 'complete' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
                 >
-                    {tasks.scripting === 'complete' || tasks.scripting === 'locked' ? ( 
+                    {/* Content when script is locked or complete (final state) */}
+                    {(tasks.scripting === 'complete' || tasks.scripting === 'locked') && ( 
                         <div>
-                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Recorded)</h4>
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Final Script (Ready)</h4>
                             <textarea readOnly value={scriptContent || ""} rows="10" className="w-full form-textarea bg-gray-800/50" />
                             {/* Always show Fullscreen Script button if scriptContent exists and task is locked/complete */}
-                            {scriptContent && (tasks.scripting === 'locked' || tasks.scripting === 'complete') && (
+                            {scriptContent && (
                                 <button onClick={() => setShowFullScreenScript(true)} className="mt-4 px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
                             )}
                         </div> 
-                    ) : ( 
+                    )}
+                    {/* Content when script is pending or not started (editable state) */}
+                    {tasks.scripting !== 'complete' && tasks.scripting !== 'locked' && (
                         <div>
                             {!scriptContent ? ( 
                                 <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
@@ -238,7 +242,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                                     </div>
                                     <div className="flex justify-start gap-4">
                                         <button onClick={() => updateTask('scripting', 'locked', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
-                                        {/* Show Fullscreen Script button here as well, before locking */}
+                                        {/* Show Fullscreen Script button here as well, if scriptContent exists */}
                                         {scriptContent && (
                                             <button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
                                         )}
