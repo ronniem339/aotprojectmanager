@@ -90,10 +90,10 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
             {loading ? (
                 <div className="flex justify-center mt-16 flex-grow"><window.LoadingSpinner text="Loading Project..." /></div>
             ) : (
-                <div className="flex flex-grow flex-col lg:flex-row gap-6 relative"> {/* Added relative for sidebar positioning */}
+                <div className="flex flex-grow flex-col lg:flex-row gap-6 relative"> {/* Changed to flex-col on mobile, flex-row on larger screens */}
                     {/* VideoList Sidebar/Drawer for mobile and desktop */}
                     {/* Adjusted width for lg:w-1/4, xl:w-1/5 to give more space to main content */}
-                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/3 xl:w-1/4 lg:flex-shrink-0 flex flex-col rounded-lg`}> {/* Adjusted lg:w and xl:w here */}
+                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/4 xl:w-1/5 lg:flex-shrink-0 flex flex-col rounded-lg`}> {/* Adjusted lg:w and xl:w here */}
                         <div className="p-4 flex justify-between items-center lg:hidden border-b border-gray-700"> {/* Added border for mobile header */}
                             <h2 className="text-lg font-semibold text-white">Videos</h2>
                             <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
@@ -111,15 +111,24 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                     {/* Overlay for mobile sidebar */}
                     {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
                     
-                    {/* VideoWorkspace Main Content */}
+                    {/* Main content area, now split into two columns on larger screens */}
                     {activeVideo ? (
-                        <div className="lg:flex-grow lg:w-2/3 xl:w-3/4"> {/* Correspondingly adjusted lg:w and xl:w here */}
-                            <window.VideoWorkspace 
-                                video={activeVideo} 
-                                settings={settings} 
-                                project={currentProject} 
-                                userId={userId}
-                            />
+                        <div className="lg:flex-grow lg:flex lg:flex-row gap-6"> {/* Added flex-row and flex-grow */}
+                            {/* Left column for video workspace (tasks) */}
+                            <div className="lg:w-2/3 xl:w-3/4"> {/* Takes 2/3 or 3/4 of the available space */}
+                                <window.VideoWorkspace 
+                                    video={activeVideo} 
+                                    settings={settings} 
+                                    project={currentProject} 
+                                    userId={userId}
+                                />
+                            </div>
+                            {/* Right column for video details sidebar */}
+                            <div className="lg:w-1/3 xl:w-1/4"> {/* Takes 1/3 or 1/4 of the available space */}
+                                <window.VideoDetailsSidebar 
+                                    video={activeVideo} 
+                                />
+                            </div>
                         </div>
                     ) : (
                         <div className="lg:flex-grow lg:w-2/3 xl:w-3/4 flex items-center justify-center h-full glass-card p-8 rounded-lg min-h-[400px]">
