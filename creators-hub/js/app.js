@@ -185,10 +185,23 @@ Your task is to analyze this data and generate a complete project plan to help t
             if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
                 setProjectDraft({
                     step: 4, 
-                    editableOutline: parsedJson,
+                    editableOutline: {
+                        ...parsedJson,
+                        videos: parsedJson.videos.map(video => ({
+                            ...video,
+                            description: video.description || '', // Ensure raw description is carried through
+                            script: video.script || '',
+                            estimatedLengthMinutes: video.estimatedLengthMinutes || '',
+                            locations_featured: video.locations_featured || [],
+                            targeted_keywords: video.targeted_keywords || [],
+                            chapters: video.chapters || [],
+                            status: 'pending' // Default status
+                        }))
+                    },
                     inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
                     locations: [], 
-                    footageInventory: {}
+                    footageInventory: {},
+                    coverImageUrl: projectData.coverImageUrl || '', // Carry over the imported cover image
                 });
                 setCurrentView('dashboard'); 
                 setShowNewProjectWizard(true);
