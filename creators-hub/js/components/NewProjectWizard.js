@@ -1,139 +1,5 @@
 // js/components/NewProjectWizard.js
 
-const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
-    const inputRef = useRef(null);
-    const autocompleteRef = useRef(null);
-    const geocoderRef = useRef(null);
-
-    // This function intelligently sets a default importance based on Google's location types.
-    const determineDefaultImportance = (types) => {
-        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
-        // If any of the location's types match our list of major types, classify it as a major feature.
-        if (types.some(type => majorTypes.includes(type))) {
-            return 'major';
-        }
-        // Otherwise, default to a quick section.
-        return 'quick';
-    };
-
-    useEffect(() => {
-        if (!inputRef.current || !window.google?.maps?.places) return;
-        
-        if (!geocoderRef.current) {
-            geocoderRef.current = new window.google.maps.Geocoder();
-        }
-
-        // Initialize Autocomplete and request the 'types' field.
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
-        autocompleteRef.current.setFields(['place_id', 'name', 'geometry', 'types']);
-
-        const placeChangedListener = () => {
-            const place = autocompleteRef.current.getPlace();
-            if (place && place.geometry && place.types) {
-                const newLocation = {
-                    name: place.name,
-                    place_id: place.place_id,
-                    lat: place.geometry.location.lat(),
-                    lng: place.geometry.location.lng(),
-                    // Pass the types and the determined importance up to the parent.
-                    importance: determineDefaultImportance(place.types),
-                    types: place.types
-                };
-                if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                    onLocationsChange([...existingLocations, newLocation]);
-                }
-                if (inputRef.current) {
-                    inputRef.current.value = '';
-                }
-            }
-        };
-        const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
-
-        const handleKeyDown = (e) => {
-            if (e.key === 'Enter' && !e.defaultPrevented) {
-                e.preventDefault();
-                const firstSuggestion = document.querySelector('.pac-container .pac-item');
-                if (firstSuggestion) {
-                    const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
-                    const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
-                    const fullAddress = `${mainText} ${secondaryText}`.trim();
-                    
-                    if (fullAddress && geocoderRef.current) {
-                        geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
-                            if (status === 'OK' && results[0]) {
-                                const place = results[0];
-                                const newLocation = {
-                                    // Use the user-friendly name from the suggestion first, then fall back.
-                                    name: mainText || place.formatted_address.split(',')[0],
-                                    place_id: place.place_id,
-                                    lat: place.geometry.location.lat(),
-                                    lng: place.geometry.location.lng(),
-                                    importance: determineDefaultImportance(place.types),
-                                    types: place.types
-                                };
-                                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                                    onLocationsChange([...existingLocations, newLocation]);
-                                }
-                                if (inputRef.current) {
-                                    inputRef.current.value = '';
-                                }
-                            } else {
-                                console.error('Geocode was not successful for the following reason: ' + status);
-                            }
-                        });
-                    }
-                }
-            }
-        };
-
-        const inputElement = inputRef.current;
-        inputElement.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            if (window.google?.maps?.event && placeChangedListenerHandle) {
-                window.google.maps.event.removeListener(placeChangedListenerHandle);
-            }
-            if (inputElement) {
-                inputElement.removeEventListener('keydown', handleKeyDown);
-            }
-             // Clean up Google Maps widget's own DOM elements
-            const pacContainers = document.querySelectorAll('.pac-container');
-            pacContainers.forEach(container => container.remove());
-        };
-    }, [onLocationsChange]); // Dependency array updated for stability
-
-    const removeLocation = (place_id) => {
-        onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
-    };
-
-    return (
-        <div>
-            <input 
-                ref={inputRef} 
-                type="text" 
-                placeholder="Search for and add locations..." 
-                className="w-full form-input" 
-            />
-            <div className="flex flex-wrap gap-2 mt-3">
-                {existingLocations.length > 0 ? existingLocations.map((loc, index) => (
-                    <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
-                        <span>
-                            {loc.name}
-                            {index === 0 && <span className="text-xs font-semibold text-blue-200 ml-1">(Main)</span>}
-                        </span>
-                        <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
-                    </div>
-                )) : <p className="text-xs text-gray-400 px-1 mt-1">Your locations will appear here. The first one you add will be the main project location.</p>}
-            </div>
-        </div>
-    );
-};
-
-
-const MockLocationSearchInput = () => {
-    return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
-};
-
 const ConfirmationModal = ({ onConfirm, onCancel }) => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
         <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
@@ -441,16 +307,16 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
             batch.set(projectRef, {
                 playlistTitle: finalizedTitle,
                 playlistDescription: finalizedDescription,
-                locations: locations.map(loc => ({ ...loc, footage: footageInventory[loc.place_id] || {} })),
+                locations: locations, // Save the full location objects
                 createdAt: new Date().toISOString()
             });
 
             editableOutline.videos.forEach((video) => {
                 const videoRef = projectRef.collection('videos').doc();
-                // THE FIX IS HERE: Spreading the video object to include all generated fields.
+                // Ensure all fields from the AI are included
                 batch.set(videoRef, {
                     ...video,
-                    chosenTitle: video.title, // Set initial chosenTitle to the generated title
+                    chosenTitle: video.title,
                     script: '',
                     metadata: '',
                     blogPost: '',
@@ -678,7 +544,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
     
     const renderActionButtons = () => {
         const subLocations = locations.slice(1);
-        const isInventoryComplete = subLocations.every(loc => {
+        const isInventoryComplete = subLocations.length === 0 || subLocations.every(loc => {
             const inventory = footageInventory[loc.place_id] || {};
             return inventory.bRoll || inventory.onCamera || inventory.drone;
         });
