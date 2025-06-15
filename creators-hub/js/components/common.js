@@ -36,7 +36,31 @@ window.loadGoogleMapsScript = (apiKey, callback) => {
 };
 
 
-window.LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent"></div>{text && <p className="mt-3 text-sm text-gray-400">{text}</p>}</div>);
+window.LoadingSpinner = ({ text = "", isButton = false }) => {
+    const spinner = (
+        <div className="flex items-center justify-center space-x-1">
+            <div className="h-2 w-2 bg-primary-accent rounded-full animate-pulse"></div>
+            <div className="h-2 w-2 bg-primary-accent rounded-full animate-pulse [animation-delay:0.1s]"></div>
+            <div className="h-2 w-2 bg-primary-accent rounded-full animate-pulse [animation-delay:0.2s]"></div>
+        </div>
+    );
+
+    if (isButton) {
+        return (
+            <div className="flex items-center justify-center gap-2 h-5"> {/* Set fixed height */}
+                {spinner}
+                {text && <span className="text-white">{text}</span>}
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col justify-center items-center p-4">
+            {spinner}
+            {text && <p className="mt-3 text-sm text-gray-400">{text}</p>}
+        </div>
+    );
+};
 
 window.ImageComponent = ({ src, alt, className }) => {
     const [imgSrc, setImgSrc] = useState(src);
@@ -121,7 +145,7 @@ window.LoginScreen = ({ onLogin }) => {
                         disabled={isLoading}
                         className="w-full px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 disabled:bg-gray-500"
                     >
-                        {isLoading ? <window.LoadingSpinner /> : (isRegister ? 'Register Account' : 'Login')}
+                        {isLoading ? <window.LoadingSpinner isButton={true} /> : (isRegister ? 'Register Account' : 'Login')}
                     </button>
                 </form>
 
