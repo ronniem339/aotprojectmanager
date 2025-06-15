@@ -100,7 +100,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
                                 </div>
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium text-gray-300 mb-1">Concept / Description</label>
-                                    <textarea value={video.concept} onChange={(e) => setConcept(e.target.value)} rows="3" className="w-full form-textarea" placeholder="Brief concept or description for this video"></textarea>
+                                    <textarea value={video.concept} onChange={(e) => handleVideoChange(index, 'concept', e.target.value)} rows="3" className="w-full form-textarea" placeholder="Brief concept or description for this video"></textarea>
                                 </div>
                                  <div className="mt-4">
                                     <label className="block text-sm font-medium text-gray-300 mb-1">Full Script / Transcript (Optional)</label>
