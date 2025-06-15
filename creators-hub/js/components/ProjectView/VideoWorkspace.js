@@ -96,7 +96,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setRejectedConcepts(video.tasks?.rejectedConcepts || []);
         setCurrentConceptIndex(video.tasks?.currentConceptIndex || 0);
         setRejectedTitles(video.tasks?.rejectedTitles || []);
-    }, [video.id, video.tasks]);
+    }, [video.id, video.tasks, video.script, video.publishDate, video.chapters]);
 
     const updateTask = async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
@@ -118,12 +118,17 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
         try {
             if (type === 'metadata') {
-                 const prompt = `Act as a YouTube SEO expert. Based on the video script provided below, generate an optimized metadata package.
-                    Video Script:\n---\n${video.script}\n---\n
-                    YouTube SEO Knowledge Base: ${youtubeSeoKb}\n
-                    YouTube Video Title Guidelines: ${videoTitlesKb}\n
-                    YouTube Video Description Guidelines: ${videoDescriptionsKb}\n
-                    Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles), "description" (a detailed description), "tags" (string of comma-separated tags), "chapters" (array of objects: {"timestamp": "00:00", "title": "..."}), and "thumbnailConcepts" (array of 3-5 structured objects).`;
+                const prompt = `Act as a YouTube SEO expert. Based on the video script provided below, generate an optimized metadata package.
+Video Script:
+---
+${video.script}
+---
+YouTube SEO Knowledge Base: ${youtubeSeoKb}
+YouTube Video Title Guidelines: ${videoTitlesKb}
+YouTube Video Description Guidelines: ${videoDescriptionsKb}
+AVOID these previously rejected titles: ${rejectedTitles.join(', ')}
+
+Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles), "description" (a detailed description), "tags" (string of comma-separated tags), "chapters" (array of objects: {"timestamp": "00:00", "title": "..."}), and "thumbnailConcepts" (array of 3-5 structured objects).`;
                 
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -131,7 +136,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
                 const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
-                await updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(parsedJson) }); // chosenTitle is removed
+
+                // If generating more titles, just update the suggestions in the existing metadata
+                if (generating === 'titles') {
+                    const newMetadata = { ...metadata, titleSuggestions: parsedJson.titleSuggestions };
+                     await updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(newMetadata) });
+                } else {
+                    await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson) });
+                }
             }
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
@@ -160,38 +172,127 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         });
     };
     
-    const handleGenerateMoreTitles = async () => {
-        setGenerating('titles');
-        const allPreviousTitles = [...(metadata?.titleSuggestions || []), ...rejectedTitles];
-        const prompt = `Based on the video script, generate 3 new YouTube titles. Avoid titles similar to these: ${allPreviousTitles.join(', ')}. Return as a JSON object: {"titleSuggestions": ["...", "...", "..."]}`;
-        
-        try {
-            const result = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
-            if (result && result.titleSuggestions) {
-                const newMetadata = { ...metadata, titleSuggestions: result.titleSuggestions };
-                await updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(newMetadata) });
-            }
-        } catch (error) {
-            console.error("Error generating more titles:", error);
-        } finally {
-            setGenerating(null);
-        }
+    const handleGenerateMoreTitles = () => {
+        setRejectedTitles([...rejectedTitles, ...metadata.titleSuggestions]);
+        handleGenerate('metadata');
     };
 
+    const handleThumbnailDecision = async (decision) => {
+        const concept = thumbnailConcepts[currentConceptIndex];
+        let newAccepted = [...acceptedConcepts];
+        let newRejected = [...rejectedConcepts];
+
+        if (decision === 'accept') {
+            newAccepted.push(concept);
+            setAcceptedConcepts(newAccepted);
+        } else {
+            newRejected.push(concept);
+            setRejectedConcepts(newRejected);
+        }
+
+        const nextIndex = currentConceptIndex + 1;
+        setCurrentConceptIndex(nextIndex);
+
+        const updatedTasks = {
+            'tasks.thumbnailConcepts': thumbnailConcepts,
+            'tasks.acceptedConcepts': newAccepted,
+            'tasks.rejectedConcepts': newRejected,
+            'tasks.currentConceptIndex': nextIndex
+        };
+
+        if (newAccepted.length >= 3) {
+            await updateTask('thumbnailsGenerated', 'complete', updatedTasks);
+        } else {
+            await updateTask('thumbnailsGenerated', 'pending', updatedTasks);
+            const remainingConcepts = thumbnailConcepts.length - nextIndex;
+            if (newAccepted.length + remainingConcepts < 3) {
+                handleGenerate('thumbnails'); // Fetch more if we can't possibly reach 3
+            }
+        }
+    };
+    
     return (
         <main className="flex-grow">
             {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
             <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
             <div className="space-y-4">
                  <Accordion 
+                    title="1. Scripting & Recording" 
+                    isOpen={openTask === 'scripting'} 
+                    onToggle={() => setOpenTask(openTask === 'scripting' ? null : 'scripting')}
+                    status={initialScriptingStatus} 
+                    isLocked={isTaskLocked(0)} 
+                    onRevisit={() => updateTask('scripting', 'pending', { script: '' })}
+                >
+                    <div>
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
+                        <textarea 
+                            value={scriptContent || ""} 
+                            onChange={(e) => setScriptContent(e.target.value)} 
+                            rows="10" 
+                            className="w-full form-textarea bg-gray-800/50"
+                            placeholder="Paste your script here, or click the button below to generate one with AI."
+                            readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} 
+                        />
+                        <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                            {!scriptContent && <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Script with AI'}</button>}
+                            {scriptContent && (
+                                <>
+                                    <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                                    {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
+                                        <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="flex-grow px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                                    ) : (
+                                        <p className="flex-grow text-gray-400 text-sm flex items-center justify-center p-2 border border-gray-700 rounded-lg">Script is locked. Use "Revisit" to edit.</p>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </Accordion>
+
+                 <Accordion 
+                    title="2. Edit Video" 
+                    isOpen={openTask === 'videoEdited'} 
+                    onToggle={() => setOpenTask(openTask === 'videoEdited' ? null : 'videoEdited')}
+                    status={tasks.videoEdited} 
+                    isLocked={isTaskLocked(1)} 
+                    onRevisit={() => updateTask('videoEdited', 'pending')}
+                >
+                    {tasks.videoEdited !== 'complete' ? (
+                        <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
+                    )}
+                </Accordion>
+
+                <Accordion 
+                    title="3. Log Production Changes" 
+                    isOpen={openTask === 'feedbackProvided'} 
+                    onToggle={() => setOpenTask(openTask === 'feedbackProvided' ? null : 'feedbackProvided')}
+                    status={tasks.feedbackProvided} 
+                    isLocked={isTaskLocked(2)} 
+                    onRevisit={() => updateTask('feedbackProvided', 'pending')}
+                >
+                    <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
+                    {tasks.feedbackProvided !== 'complete' ? (
+                        <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': 'No changes were made.' })} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">No Changes Made</button>
+                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                        </div>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
+                    )}
+                </Accordion>
+
+                <Accordion 
                     title="4. Generate Metadata" 
                     isOpen={openTask === 'metadataGenerated'} 
                     onToggle={() => setOpenTask(openTask === 'metadataGenerated' ? null : 'metadataGenerated')}
-                    status={tasks.metadataGenerated} 
+                    status={video.chosenTitle ? 'complete' : tasks.metadataGenerated || 'pending'} 
                     isLocked={isTaskLocked(3)} 
                     onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '', chosenTitle: '', 'tasks.rejectedTitles': [] })}
                 >
-                     {tasks.metadataGenerated !== 'complete' ? ( 
+                     {!metadata ? ( 
                         <div>
                             <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata' || !isMetadataReady} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
                                 {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Metadata'}
@@ -199,47 +300,142 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                             {!isMetadataReady && <p className="text-xs text-amber-400 mt-2 text-center">Please complete Scripting, Video Editing, and Production Change Logging first.</p>}
                         </div>
                      ) : ( 
-                        metadata ? (
-                            <div className="space-y-6">
-                                {video.chosenTitle ? (
-                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-green-500">
-                                        <label className="block text-sm font-semibold text-gray-300 mb-2">Accepted Title</label>
-                                        <p className="font-bold text-lg text-white">{video.chosenTitle}</p>
-                                    </div>
-                                ) : (
-                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                                        <label className="block text-sm font-semibold text-gray-300 mb-3">Choose a Title</label>
-                                        <div className="space-y-3">
-                                            {metadata.titleSuggestions.map(title => ( 
-                                                <div key={title} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-800/50">
-                                                    <span>{title}</span>
-                                                    <button onClick={() => handleAcceptTitle(title)} className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 rounded-lg font-semibold flex-shrink-0">Accept</button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <button onClick={handleGenerateMoreTitles} disabled={generating === 'titles'} className="mt-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500">
-                                            {generating === 'titles' ? <window.LoadingSpinner/> : 'Generate More'}
-                                        </button>
-                                    </div>
-                                )}
-                                {/* Rest of metadata shown only after title is accepted */}
-                                {video.chosenTitle && (
-                                    <>
-                                        <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label className="block text-sm font-semibold text-gray-300">Description</label>
-                                                <window.CopyButton textToCopy={metadata.description} />
+                        <div className="space-y-6">
+                            {video.chosenTitle ? (
+                                <div className="bg-gray-900/50 p-4 rounded-lg border border-green-500">
+                                    <label className="block text-sm font-semibold text-gray-300 mb-2">Accepted Title</label>
+                                    <p className="font-bold text-lg text-white">{video.chosenTitle}</p>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                    <label className="block text-sm font-semibold text-gray-300 mb-3">Choose a Title</label>
+                                    <div className="space-y-3">
+                                        {metadata.titleSuggestions.map(title => ( 
+                                            <div key={title} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-800/50">
+                                                <span>{title}</span>
+                                                <button onClick={() => handleAcceptTitle(title)} className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 rounded-lg font-semibold flex-shrink-0">Accept</button>
                                             </div>
-                                            <textarea readOnly value={metadata.description} rows="10" className="w-full form-textarea bg-gray-800/50 resize-y"/>
+                                        ))}
+                                    </div>
+                                    <button onClick={handleGenerateMoreTitles} disabled={generating === 'titles'} className="mt-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500">
+                                        {generating === 'titles' ? <window.LoadingSpinner/> : 'Generate More'}
+                                    </button>
+                                </div>
+                            )}
+                            {video.chosenTitle && (
+                                <>
+                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="block text-sm font-semibold text-gray-300">Description</label>
+                                            <window.CopyButton textToCopy={metadata.description} />
                                         </div>
-                                        {/* Chapters, tags, etc. would be here */}
-                                    </>
-                                )}
-                            </div> 
-                        ) : <p className="text-gray-500 text-center py-2 text-sm">Could not parse metadata.</p>
+                                        <textarea readOnly value={metadata.description} rows="10" className="w-full form-textarea bg-gray-800/50 resize-y"/>
+                                    </div>
+                                    {/* Chapters, tags, etc. would be here */}
+                                </>
+                            )}
+                        </div> 
                      )}
                 </Accordion>
+
+                 <Accordion 
+                    title="5. Generate Thumbnails" 
+                    isOpen={openTask === 'thumbnailsGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
+                    status={tasks.thumbnailsGenerated} 
+                    isLocked={isTaskLocked(4)} 
+                    onRevisit={() => updateTask('thumbnailsGenerated', 'pending')}
+                >
+                    {tasks.thumbnailsGenerated !== 'complete' ? (
+                        <div className="text-center p-4">
+                            <p className="mb-4 text-lg">Accepted Concepts: <span className="font-bold text-green-400">{acceptedConcepts.length}</span> / 3</p>
+                            {currentConceptIndex < thumbnailConcepts.length ? (
+                                <div className="max-w-sm mx-auto">
+                                    <div className="glass-card p-6 rounded-lg shadow-lg mb-4">
+                                        <p className="font-semibold">Concept {currentConceptIndex + 1}</p>
+                                        <p className="text-sm text-gray-300 mt-2"><strong>Image Suggestion:</strong> {thumbnailConcepts[currentConceptIndex].imageSuggestion}</p>
+                                        <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {thumbnailConcepts[currentConceptIndex].textOverlay}</p>
+                                    </div>
+                                    <div className="flex justify-center gap-4">
+                                        <button onClick={() => handleThumbnailDecision('reject')} className="p-4 bg-red-600 hover:bg-red-700 rounded-full text-white font-bold text-2xl w-16 h-16 flex items-center justify-center">✗</button>
+                                        <button onClick={() => handleThumbnailDecision('accept')} className="p-4 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold text-2xl w-16 h-16 flex items-center justify-center">✓</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <button 
+                                        onClick={() => handleGenerate('thumbnails')} 
+                                        disabled={generating === 'thumbnails' || !metadata}
+                                        className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2 mx-auto"
+                                    >
+                                        {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '💡 Generate Thumbnail Concepts'}
+                                    </button>
+                                    {!metadata && <p className="text-xs text-amber-400 mt-2">Metadata must be generated first.</p>}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                             <h4 className="text-lg font-semibold text-green-400">3 Concepts Accepted!</h4>
+                            {acceptedConcepts.map((concept, index) => (
+                                <div key={index} className="glass-card p-4 rounded-lg">
+                                    <p className="font-semibold">Accepted Concept {index + 1}:</p>
+                                    <p className="text-sm text-gray-300 mt-1"><strong>Image Suggestion:</strong> {concept.imageSuggestion}</p>
+                                    <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {concept.textOverlay}</p>
+                                    <button
+                                        onClick={() => setShowCanvaModal(true)}
+                                        className="inline-block mt-3 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+                                    >
+                                        Create on Canva
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Accordion>
+                <Accordion 
+                    title="6. Upload to YouTube" 
+                    isOpen={openTask === 'videoUploaded'} 
+                    onToggle={() => setOpenTask(openTask === 'videoUploaded' ? null : 'videoUploaded')}
+                    status={tasks.videoUploaded} 
+                    isLocked={isTaskLocked(5)} 
+                    onRevisit={() => updateTask('videoUploaded', 'pending')}
+                >
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
+                    <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-full sm:w-auto mb-4" readOnly={tasks.videoUploaded === 'complete'}/>
+                    {tasks.videoUploaded !== 'complete' ? (
+                        <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">Video was uploaded on: {publishDate}</p>
+                    )}
+                </Accordion>
+                
+                <Accordion 
+                    title="7. Generate First Comment" 
+                    isOpen={openTask === 'firstCommentGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'firstCommentGenerated' ? null : 'firstCommentGenerated')}
+                    status={tasks.firstCommentGenerated} 
+                    isLocked={isTaskLocked(6)} 
+                    onRevisit={() => updateTask('firstCommentGenerated', 'pending')}
+                >
+                    {tasks.firstCommentGenerated !== 'complete' ? ( 
+                        <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
+                            {generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Comment'}
+                        </button>
+                    ) : ( 
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4>
+                            <textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" />
+                        </div> 
+                    )}
+                </Accordion>
             </div>
+            {showFullScreenScript && (
+                <window.FullScreenScriptView 
+                    scriptContent={scriptContent} 
+                    onClose={() => setShowFullScreenScript(false)} 
+                />
+            )}
         </main>
     );
 });
