@@ -39,14 +39,12 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
                 throw new Error("AI returned an invalid format for thumbnail concepts.");
             }
             
-            // **FIX**: Filter out any malformed or empty concepts from the AI response.
             const validNewConcepts = parsedJson.thumbnailConcepts.filter(c => c && c.textOverlay && c.textOverlay.trim() !== '');
 
             if (validNewConcepts.length === 0) {
                 throw new Error("AI failed to generate any valid concepts. Please try again.");
             }
 
-            // Append new valid concepts to the existing list
             const allConcepts = [...concepts, ...validNewConcepts];
             await onUpdateTask('thumbnailsGenerated', 'pending', { 'tasks.thumbnailConcepts': allConcepts });
         } catch (err) {
@@ -73,26 +71,19 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
             'tasks.currentConceptIndex': nextIndex
         };
 
-        // If we've accepted enough, complete the task
         if (newAccepted.length >= 3) {
             await onUpdateTask('thumbnailsGenerated', 'complete', taskUpdatePayload);
         } else {
-            // Otherwise, update the pending state
             await onUpdateTask('thumbnailsGenerated', 'pending', taskUpdatePayload);
             
-            // Check if we need to fetch more concepts
             const remainingConcepts = concepts.length - nextIndex;
             if (newAccepted.length + remainingConcepts < 3 && !generating) {
-                // Auto-generate more if we can't possibly reach the goal
                 handleGenerate(); 
             }
         }
     };
 
-    // The concept currently being displayed to the user
     const currentConcept = concepts[currentIndex];
-    
-    // **FIX**: Add a more robust check to ensure the concept is valid before rendering the card.
     const isCurrentConceptValid = currentConcept && currentConcept.textOverlay;
 
     // UI for when the task is marked as complete
@@ -102,8 +93,14 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
                  <p className="text-gray-400 text-center py-2 text-sm">You've selected your thumbnail concepts.</p>
                  <div className="my-4 p-4 bg-gray-900/50 rounded-lg">
                     <h4 className="font-semibold text-gray-300 mb-2">Accepted Ideas:</h4>
-                    <ul className="list-disc list-inside text-gray-400 text-sm">
-                        {accepted.map((c, i) => <li key={i}>{c.textOverlay}</li>)}
+                    {/* FIX: Display both the text overlay and the image suggestion for better context */}
+                    <ul className="space-y-3 text-sm">
+                        {accepted.map((c, i) => (
+                            <li key={i}>
+                                <p className="font-bold text-white">"{c.textOverlay}"</p>
+                                <p className="text-gray-400 pl-4 text-xs italic">↳ {c.imageSuggestion}</p>
+                            </li>
+                        ))}
                     </ul>
                  </div>
                  <div className="mt-2 text-center">
