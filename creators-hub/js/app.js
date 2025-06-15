@@ -5,7 +5,30 @@ window.App = () => { // Exposing App component globally
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedProject, setSelectedProject] = useState(null);
-    const [settings, setSettings] = useState({ geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '' }); // Added youtubeApiKey
+    const [settings, setSettings] = useState({ 
+        geminiApiKey: '', 
+        googleMapsApiKey: '', 
+        youtubeApiKey: '', 
+        styleGuideText: '', // This will remain for the combined style guide
+        myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '', // For Style & Tone
+        knowledgeBases: { // New nested structure for knowledge bases
+            youtube: {
+                whoAmI: '', // User description for authentic tone
+                videoTitles: '', // YouTube video titles KB
+                videoDescriptions: '', // YouTube video descriptions KB
+                thumbnailIdeas: '', // YouTube thumbnail ideas KB
+                firstPinnedCommentExpert: '', // YouTube first pinned comment KB
+                shortsIdeaGeneration: '', // YouTube Shorts ideas KB
+                youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE, // Keep the general SEO KB for broad context/fallback
+            },
+            blog: {
+                postIdeaGeneration: '', // Blog post idea generation KB
+                postDetailedWriter: '', // Blog post detailed writer KB
+                postSeoWriter: '', // Blog post SEO writer KB (listicles, etc.)
+                postAffiliateWriter: '', // Blog post affiliate writer KB
+            }
+        }
+    });
     const [projectDraft, setProjectDraft] = useState(null);
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
@@ -32,7 +55,21 @@ window.App = () => { // Exposing App component globally
             if (!currentUser) {
                 // IMPORTANT: Removed automatic anonymous sign-in here.
                 // The LoginScreen is now responsible for handling user authentication.
-                setSettings({ geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '' }); // Clear settings for unauthenticated user, including youtubeApiKey
+                // Clear settings for unauthenticated user, including new KB structures
+                setSettings({ 
+                    geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
+                    myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+                    knowledgeBases: {
+                        youtube: {
+                            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
+                            firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
+                            youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
+                        },
+                        blog: {
+                            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                        }
+                    }
+                }); 
                 setProjectDraft(null);
             }
             setIsAuthReady(true);
@@ -49,20 +86,67 @@ window.App = () => { // Exposing App component globally
                 const defaultSettings = {
                     geminiApiKey: '',
                     googleMapsApiKey: '',
-                    youtubeApiKey: '', // Default for youtubeApiKey
+                    youtubeApiKey: '', 
                     styleGuideText: '',
                     myWriting: '',
                     admiredWriting: '',
                     keywords: '',
                     dosAndDonts: '',
                     excludedPhrases: '',
-                    youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE // Ensure default KB is set if not present
+                    knowledgeBases: { // Default structure for new knowledge bases
+                        youtube: {
+                            whoAmI: '',
+                            videoTitles: '',
+                            videoDescriptions: '',
+                            thumbnailIdeas: '',
+                            firstPinnedCommentExpert: '',
+                            shortsIdeaGeneration: '',
+                            youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE, // Still default here
+                        },
+                        blog: {
+                            postIdeaGeneration: '',
+                            postDetailedWriter: '',
+                            postSeoWriter: '',
+                            postAffiliateWriter: '',
+                        }
+                    }
                 };
                 const data = docSnap.exists ? docSnap.data() : {};
-                if (data.youtubeSeoKnowledgeBase === undefined) {
-                    data.youtubeSeoKnowledgeBase = defaultSettings.youtubeSeoKnowledgeBase;
+                
+                // Deep merge for knowledgeBases to preserve existing nested values
+                const mergedKnowledgeBases = {
+                    ...defaultSettings.knowledgeBases, // Start with all defaults
+                    ...data.knowledgeBases, // Overlay any saved top-level KB objects if they were flat for some reason
+                    youtube: { // Deep merge YouTube KBs
+                        ...defaultSettings.knowledgeBases.youtube,
+                        ...data.knowledgeBases?.youtube, // Overlay saved YouTube KBs
+                        // Special handling for youtubeSeoKnowledgeBase to ensure default from config is used if not explicitly saved
+                        youtubeSeoKnowledgeBase: data.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase !== undefined ? 
+                                                 data.knowledgeBases.youtube.youtubeSeoKnowledgeBase : 
+                                                 (data.youtubeSeoKnowledgeBase !== undefined ? data.youtubeSeoKnowledgeBase : window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE)
+                    },
+                    blog: { // Deep merge Blog KBs
+                        ...defaultSettings.knowledgeBases.blog,
+                        ...data.knowledgeBases?.blog, // Overlay saved Blog KBs
+                    }
+                };
+
+                const newSettings = { 
+                    ...defaultSettings, // Start with all flat defaults
+                    ...data, // Overlay any saved flat settings
+                    knowledgeBases: mergedKnowledgeBases // Use the deeply merged KB object
+                };
+
+                // Remove the old top-level youtubeSeoKnowledgeBase if it exists directly on data, to prevent conflicts
+                // This is specifically for migration from old structure.
+                if (newSettings.youtubeSeoKnowledgeBase !== undefined && 
+                    newSettings.youtubeSeoKnowledgeBase !== window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE &&
+                    newSettings.youtubeSeoKnowledgeBase === mergedKnowledgeBases.youtube.youtubeSeoKnowledgeBase // Only delete if it's been successfully migrated
+                ) {
+                    delete newSettings.youtubeSeoKnowledgeBase; 
                 }
-                const newSettings = { ...defaultSettings, ...data };
+
+
                 setSettings(newSettings);
 
                 // Load Google Maps script only once and if API key is present
@@ -83,7 +167,7 @@ window.App = () => { // Exposing App component globally
                 unsubscribeDraft();
             };
         }
-    }, [user, googleMapsLoaded]); // Depend on user and googleMapsLoaded
+    }, [user, googleMapsLoaded]);
 
 
     const displayNotification = (message) => {
@@ -112,6 +196,9 @@ window.App = () => { // Exposing App component globally
         if (!user) return;
         const settingsDocRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
         try {
+            // Firestore does deep merges, so sending the whole object should work.
+            // However, ensure you're not unintentionally overwriting the entire knowledgeBases object
+            // if only a sub-part changed. The approach in state update should manage this.
             await settingsDocRef.set(newSettings, { merge: true });
             displayNotification('Settings saved successfully!');
             // After saving, go back to the settings menu if applicable, otherwise dashboard
@@ -163,13 +250,9 @@ window.App = () => { // Exposing App component globally
 
     const handleAnalyzeImportedProject = async (projectData) => {
         setIsLoading(true);
-        const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
-        const styleGuide = settings.styleGuideText ? `This is the user's personal style guide:\n${settings.styleGuideText}` : "No specific style guide was provided.";
-
-        // For imported projects, we might not need to call the AI for initial plan generation
-        // as we are directly providing the videos and main project details.
-        // The AI is primarily used for refining or generating new content.
-        // We will directly set the projectDraft here.
+        // The general knowledge base for YouTube SEO might still be useful here for overall context
+        // const youtubeSeoKnowledgeBase = settings.knowledgeBases.youtube.youtubeSeoKnowledgeBase; 
+        // const styleGuide = settings.styleGuideText; // Use the combined style guide text
 
         if (!projectData.videos || projectData.videos.length === 0) {
             setIsLoading(false);
