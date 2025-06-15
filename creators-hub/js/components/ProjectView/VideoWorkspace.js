@@ -14,10 +14,53 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     // A single, memoized function to update Firestore for any task
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        // Ensure the task name is correctly nested under the 'tasks' object in the payload
         const payload = { [`tasks.${taskName}`]: status, ...extraData };
         await videoDocRef.update(payload);
     }, [userId, project.id, video.id, appId]);
+
+    /**
+     * Handles the logic for revisiting a completed task. It identifies which
+     * data fields need to be cleared for that specific task and updates Firestore.
+     * @param {string} taskId - The ID of the task to revisit (e.g., 'scripting').
+     */
+    const handleRevisit = (taskId) => {
+        let dataToReset = {};
+        // Use a switch statement for clear, task-specific reset logic
+        switch (taskId) {
+            case 'scripting':
+                dataToReset = { script: '' };
+                break;
+            case 'feedbackProvided':
+                dataToReset = { 'tasks.feedbackText': '' };
+                break;
+            case 'metadataGenerated':
+                dataToReset = {
+                    metadata: '',
+                    chosenTitle: '',
+                    chapters: [],
+                    'tasks.rejectedTitles': [],
+                    'tasks.descriptionAccepted': false,
+                    'tasks.chaptersFinalized': false
+                };
+                break;
+            case 'thumbnailsGenerated':
+                dataToReset = {
+                    'tasks.thumbnailConcepts': [],
+                    'tasks.acceptedConcepts': [],
+                    'tasks.rejectedConcepts': [],
+                    'tasks.currentConceptIndex': 0
+                };
+                break;
+            case 'firstCommentGenerated':
+                dataToReset = { 'tasks.firstComment': '' };
+                break;
+            // No specific data reset is needed for 'videoEdited' or 'videoUploaded'
+            default:
+                break;
+        }
+        // Update the task status to 'pending' and clear the relevant data
+        updateTask(taskId, 'pending', dataToReset);
+    };
 
     // Determines if a task should be locked based on the completion of the previous task
     const isTaskLocked = (index) => {
@@ -34,25 +77,18 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         switch (task.id) {
             case 'scripting':
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-            
             case 'videoEdited':
                 return <window.SimpleConfirmationTask status={status} onUpdate={() => updateTask(task.id, 'complete')} />;
-            
             case 'feedbackProvided':
                  return <window.LogChangesTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
-            
             case 'metadataGenerated':
                 return <window.MetadataTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-
             case 'thumbnailsGenerated':
                 return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-
             case 'videoUploaded':
                 return <window.SimpleConfirmationTask status={status} onUpdate={() => updateTask(task.id, 'complete')} buttonText="Mark as Uploaded" />;
-
             case 'firstCommentGenerated':
                  return <window.FirstCommentTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-
             default:
                 return <p>Task component for '{task.id}' not found.</p>;
         }
@@ -65,22 +101,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 {taskPipeline.map((task, index) => {
                     const status = video.tasks?.[task.id] || 'pending';
                     const locked = isTaskLocked(index);
-                    const onRevisit = () => {
-                         // When revisiting, reset the task status.
-                         // Specific data resets should be handled within the task component's logic or triggered from here.
-                         updateTask(task.id, 'pending', {
-                             // Reset specific fields when revisiting if necessary
-                             'tasks.feedbackText': task.id === 'feedbackProvided' ? '' : video.tasks?.feedbackText,
-                             'metadata': task.id === 'metadataGenerated' ? '' : video.metadata,
-                             'chosenTitle': task.id === 'metadataGenerated' ? '' : video.chosenTitle,
-                             'tasks.firstComment': task.id === 'firstCommentGenerated' ? '' : video.tasks?.firstComment,
-                             'tasks.thumbnailConcepts': task.id === 'thumbnailsGenerated' ? [] : video.tasks?.thumbnailConcepts,
-                             'tasks.acceptedConcepts': task.id === 'thumbnailsGenerated' ? [] : video.tasks?.acceptedConcepts,
-                             'tasks.rejectedConcepts': task.id === 'thumbnailsGenerated' ? [] : video.tasks?.rejectedConcepts,
-                             'tasks.currentConceptIndex': task.id === 'thumbnailsGenerated' ? 0 : video.tasks?.currentConceptIndex,
-                         });
-                    };
-
+                    
                     return (
                         <window.Accordion
                             key={task.id}
@@ -89,7 +110,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                             onToggle={() => setOpenTask(openTask === task.id ? null : task.id)}
                             status={locked ? 'locked' : status}
                             isLocked={locked}
-                            onRevisit={status === 'complete' ? onRevisit : null}
+                            onRevisit={status === 'complete' ? () => handleRevisit(task.id) : null}
                         >
                             {renderTaskComponent(task, index)}
                         </window.Accordion>
