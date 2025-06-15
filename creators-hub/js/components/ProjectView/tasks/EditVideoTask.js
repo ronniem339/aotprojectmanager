@@ -103,7 +103,8 @@ window.EditVideoTask = ({ video, onUpdateTask, isLocked }) => {
                 <h3 className="text-lg font-semibold text-amber-400">Log any changes from the original plan</h3>
                 <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                      <h4 className="font-semibold text-gray-300 mb-1">Original Script:</h4>
-                     <textarea readOnly value={video.script} rows="5" className="w-full form-textarea bg-gray-800/80 cursor-not-allowed" />
+                     {/* FIX: Increased rows from 5 to 12 for better visibility */}
+                     <textarea readOnly value={video.script} rows="12" className="w-full form-textarea bg-gray-800/80 cursor-not-allowed" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Describe Changes Made During Editing</label>
