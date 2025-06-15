@@ -28,8 +28,8 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${currentProject.id}/videos`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             let videosData = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
+                id: doc.id, // This is the Firestore document ID
+                ...doc.data(), // This contains the youtubeVideoId
                 tasks: doc.data().tasks || {}
             }));
             
