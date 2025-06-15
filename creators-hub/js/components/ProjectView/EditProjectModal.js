@@ -95,6 +95,19 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                             </div>
                         )}
                     </div>
+                     {/* New section for creating project thumbnail on Canva */}
+                    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Project Thumbnail</label>
+                        <p className="text-xs text-gray-400 mb-3">Use Canva to create the main thumbnail for your YouTube playlist.</p>
+                        <a 
+                            href="https://www.canva.com/create/youtube-thumbnails/"
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-block px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+                        >
+                            Create Project Thumbnail on Canva
+                        </a>
+                    </div>
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title more mysterious' or 'Add more about the history in the description'"/>
