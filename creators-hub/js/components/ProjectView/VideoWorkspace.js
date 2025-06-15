@@ -85,18 +85,24 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
+    // This effect resets the accordion state ONLY when the video ID changes
+    useEffect(() => {
+        setOpenTask(null);
+    }, [video.id]);
+
+    // This effect updates local state when the current video's data changes, without closing the accordion
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || video.publishDate || '');
         setScriptContent(video.script || '');
         setChapters(video.chapters || []);
-        setOpenTask(null);
         setThumbnailConcepts(video.tasks?.thumbnailConcepts || []);
         setAcceptedConcepts(video.tasks?.acceptedConcepts || []);
         setRejectedConcepts(video.tasks?.rejectedConcepts || []);
         setCurrentConceptIndex(video.tasks?.currentConceptIndex || 0);
         setRejectedTitles(video.tasks?.rejectedTitles || []);
-    }, [video.id, video.tasks, video.script, video.publishDate, video.chapters]);
+    }, [video.tasks, video.script, video.publishDate, video.chapters]);
+
 
     const updateTask = async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
