@@ -60,14 +60,20 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         if (!apiKey) { console.error("Please set your Gemini API Key in the settings first."); return; }
         setGenerating(type);
 
-        const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
-        const styleGuide = `This is my Style Guide, you must adhere to it:\n${settings.styleGuideText || 'Default informative tone'}`;
+        // Reference specific knowledge bases
+        const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
+        const whoAmIKb = settings.knowledgeBases?.youtube?.whoAmI || '';
+        const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
+        const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
+        const thumbnailIdeasKb = settings.knowledgeBases?.youtube?.thumbnailIdeas || '';
+        const firstPinnedCommentExpertKb = settings.knowledgeBases?.youtube?.firstPinnedCommentExpert || '';
+        const styleGuideText = settings.styleGuideText; // General style guide text
 
         try {
             if (type === 'script') {
                  const isRefining = !!currentContent;
 
-                // Define a common video structure for prompting
+                // Define a common video structure for prompting (remains same)
                 const commonVideoStructure = `
                     # Hook
                     # Introduction
@@ -84,7 +90,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 const prompt = isRefining
                     ? `Your task is to refine an existing voiceover script based on user feedback.
                     Original Script:\n---\n${currentContent}\n---\nUser's Refinement Instructions: "${refinement}"
-                    Rewrite the entire script to incorporate the feedback, maintaining the core message and adhering to the style guide.
+                    Rewrite the entire script to incorporate the feedback, maintaining the core message and adhering to the style guide and user persona.
+                    User Persona (Who Am I): ${whoAmIKb || 'N/A'}
+                    Style Guide: ${styleGuideText || 'N/A'}
                     IMPORTANT: Your response MUST contain ONLY the updated voiceover script text. Do NOT include any production notes like [MUSIC CUE], [SOUND EFFECT], or [B-ROLL FOOTAGE]. The script should be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction).`
                     : `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details.
                     Video Title: "${video.chosenTitle || video.title}".
@@ -93,13 +101,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     Locations Featured: ${video.locations_featured?.join(', ') || 'N/A'}.
                     Targeted Keywords: ${video.targeted_keywords?.join(', ')}
 
-                    Style Guide: ${styleGuide}.
-                    Knowledge Base: ${knowledgeBase}
+                    User Persona (Who Am I): ${whoAmIKb || 'N/A'}
+                    Style Guide: ${styleGuideText || 'N/A'}
+                    YouTube SEO Knowledge Base: ${youtubeSeoKb || 'N/A'}
                     
                     The script should follow a structure similar to this example, adapted to the video's specific content:
                     ${commonVideoStructure}
 
-                    IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include production notes (e.g., [MUSIC CUE], [SOUND EFFECT], [B-ROLL FOOTAGE]), titles, descriptions, metadata, or any other text outside of the script itself. The script must be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction, # Location: [Location Name], # Outro). Focus on the words the narrator needs to say.`
+                    IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include production notes (e.g., [MUSIC CUE], [SOUND EFFECT], [B-ROLL FOOTAGE]), titles, descriptions, metadata, or any other text outside of the script itself. The script must be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction, # Location: [Location Name], # Outro). Focus on the words the narrator needs to say.`;
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -107,7 +116,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 const result = await response.json();
                 const newScript = result.candidates[0].content.parts[0].text;
                 setScriptContent(newScript);
-                // After generating or refining, set script and mark task as pending for review
                 await updateTask('scripting', 'pending', { script: newScript }); // Always mark pending for review after AI generation
                 if (isRefining) setRefinementText('');
             } else if (type === 'metadata') {
@@ -116,16 +124,16 @@ Video Script:
 ---
 ${video.script}
 ---
-Knowledge Base:
-${knowledgeBase}
----
-Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles), "description" (a detailed description incorporating keywords, a hook, and the placeholder '{{CHAPTERS}}'), "tags" (string of comma-separated tags), "chapters" (array of structured objects: {"timestamp": "00:00", "title": "Chapter Title based on script headings"}), and "thumbnailConcepts" (array of 3 structured objects: {"imageSuggestion": "string", "textOverlay": "string"}).`;
+YouTube SEO Knowledge Base: ${youtubeSeoKb || 'N/A'}
+YouTube Video Title Guidelines: ${videoTitlesKb || 'N/A'}
+YouTube Video Description Guidelines: ${videoDescriptionsKb || 'N/A'}
+
+Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles, following title guidelines), "description" (a detailed description incorporating keywords, a hook, and the placeholder '{{CHAPTERS}}', following description guidelines), "tags" (string of comma-separated tags), "chapters" (array of structured objects: {"timestamp": "00:00", "title": "Chapter Title based on script headings"}), and "thumbnailConcepts" (array of 3 structured objects: {"imageSuggestion": "string", "textOverlay": "string"}).`;
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
-                // Store the raw metadata string and update chosenTitle
                 await updateTask('metadataGenerated', 'complete', { metadata: result.candidates[0].content.parts[0].text, chosenTitle: JSON.parse(result.candidates[0].content.parts[0].text).titleSuggestions[0] });
             } else if (type === 'thumbnails') {
                 let concepts;
@@ -139,10 +147,15 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     return;
                 }
                 
+                const prompt = `Generate a high-CTR YouTube thumbnail. Cinematic, professional photography. ${concepts[0].imageSuggestion}. Text overlay reads: "${concepts[0].textOverlay}".
+                YouTube Thumbnail Idea Guidelines: ${thumbnailIdeasKb || 'N/A'}`; // Add thumbnail KB to prompt
+
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
                 const thumbnailPromises = concepts.map(concept => {
-                    const prompt = `A high-CTR YouTube thumbnail. Cinematic, professional photography. ${concept.imageSuggestion}. Text overlay reads: "${concept.textOverlay}".`;
-                    const payload = { instances: [{ prompt }], parameters: { "sampleCount": 1 } };
+                    // For multiple concepts, generate distinct prompts
+                    const individualPrompt = `A high-CTR YouTube thumbnail. Cinematic, professional photography. ${concept.imageSuggestion}. Text overlay reads: "${concept.textOverlay}".
+                    YouTube Thumbnail Idea Guidelines: ${thumbnailIdeasKb || 'N/A'}`;
+                    const payload = { instances: [{ prompt: individualPrompt }], parameters: { "sampleCount": 1 } };
                     return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                     .then(response => {
                         if (!response.ok) { console.error(`API Error for thumbnail concept "${concept.imageSuggestion}":`, response.statusText); return null; }
@@ -155,14 +168,16 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 const generatedThumbnails = results.filter(result => result && result.predictions?.[0]?.bytesBase64Encoded).map(result => `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`); // Store as data URLs
 
                 if (generatedThumbnails.length > 0) {
-                    // Update 'generatedThumbnails' directly on the video object, and mark task complete
                     await updateTask('thumbnailsGenerated', 'complete', { generatedThumbnails: generatedThumbnails });
                 } else {
                     console.error("All thumbnail generations failed. Please check the API key and concepts.");
                 }
 
             } else if (type === 'firstComment') {
-                 const prompt = `Generate a friendly and engaging "first pinned comment" for a YouTube video titled "${video.chosenTitle}". The comment should ask a question to spark conversation and encourage viewers to subscribe or watch other videos.`;
+                 const prompt = `Act as a first pinned comment expert for YouTube. Generate a friendly and engaging "first pinned comment" for a YouTube video titled "${video.chosenTitle}". The comment should ask a question to spark conversation and encourage viewers to subscribe or watch other videos.
+                 User Persona (Who Am I): ${whoAmIKb || 'N/A'}
+                 Style Guide: ${styleGuideText || 'N/A'}
+                 First Pinned Comment Expert Guidelines: ${firstPinnedCommentExpertKb || 'N/A'}`;
                  const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                  const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -170,6 +185,9 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                  const result = await response.json();
                  await updateTask('firstCommentGenerated', 'complete', { 'tasks.firstComment': result.candidates[0].content.parts[0].text });
             }
+            // Add Shorts Idea Generation here later if needed
+            // else if (type === 'shortsIdea') { ... }
+
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
         } finally {
@@ -197,7 +215,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
             console.error("Error parsing video metadata for chapters:", e);
             parsedMeta = {};
         }
-        const newDescription = parsedMeta.description ? parsedMeta.description.replace('{{CHAPTERS}}', chapterText) : chapterText; // Ensure placeholder replacement
+        const newDescription = parsedMeta.description ? parsedMeta.description.replace('{{CHAPTERS}}', chapterText) : (parsedMeta.description || '') + '\n\n' + chapterText; // Ensure placeholder replacement, or append
         
         // Update both metadata and chapters array
         updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify({ ...parsedMeta, description: newDescription, chapters: chapters }), chapters: chapters });
