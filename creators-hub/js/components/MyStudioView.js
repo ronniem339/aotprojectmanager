@@ -1,10 +1,12 @@
 // js/components/MyStudioView.js
 
+const { useState, useEffect, useRef } = React;
+
 window.MyStudioView = ({ settings, onSave, onBack }) => {
     const [styleInputs, setStyleInputs] = useState({
         myWriting: settings.myWriting || '',
         admiredWriting: settings.admiredWriting || '',
-        keywords: settings.keywords || '',
+        keywords: settings.keywords || '', // These are style keywords, not SEO keywords
         dosAndDonts: settings.dosAndDonts || '',
         excludedPhrases: settings.excludedPhrases || ''
     });
@@ -25,12 +27,17 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     const handleAnalyzeStyle = async () => {
         const apiKey = settings.geminiApiKey || "";
         if (!apiKey) {
-            // A more user-friendly notification would be better than an alert.
             console.error("Please set your Gemini API Key in Settings first.");
             return;
         }
         setIsLoading(true);
+
+        const whoAmIKb = settings.knowledgeBases?.youtube?.whoAmI || '';
+
         const prompt = `Analyze the following inputs to define a detailed YouTube creator's style guide.
+        
+        ${whoAmIKb ? `User Persona (Who Am I): "${whoAmIKb}"` : ''}
+
         1.  **My Writing Sample:** "${styleInputs.myWriting}"
         2.  **Admired Writing Sample:** "${styleInputs.admiredWriting}"
         3.  **Descriptive Keywords:** "${styleInputs.keywords}"
@@ -47,7 +54,7 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
             const generatedGuide = result.candidates[0].content.parts[0].text;
             setStyleGuideText(generatedGuide);
         } catch (e) {
-            console.error(e);
+            console.error("Error generating style guide:", e);
         } finally {
             setIsLoading(false);
         }
