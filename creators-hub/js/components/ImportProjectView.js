@@ -17,7 +17,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         id: `manual-${Date.now()}-0`, // Unique ID for manual entry
         title: '',
         concept: '', // This will hold the cleaned description
-        script: '',
+        script: '', // Initialize script as empty
         locations_featured: [],
         targeted_keywords: [],
         estimatedLengthMinutes: '',
@@ -292,7 +292,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     isManual: false,
                     // Set initial task statuses for imported videos
                     tasks: {
-                        scripting: 'pending', // Assume script needs review/generation unless provided
+                        scripting: 'complete', // Marked as complete if user provides script or it's inferred. For now, assume pending by default unless script exists.
                         videoEdited: 'complete',
                         feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
                         metadataGenerated: 'complete', // Metadata is largely available
@@ -304,7 +304,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     metadata: importedMetadata, // Store constructed metadata
                     generatedThumbnails: [item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail (filter Boolean to remove nulls/undefined)
                     chosenTitle: item.snippet.title, // Use original title as chosen title
-                    script: '' // Script needs to be provided by user or AI generated later
+                    script: '' // Initial script is empty, user can provide it
                 };
             });
         });
@@ -382,7 +382,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             targeted_keywords: aiExtractedData.targeted_keywords,   // Use AI-generated keywords
             // Set initial task statuses for imported video
             tasks: {
-                scripting: 'pending', // Assume script needs review/generation unless provided
+                scripting: 'complete', // Marked as complete if user provides script or it's inferred. For now, assume pending by default unless script exists.
                 videoEdited: 'complete',
                 feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
                 metadataGenerated: 'complete', // Metadata is largely available
@@ -394,7 +394,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             metadata: importedMetadata, // Store constructed metadata
             generatedThumbnails: [videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail
             chosenTitle: videoSnippet.title, // Use original title as chosen title
-            script: '' // Script needs to be provided by user or AI generated later
+            script: '' // Initial script is empty, user can provide it
         };
 
         setFetchedYoutubeData({
@@ -421,6 +421,17 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     const handleVideoImportChange = (index, field, value) => {
         const newVideos = [...videosToImport];
         newVideos[index][field] = value;
+        
+        // If script is entered, mark scripting task as complete
+        if (field === 'script') {
+            if (value.trim() !== '') {
+                if (!newVideos[index].tasks) newVideos[index].tasks = {};
+                newVideos[index].tasks.scripting = 'complete';
+            } else {
+                // If script is cleared, reset task to pending
+                if (newVideos[index].tasks) newVideos[index].tasks.scripting = 'pending';
+            }
+        }
         setVideosToImport(newVideos);
     };
 
@@ -431,7 +442,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 id: `manual-${Date.now()}-${prevVideos.length}`,
                 title: '',
                 concept: '',
-                script: '',
+                script: '', // New manual video: empty script
                 locations_featured: [],
                 targeted_keywords: [],
                 estimatedLengthMinutes: '',
@@ -626,6 +637,19 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                                 </ul>
                                             </div>
                                         )}
+                                        {/* New Script Input Field */}
+                                        <div className="mt-2">
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">Video Script (Optional)</label>
+                                            <textarea
+                                                value={video.script}
+                                                onChange={(e) => handleVideoImportChange(index, 'script', e.target.value)}
+                                                rows="6"
+                                                className="w-full form-textarea"
+                                                placeholder="Paste the script for this video here, if you have one."
+                                            ></textarea>
+                                            <p className="text-xs text-gray-500 mt-1">Providing the script will mark the 'Scripting' task as complete and help future AI tasks.</p>
+                                        </div>
+
                                         <div className="flex gap-2 mt-2">
                                             {/* This button will trigger AI parsing for this specific video */}
                                             <button onClick={() => handleAIAnalyzeVideo(video, index)} disabled={video.status === 'processed'} className="px-3 py-1 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500">
