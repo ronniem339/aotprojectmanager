@@ -1,23 +1,23 @@
 /* Custom Stylesheet */
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #1a1a1a; /* Very dark, almost black background */
-    color: #f0f0f0; /* Soft white for main text for high contrast */
+    background-color: #121212; /* Very dark background for a true dark mode */
+    color: #e0e0e0; /* Soft white for main text for high contrast */
 }
 
 /* Glassmorphism card effect adjustments */
 .glass-card {
-    background: rgba(40, 40, 40, 0.7); /* Slightly lighter than body, with opacity */
-    backdrop-filter: blur(8px); /* Slightly less blur for crispness */
-    border: 1px solid rgba(255, 255, 255, 0.08); /* Subtle white border */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), 0 8px 15px rgba(0, 0, 0, 0.15); /* More pronounced shadow */
+    background: rgba(30, 30, 30, 0.7); /* Slightly lighter than body, with opacity */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05); /* Very subtle white border */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 8px 20px rgba(0, 0, 0, 0.2); /* Deeper shadows */
 }
 
 /* Form input, textarea, and editable field styles */
 .form-input, .form-textarea, .editable-field {
-    background-color: #2a2a2a; /* Darker grey for inputs */
-    border: 1px solid #444444; /* Medium grey border for definition */
-    color: #f0f0f0; /* Input text color */
+    background-color: #202020; /* Darker grey for inputs */
+    border: 1px solid #3a3a3a; /* Medium grey border for definition */
+    color: #e0e0e0; /* Input text color */
     border-radius: 0.5rem;
     padding: 0.5rem;
     width: 100%;
@@ -26,8 +26,8 @@ body {
 /* Focus styles for form elements */
 .form-input:focus, .form-textarea:focus, .editable-field:focus {
     outline: none;
-    border-color: #ff8c42 !important; /* Primary accent for focus */
-    box-shadow: 0 0 0 2px rgba(255, 140, 66, 0.5) !important; /* Soft glow primary accent */
+    border-color: #00bfff !important; /* Primary accent for focus (Blue) */
+    box-shadow: 0 0 0 2px rgba(0, 191, 255, 0.5) !important; /* Soft glow primary accent */
 }
 
 /* Specific styles for editable titles */
@@ -36,11 +36,11 @@ body {
      border-color: transparent;
      font-weight: bold;
      font-size: 1.25rem;
-     color: #ff8c42; /* Primary accent for titles */
+     color: #00bfff; /* Primary accent for titles (Blue) */
 }
 .editable-field-title:focus {
-     background-color: #2a2a2a; /* Match form-input background on focus */
-     border-color: #ff8c42; /* Primary accent for border on focus */
+     background-color: #202020; /* Match form-input background on focus */
+     border-color: #00bfff; /* Primary accent for border on focus */
 }
 
 /* Specific styles for editable concepts */
@@ -49,11 +49,11 @@ body {
      border-color: transparent;
      font-style: italic;
      font-size: 0.875rem;
-     color: #cccccc; /* Lighter grey for concept text */
+     color: #a0a0a0; /* Softer grey for concept text */
 }
 .editable-field-concept:focus {
-     background-color: #2a2a2a; /* Match form-input background on focus */
-     border-color: #ff8c42; /* Primary accent for border on focus */
+     background-color: #202020; /* Match form-input background on focus */
+     border-color: #00bfff; /* Primary accent for border on focus */
 }
 
 /* Tab button active state */
@@ -61,29 +61,29 @@ body {
     transition: all 0.2s ease-in-out;
 }
 .tab-button-active {
-    background-color: #ff8c42 !important; /* Primary accent for active tabs */
-    color: white; /* Ensure readability */
+    background-color: #00bfff !important; /* Primary accent for active tabs (Blue) */
+    color: #121212; /* Ensure readability for dark text on bright accent */
 }
 
 /* Styles for Google Places Autocomplete dropdown */
 .pac-container {
-    background-color: #2a2a2a; /* Match form-input background */
+    background-color: #202020; /* Match form-input background */
     border-radius: 0.5rem;
-    border: 1px solid #444444; /* Match form-input border */
+    border: 1px solid #3a3a3a; /* Match form-input border */
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     z-index: 1000 !important;
 }
 .pac-item {
     padding: 0.5rem 1rem;
-    color: #f0f0f0; /* Main text color */
-    border-top: 1px solid #444444; /* Match form-input border */
+    color: #e0e0e0; /* Main text color */
+    border-top: 1px solid #3a3a3a; /* Match form-input border */
     cursor: pointer;
 }
 .pac-item:first-child {
     border-top: none;
 }
 .pac-item:hover {
-    background-color: #3a3a3a; /* Slightly lighter hover background for list items */
+    background-color: #303030; /* Slightly lighter hover background for list items */
 }
 .pac-item-query {
     font-weight: 600;
@@ -91,105 +91,93 @@ body {
 
 /* Custom Tailwind-like classes for the new color scheme */
 
-/* Primary Accent: #FF8C42 (Vibrant Orange - for main actions, active states) */
-.bg-primary-accent { background-color: #ff8c42; }
-.hover\:bg-primary-accent-darker:hover { background-color: #e6732b; }
-.text-primary-accent { color: #ff8c42; }
-.border-primary-accent { border-color: #ff8c42; }
-.focus\:ring-primary-accent:focus { box-shadow: 0 0 0 2px rgba(255, 140, 66, 0.5); }
+/* Primary Accent: #00BFFF (Deep Sky Blue - for main actions, active states) */
+.bg-primary-accent { background-color: #00bfff; }
+.hover\:bg-primary-accent-darker:hover { background-color: #0099cc; }
+.text-primary-accent { color: #00bfff; }
+.border-primary-accent { border-color: #00bfff; }
+.focus\:ring-primary-accent:focus { box-shadow: 0 0 0 2px rgba(0, 191, 255, 0.5); }
 
-/* Secondary Accent: #4CAF50 (Calm Green - for secondary actions, info, positive indicators) */
-.bg-secondary-accent { background-color: #4CAF50; }
-.hover\:bg-secondary-accent-darker:hover { background-color: #388E3C; }
-.text-secondary-accent { color: #4CAF50; }
-.border-secondary-accent { border-color: #4CAF50; }
-.text-secondary-accent-light { color: #81C784; } /* Lighter shade for hover effects */
-.bg-secondary-accent-darker-opacity { background-color: rgba(76, 175, 80, 0.2); } /* For backgrounds like 'locations featured' tags */
-.text-secondary-accent-lighter-text { color: #A5D6A7; } /* For text on darker secondary accent backgrounds */
-
-
-/* Success Green (separate, for explicit "complete" status, distinct from secondary accent if needed): #2196F3 (Standard Blue) */
-.bg-green-600 { background-color: #2196F3; } /* Now a clear blue for success */
-.hover\:bg-green-700:hover { background-color: #1976D2; }
-.text-green-400 { color: #2196F3; } /* Text color for "Complete" */
-.border-green-500 { border-color: #2196F3; }
-.bg-green-900\/20 { background-color: rgba(33, 150, 243, 0.2); } /* Blue-tinted background for completed task cards */
+/* Secondary Accent: #8a8a8a (Medium Gray - for secondary actions, info, subtle elements) */
+.bg-secondary-accent { background-color: #8a8a8a; }
+.hover\:bg-secondary-accent-darker:hover { background-color: #707070; }
+.text-secondary-accent { color: #8a8a8a; }
+.border-secondary-accent { border-color: #8a8a8a; }
+.text-secondary-accent-light { color: #aaaaaa; } /* Lighter shade for hover effects */
+.bg-secondary-accent-darker-opacity { background-color: rgba(138, 138, 138, 0.2); } /* For backgrounds like 'locations featured' tags */
+.text-secondary-accent-lighter-text { color: #cccccc; } /* For text on darker secondary accent backgrounds */
 
 
-/* General Gray Adjustments for consistency with new dark background */
-.bg-dark-surface { background-color: #2a2a2a; } /* A general dark surface for elements */
-.bg-dark-input { background-color: #2a2a2a; } /* Explicit for input backgrounds */
-.border-dark-input { border-color: #444444; } /* Explicit for input borders */
-.text-dark-light-gray { color: #cccccc; } /* General lighter gray text */
-.text-dark-gray { color: #777777; } /* For muted/disabled text */
+/* --- STATUS COLORS (Red, Amber, Green) --- */
 
-/* Specific overrides for elements with hardcoded colors that need to align */
-.bg-teal-800 { background-color: #4CAF50; } /* Aligning existing teal with new secondary accent */
-.text-teal-200 { color: #A5D6A7; } /* Aligning existing teal with new secondary accent text */
-.bg-purple-600 { background-color: #ff8c42; } /* Aligning existing purple with new primary accent */
-.hover\:bg-purple-700:hover { background-color: #e6732b; } /* Aligning existing purple hover */
+/* Success Green: #28a745 (Standard, clear green) */
+.bg-green-600 { background-color: #28a745; }
+.hover\:bg-green-700:hover { background-color: #218838; }
+.text-green-400 { color: #28a745; } /* Text color for "Complete" status */
+.border-green-500 { border-color: #28a745; }
+.bg-green-900\/20 { background-color: rgba(40, 167, 69, 0.2); } /* Green-tinted background for completed task cards */
 
-/* Ensure text on primary accent is white for readability */
-.bg-primary-accent span {
-    color: white !important;
-}
 
-/* Styling for the VideoList active state */
-.bg-primary-accent { /* This targets the active video item */
-    background-color: #ff8c42; /* New primary accent color */
-    color: white; /* Ensure text is white for contrast */
-}
-
-/* Adjustments for progress bar */
-.bg-green-500 { /* Existing progress bar color for consistency with new success color */
-    background-color: #2196F3; /* Now a clear blue for consistency with new success color */
-}
-
-/* Border for incomplete items in footage inventory (Warning Yellow) */
-.border-amber-500 {
-    border-color: #ffc107; /* Standard amber/yellow for warnings */
-}
-.text-amber-400 {
-    color: #ffc107;
-}
-.bg-amber-900\/50 {
-    background-color: rgba(255, 193, 7, 0.2); /* Soft background for warnings */
-}
+/* Warning Yellow/Amber: #ffc107 (Standard amber) */
+.border-amber-500 { border-color: #ffc107; }
+.text-amber-400 { color: #ffc107; }
+.bg-amber-900\/50 { background-color: rgba(255, 193, 7, 0.2); } /* Soft background for warnings */
 .bg-amber-900\/30 { /* Used for Fast-Forward section */
     background-color: rgba(255, 193, 7, 0.15); /* Slightly lighter for less intensity */
 }
-.border-amber-700 {
-    border-color: #ffc107;
+.border-amber-700 { border-color: #ffc107; }
+.text-amber-300 { color: #ffc107; }
+.text-amber-300\/80 { color: rgba(255, 193, 7, 0.8); }
+
+/* Error Red: #dc3545 (Standard red) */
+.bg-red-800\/70 { background-color: rgba(220, 53, 69, 0.7); }
+.hover\:bg-red-700:hover { background-color: #dc3545; }
+.bg-red-600 { background-color: #dc3545; }
+.hover\:bg-red-700:hover { background-color: #c82333; }
+.text-red-400 { color: #dc3545; }
+.bg-red-900\/50 { background-color: rgba(220, 53, 69, 0.2); }
+.text-red-100 { color: #f8d7da; }
+.border-red-500 { border-color: #dc3545; }
+
+
+/* General Gray Adjustments for consistency with new dark background */
+.bg-dark-surface { background-color: #202020; } /* A general dark surface for elements */
+.bg-dark-input { background-color: #202020; } /* Explicit for input backgrounds */
+.border-dark-input { border-color: #3a3a3a; } /* Explicit for input borders */
+.text-dark-light-gray { color: #cccccc; } /* General lighter gray text */
+.text-dark-gray { color: #777777; } /* For muted/disabled text */
+
+
+/* Specific overrides for elements with hardcoded colors that need to align */
+/* These were mapping to previous accent colors but now need to align with new ones or specific status */
+.bg-teal-800 { background-color: #8a8a8a; } /* Now uses secondary accent (gray) */
+.text-teal-200 { color: #cccccc; } /* Now uses secondary accent lighter text (gray) */
+.bg-purple-600 { background-color: #00bfff; } /* Now uses primary accent (blue) */
+.hover\:bg-purple-700:hover { background-color: #0099cc; } /* Now uses primary accent darker (blue) */
+
+
+/* Ensure text on primary accent is dark for readability, as the blue is quite bright */
+.bg-primary-accent, .tab-button-active {
+    color: #121212 !important; /* Dark text on bright blue background */
 }
-.text-amber-300 {
-    color: #ffc107;
-}
-.text-amber-300\/80 {
-    color: rgba(255, 193, 7, 0.8);
+.bg-primary-accent span { /* Specifically for text inside buttons with primary accent */
+    color: #121212 !important;
 }
 
-/* Red for delete/destructive actions */
-.bg-red-800\/70 {
-    background-color: rgba(220, 53, 69, 0.7);
+
+/* Styling for the VideoList active state */
+/* This specific rule makes the active video item use the primary accent color */
+.bg-primary-accent { 
+    background-color: #00bfff; /* New primary accent color */
+    color: #121212; /* Ensure dark text for contrast */
 }
-.hover\:bg-red-700:hover {
-    background-color: #dc3545;
+/* Ensure the text within the active video list item is dark */
+.bg-primary-accent p {
+    color: #121212 !important;
 }
-.bg-red-600 {
-    background-color: #dc3545;
+
+/* Adjustments for progress bar - now clearly green */
+.bg-green-500 { 
+    background-color: #28a745; /* Consistent success green for progress */
 }
-.hover\:bg-red-700:hover {
-    background-color: #c82333;
-}
-.text-red-400 {
-    color: #dc3545;
-}
-.bg-red-900\/50 {
-    background-color: rgba(220, 53, 69, 0.2);
-}
-.text-red-100 {
-    color: #f8d7da;
-}
-.border-red-500 {
-    border-color: #dc3545;
-}
+
