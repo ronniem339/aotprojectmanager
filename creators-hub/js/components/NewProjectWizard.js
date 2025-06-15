@@ -82,7 +82,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     
     const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
-        setInputs(prev => ({ ...prev, location: newLocations[0]?.name || '' }));
+        setInputs(prev => ({ ...p, location: newLocations[0]?.name || '' }));
 
         const newInventory = {};
         newLocations.forEach(loc => {
@@ -92,10 +92,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         });
         setFootageInventory(newInventory);
     }, [footageInventory]);
-    
-    const handleInventoryChange = (placeId, field, value) => {
-        setFootageInventory(prev => ({ ...prev, [placeId]: { ...prev[placeId], [field]: value } }));
-    };
     
     const handleKeywordSelection = (keyword) => {
         setSelectedKeywords(prev => 
@@ -175,7 +171,11 @@ Generate a complete project plan as a JSON object.
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
-                parsedJson.videos.forEach(video => video.status = 'pending');
+                parsedJson.videos.forEach(video => {
+                    video.status = 'pending';
+                    video.description = video.concept; // For new videos, concept is the initial description
+                    video.chapters = []; // No chapters for newly generated videos
+                });
                 setEditableOutline(parsedJson);
                 setStep(4);
             } else {
@@ -248,7 +248,12 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             if (parsedJson && parsedJson.title && parsedJson.concept) {
                 const newVideos = [...editableOutline.videos];
-                newVideos[videoIndex] = { ...parsedJson, status: 'pending' };
+                newVideos[videoIndex] = { 
+                    ...parsedJson, 
+                    description: parsedJson.concept, // When refining, concept also becomes the description
+                    status: 'pending',
+                    chapters: newVideos[videoIndex].chapters // Preserve existing chapters
+                };
                 setEditableOutline(prev => ({ ...prev, videos: newVideos }));
                 setRefinement('');
                 setRefiningVideoIndex(null);
@@ -294,12 +299,18 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
 
             editableOutline.videos.forEach((video) => {
                 const videoRef = projectRef.collection('videos').doc();
-                // Ensure all fields from the AI are included
+                // Ensure all fields from the AI are included, including the raw 'description'
                 batch.set(videoRef, {
-                    ...video,
-                    chosenTitle: video.title,
-                    script: '',
-                    metadata: '',
+                    title: video.title,
+                    concept: video.concept,
+                    description: video.description || video.concept, // Ensure description is saved, default to concept if not explicitly set
+                    estimatedLengthMinutes: video.estimatedLengthMinutes,
+                    locations_featured: video.locations_featured,
+                    targeted_keywords: video.targeted_keywords,
+                    chapters: video.chapters || [],
+                    chosenTitle: video.title, // For initial chosen title
+                    script: '', // Scripts start empty
+                    metadata: '', // Metadata starts empty
                     blogPost: '',
                     shortsIdeas: '',
                     createdAt: new Date().toISOString()
@@ -371,11 +382,11 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-28">
                                             On-Camera
-                                            <input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                            <input type="checkbox" checked={footageInventory[loc.place_id]?.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-24">
                                             Drone
-                                            <input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                            <input type="checkbox" checked={footageInventory[loc.place_id]?.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold w-48">Narrative Role</th>
                                    </tr>
@@ -487,7 +498,13 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                             </div>
                                             {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
                                         </div>
-                                        <p className="text-sm mt-3">{video.concept}</p>
+                                        <p className="text-sm mt-3">{video.concept}</p> {/* Displaying the cleaned concept */}
+                                        {video.description && video.description !== video.concept && ( // Show raw description if different from concept
+                                            <div className="mt-2 text-xs text-gray-500">
+                                                <h4 className="font-semibold text-gray-400">Original YouTube Description:</h4>
+                                                <p className="line-clamp-3">{video.description}</p>
+                                            </div>
+                                        )}
                                         <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-3">
                                             {video.locations_featured && video.locations_featured.length > 0 && (
                                                 <div>
@@ -507,6 +524,16 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                             <span key={keyword} className="px-2 py-0.5 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{keyword}</span>
                                                         ))}
                                                      </div>
+                                                </div>
+                                            )}
+                                            {video.chapters && video.chapters.length > 0 && ( // Display extracted chapters
+                                                <div>
+                                                     <label className="block text-xs font-medium text-gray-400 mb-1">Extracted Chapters:</label>
+                                                     <ul className="text-sm text-gray-300 list-disc pl-5">
+                                                        {video.chapters.map((chap, i) => (
+                                                            <li key={i}>{chap.timestamp} - {chap.title}</li>
+                                                        ))}
+                                                    </ul>
                                                 </div>
                                             )}
                                         </div>
