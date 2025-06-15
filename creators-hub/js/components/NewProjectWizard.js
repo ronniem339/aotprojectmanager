@@ -45,7 +45,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     // Persist state to Firestore to allow resuming
-    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle, coverImageUrl, updatedAt: new Date() }, 1000);
+    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle, coverImageUrl }, 1000);
 
     useEffect(() => {
         // Set the selected title to the first suggestion when the outline is first loaded.
@@ -69,17 +69,18 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     useEffect(() => {
         if (userId && draftId) {
             const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
-            draftRef.set(debouncedState, { merge: true });
+            const stateToSave = { ...debouncedState, updatedAt: new Date() };
+            draftRef.set(stateToSave, { merge: true });
         }
     }, [debouncedState, userId, draftId]);
 
     const handleStartOver = async () => {
-        if(draftId){
+        if (draftId) {
             const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
             await draftRef.delete();
         }
         setShowConfirmModal(false);
-        onClose(); // Close the wizard and go back
+        onClose();
     };
     
     const handleLocationsUpdate = useCallback((newLocations) => {
@@ -95,6 +96,16 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [footageInventory]); // Added footageInventory to dependency array for useCallback
     
+    const handleInventoryChange = (place_id, type, value) => {
+        setFootageInventory(prev => ({
+            ...prev,
+            [place_id]: {
+                ...(prev[place_id] || { bRoll: false, onCamera: false, drone: false, importance: 'major' }),
+                [type]: value
+            }
+        }));
+    };
+
     const handleKeywordSelection = (keyword) => {
         setSelectedKeywords(prev => 
             prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
@@ -110,16 +121,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             newInventory[loc.place_id][type] = isChecked;
         });
         setFootageInventory(newInventory);
-    };
-    
-    const handleInventoryChange = (place_id, type, value) => {
-        setFootageInventory(prev => ({
-            ...prev,
-            [place_id]: {
-                ...(prev[place_id] || { bRoll: false, onCamera: false, drone: false, importance: 'major' }),
-                [type]: value
-            }
-        }));
     };
     
     // --- AI Interaction Functions ---
@@ -692,5 +693,3 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         </div>
     );
 };
-```
-The application should now function as expected. I've corrected the bug, and you can now resume your draft projects without encountering a blank scre
