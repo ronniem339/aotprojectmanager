@@ -256,7 +256,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                             readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} 
                         />
                         <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                            {!scriptContent && <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Script with AI'}</button>}
+                            {!scriptContent && <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner isButton={true} /> : '✨ Generate Script with AI'}</button>}
                             {scriptContent && (
                                 <>
                                     <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
@@ -298,7 +298,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     {tasks.feedbackProvided !== 'complete' ? (
                         <div className="flex flex-col sm:flex-row gap-4 mt-4">
                             <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': 'No changes were made.' })} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">No Changes Made</button>
-                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Confirm & Save Notes</button>
                         </div>
                     ) : (
                         <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
@@ -314,11 +314,17 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '', chosenTitle: '', 'tasks.rejectedTitles': [] })}
                 >
                      {!metadata ? ( 
-                        <div>
-                            <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata' || !isMetadataReady} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                                {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Metadata'}
-                            </button>
-                            {!isMetadataReady && <p className="text-xs text-amber-400 mt-2 text-center">Please complete Scripting, Video Editing, and Production Change Logging first.</p>}
+                        <div className="text-center py-4">
+                            {generating === 'metadata' ? (
+                                <window.LoadingSpinner text="Generating..." />
+                            ) : (
+                                <>
+                                <button onClick={() => handleGenerate('metadata')} disabled={!isMetadataReady} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                     ✨ Generate Metadata
+                                </button>
+                                {!isMetadataReady && <p className="text-xs text-amber-400 mt-2">Please complete Scripting, Video Editing, and Production Change Logging first.</p>}
+                                </>
+                            )}
                         </div>
                      ) : ( 
                         <div className="space-y-6">
@@ -338,8 +344,8 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={handleGenerateMoreTitles} disabled={generating === 'titles'} className="mt-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center">
-                                        {generating === 'titles' ? <window.LoadingSpinner /> : 'Generate More'}
+                                    <button onClick={handleGenerateMoreTitles} disabled={generating === 'titles'} className="mt-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center">
+                                        {generating === 'titles' ? <window.LoadingSpinner isButton={true}/> : 'Generate More'}
                                     </button>
                                 </div>
                             )}
@@ -387,9 +393,9 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                                     <button 
                                         onClick={() => handleGenerate('thumbnails')} 
                                         disabled={generating === 'thumbnails' || !metadata}
-                                        className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2 mx-auto"
+                                        className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
                                     >
-                                        {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '💡 Generate Thumbnail Concepts'}
+                                        {generating === 'thumbnails' ? <window.LoadingSpinner isButton={true}/> : '💡 Generate Thumbnail Concepts'}
                                     </button>
                                     {!metadata && <p className="text-xs text-amber-400 mt-2">Metadata must be generated first.</p>}
                                 </div>
@@ -425,7 +431,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
                     <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-full sm:w-auto mb-4" readOnly={tasks.videoUploaded === 'complete'}/>
                     {tasks.videoUploaded !== 'complete' ? (
-                        <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>
+                        <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Confirm Upload & Save Date</button>
                     ) : (
                         <p className="text-gray-400 text-center py-2 text-sm">Video was uploaded on: {publishDate}</p>
                     )}
@@ -440,8 +446,8 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     onRevisit={() => updateTask('firstCommentGenerated', 'pending')}
                 >
                     {tasks.firstCommentGenerated !== 'complete' ? ( 
-                        <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                            {generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Comment'}
+                        <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            {generating === 'firstComment' ? <window.LoadingSpinner isButton={true}/> : '✨ Generate Comment'}
                         </button>
                     ) : ( 
                         <div>
