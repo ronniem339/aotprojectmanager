@@ -168,6 +168,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
         const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
         const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
+        const thumbnailIdeasKb = settings.knowledgeBases?.youtube?.thumbnailIdeas || '';
         const styleGuideText = settings.styleGuideText; // General style guide text
 
         const prompt = `You are a professional YouTube producer creating a project plan about "${inputs.location}" with the theme "${inputs.theme}".
@@ -359,6 +360,8 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     tasks: video.tasks || {}, // Preserve tasks or initialize empty
                     publishDate: video.publishDate || '', // Preserve publish date or initialize empty
                     generatedThumbnails: video.generatedThumbnails || [], // Preserve generated thumbnails
+                    // Ensure youtubeVideoId is also saved if it exists (from import workflow)
+                    youtubeVideoId: video.youtubeVideoId || null,
                     createdAt: new Date().toISOString()
                 });
             });
@@ -376,7 +379,8 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
         switch (step) {
             case 1: // Define Foundation
                 return (
-                    <div>
+                    // Added max-h-[70vh] and overflow-y-auto to allow scrolling for long lists of locations
+                    <div className="max-h-[70vh] overflow-y-auto pr-4"> 
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 6</h2>
                         <p className="text-gray-400 mb-6">Define the project's foundation. The first location you add will be the main subject. Add more for specific points of interest.</p>
                         <div className="space-y-6">
@@ -414,7 +418,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      return inventory.bRoll || inventory.onCamera || inventory.drone;
                  });
                  return (
-                    <div>
+                    <div className="max-h-[70vh] overflow-y-auto pr-4"> {/* Added max-h and overflow for scrollability */}
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 6</h2>
                         <p className="text-gray-400 mb-6">Log your available footage for each spot you'll visit within <span className="font-bold text-primary-accent">{inputs.location || 'your main location'}</span>.</p>
                         <div className="max-h-[60vh] overflow-y-auto">
@@ -470,7 +474,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                  );
             case 3: // Keyword Strategy
                 return (
-                    <div>
+                    <div className="max-h-[70vh] overflow-y-auto pr-4"> {/* Added max-h and overflow for scrollability */}
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 6 - Keyword Strategy</h2>
                         <p className="text-gray-400 mb-6">Here are some popular search terms related to your project. Select the ones you want the AI to focus on when building the plan.</p>
                         {isLoading && <window.LoadingSpinner text="Generating keyword ideas..." />}
@@ -490,7 +494,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 );
             case 4: // Refine Playlist Title
                 return (
-                    <div>
+                    <div className="max-h-[70vh] overflow-y-auto pr-4"> {/* Added max-h and overflow for scrollability */}
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 4 of 6 - Refine Title</h2>
                         <p className="text-gray-400 mb-6">Choose the best title for your series, or ask for new ideas.</p>
                         {isLoading && <window.LoadingSpinner text="Thinking..." />}
@@ -513,7 +517,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 );
             case 5: // Refine Playlist Description
                  return (
-                    <div>
+                    <div className="max-h-[70vh] overflow-y-auto pr-4"> {/* Added max-h and overflow for scrollability */}
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 6 - Refine Description</h2>
                         <p className="text-gray-400 mb-6">Review the AI-generated description for your playlist. Refine it if needed.</p>
                         {isLoading && !editableOutline?.playlistDescription && <window.LoadingSpinner text="Generating..." />}
@@ -529,7 +533,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                  );
              case 6: // Review Video Plan
                 return (
-                    <div>
+                    <div className="max-h-[70vh] overflow-y-auto pr-4"> {/* Added max-h and overflow for scrollability */}
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 6 of 6 - Review Video Plan</h2>
                         <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review and accept each video idea to finalize the project.</p>
                         {isLoading && !editableOutline?.videos && <window.LoadingSpinner text="Generating..." />}
@@ -672,7 +676,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 <div className="flex-shrink-0">
                     <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
-                <div className="flex-grow overflow-y-auto">
+                <div className="flex-grow overflow-y-auto"> {/* This div should also allow scrolling if the entire wizard content is too tall */}
                     {wizardStep()}
                 </div>
                 <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700">
