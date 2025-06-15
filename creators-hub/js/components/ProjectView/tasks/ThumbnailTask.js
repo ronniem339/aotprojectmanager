@@ -90,25 +90,28 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
     if (video.tasks?.thumbnailsGenerated === 'complete') {
         return (
             <div>
-                 <p className="text-gray-400 text-center py-2 text-sm">You've selected your thumbnail concepts.</p>
-                 <div className="my-4 p-4 bg-gray-900/50 rounded-lg">
-                    <h4 className="font-semibold text-gray-300 mb-2">Accepted Ideas:</h4>
-                    {/* FIX: Display both the text overlay and the image suggestion for better context */}
-                    <ul className="space-y-3 text-sm">
-                        {accepted.map((c, i) => (
-                            <li key={i}>
-                                <p className="font-bold text-white">"{c.textOverlay}"</p>
-                                <p className="text-gray-400 pl-4 text-xs italic">↳ {c.imageSuggestion}</p>
-                            </li>
-                        ))}
-                    </ul>
-                 </div>
-                 <div className="mt-2 text-center">
-                    <button onClick={() => setShowCanvaModal(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold">
+                <p className="text-gray-400 text-center py-2 text-sm">You've selected your thumbnail concepts.</p>
+                <div className="my-4 space-y-4">
+                    {accepted.map((c, i) => (
+                        <div key={i} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                            <div className="flex items-start gap-3">
+                                <span className="text-xl text-amber-400 mt-1">💡</span>
+                                <div>
+                                    <h4 className="font-bold text-lg text-white">"{c.textOverlay}"</h4>
+                                    <p className="text-gray-400 text-sm mt-2 border-l-2 border-gray-600 pl-3 italic">
+                                        {c.imageSuggestion}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-6 text-center">
+                    <button onClick={() => setShowCanvaModal(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold text-base transition-transform transform hover:scale-105">
                         Create on Canva
                     </button>
-                 </div>
-                 {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
+                </div>
+                {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
             </div>
         )
     }
