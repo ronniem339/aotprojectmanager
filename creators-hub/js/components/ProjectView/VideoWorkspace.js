@@ -30,7 +30,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'scripting':
                 dataToReset = { script: '' };
                 break;
-            case 'videoEdited': // Updated revisit logic for the combined task
+            case 'videoEdited':
                 dataToReset = { 
                     'tasks.feedbackText': '',
                     'tasks.musicTrack': ''
@@ -79,9 +79,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         switch (task.id) {
             case 'scripting':
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-            case 'videoEdited': // Render the new EditVideoTask component
-                return <window.EditVideoTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
-            // The 'feedbackProvided' case is now removed.
+            case 'videoEdited':
+                // **FIX**: Pass the `settings` prop down to the EditVideoTask component.
+                return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'metadataGenerated':
                 return <window.MetadataTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'thumbnailsGenerated':
@@ -101,7 +101,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
                     let status = video.tasks?.[task.id] || 'pending';
-                    // The Accordion needs to know about the 'in-progress' state
                     if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
                         status = 'in-progress';
                     }
