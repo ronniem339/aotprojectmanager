@@ -25,7 +25,7 @@ const Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isLo
                 disabled={isLocked && !isOpen} // Allow opening locked sections but prevent toggling if locked and closed
             >
                 <div className="flex items-center gap-3">
-                    <span className="text-xl">{isOpen ? '👇' : '👉'}</span>
+                    <span className="text-xl">{isOpen ? '燥' : '痩'}</span>
                     <h3 className="text-xl">{title}</h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -68,12 +68,13 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [generating, setGenerating] = useState(null);
     const [scriptContent, setScriptContent] = useState(video.script || '');
     const [refinementText, setRefinementText] = useState('');
-    const [isConceptVisible, setIsConceptVisible] = useState(false);
+    const [isConceptVisible, setIsConceptVisible] = useState(false); // This will be managed by VideoDetailsSidebar
     const [chapters, setChapters] = useState(video.chapters || []);
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
     const [videoStats, setVideoStats] = useState(video.stats || null);
     const [isFetchingStats, setIsFetchingStats] = useState(false);
     const [statsErrorMessage, setStatsErrorMessage] = useState('');
+    const [showDescriptionModal, setShowDescriptionModal] = useState(false); // New state for description modal
 
     // State to manage open/closed state of each accordion task
     const [openTask, setOpenTask] = useState(null); // Stores the ID of the currently open task
@@ -84,11 +85,12 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || video.publishDate || '');
         setScriptContent(video.script || '');
-        setIsConceptVisible(false);
+        // setIsConceptVisible(false); // Removed, managed by VideoDetailsSidebar
         setChapters(video.chapters || []);
         setVideoStats(video.stats || null);
         setStatsErrorMessage(''); // Clear stats error on video change
         setOpenTask(null); // Collapse all tasks on video change
+        setShowDescriptionModal(false); // Close description modal on video change
     }, [video.id, video.script, video.publishDate, video.chapters, video.tasks, video.stats]);
     
     useEffect(() => {
@@ -354,33 +356,12 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     const initialScriptingStatus = (video.script && tasks.scripting !== 'pending') ? 'complete' : (tasks.scripting || 'pending');
 
     return (
-        <main className="lg:w-2/3 xl:w-3/4">
+        <main className="lg:w-2/3 xl:w-3/4"> {/* This width will now be relative to the flex container in ProjectView */}
             <div className="space-y-4"> {/* Increased gap for overall cleaner look */}
-                 {/* Video Overview Card */}
-                 <div className="glass-card p-6 rounded-lg">
-                    <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-2xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
-                        <button onClick={() => setIsConceptVisible(!isConceptVisible)} className="text-sm text-secondary-accent hover:text-secondary-accent-light flex-shrink-0 ml-4 px-3 py-1 rounded-full border border-gray-700">
-                            {isConceptVisible ? 'Hide Concept' : 'Show Concept'}
-                        </button>
-                    </div>
-                    
-                    {isConceptVisible && <p className="text-gray-300 text-sm leading-relaxed mb-4">{video.concept || <span className="italic text-gray-500">No concept provided.</span>}</p>}
-                    
-                    <div className="pt-4 border-t border-gray-700 space-y-3">
-                        <div>
-                            <span className="text-xs font-semibold text-gray-400 block mb-1">LOCATIONS FEATURED:</span>
-                            {video.locations_featured?.length > 0 ? ( <div className="flex flex-wrap items-center gap-2">{video.locations_featured.map(loc => ( <span key={loc} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{loc}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No locations listed.</p>)}
-                        </div>
-                        <div>
-                            <span className="text-xs font-semibold text-gray-400 block mb-1">TARGETED KEYWORDS:</span>
-                            {video.targeted_keywords?.length > 0 ? (<div className="flex flex-wrap items-center gap-2">{video.targeted_keywords.map(kw => ( <span key={kw} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{kw}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No keywords targeted.</p>)}
-                        </div>
-                    </div>
-                </div>
+                {/* Video Title - moved from Video Overview Card, now simpler */}
+                <h3 className="text-xl font-bold text-primary-accent mb-2">{video.chosenTitle || video.title}</h3>
 
-                {/* Removed Video Statistics Section entirely */}
-                
+                {/* Main Accordion Tasks */}
                 <Accordion 
                     title="1. Scripting & Recording" 
                     isOpen={openTask === 'scripting'} 
@@ -417,7 +398,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                         </div> 
                     ) : ( 
                         // Content when script is not available and task is pending (needs generation)
-                        <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
+                        <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : 'ｪ�Generate Script'}</button> 
                     )}
                 </Accordion>
 
@@ -462,7 +443,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 >
                      {tasks.metadataGenerated !== 'complete' ? ( 
                         <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                            {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}
+                            {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : 'ｪ�Generate Metadata'}
                         </button>
                      ) : ( 
                         metadata ? (
@@ -521,7 +502,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 >
                     {tasks.thumbnailsGenerated !== 'complete' ? (
                         <button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                            {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}
+                            {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : 'ｪ�Generate Thumbnails'}
                         </button>
                     ) : ( 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -563,7 +544,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 >
                     {tasks.firstCommentGenerated !== 'complete' ? ( 
                         <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                            {generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Comment'}
+                            {generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : 'ｪ�Generate Comment'}
                         </button>
                     ) : ( 
                         <div>
@@ -579,6 +560,12 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     scriptContent={scriptContent} 
                     onClose={() => setShowFullScreenScript(false)} 
                 />
+            )}
+            {/* Video Description Modal */}
+            {showDescriptionModal && (
+                <window.Modal onClose={() => setShowDescriptionModal(false)} title="Video Description">
+                    <p className="whitespace-pre-wrap text-gray-300">{video.description}</p>
+                </window.Modal>
             )}
         </main>
     );
