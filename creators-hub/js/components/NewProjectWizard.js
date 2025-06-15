@@ -115,25 +115,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     };
     
     // --- AI Interaction Functions ---
-    const callGeminiAPI = async (prompt) => {
-        const apiKey = settings.geminiApiKey || "";
-        if (!apiKey) {
-            setError("Please set your Gemini API Key in the settings first.");
-            throw new Error("API Key not set");
-        }
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
-        };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err?.error?.message || 'API Error');
-        }
-        const result = await response.json();
-        return JSON.parse(result.candidates[0].content.parts[0].text);
-    };
+    // Moved callGeminiAPI to aiUtils.js
     
     const handleGenerateKeywords = async () => {
         if (keywordIdeas.length > 0) { 
@@ -142,23 +124,17 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         }
         setIsLoading(true); setError('');
         
-        const subLocationNames = locations.slice(1).map(l => l.name).join(', ');
-        const prompt = `Act as a YouTube SEO expert and keyword research tool. The user is planning a video series about "${inputs.location}" with the theme "${inputs.theme}".
-The series will feature these specific locations: ${subLocationNames}.
-Generate a list of 50 potential search terms related to the main location, the sub-locations, and the overall theme. Provide a mix of:
-- Short-tail keywords (e.g., "Scotland travel")
-- Long-tail keywords (e.g., "best castles to visit in Scottish Highlands")
-- Question-based keywords (e.g., "what to pack for a trip to Scotland")
-Return the list as a JSON object like: {"keywords": ["keyword one", "keyword two", ...]}`;
-
         try {
-            const parsedJson = await callGeminiAPI(prompt);
-             if (parsedJson && Array.isArray(parsedJson.keywords)) {
-                setKeywordIdeas(parsedJson.keywords);
-                setStep(3);
-            } else {
-                throw new Error("AI returned an invalid keyword format.");
-            }
+            const keywords = await window.aiUtils.generateKeywordsAI({
+                title: inputs.location,
+                concept: inputs.theme,
+                locationsFeatured: locations.slice(1).map(l => l.name),
+                projectTitle: inputs.location, // For new project, main location is project title context
+                projectDescription: inputs.theme, // For new project, theme is project description context
+                settings: settings
+            });
+            setKeywordIdeas(keywords);
+            setStep(3);
         } catch (e) {
             setError(`Failed to generate keywords: ${e.message}`);
         } finally {
@@ -197,7 +173,7 @@ Generate a complete project plan as a JSON object.
 -   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), a 'locations_featured' array, and a 'targeted_keywords' array. The 'locations_featured' array MUST ONLY contain names from the provided list of points of interest. The 'targeted_keywords' array should contain the specific keywords from the user's selection that are most relevant to that video's concept.`;
 
         try {
-            const parsedJson = await callGeminiAPI(prompt);
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions) && parsedJson.playlistDescription && Array.isArray(parsedJson.videos)) {
                 parsedJson.videos.forEach(video => video.status = 'pending');
                 setEditableOutline(parsedJson);
@@ -219,7 +195,7 @@ Previous title suggestions were: ${editableOutline.playlistTitleSuggestions.join
 The user provided this feedback: "${refinement}".
 Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate this feedback. Return as a JSON object like: {"playlistTitleSuggestions": ["title1", "title2", "title3"]}`;
          try {
-             const parsedJson = await callGeminiAPI(prompt);
+             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
              if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions)) {
                 setEditableOutline(prev => ({...prev, playlistTitleSuggestions: parsedJson.playlistTitleSuggestions}));
                 setSelectedTitle(parsedJson.playlistTitleSuggestions[0]); 
@@ -243,7 +219,7 @@ Style Guide: ${settings.styleGuideText || 'Not provided.'}
 SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE}
 Return as a JSON object like: {"playlistDescription": "new description..."}`;
          try {
-             const parsedJson = await callGeminiAPI(prompt);
+             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
              if(parsedJson && parsedJson.playlistDescription) {
                 setEditableOutline(prev => ({...prev, playlistDescription: parsedJson.playlistDescription}));
                 setRefinement('');
@@ -269,7 +245,7 @@ The 'locations_featured' array MUST ONLY contain names from this list of availab
 The 'targeted_keywords' array should contain relevant keywords from this main list: ${selectedKeywords.join(', ')}.
 Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...], "targeted_keywords": [...]}`;
         try {
-            const parsedJson = await callGeminiAPI(prompt);
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             if (parsedJson && parsedJson.title && parsedJson.concept) {
                 const newVideos = [...editableOutline.videos];
                 newVideos[videoIndex] = { ...parsedJson, status: 'pending' };
@@ -395,11 +371,11 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-28">
                                             On-Camera
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                            <input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-24">
                                             Drone
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                            <input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold w-48">Narrative Role</th>
                                    </tr>
