@@ -362,7 +362,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                  return (
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 2 of 6</h2>
-                        <p className="text-gray-400 mb-6">Log your available footage for each spot you'll visit within <span className="font-bold text-blue-300">{inputs.location || 'your main location'}</span>.</p>
+                        <p className="text-gray-400 mb-6">Log your available footage for each spot you'll visit within <span className="font-bold text-primary-accent">{inputs.location || 'your main location'}</span>.</p>
                         <div className="max-h-[60vh] overflow-y-auto">
                            <table className="w-full text-left">
                                <thead className="bg-gray-800/50 sticky top-0 backdrop-blur-sm">
@@ -370,15 +370,15 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                        <th className="p-3 text-sm font-semibold">Location</th>
                                        <th className="p-3 text-sm font-semibold text-center w-24">
                                             B-Roll
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 align-middle"/>
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-28">
                                             On-Camera
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 align-middle"/>
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold text-center w-24">
                                             Drone
-                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 align-middle"/>
+                                            <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                        </th>
                                        <th className="p-3 text-sm font-semibold w-48">Narrative Role</th>
                                    </tr>
@@ -389,10 +389,10 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                        const isCardComplete = inventory.bRoll || inventory.onCamera || inventory.drone;
                                        return (
                                            <tr key={loc.place_id} className={`border-b transition-colors ${isCardComplete ? 'border-gray-700' : 'border-amber-500'}`}>
-                                               <td className="p-3 font-semibold text-blue-300">{loc.name}</td>
-                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.bRoll || false} onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/></td>
-                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/></td>
-                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/></td>
+                                               <td className="p-3 font-semibold text-primary-accent">{loc.name}</td>
+                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.bRoll || false} onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></td>
+                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.onCamera || false} onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></td>
+                                               <td className="p-3 text-center"><input type="checkbox" checked={inventory.drone || false} onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></td>
                                                <td className="p-3">
                                                     <div className="flex gap-1">
                                                         <button onClick={() => handleInventoryChange(loc.place_id, 'importance', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major Feature</button>
@@ -425,7 +425,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                 <button
                                     key={`${keyword}-${index}`}
                                     onClick={() => handleKeywordSelection(keyword)}
-                                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${selectedKeywords.includes(keyword) ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${selectedKeywords.includes(keyword) ? 'bg-primary-accent text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
                                 >
                                     {keyword}
                                 </button>
@@ -443,8 +443,8 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         {editableOutline?.playlistTitleSuggestions && (
                             <div className="space-y-3">
                                 {editableOutline.playlistTitleSuggestions.map(title => (
-                                    <label key={title} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedTitle === title ? 'bg-blue-600/50 border-blue-400' : 'bg-gray-800/60 border-gray-700 hover:bg-gray-700/60'} border`}>
-                                        <input type="radio" name="playlistTitle" value={title} checked={selectedTitle === title} onChange={(e) => setSelectedTitle(e.target.value)} className="h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"/>
+                                    <label key={title} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedTitle === title ? 'bg-primary-accent/[.50] border-primary-accent' : 'bg-gray-800/60 border-gray-700 hover:bg-gray-700/60'} border`}>
+                                        <input type="radio" name="playlistTitle" value={title} checked={selectedTitle === title} onChange={(e) => setSelectedTitle(e.target.value)} className="h-4 w-4 bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
                                         <span>{title}</span>
                                     </label>
                                 ))}
@@ -485,7 +485,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                     <div key={index} className={`p-4 bg-gray-800/60 rounded-lg border transition-all ${video.status === 'accepted' ? 'border-green-500' : 'border-gray-700'}`}>
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <h3 className="font-bold text-lg text-blue-300">{`Video ${index + 1}: ${video.title}`}</h3>
+                                                <h3 className="font-bold text-lg text-primary-accent">{`Video ${index + 1}: ${video.title}`}</h3>
                                                 <p className="text-sm text-gray-400 mt-1 italic">Est. Length: {video.estimatedLengthMinutes} minutes</p>
                                             </div>
                                             {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
@@ -497,7 +497,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                      <label className="block text-xs font-medium text-gray-400 mb-1">Locations Featured:</label>
                                                      <div className="flex flex-wrap gap-2">
                                                         {video.locations_featured.map(locName => (
-                                                            <span key={locName} className="px-2 py-0.5 text-xs bg-blue-900/70 text-blue-200 rounded-full">{locName}</span>
+                                                            <span key={locName} className="px-2 py-0.5 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{locName}</span>
                                                         ))}
                                                      </div>
                                                 </div>
@@ -507,7 +507,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                      <label className="block text-xs font-medium text-gray-400 mb-1">Targeted Keywords:</label>
                                                      <div className="flex flex-wrap gap-2">
                                                         {video.targeted_keywords.map(keyword => (
-                                                            <span key={keyword} className="px-2 py-0.5 text-xs bg-teal-900/70 text-teal-200 rounded-full">{keyword}</span>
+                                                            <span key={keyword} className="px-2 py-0.5 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{keyword}</span>
                                                         ))}
                                                      </div>
                                                 </div>
@@ -521,7 +521,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Focus more on the history of this place'"/>
                                                         <div className="flex justify-end gap-2 mt-2">
                                                             <button onClick={() => setRefiningVideoIndex(null)} className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Cancel</button>
-                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-md flex items-center gap-1">{isLoading ? <LoadingSpinner/> : 'Submit'}</button>
+                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-primary-accent hover:bg-primary-accent-darker rounded-md flex items-center gap-1">{isLoading ? <LoadingSpinner/> : 'Submit'}</button>
                                                         </div>
                                                      </div>
                                                 ) : (
@@ -558,29 +558,29 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 <div className="flex items-center gap-4">
                      {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
                      
-                     {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
+                     {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
                      
-                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
+                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
                      
-                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
+                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
                      
                      {step === 4 && (
                         <>
-                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
                             <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                         </>
                      )}
                      
                      {step === 5 && (
                         <>
-                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
                             <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                         </>
                      )}
                      
                      {step === 6 && (
                         <>
-                             <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
+                             <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
                              <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
                         </>
                      )}
