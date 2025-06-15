@@ -74,6 +74,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
     const [showCanvaModal, setShowCanvaModal] = useState(false);
     
+    // Thumbnail Tinder state
     const [thumbnailConcepts, setThumbnailConcepts] = useState(video.tasks?.thumbnailConcepts || []);
     const [acceptedConcepts, setAcceptedConcepts] = useState(video.tasks?.acceptedConcepts || []);
     const [rejectedConcepts, setRejectedConcepts] = useState(video.tasks?.rejectedConcepts || []);
@@ -84,16 +85,19 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
+    // This effect resets the accordion state ONLY when the video ID changes
     useEffect(() => {
         setOpenTask(null);
     }, [video.id]);
 
+    // This effect updates local state when the current video's data changes, without closing the accordion
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || video.publishDate || '');
         setScriptContent(video.script || '');
-        setChapters(video.chapters || (metadata?.chapters || []));
-        setThumbnailConcepts(video.tasks?.thumbnailConcepts || []);
+        const metaChapters = metadata?.chapters || [];
+        setChapters(video.chapters && video.chapters.length > 0 ? video.chapters : metaChapters);
+        setThumbnailConcepts(video.tasks?.thumbnailConcepts || (metadata?.thumbnailConcepts || []));
         setAcceptedConcepts(video.tasks?.acceptedConcepts || []);
         setRejectedConcepts(video.tasks?.rejectedConcepts || []);
         setCurrentConceptIndex(video.tasks?.currentConceptIndex || 0);
@@ -133,13 +137,19 @@ AVOID these previously rejected titles: ${rejectedTitles.join(', ')}
 
 Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles), "description" (a detailed description with a {{CHAPTERS}} placeholder), "tags" (string of comma-separated tags), "chapters" (array of objects: {"timestamp": "0:00", "title": "..."}), and "thumbnailConcepts" (array of 3-5 structured objects).`;
                 
-                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) throw new Error(await response.text());
-                const result = await response.json();
-                const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
-                await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson), chapters: parsedJson.chapters });
+                const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+                await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson), chapters: parsedJson.chapters, 'tasks.thumbnailConcepts': parsedJson.thumbnailConcepts, 'tasks.currentConceptIndex': 0 });
+
+            } else if (type === 'thumbnails') {
+                const prompt = `Act as a YouTube thumbnail expert. Based on the video script, title, and rejected concepts, generate 5 new, distinct thumbnail concepts.
+Video Title: "${video.chosenTitle}"
+Video Script Summary: "${video.concept}"
+Rejected Concepts to Avoid: ${rejectedConcepts.map(c => `"${c.textOverlay}"`).join(', ')}
+Your response MUST be a valid JSON object with one key "thumbnailConcepts" containing an array of 5 structured objects: {"imageSuggestion": "string", "textOverlay": "string"}.`;
+                const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+                const newConcepts = [...thumbnailConcepts, ...parsedJson.thumbnailConcepts];
+                setThumbnailConcepts(newConcepts);
+                await updateTask('thumbnailsGenerated', 'pending', { 'tasks.thumbnailConcepts': newConcepts });
             }
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
@@ -231,6 +241,40 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
         updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(newMetadata), chapters: chapters });
     };
 
+    const handleThumbnailDecision = async (decision) => {
+        const concept = thumbnailConcepts[currentConceptIndex];
+        let newAccepted = [...acceptedConcepts];
+        let newRejected = [...rejectedConcepts];
+
+        if (decision === 'accept') {
+            newAccepted.push(concept);
+            setAcceptedConcepts(newAccepted);
+        } else {
+            newRejected.push(concept);
+            setRejectedConcepts(newRejected);
+        }
+
+        const nextIndex = currentConceptIndex + 1;
+        setCurrentConceptIndex(nextIndex);
+
+        const updatedTasks = {
+            'tasks.thumbnailConcepts': thumbnailConcepts,
+            'tasks.acceptedConcepts': newAccepted,
+            'tasks.rejectedConcepts': newRejected,
+            'tasks.currentConceptIndex': nextIndex
+        };
+
+        if (newAccepted.length >= 3) {
+            await updateTask('thumbnailsGenerated', 'complete', updatedTasks);
+        } else {
+            await updateTask('thumbnailsGenerated', 'pending', updatedTasks);
+            const remainingConcepts = thumbnailConcepts.length - nextIndex;
+            if (newAccepted.length + remainingConcepts < 3) {
+                handleGenerate('thumbnails'); // Fetch more if we can't possibly reach 3
+            }
+        }
+    };
+    
     return (
         <main className="flex-grow">
             {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
@@ -244,6 +288,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(0)} 
                     onRevisit={() => updateTask('scripting', 'pending', { script: '' })}
                 >
+                    {/* Content for Scripting & Recording */}
                 </Accordion>
 
                  <Accordion 
@@ -254,6 +299,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(1)} 
                     onRevisit={() => updateTask('videoEdited', 'pending')}
                 >
+                    {/* Content for Edit Video */}
                 </Accordion>
 
                 <Accordion 
@@ -264,6 +310,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(2)} 
                     onRevisit={() => updateTask('feedbackProvided', 'pending')}
                 >
+                    {/* Content for Log Production Changes */}
                 </Accordion>
 
                 <Accordion 
@@ -343,7 +390,98 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                         </div> 
                      )}
                 </Accordion>
-                {/* Other accordions... */}
+
+                 <Accordion 
+                    title="5. Generate Thumbnails" 
+                    isOpen={openTask === 'thumbnailsGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
+                    status={tasks.thumbnailsGenerated} 
+                    isLocked={isTaskLocked(4)} 
+                    onRevisit={() => updateTask('thumbnailsGenerated', 'pending')}
+                >
+                    {tasks.thumbnailsGenerated !== 'complete' ? (
+                        <div className="text-center p-4">
+                            <p className="mb-4 text-lg">Accepted Concepts: <span className="font-bold text-green-400">{acceptedConcepts.length}</span> / 3</p>
+                            {currentConceptIndex < thumbnailConcepts.length ? (
+                                <div className="max-w-sm mx-auto">
+                                    <div className="glass-card p-6 rounded-lg shadow-lg mb-4">
+                                        <p className="font-semibold">Concept {currentConceptIndex + 1}</p>
+                                        <p className="text-sm text-gray-300 mt-2"><strong>Image Suggestion:</strong> {thumbnailConcepts[currentConceptIndex].imageSuggestion}</p>
+                                        <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {thumbnailConcepts[currentConceptIndex].textOverlay}</p>
+                                    </div>
+                                    <div className="flex justify-center gap-4">
+                                        <button onClick={() => handleThumbnailDecision('reject')} className="p-4 bg-red-600 hover:bg-red-700 rounded-full text-white font-bold text-2xl w-16 h-16 flex items-center justify-center">✗</button>
+                                        <button onClick={() => handleThumbnailDecision('accept')} className="p-4 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold text-2xl w-16 h-16 flex items-center justify-center">✓</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <button 
+                                        onClick={() => handleGenerate('thumbnails')} 
+                                        disabled={generating === 'thumbnails' || !metadata}
+                                        className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+                                    >
+                                        {generating === 'thumbnails' ? <window.LoadingSpinner isButton={true}/> : '💡 Generate Thumbnail Concepts'}
+                                    </button>
+                                    {!metadata && <p className="text-xs text-amber-400 mt-2">Metadata must be generated first.</p>}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                             <h4 className="text-lg font-semibold text-green-400">3 Concepts Accepted!</h4>
+                            {acceptedConcepts.map((concept, index) => (
+                                <div key={index} className="glass-card p-4 rounded-lg">
+                                    <p className="font-semibold">Accepted Concept {index + 1}:</p>
+                                    <p className="text-sm text-gray-300 mt-1"><strong>Image Suggestion:</strong> {concept.imageSuggestion}</p>
+                                    <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {concept.textOverlay}</p>
+                                    <button
+                                        onClick={() => setShowCanvaModal(true)}
+                                        className="inline-block mt-3 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+                                    >
+                                        Create on Canva
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Accordion>
+                <Accordion 
+                    title="6. Upload to YouTube" 
+                    isOpen={openTask === 'videoUploaded'} 
+                    onToggle={() => setOpenTask(openTask === 'videoUploaded' ? null : 'videoUploaded')}
+                    status={tasks.videoUploaded} 
+                    isLocked={isTaskLocked(5)} 
+                    onRevisit={() => updateTask('videoUploaded', 'pending')}
+                >
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
+                    <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-full sm:w-auto mb-4" readOnly={tasks.videoUploaded === 'complete'}/>
+                    {tasks.videoUploaded !== 'complete' ? (
+                        <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Confirm Upload & Save Date</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">Video was uploaded on: {publishDate}</p>
+                    )}
+                </Accordion>
+                
+                <Accordion 
+                    title="7. Generate First Comment" 
+                    isOpen={openTask === 'firstCommentGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'firstCommentGenerated' ? null : 'firstCommentGenerated')}
+                    status={tasks.firstCommentGenerated} 
+                    isLocked={isTaskLocked(6)} 
+                    onRevisit={() => updateTask('firstCommentGenerated', 'pending')}
+                >
+                    {tasks.firstCommentGenerated !== 'complete' ? ( 
+                        <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            {generating === 'firstComment' ? <window.LoadingSpinner isButton={true}/> : '✨ Generate Comment'}
+                        </button>
+                    ) : ( 
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4>
+                            <textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" />
+                        </div> 
+                    )}
+                </Accordion>
             </div>
             {showFullScreenScript && (
                 <window.FullScreenScriptView 
