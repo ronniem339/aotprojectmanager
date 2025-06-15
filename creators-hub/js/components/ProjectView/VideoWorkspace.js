@@ -1,6 +1,6 @@
 // js/components/ProjectView/VideoWorkspace.js
 
-const { useState, useEffect, useMemo, useCallback } = React; // Added useCallback
+const { useState, useEffect, useMemo, useCallback } = React; // Removed useCallback import if not used elsewhere
 
 // A new common Accordion component for collapsible sections
 const Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isLocked = false, onRevisit }) => {
@@ -71,12 +71,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [isConceptVisible, setIsConceptVisible] = useState(false);
     const [chapters, setChapters] = useState(video.chapters || []);
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
-    const [videoStats, setVideoStats] = useState(video.stats || null);
-    const [isFetchingStats, setIsFetchingStats] = useState(false);
-    const [statsErrorMessage, setStatsErrorMessage] = useState('');
+    // Removed videoStats, isFetchingStats, statsErrorMessage states
 
-    // State to manage open/closed state of each accordion task
-    const [openTask, setOpenTask] = useState(null); // Stores the ID of the currently open task
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -86,10 +82,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         setScriptContent(video.script || '');
         setIsConceptVisible(false);
         setChapters(video.chapters || []);
-        setVideoStats(video.stats || null);
-        setStatsErrorMessage(''); // Clear stats error on video change
+        // Removed setVideoStats and setStatsErrorMessage here
         setOpenTask(null); // Collapse all tasks on video change
-    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks, video.stats]);
+    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks]); // Removed video.stats from dependencies
     
     useEffect(() => {
         if (video.metadata) {
@@ -112,69 +107,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         });
     };
 
-    const fetchVideoStats = useCallback(async () => {
-        setStatsErrorMessage('');
+    // Removed fetchVideoStats function and its useCallback wrapper
 
-        if (!settings.youtubeApiKey) {
-            setStatsErrorMessage("YouTube Data API Key is not set in settings. Cannot fetch video statistics.");
-            setIsFetchingStats(false);
-            return;
-        }
-        if (!video.id || video.tasks?.videoUploaded !== 'complete') {
-            setStatsErrorMessage("Video is not marked as uploaded or YouTube ID is missing. Cannot fetch statistics.");
-            setIsFetchingStats(false);
-            return;
-        }
-
-        const lastFetchTimestamp = video.stats?.lastFetch ? new Date(video.stats.lastFetch).getTime() : 0;
-        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-
-        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats && !isFetchingStats) {
-            return;
-        }
-
-        setIsFetchingStats(true);
-        try {
-            const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.id}&key=${settings.youtubeApiKey}`;
-            const response = await fetch(statsApiUrl);
-            const data = await response.json();
-
-            if (!response.ok || !data.items || data.items.length === 0) {
-                const errorMessage = data.error?.message || "Video not found or API error details are missing. Please check video ID and API key restrictions.";
-                setStatsErrorMessage(`Failed to fetch video statistics: ${errorMessage}`);
-                if (!videoStats) { 
-                    setVideoStats(null); 
-                }
-                return;
-            }
-
-            const stats = data.items[0].statistics;
-            const newStats = {
-                viewCount: stats.viewCount || '0',
-                likeCount: stats.likeCount || '0',
-                commentCount: stats.commentCount || '0',
-                lastFetch: new Date().toISOString()
-            };
-
-            setVideoStats(newStats);
-            const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-            await videoDocRef.update({ stats: newStats });
-
-        } catch (error) {
-            console.error("Error during fetch operation:", error);
-            setStatsErrorMessage(`Error fetching stats: ${error.message}.`);
-        } finally {
-            setIsFetchingStats(false);
-        }
-    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]);
-
-
-    useEffect(() => {
-        if (video.tasks?.videoUploaded === 'complete' && video.id) {
-            fetchVideoStats();
-        }
-    }, [video.id, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]);
-
+    // Removed useEffect that triggers fetchVideoStats
+    
 
     const handleGenerate = async (type, currentContent, refinement) => {
         const apiKey = settings.geminiApiKey || "";
@@ -379,73 +315,24 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     </div>
                 </div>
 
-                {/* Video Statistics Section - Now an Accordion */}
-                {(video.tasks?.videoUploaded === 'complete' && video.id) && (
-                    <Accordion 
-                        title="📈 Video Statistics" 
-                        isOpen={openTask === 'stats'} 
-                        onToggle={() => setOpenTask(openTask === 'stats' ? null : 'stats')}
-                        status={videoStats ? 'complete' : 'pending'} // Indicate if stats are loaded
-                    >
-                        <div className="p-2 -mt-2"> {/* Negative margin to align with accordion padding */}
-                            <button 
-                                onClick={fetchVideoStats} 
-                                disabled={isFetchingStats}
-                                className="mb-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-50"
-                            >
-                                {isFetchingStats ? <window.LoadingSpinner /> : 'Refresh Stats'}
-                            </button>
-
-                            {videoStats ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-                                    <div className="p-3 bg-gray-800/50 rounded-lg">
-                                        <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.viewCount).toLocaleString()}</p>
-                                        <p className="text-sm text-gray-400">Views</p>
-                                    </div>
-                                    <div className="p-3 bg-gray-800/50 rounded-lg">
-                                        <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.likeCount).toLocaleString()}</p>
-                                        <p className="text-sm text-gray-400">Likes</p>
-                                    </div>
-                                    <div className="p-3 bg-gray-800/50 rounded-lg">
-                                        <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.commentCount).toLocaleString()}</p>
-                                        <p className="text-sm text-gray-400">Comments</p>
-                                    </div>
-                                    {videoStats.lastFetch && (
-                                        <p className="col-span-full text-xs text-gray-500 mt-2">Last fetched: {new Date(videoStats.lastFetch).toLocaleString()}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="p-3 bg-gray-800/50 rounded-lg text-center">
-                                    {statsErrorMessage ? (
-                                        <p className="text-red-400 text-sm">{statsErrorMessage}</p>
-                                    ) : (
-                                        <p className="text-gray-500">No statistics available yet or failed to fetch. Ensure the video is uploaded and publicly accessible.</p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </Accordion>
-                )}
+                {/* Removed Video Statistics Section entirely */}
                 
-                {/* Task: Scripting & Recording */}
-                <Accordion 
+                <window.TaskItem 
                     title="1. Scripting & Recording" 
-                    isOpen={openTask === 'scripting'} 
-                    onToggle={() => setOpenTask(openTask === 'scripting' ? null : 'scripting')}
-                    status={initialScriptingStatus}
-                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} 
+                    status={initialScriptingStatus} // Use calculated status
+                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} // Lock only if previous task incomplete AND not being revisited
                     onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
                 >
+                    {/* Content when script is available (either imported or generated/locked/revisited) */}
                     {(initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' || initialScriptingStatus === 'revisited' || video.script) ? ( 
-                        <div className="space-y-4">
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
-                                <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} />
-                            </div>
-                            
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
+                            <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} /> {/* Allow editing if revisited */}
+                            {/* Show Fullscreen Script button if scriptContent exists */}
                             {scriptContent && (
-                                <div className="flex flex-col sm:flex-row gap-3">
+                                <div className="flex flex-col sm:flex-row gap-3 mt-4">
                                     <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                                    {/* Only show lock button if not already complete AND not being revisited (if it was already complete) */}
                                     {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
                                         <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="flex-grow px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
                                     ) : (
@@ -453,7 +340,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                                     )}
                                 </div>
                             )}
-                            
+                            {/* Refinement section for existing script */}
                             { (initialScriptingStatus !== 'complete' || initialScriptingStatus === 'revisited') && scriptContent && (
                                 <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
@@ -463,52 +350,21 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                             )}
                         </div> 
                     ) : ( 
+                        // Content when script is not available and task is pending (needs generation)
                         <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
                     )}
-                </Accordion>
+                </window.TaskItem>
 
-                {/* Task: Edit Video */}
-                <Accordion 
-                    title="2. Edit Video" 
-                    isOpen={openTask === 'videoEdited'} 
-                    onToggle={() => setOpenTask(openTask === 'videoEdited' ? null : 'videoEdited')}
-                    status={tasks.videoEdited} 
-                    isLocked={isTaskLocked(1)} 
-                    onRevisit={() => updateTask('videoEdited', 'pending')}
-                >
-                    {tasks.videoEdited !== 'complete' ? (
-                        <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                    )}
-                </Accordion>
+                <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
+                     {tasks.videoEdited !== 'complete' ? <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button> : <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>}
+                </window.TaskItem>
 
-                {/* Task: Log Production Changes */}
-                <Accordion 
-                    title="3. Log Production Changes" 
-                    isOpen={openTask === 'feedbackProvided'} 
-                    onToggle={() => setOpenTask(openTask === 'feedbackProvided' ? null : 'feedbackProvided')}
-                    status={tasks.feedbackProvided} 
-                    isLocked={isTaskLocked(2)} 
-                    onRevisit={() => updateTask('feedbackProvided', 'pending')}
-                >
+                <window.TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
-                    {tasks.feedbackProvided !== 'complete' ? (
-                        <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                    )}
-                </Accordion>
+                    {tasks.feedbackProvided !== 'complete' ? <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button> : <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>}
+                </window.TaskItem>
                 
-                {/* Task: Generate Metadata */}
-                <Accordion 
-                    title="4. Generate Metadata" 
-                    isOpen={openTask === 'metadataGenerated'} 
-                    onToggle={() => setOpenTask(openTask === 'metadataGenerated' ? null : 'metadataGenerated')}
-                    status={tasks.metadataGenerated} 
-                    isLocked={isTaskLocked(3)} 
-                    onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}
-                >
+                <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}> {/* Reset metadata on revisit */}
                      {tasks.metadataGenerated !== 'complete' ? ( 
                         <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
                             {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}
@@ -560,8 +416,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                      )}
                 </Accordion>
                 
-                {/* Task: Generate Thumbnails */}
-                <Accordion 
+                <window.TaskItem 
                     title="5. Generate Thumbnails" 
                     isOpen={openTask === 'thumbnailsGenerated'} 
                     onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
@@ -586,8 +441,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     )}
                 </Accordion>
 
-                {/* Task: Upload to YouTube */}
-                <Accordion 
+                <window.TaskItem 
                     title="6. Upload to YouTube" 
                     isOpen={openTask === 'videoUploaded'} 
                     onToggle={() => setOpenTask(openTask === 'videoUploaded' ? null : 'videoUploaded')}
@@ -604,8 +458,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     )}
                 </Accordion>
                 
-                {/* Task: Generate First Comment */}
-                <Accordion 
+                <window.TaskItem 
                     title="7. Generate First Comment" 
                     isOpen={openTask === 'firstCommentGenerated'} 
                     onToggle={() => setOpenTask(openTask === 'firstCommentGenerated' ? null : 'firstCommentGenerated')}
