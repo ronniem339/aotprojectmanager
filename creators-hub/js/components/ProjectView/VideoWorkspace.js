@@ -69,12 +69,11 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || video.publishDate || '');
     const [generating, setGenerating] = useState(null);
     const [scriptContent, setScriptContent] = useState(video.script || '');
-    const [refinementText, setRefinementText] = useState('');
+    const [descriptionRefinement, setDescriptionRefinement] = useState('');
     const [chapters, setChapters] = useState(video.chapters || []);
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
     const [showCanvaModal, setShowCanvaModal] = useState(false);
     
-    // Thumbnail Tinder state
     const [thumbnailConcepts, setThumbnailConcepts] = useState(video.tasks?.thumbnailConcepts || []);
     const [acceptedConcepts, setAcceptedConcepts] = useState(video.tasks?.acceptedConcepts || []);
     const [rejectedConcepts, setRejectedConcepts] = useState(video.tasks?.rejectedConcepts || []);
@@ -85,23 +84,21 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // This effect resets the accordion state ONLY when the video ID changes
     useEffect(() => {
         setOpenTask(null);
     }, [video.id]);
 
-    // This effect updates local state when the current video's data changes, without closing the accordion
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || video.publishDate || '');
         setScriptContent(video.script || '');
-        setChapters(video.chapters || []);
+        setChapters(video.chapters || (metadata?.chapters || []));
         setThumbnailConcepts(video.tasks?.thumbnailConcepts || []);
         setAcceptedConcepts(video.tasks?.acceptedConcepts || []);
         setRejectedConcepts(video.tasks?.rejectedConcepts || []);
         setCurrentConceptIndex(video.tasks?.currentConceptIndex || 0);
         setRejectedTitles(video.tasks?.rejectedTitles || []);
-    }, [video.tasks, video.script, video.publishDate, video.chapters]);
+    }, [video.tasks, video.script, video.publishDate, video.chapters, video.metadata]);
 
 
     const updateTask = async (taskName, status, extraData = {}) => {
@@ -134,7 +131,7 @@ YouTube Video Title Guidelines: ${videoTitlesKb}
 YouTube Video Description Guidelines: ${videoDescriptionsKb}
 AVOID these previously rejected titles: ${rejectedTitles.join(', ')}
 
-Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles), "description" (a detailed description), "tags" (string of comma-separated tags), "chapters" (array of objects: {"timestamp": "00:00", "title": "..."}), and "thumbnailConcepts" (array of 3-5 structured objects).`;
+Your response MUST be a valid JSON object with these exact keys: "titleSuggestions" (array of 3 distinct, catchy titles), "description" (a detailed description with a {{CHAPTERS}} placeholder), "tags" (string of comma-separated tags), "chapters" (array of objects: {"timestamp": "0:00", "title": "..."}), and "thumbnailConcepts" (array of 3-5 structured objects).`;
                 
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -142,7 +139,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
                 const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
-                await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson) });
+                await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson), chapters: parsedJson.chapters });
             }
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
@@ -197,41 +194,43 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
             setGenerating(null);
         }
     };
+    
+     const handleRefineDescription = async () => {
+        setGenerating('description');
+        const prompt = `Rewrite the following YouTube video description based on the user's feedback.
+        Original Description:\n---\n${metadata.description}\n---\n
+        User Feedback: "${descriptionRefinement}"
+        Return a JSON object with one key: {"newDescription": "..."}`;
 
-    const handleThumbnailDecision = async (decision) => {
-        const concept = thumbnailConcepts[currentConceptIndex];
-        let newAccepted = [...acceptedConcepts];
-        let newRejected = [...rejectedConcepts];
-
-        if (decision === 'accept') {
-            newAccepted.push(concept);
-            setAcceptedConcepts(newAccepted);
-        } else {
-            newRejected.push(concept);
-            setRejectedConcepts(newRejected);
-        }
-
-        const nextIndex = currentConceptIndex + 1;
-        setCurrentConceptIndex(nextIndex);
-
-        const updatedTasks = {
-            'tasks.thumbnailConcepts': thumbnailConcepts,
-            'tasks.acceptedConcepts': newAccepted,
-            'tasks.rejectedConcepts': newRejected,
-            'tasks.currentConceptIndex': nextIndex
-        };
-
-        if (newAccepted.length >= 3) {
-            await updateTask('thumbnailsGenerated', 'complete', updatedTasks);
-        } else {
-            await updateTask('thumbnailsGenerated', 'pending', updatedTasks);
-            const remainingConcepts = thumbnailConcepts.length - nextIndex;
-            if (newAccepted.length + remainingConcepts < 3) {
-                handleGenerate('thumbnails'); // Fetch more if we can't possibly reach 3
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey, { responseMimeType: "application/json" });
+            if (parsedJson && parsedJson.newDescription) {
+                const newMetadata = { ...metadata, description: parsedJson.newDescription };
+                await updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(newMetadata) });
+                setDescriptionRefinement('');
+            } else {
+                throw new Error("AI failed to return a new description.");
             }
+        } catch (error) {
+            console.error("Error refining description:", error);
+        } finally {
+            setGenerating(null);
         }
     };
     
+    const handleChapterChange = (index, value) => {
+        const newChapters = [...chapters];
+        newChapters[index].timestamp = value;
+        setChapters(newChapters);
+    };
+
+    const applyTimestamps = () => {
+        const chapterText = chapters.map(c => `${c.timestamp} - ${c.title}`).join('\n');
+        const newDescription = metadata.description.replace('{{CHAPTERS}}', chapterText);
+        const newMetadata = { ...metadata, description: newDescription, chapters: chapters };
+        updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(newMetadata), chapters: chapters });
+    };
+
     return (
         <main className="flex-grow">
             {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
@@ -245,30 +244,6 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(0)} 
                     onRevisit={() => updateTask('scripting', 'pending', { script: '' })}
                 >
-                    <div>
-                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
-                        <textarea 
-                            value={scriptContent || ""} 
-                            onChange={(e) => setScriptContent(e.target.value)} 
-                            rows="10" 
-                            className="w-full form-textarea bg-gray-800/50"
-                            placeholder="Paste your script here, or click the button below to generate one with AI."
-                            readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} 
-                        />
-                        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                            {!scriptContent && <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner isButton={true} /> : '✨ Generate Script with AI'}</button>}
-                            {scriptContent && (
-                                <>
-                                    <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
-                                    {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
-                                        <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="flex-grow px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
-                                    ) : (
-                                        <p className="flex-grow text-gray-400 text-sm flex items-center justify-center p-2 border border-gray-700 rounded-lg">Script is locked. Use "Revisit" to edit.</p>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
                 </Accordion>
 
                  <Accordion 
@@ -279,11 +254,6 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(1)} 
                     onRevisit={() => updateTask('videoEdited', 'pending')}
                 >
-                    {tasks.videoEdited !== 'complete' ? (
-                        <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                    )}
                 </Accordion>
 
                 <Accordion 
@@ -294,15 +264,6 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(2)} 
                     onRevisit={() => updateTask('feedbackProvided', 'pending')}
                 >
-                    <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
-                    {tasks.feedbackProvided !== 'complete' ? (
-                        <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': 'No changes were made.' })} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">No Changes Made</button>
-                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Confirm & Save Notes</button>
-                        </div>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                    )}
                 </Accordion>
 
                 <Accordion 
@@ -357,105 +318,32 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                                             <window.CopyButton textToCopy={metadata.description} />
                                         </div>
                                         <textarea readOnly value={metadata.description} rows="10" className="w-full form-textarea bg-gray-800/50 resize-y"/>
+                                        <div className="mt-4">
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
+                                            <textarea value={descriptionRefinement} onChange={(e) => setDescriptionRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make it more personal', 'Add more about hiking trails'"/>
+                                            <button onClick={handleRefineDescription} disabled={generating === 'description' || !descriptionRefinement} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center">
+                                                {generating === 'description' ? <window.LoadingSpinner isButton={true} /> : 'Refine Description'}
+                                            </button>
+                                        </div>
                                     </div>
-                                    {/* Chapters, tags, etc. would be here */}
+                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                        <label className="block text-sm font-semibold text-gray-300 mb-2">Chapter Timestamps</label>
+                                        <div className="space-y-2">
+                                            {chapters.map((chap, i) => (
+                                                <div key={i} className="flex items-center gap-2">
+                                                    <input type="text" value={chap.timestamp} onChange={(e) => handleChapterChange(i, e.target.value)} className="form-input w-24" placeholder={parseInt(video.estimatedLengthMinutes) >= 10 ? '00:00' : '0:00'}/> 
+                                                    <span className="text-gray-300 text-sm">{chap.title}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button onClick={applyTimestamps} className="mt-3 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps</button>
+                                    </div>
                                 </>
                             )}
                         </div> 
                      )}
                 </Accordion>
-
-                 <Accordion 
-                    title="5. Generate Thumbnails" 
-                    isOpen={openTask === 'thumbnailsGenerated'} 
-                    onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
-                    status={tasks.thumbnailsGenerated} 
-                    isLocked={isTaskLocked(4)} 
-                    onRevisit={() => updateTask('thumbnailsGenerated', 'pending')}
-                >
-                    {tasks.thumbnailsGenerated !== 'complete' ? (
-                        <div className="text-center p-4">
-                            <p className="mb-4 text-lg">Accepted Concepts: <span className="font-bold text-green-400">{acceptedConcepts.length}</span> / 3</p>
-                            {currentConceptIndex < thumbnailConcepts.length ? (
-                                <div className="max-w-sm mx-auto">
-                                    <div className="glass-card p-6 rounded-lg shadow-lg mb-4">
-                                        <p className="font-semibold">Concept {currentConceptIndex + 1}</p>
-                                        <p className="text-sm text-gray-300 mt-2"><strong>Image Suggestion:</strong> {thumbnailConcepts[currentConceptIndex].imageSuggestion}</p>
-                                        <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {thumbnailConcepts[currentConceptIndex].textOverlay}</p>
-                                    </div>
-                                    <div className="flex justify-center gap-4">
-                                        <button onClick={() => handleThumbnailDecision('reject')} className="p-4 bg-red-600 hover:bg-red-700 rounded-full text-white font-bold text-2xl w-16 h-16 flex items-center justify-center">✗</button>
-                                        <button onClick={() => handleThumbnailDecision('accept')} className="p-4 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold text-2xl w-16 h-16 flex items-center justify-center">✓</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div>
-                                    <button 
-                                        onClick={() => handleGenerate('thumbnails')} 
-                                        disabled={generating === 'thumbnails' || !metadata}
-                                        className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
-                                    >
-                                        {generating === 'thumbnails' ? <window.LoadingSpinner isButton={true}/> : '💡 Generate Thumbnail Concepts'}
-                                    </button>
-                                    {!metadata && <p className="text-xs text-amber-400 mt-2">Metadata must be generated first.</p>}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                             <h4 className="text-lg font-semibold text-green-400">3 Concepts Accepted!</h4>
-                            {acceptedConcepts.map((concept, index) => (
-                                <div key={index} className="glass-card p-4 rounded-lg">
-                                    <p className="font-semibold">Accepted Concept {index + 1}:</p>
-                                    <p className="text-sm text-gray-300 mt-1"><strong>Image Suggestion:</strong> {concept.imageSuggestion}</p>
-                                    <p className="text-sm text-gray-300"><strong>Text Overlay:</strong> {concept.textOverlay}</p>
-                                    <button
-                                        onClick={() => setShowCanvaModal(true)}
-                                        className="inline-block mt-3 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
-                                    >
-                                        Create on Canva
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </Accordion>
-                <Accordion 
-                    title="6. Upload to YouTube" 
-                    isOpen={openTask === 'videoUploaded'} 
-                    onToggle={() => setOpenTask(openTask === 'videoUploaded' ? null : 'videoUploaded')}
-                    status={tasks.videoUploaded} 
-                    isLocked={isTaskLocked(5)} 
-                    onRevisit={() => updateTask('videoUploaded', 'pending')}
-                >
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
-                    <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-full sm:w-auto mb-4" readOnly={tasks.videoUploaded === 'complete'}/>
-                    {tasks.videoUploaded !== 'complete' ? (
-                        <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Confirm Upload & Save Date</button>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">Video was uploaded on: {publishDate}</p>
-                    )}
-                </Accordion>
-                
-                <Accordion 
-                    title="7. Generate First Comment" 
-                    isOpen={openTask === 'firstCommentGenerated'} 
-                    onToggle={() => setOpenTask(openTask === 'firstCommentGenerated' ? null : 'firstCommentGenerated')}
-                    status={tasks.firstCommentGenerated} 
-                    isLocked={isTaskLocked(6)} 
-                    onRevisit={() => updateTask('firstCommentGenerated', 'pending')}
-                >
-                    {tasks.firstCommentGenerated !== 'complete' ? ( 
-                        <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                            {generating === 'firstComment' ? <window.LoadingSpinner isButton={true}/> : '✨ Generate Comment'}
-                        </button>
-                    ) : ( 
-                        <div>
-                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4>
-                            <textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" />
-                        </div> 
-                    )}
-                </Accordion>
+                {/* Other accordions... */}
             </div>
             {showFullScreenScript && (
                 <window.FullScreenScriptView 
