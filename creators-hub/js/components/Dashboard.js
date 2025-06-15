@@ -1,6 +1,7 @@
 // js/components/Dashboard.js
 
-window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm }) => { // Removed onShowMyStudio, onShowKnowledgeBases
+window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm }) => {
+    const { useState, useEffect, useRef } = React;
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const projectCardsRef = useRef(null);
@@ -8,15 +9,49 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
 
     useEffect(() => {
         if (!userId) return;
+        
         const projectsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("createdAt", "desc");
-        const unsubscribe = projectsCollectionRef.onSnapshot(querySnapshot => {
+        
+        // This onSnapshot listener will now also fetch video data to calculate progress.
+        const unsubscribe = projectsCollectionRef.onSnapshot(async (querySnapshot) => {
             const projectsData = [];
-            querySnapshot.forEach((doc) => { projectsData.push({ id: doc.id, ...doc.data() }); });
-            setProjects(projectsData);
+            querySnapshot.forEach((doc) => {
+                projectsData.push({ id: doc.id, ...doc.data() });
+            });
+
+            // For each project, fetch its videos and calculate the progress.
+            const projectsWithProgress = await Promise.all(projectsData.map(async (project) => {
+                const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
+                const videosSnapshot = await videosCollectionRef.get();
+                const videos = videosSnapshot.docs.map(doc => doc.data());
+
+                const totalTasks = window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
+                if (videos.length === 0 || totalTasks === 0) {
+                    return { ...project, progress: 0 };
+                }
+
+                let totalCompletedTasks = 0;
+                videos.forEach(video => {
+                    if (video.tasks) {
+                        totalCompletedTasks += Object.values(video.tasks).filter(status => status === 'complete').length;
+                    }
+                });
+
+                const maxPossibleTasks = videos.length * totalTasks;
+                const progress = maxPossibleTasks > 0 ? (totalCompletedTasks / maxPossibleTasks) * 100 : 0;
+                
+                return { ...project, progress };
+            }));
+
+            setProjects(projectsWithProgress);
             setLoading(false);
-        }, (error) => { console.error("Error fetching projects:", error); setLoading(false); });
+        }, (error) => {
+            console.error("Error fetching projects and progress:", error);
+            setLoading(false);
+        });
+
         return () => unsubscribe();
-    }, [userId]);
+    }, [userId, appId]);
 
     useEffect(() => {
         if (!loading && projects.length > 0 && projectCardsRef.current) {
@@ -25,29 +60,24 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     }, [loading, projects]);
     
     const handleDeleteClick = (e, project) => {
-        // Stop the click from bubbling up to the main card div, which would trigger onSelectProject
         e.stopPropagation();
         onShowDeleteConfirm(project);
     };
 
-    // Helper function to generate a cleaner search term for Unsplash from a project title
     const generateImageSearchTerm = (title) => {
         if (!title) return 'travel,adventure';
-        // This logic creates a more focused search query for better image results.
         return title
-            .replace(/\(.*?\)/g, '') // remove text in parentheses e.g. (2025)
-            .split(/[:\-|]/)[0]     // take the part before a colon, dash, or pipe
+            .replace(/\(.*?\)/g, '')
+            .split(/[:\-|]/)[0]
             .trim()
             .split(' ')
-            .slice(0, 3)            // take the first 3 words
-            .join(',');             // join with commas for the Unsplash API
+            .slice(0, 3)
+            .join(',');
     };
 
-    // Handle user logout
     const handleLogout = async () => {
         try {
             await auth.signOut();
-            // Firebase's onAuthStateChanged listener in App.js will handle redirect to LoginScreen
         } catch (error) {
             console.error("Error logging out:", error);
         }
@@ -57,13 +87,9 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     return (
         <div className="p-8">
             <header className="flex justify-between items-center mb-8">
-                {/* Removed the "Creator's Hub" title */}
                 <div className="flex gap-4">
-                    {/* Updated Settings button to lead to SettingsMenu */}
                     <button onClick={onShowSettings} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">⚙️ Settings</button>
-                    {/* New Project button (existing, moved here) */}
                     <button onClick={onShowProjectSelection} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">✨ New Project</button>
-                    {/* Logout Button (existing) */}
                     <button onClick={handleLogout} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-red-800 transition-colors text-red-400 hover:text-white">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -74,9 +100,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
             </header>
             {loading ? <window.LoadingSpinner text="Loading Projects..." /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
-                    {/* Removed the large "New Project" tile from here as it's now in the header */}
                     {projects.map(project => {
-                        // Dynamically determine the image URL: prioritize user-selected, then generated
                         const imageUrl = project.coverImageUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
                         
                         return (
@@ -93,12 +117,27 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                                         </svg>
                                     </button>
                                 </div>
-                                <div className="p-4">
-                                    <div>
+                                <div className="p-4 flex-grow flex flex-col">
+                                    <div className="flex-grow">
                                         <h3 className="text-xl font-bold text-primary-accent truncate">{project.playlistTitle || project.title}</h3>
                                         <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-2">Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</div>
+                                    
+                                    {/* --- NEW: Project Progress Bar --- */}
+                                    <div className="mt-4">
+                                         <div className="flex justify-between items-center mb-1">
+                                            <span className="text-xs font-semibold text-gray-400">Progress</span>
+                                            <span className="text-xs font-bold text-green-400">{`${project.progress.toFixed(0)}%`}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-700 rounded-full h-1.5">
+                                            <div 
+                                                className="bg-green-500 h-1.5 rounded-full" 
+                                                style={{width: `${project.progress}%`}}>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-700/50">Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</div>
                                 </div>
                             </div>
                         );
