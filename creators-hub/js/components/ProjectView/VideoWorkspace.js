@@ -51,9 +51,39 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         try {
             if (type === 'script') {
                  const isRefining = !!currentContent;
+
+                // Define a common video structure for prompting
+                const commonVideoStructure = `
+                    # Hook
+                    # Introduction
+                    # Where is ${video.chosenTitle?.split(':')[0]?.trim() || project.playlistTitle?.split(':')[0]?.trim() || 'this place'}
+                    # History of ${video.chosenTitle?.split(':')[0]?.trim() || project.playlistTitle?.split(':')[0]?.trim() || 'this place'}
+                    # Key Landmark: [Insert a relevant landmark from video concept/locations if available, e.g., RRS Discovery]
+                    # Things to Do
+                    # Eating Out
+                    # Day Trips from ${video.chosenTitle?.split(':')[0]?.trim() || project.playlistTitle?.split(':')[0]?.trim() || 'this place'}
+                    # Conclusion
+                `.trim();
+
+
                 const prompt = isRefining
-                    ? `Your task is to refine an existing voiceover script based on user feedback. Original Script:\n---\n${currentContent}\n---\nUser's Refinement Instructions: "${refinement}"\nRewrite the entire script to incorporate the feedback, maintaining the core message and adhering to the style guide. Style Guide: ${styleGuide}\nIMPORTANT: Your response MUST contain ONLY the updated voiceover script text.`
-                    : `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details. Video Title: "${video.chosenTitle || video.title}". Overall Project Theme: "${project.playlistDescription}". Style Guide: ${styleGuide}. Knowledge Base: ${knowledgeBase}\nIMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include titles, descriptions, metadata, or any other text outside of the script itself. The script should be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction, # Location: [Location Name], # Outro).`;
+                    ? `Your task is to refine an existing voiceover script based on user feedback.
+                    Original Script:\n---\n${currentContent}\n---\nUser's Refinement Instructions: "${refinement}"
+                    Rewrite the entire script to incorporate the feedback, maintaining the core message and adhering to the style guide.
+                    IMPORTANT: Your response MUST contain ONLY the updated voiceover script text. Do NOT include any production notes like [MUSIC CUE], [SOUND EFFECT], or [B-ROLL FOOTAGE]. The script should be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction).`
+                    : `Your task is to generate a complete, engaging voiceover script for a YouTube video based on the following details.
+                    Video Title: "${video.chosenTitle || video.title}".
+                    Overall Project Theme: "${project.playlistDescription}".
+                    Video Concept: "${video.concept}".
+                    Locations Featured: ${video.locations_featured?.join(', ') || 'N/A'}.
+                    Targeted Keywords: ${video.targeted_keywords?.join(', ') || 'N/A'}.
+                    Style Guide: ${styleGuide}.
+                    Knowledge Base: ${knowledgeBase}
+                    
+                    The script should follow a structure similar to this example, adapted to the video's specific content:
+                    ${commonVideoStructure}
+
+                    IMPORTANT: Your response MUST contain ONLY the voiceover script text, ready for a voice actor. Do NOT include production notes (e.g., [MUSIC CUE], [SOUND EFFECT], [B-ROLL FOOTAGE]), titles, descriptions, metadata, or any other text outside of the script itself. The script must be broken down into logical sections using markdown headings (e.g., # Hook, # Introduction, # Location: [Location Name], # Outro). Focus on the words the narrator needs to say.`
                 const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
