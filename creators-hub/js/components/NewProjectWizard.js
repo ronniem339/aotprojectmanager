@@ -1,6 +1,6 @@
 // js/components/NewProjectWizard.js
 
-const ConfirmationModal = ({ onConfirm, onCancel }) => (
+window.ConfirmationModal = ({ onConfirm, onCancel }) => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
         <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
             <h3 className="text-2xl font-bold mb-4">Are you sure?</h3>
@@ -14,7 +14,7 @@ const ConfirmationModal = ({ onConfirm, onCancel }) => (
 );
 
 
-const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft }) => {
+window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft }) => {
     // Shared state for the entire wizard
     const [step, setStep] = useState(initialDraft?.step || 1);
     const [inputs, setInputs] = useState(initialDraft?.inputs || { location: '', theme: '' });
@@ -42,7 +42,7 @@ const NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initial
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     // Persist state to Firestore to allow resuming
-    const debouncedState = useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle }, 1000);
+    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle }, 1000);
 
     useEffect(() => {
         // Set the selected title to the first suggestion when the outline is first loaded.
@@ -344,7 +344,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Project Locations</label>
-                                {googleMapsLoaded ? <LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> : <MockLocationSearchInput />}
+                                {googleMapsLoaded ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> : <window.MockLocationSearchInput />}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Key Message or Theme</label>
@@ -419,7 +419,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 6 - Keyword Strategy</h2>
                         <p className="text-gray-400 mb-6">Here are some popular search terms related to your project. Select the ones you want the AI to focus on when building the plan.</p>
-                        {isLoading && <LoadingSpinner text="Generating keyword ideas..." />}
+                        {isLoading && <window.LoadingSpinner text="Generating keyword ideas..." />}
                         <div className="p-4 bg-gray-900/50 border border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto pr-2 flex flex-wrap gap-2">
                             {keywordIdeas.map((keyword, index) => (
                                 <button
@@ -439,7 +439,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 4 of 6 - Refine Title</h2>
                         <p className="text-gray-400 mb-6">Choose the best title for your series, or ask for new ideas.</p>
-                        {isLoading && <LoadingSpinner text="Thinking..." />}
+                        {isLoading && <window.LoadingSpinner text="Thinking..." />}
                         {editableOutline?.playlistTitleSuggestions && (
                             <div className="space-y-3">
                                 {editableOutline.playlistTitleSuggestions.map(title => (
@@ -462,7 +462,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 5 of 6 - Refine Description</h2>
                         <p className="text-gray-400 mb-6">Review the AI-generated description for your playlist. Refine it if needed.</p>
-                        {isLoading && !editableOutline?.playlistDescription && <LoadingSpinner text="Generating..." />}
+                        {isLoading && !editableOutline?.playlistDescription && <window.LoadingSpinner text="Generating..." />}
                         {editableOutline?.playlistDescription && (
                              <textarea value={isLoading ? 'Regenerating...' : editableOutline.playlistDescription} readOnly={isLoading} rows="10" className="w-full form-textarea leading-relaxed bg-gray-800/60"/>
                         )}
@@ -478,7 +478,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     <div>
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 6 of 6 - Review Video Plan</h2>
                         <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review and accept each video idea to finalize the project.</p>
-                        {isLoading && !editableOutline?.videos && <LoadingSpinner text="Generating..." />}
+                        {isLoading && !editableOutline?.videos && <window.LoadingSpinner text="Generating..." />}
                         {editableOutline?.videos && (
                             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                                {editableOutline.videos.map((video, index) => (
@@ -521,7 +521,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Focus more on the history of this place'"/>
                                                         <div className="flex justify-end gap-2 mt-2">
                                                             <button onClick={() => setRefiningVideoIndex(null)} className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Cancel</button>
-                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-primary-accent hover:bg-primary-accent-darker rounded-md flex items-center gap-1">{isLoading ? <LoadingSpinner/> : 'Submit'}</button>
+                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-primary-accent hover:bg-primary-accent-darker rounded-md flex items-center gap-1">{isLoading ? <window.LoadingSpinner/> : 'Submit'}</button>
                                                         </div>
                                                      </div>
                                                 ) : (
@@ -560,9 +560,9 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      
                      {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
                      
-                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
+                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
                      
-                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
+                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
                      
                      {step === 4 && (
                         <>
@@ -581,7 +581,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      {step === 6 && (
                         <>
                              <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
-                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
+                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
                         </>
                      )}
                 </div>
@@ -591,7 +591,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            {showConfirmModal && <ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
+            {showConfirmModal && <window.ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
             <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col">
                 <div className="flex-shrink-0">
                     <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
