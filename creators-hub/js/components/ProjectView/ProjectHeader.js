@@ -2,7 +2,7 @@
 
 const { useState } = React;
 
-window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar }) => {
+window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress }) => {
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
 
     return (
@@ -35,7 +35,7 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar }) => {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
                     </button>
 
-                    {/* New Info Icon to toggle description */}
+                    {/* Info Icon to toggle description */}
                     <button 
                         onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} 
                         className="p-2 rounded-full bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-colors flex-shrink-0"
@@ -46,6 +46,21 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar }) => {
                         </svg>
                     </button>
                 </div>
+                
+                {/* --- NEW: Overall Project Progress Bar --- */}
+                <div className="w-full mt-3">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-semibold text-gray-400">Overall Project Progress</span>
+                        <span className="text-xs font-bold text-green-400">{`${overallProgress.toFixed(0)}%`}</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2.5">
+                        <div 
+                            className="bg-green-500 h-2.5 rounded-full transition-all duration-500 ease-out" 
+                            style={{width: `${overallProgress}%`}}>
+                        </div>
+                    </div>
+                </div>
+
 
                 {/* Conditionally rendered description with smooth transition */}
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isDescriptionVisible ? 'max-h-96 mt-2' : 'max-h-0'}`}>
