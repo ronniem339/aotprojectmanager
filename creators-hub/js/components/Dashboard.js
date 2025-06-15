@@ -43,6 +43,16 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, o
             .join(',');             // join with commas for the Unsplash API
     };
 
+    // Handle user logout
+    const handleLogout = async () => {
+        try {
+            await auth.signOut();
+            // Firebase's onAuthStateChanged listener in App.js will handle redirect to LoginScreen
+        } catch (error) {
+            console.error("Error logging out:", error);
+        }
+    };
+
 
     return (
         <div className="p-8">
@@ -53,6 +63,13 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, o
                     <button onClick={onShowSettings} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">⚙️ Settings</button>
                     {/* Moved New Project button here as requested */}
                     <button onClick={onShowProjectSelection} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">✨ New Project</button>
+                    {/* NEW: Logout Button */}
+                    <button onClick={handleLogout} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-red-800 transition-colors text-red-400 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        Logout
+                    </button>
                 </div>
             </header>
             {loading ? <window.LoadingSpinner /> : (
