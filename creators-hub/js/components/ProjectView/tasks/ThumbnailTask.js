@@ -90,8 +90,8 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
     if (video.tasks?.thumbnailsGenerated === 'complete') {
         return (
             <div>
-                <p className="text-gray-400 text-center py-2 text-sm">You've selected your thumbnail concepts.</p>
-                <div className="my-4 space-y-4">
+                 <p className="text-gray-400 text-center py-2 text-sm">You've selected your thumbnail concepts.</p>
+                 <div className="my-4 space-y-4">
                     {accepted.map((c, i) => (
                         <div key={i} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                             <div className="flex items-start gap-3">
@@ -106,12 +106,12 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
                         </div>
                     ))}
                 </div>
-                <div className="mt-6 text-center">
+                 <div className="mt-6 text-center">
                     <button onClick={() => setShowCanvaModal(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold text-base transition-transform transform hover:scale-105">
                         Create on Canva
                     </button>
-                </div>
-                {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
+                 </div>
+                 {showCanvaModal && <window.CanvaModal canvaUrl="https://www.canva.com/create/youtube-thumbnails/" onClose={() => setShowCanvaModal(false)} />}
             </div>
         )
     }
