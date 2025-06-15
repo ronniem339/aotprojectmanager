@@ -29,12 +29,14 @@ window.App = () => { // Exposing App component globally
             }
         }
     });
-    const [projectDraft, setProjectDraft] = useState(null);
+    const [activeProjectDraft, setActiveProjectDraft] = useState(null);
+    const [activeDraftId, setActiveDraftId] = useState(null);
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
     const [showNewProjectWizard, setShowNewProjectWizard] = useState(false);
     const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState(null);
+    const [draftToDelete, setDraftToDelete] = useState(null);
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [isLoading, setIsLoading] = useState(false); // Add a general loading state
 
@@ -70,7 +72,7 @@ window.App = () => { // Exposing App component globally
                         }
                     }
                 }); 
-                setProjectDraft(null);
+                setActiveProjectDraft(null);
             }
             setIsAuthReady(true);
         });
@@ -157,14 +159,15 @@ window.App = () => { // Exposing App component globally
                 }
             });
 
-            const draftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc('newProjectDraft');
-            const unsubscribeDraft = draftRef.onSnapshot(docSnap => {
-                setProjectDraft(docSnap.exists ? docSnap.data() : null);
-            });
+            // No longer listening to a single draft here, drafts are loaded in ProjectSelection
+            // const draftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc('newProjectDraft');
+            // const unsubscribeDraft = draftRef.onSnapshot(docSnap => {
+            //     setProjectDraft(docSnap.exists ? docSnap.data() : null);
+            // });
 
             return () => {
                 unsubscribeSettings();
-                unsubscribeDraft();
+                // unsubscribeDraft();
             };
         }
     }, [user, googleMapsLoaded]);
@@ -238,10 +241,65 @@ window.App = () => { // Exposing App component globally
             displayNotification(`Error: ${error.message}`);
         }
     };
+    
+    const handleShowDeleteDraftConfirm = (draftId) => {
+        setDraftToDelete(draftId);
+    };
+    
+    const handleConfirmDeleteDraft = async (draftId) => {
+        if (!user) return;
+        try {
+            await db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId).delete();
+            displayNotification('Draft deleted successfully.');
+            setDraftToDelete(null); 
+        } catch (error) {
+            console.error("Error deleting draft:", error);
+            displayNotification(`Error: ${error.message}`);
+        }
+    };
+    
+    const handleResumeDraft = async (draftId) => {
+        if (!user) return;
+        const draftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId);
+        try {
+            const docSnap = await draftRef.get();
+            if (docSnap.exists()) {
+                setActiveDraftId(draftId);
+                setActiveProjectDraft({ id: docSnap.id, ...docSnap.data() });
+                setShowProjectSelection(false);
+                setShowNewProjectWizard(true);
+            } else {
+                displayNotification("Error: Draft not found.");
+            }
+        } catch (error) {
+            console.error("Error resuming draft:", error);
+            displayNotification(`Error: ${error.message}`);
+        }
+    };
 
-    const handleSelectWorkflow = (type) => {
+    const handleSelectWorkflow = async (type) => {
         setShowProjectSelection(false);
         if (type === 'post-trip') {
+             // Create a new draft document in Firestore
+            const newDraftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
+            const newDraftData = {
+                step: 1,
+                inputs: { location: '', theme: '' },
+                locations: [],
+                footageInventory: {},
+                keywordIdeas: [],
+                selectedKeywords: [],
+                editableOutline: null,
+                finalizedTitle: null,
+                finalizedDescription: null,
+                selectedTitle: '',
+                coverImageUrl: '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+            await newDraftRef.set(newDraftData);
+            setActiveDraftId(newDraftRef.id);
+            setActiveProjectDraft(newDraftData);
             setShowNewProjectWizard(true);
         } else if (type === 'import') {
             setCurrentView('importProject');
@@ -250,31 +308,28 @@ window.App = () => { // Exposing App component globally
 
     const handleAnalyzeImportedProject = async (projectData) => {
         setIsLoading(true);
-        // The general knowledge base for YouTube SEO might still be useful here for overall context
-        // const youtubeSeoKnowledgeBase = settings.knowledgeBases.youtube.youtubeSeoKnowledgeBase; 
-        // const styleGuide = settings.styleGuideText; // Use the combined style guide text
-
         if (!projectData.videos || projectData.videos.length === 0) {
             setIsLoading(false);
             displayNotification("No videos found to import. Please check the YouTube URL/ID.");
             return;
         }
-
-        // Set the editableOutline directly from imported projectData
-        setProjectDraft({
+    
+        // Create a new draft document in Firestore for the imported project
+        const newDraftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
+        const newDraftData = {
             step: 6, // Go directly to the review video plan step for imported projects
             editableOutline: {
-                playlistTitleSuggestions: [projectData.playlistTitle], // Use imported title as first suggestion
+                playlistTitleSuggestions: [projectData.playlistTitle],
                 playlistDescription: projectData.playlistDescription,
                 videos: projectData.videos.map(video => ({
                     ...video,
-                    script: video.script || '', // Preserve imported script or default empty
-                    metadata: video.metadata || '', // Preserve imported metadata or default empty
-                    publishDate: video.publishDate || '', // Preserve imported publishDate
-                    generatedThumbnails: video.generatedThumbnails || [], // Preserve imported thumbnails
-                    chosenTitle: video.chosenTitle || video.title, // Preserve chosen title
-                    tasks: video.tasks || { // Ensure tasks are initialized or preserved
-                        scripting: video.script ? 'complete' : 'pending', // If script exists, mark complete
+                    script: video.script || '',
+                    metadata: video.metadata || '',
+                    publishDate: video.publishDate || '',
+                    generatedThumbnails: video.generatedThumbnails || [],
+                    chosenTitle: video.chosenTitle || video.title,
+                    tasks: video.tasks || {
+                        scripting: video.script ? 'complete' : 'pending',
                         videoEdited: 'complete',
                         feedbackProvided: 'complete',
                         metadataGenerated: 'complete',
@@ -282,25 +337,36 @@ window.App = () => { // Exposing App component globally
                         videoUploaded: 'complete',
                         firstCommentGenerated: 'complete',
                     },
-                    // Removed stats and lastFetch from here as they are no longer stored from import
-                    status: 'accepted' // Mark imported videos as accepted by default
+                    status: 'accepted'
                 }))
             },
             inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
             locations: [], // Imported projects don't directly map to this part of the wizard
             footageInventory: {}, // Not applicable for imported projects
-            coverImageUrl: projectData.coverImageUrl || '', // Carry over the imported cover image
-            // Also need to set these so the wizard doesn't complain about missing data
+            coverImageUrl: projectData.coverImageUrl || '',
             keywordIdeas: [],
             selectedKeywords: [],
             finalizedTitle: projectData.playlistTitle,
             finalizedDescription: projectData.playlistDescription,
             selectedTitle: projectData.playlistTitle,
-        });
-        
-        setCurrentView('dashboard'); 
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+    
+        await newDraftRef.set(newDraftData);
+    
+        setActiveDraftId(newDraftRef.id);
+        setActiveProjectDraft(newDraftData);
+    
+        setCurrentView('dashboard');
         setShowNewProjectWizard(true);
         setIsLoading(false);
+    };
+    
+    const handleCloseWizard = () => {
+        setShowNewProjectWizard(false);
+        setActiveProjectDraft(null);
+        setActiveDraftId(null);
     };
 
     const renderView = () => {
@@ -341,9 +407,10 @@ window.App = () => { // Exposing App component globally
     return (
         <div className="min-h-screen"> 
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
+            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} />}
             {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} />}
+            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
+            {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} />}
             <main>
                 {renderView()}
             </main>
