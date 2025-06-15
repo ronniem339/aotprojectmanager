@@ -382,37 +382,56 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} 
                     onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
                 >
-                    {/* Content when script is available (either imported or generated/locked/revisited) */}
-                    {(initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' || initialScriptingStatus === 'revisited' || video.script) ? ( 
-                        <div>
-                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
-                            <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} /> {/* Allow editing if revisited */}
-                            {/* Show Fullscreen Script button if scriptContent exists */}
+                    <div>
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
+                        <textarea 
+                            value={scriptContent || ""} 
+                            onChange={(e) => setScriptContent(e.target.value)} 
+                            rows="10" 
+                            className="w-full form-textarea bg-gray-800/50"
+                            placeholder="Paste your script here, or click the button below to generate one with AI."
+                            readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} 
+                        />
+
+                        <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                            {!scriptContent && (
+                                <button 
+                                    onClick={() => handleGenerate('script')} 
+                                    disabled={generating === 'script'} 
+                                    className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2"
+                                >
+                                    {generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Script with AI'}
+                                </button>
+                            )}
+
                             {scriptContent && (
-                                <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                                <>
                                     <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
-                                    {/* Only show lock button if not already complete AND not being revisited (if it was already complete) */}
                                     {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
                                         <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="flex-grow px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
                                     ) : (
                                         <p className="flex-grow text-gray-400 text-sm flex items-center justify-center p-2 border border-gray-700 rounded-lg">Script is locked. Use "Revisit" to edit.</p>
                                     )}
-                                </div>
+                                </>
                             )}
-                            {/* Refinement section for existing script */}
-                            { (initialScriptingStatus !== 'complete' || initialScriptingStatus === 'revisited') && scriptContent && (
-                                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
-                                    <textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
-                                    <button onClick={() => handleGenerate('script', scriptContent, refinementText)} disabled={generating === 'script' || !refinementText} className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}</button>
-                                </div>
-                            )}
-                        </div> 
-                    ) : ( 
-                        // Content when script is not available and task is pending (needs generation)
-                        <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Script'}</button> 
-                    )}
+                        </div>
+
+                        {scriptContent && (initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited') && (
+                            <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
+                                <textarea value={refinementText} onChange={(e) => setRefinementText(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the tone more energetic' or 'Add a section about the local food'"/>
+                                <button 
+                                    onClick={() => handleGenerate('script', scriptContent, refinementText)} 
+                                    disabled={generating === 'script' || !refinementText} 
+                                    className="mt-2 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2"
+                                >
+                                    {generating === 'script' ? <window.LoadingSpinner/> : 'Refine with AI'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </Accordion>
+
 
                 <Accordion 
                     title="2. Edit Video" 
