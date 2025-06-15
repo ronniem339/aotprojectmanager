@@ -31,6 +31,9 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [finalizedDescription, setFinalizedDescription] = useState(initialDraft?.finalizedDescription || null);
     const [selectedTitle, setSelectedTitle] = useState(initialDraft?.selectedTitle || '');
 
+    // New state for cover image URL in NewProjectWizard
+    const [coverImageUrl, setCoverImageUrl] = useState(initialDraft?.coverImageUrl || '');
+
     // State for refinement inputs
     const [refinement, setRefinement] = useState('');
     const [refiningVideoIndex, setRefiningVideoIndex] = useState(null);
@@ -42,7 +45,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     // Persist state to Firestore to allow resuming
-    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle }, 1000);
+    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle, coverImageUrl }, 1000);
 
     useEffect(() => {
         // Set the selected title to the first suggestion when the outline is first loaded.
@@ -72,6 +75,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFinalizedTitle(null);
         setFinalizedDescription(null);
         setSelectedTitle('');
+        setCoverImageUrl(''); // Reset cover image URL
         setError('');
         setShowConfirmModal(false);
     };
@@ -308,6 +312,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                 playlistTitle: finalizedTitle,
                 playlistDescription: finalizedDescription,
                 locations: locations, // Save the full location objects
+                coverImageUrl: coverImageUrl, // Save the user-selected cover image URL
                 createdAt: new Date().toISOString()
             });
 
@@ -349,6 +354,22 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Key Message or Theme</label>
                                 <textarea name="theme" value={inputs.theme} onChange={(e) => setInputs(p => ({ ...p, theme: e.target.value }))} placeholder="e.g., 'Exploring ancient castles and misty lochs'" rows="3" className="w-full form-textarea"></textarea>
+                            </div>
+                            {/* New field for Cover Image URL in Step 1 */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Cover Image URL (Optional - for dashboard tile)</label>
+                                <input 
+                                    type="url" 
+                                    value={coverImageUrl} 
+                                    onChange={(e) => setCoverImageUrl(e.target.value)} 
+                                    className="w-full form-input" 
+                                    placeholder="Paste image URL here (e.g., from Unsplash)"
+                                />
+                                {coverImageUrl && (
+                                    <div className="mt-2 text-center">
+                                        <img src={coverImageUrl} alt="Project Cover Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: '100px', objectFit: 'cover' }} />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
