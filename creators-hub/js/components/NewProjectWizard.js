@@ -634,7 +634,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Focus more on the history of this place'"/>
                                                         <div className="flex justify-end gap-2 mt-2">
                                                             <button onClick={() => setRefiningVideoIndex(null)} className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-md">Cancel</button>
-                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-primary-accent hover:bg-primary-accent-darker rounded-md flex items-center gap-1">{isLoading ? <window.LoadingSpinner/> : 'Submit'}</button>
+                                                            <button onClick={() => handleRefineVideo(index)} disabled={!refinement || isLoading} className="text-xs px-3 py-1 bg-primary-accent hover:bg-primary-accent-darker rounded-md flex items-center gap-1">{isLoading ? <window.LoadingSpinner isButton={true} /> : 'Submit'}</button>
                                                         </div>
                                                      </div>
                                                 ) : (
@@ -673,20 +673,20 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      
                      {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next</button>}
                      
-                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner/> : '💡 Get Keyword Ideas'}</button>}
+                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
                      
-                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner/> : '🪄 Generate Project Plan'}</button>}
+                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
                      
                      {step === 4 && (
                         <>
-                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={handleRefineTitle} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🔁 Refine'}</button>
                             <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                         </>
                      )}
                      
                      {step === 5 && (
                         <>
-                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">🔁 Refine</button>
+                            <button onClick={handleRefineDescription} disabled={isLoading || !refinement} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🔁 Refine'}</button>
                             <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2">Accept & Continue ➡️</button>
                         </>
                      )}
@@ -694,7 +694,7 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                      {step === 6 && (
                         <>
                              <button onClick={handleAcceptAllVideos} disabled={isLoading || allVideosAccepted} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Accept All</button>
-                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner text="Finalizing..."/> : '✅ Finish & Create Project'}</button>
+                             <button onClick={handleCreateProject} disabled={isLoading || !allVideosAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed">{isLoading ? <window.LoadingSpinner isButton={true} text="Finalizing..." /> : '✅ Finish & Create Project'}</button>
                         </>
                      )}
                 </div>
