@@ -30,8 +30,11 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'scripting':
                 dataToReset = { script: '' };
                 break;
-            case 'feedbackProvided':
-                dataToReset = { 'tasks.feedbackText': '' };
+            case 'videoEdited': // Updated revisit logic for the combined task
+                dataToReset = { 
+                    'tasks.feedbackText': '',
+                    'tasks.musicTrack': ''
+                 };
                 break;
             case 'metadataGenerated':
                 dataToReset = {
@@ -54,7 +57,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'firstCommentGenerated':
                 dataToReset = { 'tasks.firstComment': '' };
                 break;
-            // No specific data reset is needed for 'videoEdited' or 'videoUploaded'
             default:
                 break;
         }
@@ -77,10 +79,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         switch (task.id) {
             case 'scripting':
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-            case 'videoEdited':
-                return <window.SimpleConfirmationTask status={status} onUpdate={() => updateTask(task.id, 'complete')} />;
-            case 'feedbackProvided':
-                 return <window.LogChangesTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
+            case 'videoEdited': // Render the new EditVideoTask component
+                return <window.EditVideoTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
+            // The 'feedbackProvided' case is now removed.
             case 'metadataGenerated':
                 return <window.MetadataTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'thumbnailsGenerated':
@@ -99,7 +100,11 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
-                    const status = video.tasks?.[task.id] || 'pending';
+                    let status = video.tasks?.[task.id] || 'pending';
+                    // The Accordion needs to know about the 'in-progress' state
+                    if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
+                        status = 'in-progress';
+                    }
                     const locked = isTaskLocked(index);
                     
                     return (
