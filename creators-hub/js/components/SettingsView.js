@@ -1,69 +1,72 @@
-// js/components/SettingsView.js
+// js/components/SettingsMenu.js
 
-window.SettingsView = ({ settings, onSave, onBack }) => {
-    const [localSettings, setLocalSettings] = useState(settings);
+const { useState, useEffect, useRef } = React;
+
+window.SettingsMenu = ({ onBack, onShowTechnicalSettings, onShowStyleAndTone, onShowKnowledgeBases }) => {
+    const modalRef = useRef(null); // Create a ref for the modal content
 
     useEffect(() => {
-        setLocalSettings(settings);
-    }, [settings]);
+        const handleClickOutside = (event) => {
+            if (modalRef.current && !modalRef.current.contains(event.target)) {
+                onBack(); // Close the modal if clicked outside
+            }
+        };
 
-    const handleSave = () => {
-        onSave(localSettings);
-    };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [onBack]); // Re-run effect if onBack changes
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setLocalSettings(prev => ({ ...prev, [name]: value }));
-    };
+    const settingsOptions = [
+        {
+            type: 'technical',
+            title: 'Technical Settings',
+            description: 'Manage API keys and other technical configurations.',
+            icon: '🔧',
+            onClick: onShowTechnicalSettings,
+            enabled: true,
+        },
+        {
+            type: 'style-tone',
+            title: 'Style & Tone',
+            description: 'Train the AI on your unique creative style.',
+            icon: '🎨',
+            onClick: onShowStyleAndTone,
+            enabled: true,
+        },
+        {
+            type: 'knowledge-bases',
+            title: 'Knowledge Bases',
+            description: 'Manage the AI\'s informational knowledge.',
+            icon: '📚',
+            onClick: onShowKnowledgeBases,
+            enabled: true,
+        }
+    ];
 
     return (
-        <div className="p-8">
-            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ Back to Settings Menu
-            </button>
-            <h1 className="text-4xl font-bold mb-4">Technical Settings</h1>
-            <p className="text-gray-400 mb-8">Manage your API keys.</p>
-            <div className="space-y-6 max-w-2xl">
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Your Gemini API Key</label>
-                    <input
-                        type="password"
-                        name="geminiApiKey"
-                        value={localSettings.geminiApiKey || ''}
-                        onChange={handleChange}
-                        className="w-full form-input"
-                        placeholder="Enter your Gemini API Key"
-                    />
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+            <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative"> {/* Attach ref here */}
+                <button onClick={onBack} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                <h2 className="text-3xl font-bold mb-2 text-center">⚙️ Settings</h2>
+                <p className="text-gray-400 mb-8 text-center">Choose a settings category to manage.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {settingsOptions.map(option => (
+                        <button
+                            key={option.type}
+                            onClick={option.onClick}
+                            disabled={!option.enabled}
+                            className={`p-6 rounded-lg text-left transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex flex-col justify-between items-start ${option.enabled ? 'bg-gray-800/60 hover:bg-gray-700/80 border border-gray-700' : 'bg-gray-800/40 border-gray-700'}`}
+                        >
+                            <div>
+                                <span className="text-4xl">{option.icon}</span>
+                                <h3 className="text-xl font-bold mt-4">{option.title}</h3>
+                                <p className="text-sm text-gray-400 mt-2">{option.description}</p>
+                            </div>
+                        </button>
+                    ))}
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Your Google Maps API Key</label>
-                    <input
-                        type="password"
-                        name="googleMapsApiKey"
-                        value={localSettings.googleMapsApiKey || ''}
-                        onChange={handleChange}
-                        className="w-full form-input"
-                        placeholder="Enter your Google Maps API Key (for location search)"
-                    />
-                </div>
-                {/* NEW: YouTube Data API Key */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Your YouTube Data API Key</label>
-                    <input
-                        type="password"
-                        name="youtubeApiKey"
-                        value={localSettings.youtubeApiKey || ''}
-                        onChange={handleChange}
-                        className="w-full form-input"
-                        placeholder="Enter your YouTube Data API Key"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Required for importing YouTube playlists/videos.</p>
-                </div>
-            </div>
-            <div className="mt-8 text-right max-w-2xl">
-                <button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">
-                    Save Settings
-                </button>
             </div>
         </div>
     );
