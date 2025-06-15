@@ -29,10 +29,10 @@ window.CREATOR_HUB_CONFIG = {
   `,
 
   // Define TASK_PIPELINE globally in config
+  // **FIX**: Combined 'Edit Video' and 'Log Changes' into a single task.
   TASK_PIPELINE: [
       { id: 'scripting', title: 'Scripting & Recording' },
-      { id: 'videoEdited', title: 'Edit Video' },
-      { id: 'feedbackProvided', title: 'Log Changes' },
+      { id: 'videoEdited', title: 'Edit Video & Log Changes' },
       { id: 'metadataGenerated', title: 'Generate Metadata' },
       { id: 'thumbnailsGenerated', title: 'Generate Thumbnails' },
       { id: 'videoUploaded', title: 'Upload to YouTube' },
