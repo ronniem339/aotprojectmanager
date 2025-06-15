@@ -4,10 +4,10 @@ window.ConfirmationModal = ({ onConfirm, onCancel }) => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
         <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
             <h3 className="text-2xl font-bold mb-4">Are you sure?</h3>
-            <p className="text-gray-300 mb-6">Starting over will permanently delete your current draft for this new project. This cannot be undone.</p>
+            <p className="text-gray-300 mb-6">This action will permanently delete your current draft. This cannot be undone.</p>
             <div className="flex justify-center gap-4">
                 <button onClick={onCancel} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
-                <button onClick={onConfirm} className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold">Yes, Start Over</button>
+                <button onClick={onConfirm} className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold">Yes, Delete Draft</button>
             </div>
         </div>
     </div>
@@ -74,10 +74,28 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         }
     }, [debouncedState, userId, draftId]);
 
+    const handleClose = async () => {
+        const isPristine = !inputs.location && !inputs.theme && (locations?.length || 0) === 0 && !coverImageUrl;
+    
+        if (isPristine && draftId) {
+            try {
+                const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
+                await draftRef.delete();
+            } catch (error) {
+                console.error("Failed to delete pristine draft on close:", error);
+            }
+        }
+        onClose(); // Call the original onClose from App.js to hide the modal
+    };
+
     const handleStartOver = async () => {
         if (draftId) {
-            const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
-            await draftRef.delete();
+            try {
+                const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
+                await draftRef.delete();
+            } catch (error) {
+                console.error("Failed to delete draft:", error);
+            }
         }
         setShowConfirmModal(false);
         onClose();
@@ -676,12 +694,12 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
 
     return (
         // Outer fixed div acts as the overlay. Clicking it closes the modal.
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4" onClick={handleClose}>
             {showConfirmModal && <window.ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
             {/* Inner modal content. Clicks inside should not close the modal. */}
             <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex-shrink-0">
-                    <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                    <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
                 <div className="flex-grow overflow-y-auto"> {/* This div should also allow scrolling if the entire wizard content is too tall */}
                     {wizardStep()}
