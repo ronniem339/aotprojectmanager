@@ -142,14 +142,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
                 const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
-
-                // If generating more titles, just update the suggestions in the existing metadata
-                if (generating === 'titles') {
-                    const newMetadata = { ...metadata, titleSuggestions: parsedJson.titleSuggestions };
-                     await updateTask('metadataGenerated', 'complete', { metadata: JSON.stringify(newMetadata) });
-                } else {
-                    await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson) });
-                }
+                await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(parsedJson) });
             }
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
@@ -178,9 +171,31 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
         });
     };
     
-    const handleGenerateMoreTitles = () => {
-        setRejectedTitles([...rejectedTitles, ...metadata.titleSuggestions]);
-        handleGenerate('metadata');
+    const handleGenerateMoreTitles = async () => {
+        setGenerating('titles');
+        const allPreviousTitles = [...(metadata?.titleSuggestions || []), ...rejectedTitles];
+        
+        const prompt = `Act as a YouTube SEO expert. Based on the video script provided below, generate 3 new, creative YouTube titles.
+Video Script:
+---
+${video.script}
+---
+IMPORTANT: Avoid generating titles similar to these ones that have already been seen: ${allPreviousTitles.join(', ')}.
+Your response MUST be a valid JSON object with a single key "titleSuggestions" containing an array of 3 strings. Example: {"titleSuggestions": ["New Title 1", "New Title 2", "New Title 3"]}`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey, { responseMimeType: "application/json" });
+            if (parsedJson && parsedJson.titleSuggestions) {
+                const newMetadata = { ...metadata, titleSuggestions: parsedJson.titleSuggestions };
+                await updateTask('metadataGenerated', 'pending', { metadata: JSON.stringify(newMetadata), 'tasks.rejectedTitles': allPreviousTitles });
+            } else {
+                throw new Error("AI returned an invalid format for title suggestions.");
+            }
+        } catch (error) {
+            console.error("Error generating more titles:", error);
+        } finally {
+            setGenerating(null);
+        }
     };
 
     const handleThumbnailDecision = async (decision) => {
@@ -323,8 +338,8 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={handleGenerateMoreTitles} disabled={generating === 'titles'} className="mt-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500">
-                                        {generating === 'titles' ? <window.LoadingSpinner/> : 'Generate More'}
+                                    <button onClick={handleGenerateMoreTitles} disabled={generating === 'titles'} className="mt-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center">
+                                        {generating === 'titles' ? <window.LoadingSpinner /> : 'Generate More'}
                                     </button>
                                 </div>
                             )}
