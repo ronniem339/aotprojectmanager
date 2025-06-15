@@ -208,7 +208,7 @@ Your task is to analyze this data and generate a complete project plan to help t
     const renderView = () => {
         switch (currentView) {
             case 'project':
-                return <ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} />;
+                return <ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
             case 'settings':
                 return <SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
             case 'myStudio':
