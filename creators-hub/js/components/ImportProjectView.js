@@ -1,10 +1,12 @@
 // js/components/ImportProjectView.js
 
+const { useState, useEffect } = React; // Add React import for useState and useEffect
+
 window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     const [youtubeUrlOrId, setYoutubeUrlOrId] = useState('');
     const [fetchError, setFetchError] = useState('');
     const [isFetchingYoutube, setIsFetchingYoutube] = useState(false);
-    const [fetchedYoutubeData, setFetchedYoutubeData] = useState(null); // { playlistTitle, playlistDescription, videos: [{id, title, description, thumbnailUrl}] }
+    const [fetchedYoutubeData, setFetchedYoutubeData] = useState(null); // { playlistTitle, playlistDescription, videos: [{id, title, description, thumbnailUrl, chapters}] }
     
     // States for user review and AI parsing steps
     const [manualPlaylistTitle, setManualPlaylistTitle] = useState('');
@@ -13,17 +15,18 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     const [videosToImport, setVideosToImport] = useState([{
         id: `manual-${Date.now()}-0`, // Unique ID for manual entry
         title: '',
-        concept: '',
+        concept: '', // This will hold the cleaned description
         script: '',
         locations_featured: [],
         targeted_keywords: [],
         estimatedLengthMinutes: '',
         thumbnailUrl: '', // No thumbnail for manual
         isManual: true, // Flag to identify manual entries
-        status: 'pending'
+        status: 'pending',
+        chapters: [] // Store extracted chapters here
     }]);
 
-    // Regex to extract Playlist ID or Video ID from YouTube URLs
+    // Helper to extract Playlist ID or Video ID from YouTube URLs
     const extractYoutubeId = (url) => {
         const playlistIdMatch = url.match(/[?&]list=([^&]+)/);
         if (playlistIdMatch && playlistIdMatch[1]) {
@@ -42,6 +45,64 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         }
         return null;
     };
+
+    /**
+     * Extracts chapter timestamps and titles from a YouTube video description.
+     * @param {string} description The raw YouTube video description.
+     * @returns {Array<{timestamp: string, title: string}>} An array of chapter objects.
+     */
+    const extractChaptersFromDescription = (description) => {
+        const chapterLines = [];
+        const lines = description.split('\n');
+        // Regex to match common chapter formats like HH:MM:SS, MM:SS, H:MM:SS followed by text
+        const chapterRegex = /(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–—]?\s*(.*)/;
+
+        lines.forEach(line => {
+            const match = line.match(chapterRegex);
+            if (match) {
+                const timestamp = match[1];
+                const title = match[2].trim();
+                // Basic validation: ensure title is not empty or just punctuation
+                if (title && !/^[.,\/#!$%\^&\*;:{}=\-_`~()]*$/.test(title)) {
+                    chapterLines.push({ timestamp, title });
+                }
+            }
+        });
+        return chapterLines;
+    };
+
+    /**
+     * Cleans a YouTube video description by removing URLs, hashtags, and optionally chapter lines.
+     * @param {string} description The raw YouTube video description.
+     * @param {Array<{timestamp: string, title: string}>} chapters An array of extracted chapter objects.
+     * @returns {string} The cleaned description.
+     */
+    const cleanVideoDescription = (description, chapters) => {
+        let cleaned = description;
+
+        // 1. Remove chapter lines
+        if (chapters && chapters.length > 0) {
+            chapters.forEach(chapter => {
+                // Escape special characters in the chapter title for regex
+                const escapedTitle = chapter.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Create a regex to match the full chapter line (timestamp and title)
+                const chapterLineRegex = new RegExp(`(\\d{1,2}:\\d{2}(?::\\d{2})?)\\s*[-–—]?\\s*${escapedTitle}`, 'g');
+                cleaned = cleaned.replace(chapterLineRegex, '');
+            });
+        }
+        
+        // 2. Remove URLs (http, https, www, or just .com/.org etc. followed by path)
+        cleaned = cleaned.replace(/(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.(com|org|net|io|co|app)\/[^\s]*)/g, '');
+
+        // 3. Remove hashtags (e.g., #TravelVlog #Adventure)
+        cleaned = cleaned.replace(/#\w+/g, '');
+
+        // 4. Remove excessive newlines, trim whitespace
+        cleaned = cleaned.replace(/\n\s*\n/g, '\n\n').trim();
+
+        return cleaned;
+    };
+
 
     const fetchYoutubeData = async () => {
         const apiKey = settings.youtubeApiKey;
@@ -105,11 +166,17 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
 
             data.items.forEach(item => {
                 if (item.snippet.resourceId.kind === 'youtube#video') {
+                    const rawDescription = item.snippet.description || '';
+                    const extractedChapters = extractChaptersFromDescription(rawDescription);
+                    const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
+
                     videos.push({
                         id: item.snippet.resourceId.videoId,
                         title: item.snippet.title,
-                        description: item.snippet.description,
-                        thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url
+                        description: rawDescription, // Keep raw for reference if needed, but use concept for AI
+                        concept: cleanedConcept, // Use cleaned description as concept
+                        thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+                        chapters: extractedChapters // Store extracted chapters
                     });
                 }
             });
@@ -125,11 +192,10 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             const newFetchedVideos = videos.map(video => ({
                 ...video,
-                concept: video.description, // Initial concept from YouTube description
                 script: '', // Transcripts need separate fetching/AI parsing
                 locations_featured: [],
                 targeted_keywords: [],
-                estimatedLengthMinutes: '', // Placeholder, would need YouTube API for video duration
+                estimatedLengthMinutes: '', // Placeholder, would need YouTube API for video duration if not already fetched
                 isManual: false, // Flag to identify fetched entries
                 status: 'pending' // For internal review process
             }));
@@ -159,12 +225,18 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             return (hours * 60 + minutes + Math.round(seconds / 60)).toString();
         };
 
+        const rawDescription = videoSnippet.description || '';
+        const extractedChapters = extractChaptersFromDescription(rawDescription);
+        const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
+
         const fetchedVideo = {
             id: videoId,
             title: videoSnippet.title,
-            description: videoSnippet.description,
+            description: rawDescription, // Keep raw for reference if needed
+            concept: cleanedConcept, // Use cleaned description as concept
             thumbnailUrl: videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
-            estimatedLengthMinutes: parseDuration(contentDetails.duration)
+            estimatedLengthMinutes: parseDuration(contentDetails.duration),
+            chapters: extractedChapters // Store extracted chapters
         };
 
         setFetchedYoutubeData({
@@ -178,7 +250,6 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             const newFetchedVideo = {
                 ...fetchedVideo,
-                concept: fetchedVideo.description,
                 script: '',
                 locations_featured: [],
                 targeted_keywords: [],
@@ -208,7 +279,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 estimatedLengthMinutes: '',
                 thumbnailUrl: '',
                 isManual: true,
-                status: 'pending'
+                status: 'pending',
+                chapters: [] // New manual videos start with no chapters
             }
         ]);
     };
@@ -244,7 +316,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 script: v.script,
                 estimatedLengthMinutes: v.estimatedLengthMinutes,
                 locations_featured: v.locations_featured,
-                targeted_keywords: v.targeted_keywords
+                targeted_keywords: v.targeted_keywords,
+                chapters: v.chapters || [] // Ensure chapters are passed along
             })),
         };
         onAnalyze(projectData);
@@ -332,7 +405,13 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                             )}
                                         </div>
                                         {video.description && !video.isManual && (
-                                            <p className="text-sm text-gray-400 mt-1 mb-2 line-clamp-2">{video.description}</p>
+                                            <p className="text-sm text-gray-400 mt-1 mb-2 line-clamp-2">
+                                                {/* Display the original raw description, or show a warning if chapters were extracted */}
+                                                {video.chapters && video.chapters.length > 0 && (
+                                                    <span className="text-amber-400">Chapters extracted. Raw description contains links/hashtags and chapters.</span>
+                                                )}
+                                                {!video.chapters || video.chapters.length === 0 ? video.description : ''}
+                                            </p>
                                         )}
                                         <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
                                         <input
@@ -344,12 +423,22 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                         />
                                         <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept / Summary</label>
                                         <textarea 
-                                            value={video.concept} 
+                                            value={video.concept} // This now holds the cleaned description
                                             onChange={(e) => handleVideoImportChange(index, 'concept', e.target.value)} 
                                             rows="3" 
                                             className="w-full form-textarea" 
                                             placeholder="AI will help summarize this later, or you can edit."
                                         ></textarea>
+                                        {video.chapters && video.chapters.length > 0 && (
+                                            <div className="mt-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                                                <h4 className="text-xs font-semibold text-gray-400 mb-1">Extracted Chapters:</h4>
+                                                <ul className="text-sm text-gray-300">
+                                                    {video.chapters.map((chap, i) => (
+                                                        <li key={i}>{chap.timestamp} - {chap.title}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                         <div className="flex gap-2 mt-2">
                                             {/* This button will trigger AI parsing for this specific video */}
                                             <button onClick={() => handleAIAnalyzeVideo(video, index)} disabled={video.status === 'processed'} className="px-3 py-1 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:bg-gray-500">
