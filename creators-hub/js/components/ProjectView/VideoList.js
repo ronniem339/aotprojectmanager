@@ -54,7 +54,8 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
                                  onDragOver={handleDragOver}
                                  onDrop={(e) => handleDrop(e, video)}
                                  onDragEnd={handleDragEnd}
-                                 className={`flex items-center gap-2 rounded-lg transition-colors cursor-pointer relative group p-2 pr-1
+                                 // Added flex-nowrap to prevent content from forcing horizontal scroll
+                                 className={`flex items-center flex-nowrap gap-2 rounded-lg transition-colors cursor-pointer relative group p-2 pr-1
                                              ${isDragging ? 'opacity-50 border border-primary-accent' : ''} 
                                              ${isActive ? 'bg-primary-accent text-gray-900 shadow-lg' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}
                             >
@@ -63,9 +64,10 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                                 </div>
                                 {/* Video Info and Progress */}
+                                {/* flex-grow and min-w-0 ensures text truncates without pushing content */}
                                 <button
                                     onClick={() => onSelectVideo(video.id)}
-                                    className={`flex-grow text-left flex flex-col ${isActive ? 'text-gray-900' : 'text-white'}`}
+                                    className={`flex-grow min-w-0 text-left flex flex-col ${isActive ? 'text-gray-900' : 'text-white'}`}
                                 >
                                     <p className="font-semibold text-sm leading-tight truncate">{video.chosenTitle || video.title}</p>
                                     <div className="w-full bg-gray-600 rounded-full h-1 mt-1">
