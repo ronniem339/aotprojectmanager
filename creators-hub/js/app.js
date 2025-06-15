@@ -160,7 +160,7 @@ window.App = () => { // Exposing App component globally
         const styleGuide = settings.styleGuideText ? `This is the user's personal style guide:\n${settings.styleGuideText}` : "No specific style guide was provided.";
 
         const prompt = `You are a professional YouTube producer tasked with analyzing an imported, partially complete project.
-The user has provided the following data:
+A user has provided the following data:
 - Playlist Title: "${projectData.playlistTitle}"
 - Overall Project Plan/Concept: "${projectData.projectOutline || 'Not provided'}"
 - Existing Playlist Description: "${projectData.playlistDescription || 'Not provided'}"
