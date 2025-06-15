@@ -18,9 +18,13 @@ const loadGoogleMapsScript = (apiKey, callback) => {
     }
     const existingScript = document.getElementById('googleMaps');
     if (existingScript) {
-        setTimeout(() => {
-            if (window.google?.maps?.places && callback) callback();
-        }, 500);
+        // If script tag exists, but window.google is not ready, wait a bit.
+        const checkGoogle = setInterval(() => {
+            if (window.google?.maps?.places) {
+                clearInterval(checkGoogle);
+                if (callback) callback();
+            }
+        }, 100);
         return;
     }
     const script = document.createElement('script');
@@ -30,6 +34,7 @@ const loadGoogleMapsScript = (apiKey, callback) => {
     script.onload = () => { if (callback) callback() };
     script.onerror = () => console.error("Google Maps script failed to load.");
 };
+
 
 const LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>{text && <p className="mt-3 text-sm text-gray-400">{text}</p>}</div>);
 
@@ -76,4 +81,128 @@ const DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
             </div>
         </div>
     );
+};
+
+// Reusable component for location searching
+const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
+    const inputRef = useRef(null);
+    const autocompleteRef = useRef(null);
+    const geocoderRef = useRef(null);
+
+    const determineDefaultImportance = (types) => {
+        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
+        if (types.some(type => majorTypes.includes(type))) {
+            return 'major';
+        }
+        return 'quick';
+    };
+
+    useEffect(() => {
+        if (!inputRef.current || !window.google?.maps?.places) return;
+        
+        if (!geocoderRef.current) {
+            geocoderRef.current = new window.google.maps.Geocoder();
+        }
+
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
+        autocompleteRef.current.setFields(['place_id', 'name', 'geometry', 'types']);
+
+        const placeChangedListener = () => {
+            const place = autocompleteRef.current.getPlace();
+            if (place && place.geometry && place.types) {
+                const newLocation = {
+                    name: place.name,
+                    place_id: place.place_id,
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
+                    importance: determineDefaultImportance(place.types),
+                    types: place.types
+                };
+                if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
+                    onLocationsChange([...existingLocations, newLocation]);
+                }
+                if (inputRef.current) {
+                    inputRef.current.value = '';
+                }
+            }
+        };
+        const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter' && !e.defaultPrevented) {
+                e.preventDefault();
+                const firstSuggestion = document.querySelector('.pac-container .pac-item');
+                if (firstSuggestion) {
+                    const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
+                    const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
+                    const fullAddress = `${mainText} ${secondaryText}`.trim();
+                    
+                    if (fullAddress && geocoderRef.current) {
+                        geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
+                            if (status === 'OK' && results[0]) {
+                                const place = results[0];
+                                const newLocation = {
+                                    name: mainText || place.formatted_address.split(',')[0],
+                                    place_id: place.place_id,
+                                    lat: place.geometry.location.lat(),
+                                    lng: place.geometry.location.lng(),
+                                    importance: determineDefaultImportance(place.types),
+                                    types: place.types
+                                };
+                                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
+                                    onLocationsChange([...existingLocations, newLocation]);
+                                }
+                                if (inputRef.current) {
+                                    inputRef.current.value = '';
+                                }
+                            } else {
+                                console.error('Geocode was not successful for the following reason: ' + status);
+                            }
+                        });
+                    }
+                }
+            }
+        };
+
+        const inputElement = inputRef.current;
+        inputElement.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            if (window.google?.maps?.event && placeChangedListenerHandle) {
+                window.google.maps.event.removeListener(placeChangedListenerHandle);
+            }
+            if (inputElement) {
+                inputElement.removeEventListener('keydown', handleKeyDown);
+            }
+            const pacContainers = document.querySelectorAll('.pac-container');
+            pacContainers.forEach(container => container.remove());
+        };
+    }, [onLocationsChange, existingLocations]);
+
+    const removeLocation = (place_id) => {
+        onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
+    };
+
+    return (
+        <div>
+            <input 
+                ref={inputRef} 
+                type="text" 
+                placeholder="Search for and add locations..." 
+                className="w-full form-input" 
+            />
+            <div className="flex flex-wrap gap-2 mt-3">
+                {existingLocations.map((loc) => (
+                    <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                        <span>{loc.name}</span>
+                        <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const MockLocationSearchInput = () => {
+    return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
 };
