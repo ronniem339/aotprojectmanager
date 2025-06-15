@@ -23,12 +23,12 @@ const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
     const statusClasses = useMemo(() => {
         if (status === 'complete') return 'bg-green-500 border-green-500';
         if (status === 'locked') return 'bg-amber-500 border-amber-500';
-        if (isCurrent) return 'bg-primary-accent border-primary-accent'; /* Changed from indigo-500 */
+        if (isCurrent) return 'bg-primary-accent border-primary-accent';
         return 'bg-gray-700 border-gray-600';
     }, [status, isCurrent]);
 
     return (
-        <div className={`glass-card p-4 rounded-lg transition-all ${isLocked ? 'opacity-50' : ''} ${isCurrent ? 'border-2 border-primary-accent' : 'border border-gray-700'}`}> {/* Changed from indigo-500 */}
+        <div className={`glass-card p-4 rounded-lg transition-all ${isLocked ? 'opacity-50' : ''} ${isCurrent ? 'border-2 border-primary-accent' : 'border border-gray-700'}`}>
             <div className="flex justify-between items-center cursor-pointer" onClick={() => !isCurrent && setIsExpanded(!isExpanded)}>
                 <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${statusClasses}`}>
@@ -37,7 +37,7 @@ const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
                     <h4 className="text-lg font-semibold">{title}</h4>
                 </div>
                 {status === 'complete' && onRevisit && (
-                     <button onClick={(e) => { e.stopPropagation(); onRevisit(); }} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-3 py-1 rounded-full hover:bg-gray-700">Revisit</button> {/* Changed from text-blue-400, hover:text-blue-300 */}
+                     <button onClick={(e) => { e.stopPropagation(); onRevisit(); }} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-3 py-1 rounded-full hover:bg-gray-700">Revisit</button> {/* Corrected comment syntax */}
                 )}
             </div>
             {isExpanded && <div className="mt-4 pt-4 border-t border-gray-700">{children}</div>}
@@ -212,8 +212,8 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
             <div className="space-y-3">
                  <div className="glass-card p-6 rounded-lg mb-6">
                     <div className="flex justify-between items-start">
-                        <h3 className="text-2xl font-bold text-primary-accent mb-3">{video.chosenTitle || video.title}</h3> {/* Changed from text-blue-300 */}
-                        <button onClick={() => setIsConceptVisible(!isConceptVisible)} className="text-xs text-secondary-accent hover:text-secondary-accent-light flex-shrink-0 ml-4"> {/* Changed from text-blue-400, hover:text-blue-300 */}
+                        <h3 className="text-2xl font-bold text-primary-accent mb-3">{video.chosenTitle || video.title}</h3>
+                        <button onClick={() => setIsConceptVisible(!isConceptVisible)} className="text-xs text-secondary-accent hover:text-secondary-accent-light flex-shrink-0 ml-4">
                             {isConceptVisible ? 'Hide Concept' : 'Show Concept'}
                         </button>
                     </div>
@@ -223,11 +223,11 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     <div className="space-y-3 pt-4 border-t border-gray-700">
                         <div>
                             <span className="text-xs font-semibold text-gray-400 block mb-2">LOCATIONS FEATURED:</span>
-                            {video.locations_featured?.length > 0 ? ( <div className="flex flex-wrap items-center gap-2">{video.locations_featured.map(loc => ( <span key={loc} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{loc}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No locations listed.</p>)} {/* Changed from bg-sky-800, text-sky-200 */}
+                            {video.locations_featured?.length > 0 ? ( <div className="flex flex-wrap items-center gap-2">{video.locations_featured.map(loc => ( <span key={loc} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{loc}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No locations listed.</p>)}
                         </div>
                         <div>
                             <span className="text-xs font-semibold text-gray-400 block mb-2">TARGETED KEYWORDS:</span>
-                            {video.targeted_keywords?.length > 0 ? (<div className="flex flex-wrap items-center gap-2">{video.targeted_keywords.map(kw => ( <span key={kw} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{kw}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No keywords targeted.</p>)} {/* Changed from bg-teal-800, text-teal-200 */}
+                            {video.targeted_keywords?.length > 0 ? (<div className="flex flex-wrap items-center gap-2">{video.targeted_keywords.map(kw => ( <span key={kw} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{kw}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No keywords targeted.</p>)}
                         </div>
                     </div>
                 </div>
@@ -251,7 +251,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                      ( metadata ? <div className="space-y-6">
                          <div>
                              <label className="block text-sm font-semibold text-gray-400 mb-2">Title Suggestions</label>
-                             <div className="space-y-2">{metadata.titleSuggestions.map(title => ( <label key={title} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 cursor-pointer"><input type="radio" name={`title-${video.id}`} value={title} checked={video.chosenTitle === title} onChange={() => updateTask('metadataGenerated', 'complete', { chosenTitle: title })} className="h-4 w-4 bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/><span>{title}</span></label>))}</div> {/* Changed from text-indigo-600, focus:ring-indigo-500 */}
+                             <div className="space-y-2">{metadata.titleSuggestions.map(title => ( <label key={title} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 cursor-pointer"><input type="radio" name={`title-${video.id}`} value={title} checked={video.chosenTitle === title} onChange={() => updateTask('metadataGenerated', 'complete', { chosenTitle: title })} className="h-4 w-4 bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/><span>{title}</span></label>))}</div>
                          </div>
                          <div>
                              <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Description</label><CopyButton textToCopy={metadata.description} /></div>
@@ -270,7 +270,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 </TaskItem>
                 
                 <TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'tasks.generatedThumbnails': [] })}>
-                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{tasks.generatedThumbnails?.map((base64, index) => ( <img key={index} src={`data:image/png;base64,${base64}`} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )} {/* Changed from indigo-600 */}
+                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{tasks.generatedThumbnails?.map((base64, index) => ( <img key={index} src={`data:image/png;base64,${base64}`} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )}
                 </TaskItem>
 
                 <TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', 'pending')}>
