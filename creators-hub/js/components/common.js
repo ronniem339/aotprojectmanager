@@ -45,7 +45,98 @@ window.ImageComponent = ({ src, alt, className }) => {
     return <img src={imgSrc || placeholder} alt={alt} className={className} onError={() => setImgSrc(placeholder)} />;
 };
 
-window.LoginScreen = ({ onLogin }) => (<div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white"><h1 className="text-5xl font-bold mb-4">Creator's Hub</h1><p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p><button onClick={onLogin} className="px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105">Start Creating</button></div>);
+
+// Updated LoginScreen component for email/password authentication
+window.LoginScreen = ({ onLogin }) => {
+    const [isRegister, setIsRegister] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+        try {
+            if (isRegister) {
+                // Register new user with email and password
+                await auth.createUserWithEmailAndPassword(email, password);
+            } else {
+                // Sign in existing user with email and password
+                await auth.signInWithEmailAndPassword(email, password);
+            }
+            // onLogin is likely just setting a state to hide this screen,
+            // Firebase's onAuthStateChanged will handle actual user state
+            onLogin(); 
+        } catch (err) {
+            console.error("Authentication error:", err);
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white p-4">
+            <h1 className="text-5xl font-bold mb-4">Creator's Hub</h1>
+            <p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p>
+
+            <div className="glass-card p-8 rounded-lg w-full max-w-md">
+                <h2 className="text-3xl font-bold text-center mb-6">
+                    {isRegister ? 'Register' : 'Login'}
+                </h2>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="email">Email</label>
+                        <input
+                            type="email"
+                            id="email"
+                            className="form-input"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="password">Password</label>
+                        <input
+                            type="password"
+                            id="password"
+                            className="form-input"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 disabled:bg-gray-500"
+                    >
+                        {isLoading ? <window.LoadingSpinner /> : (isRegister ? 'Register Account' : 'Login')}
+                    </button>
+                </form>
+
+                <div className="mt-6 text-center">
+                    <button
+                        onClick={() => setIsRegister(!isRegister)}
+                        className="text-secondary-accent hover:text-secondary-accent-light text-sm"
+                    >
+                        {isRegister ? 'Already have an account? Login' : 'Need an account? Register here'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 
 window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
