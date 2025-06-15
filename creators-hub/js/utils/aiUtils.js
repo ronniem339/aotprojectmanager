@@ -35,7 +35,13 @@ window.aiUtils = {
             throw new Error(err?.error?.message || 'API Error');
         }
         const result = await response.json();
-        return JSON.parse(result.candidates[0].content.parts[0].text);
+        // Ensure the response is parsed as JSON. If the API returns raw text unexpectedly, this might fail.
+        try {
+            return JSON.parse(result.candidates[0].content.parts[0].text);
+        } catch (e) {
+            console.error("Failed to parse AI response as JSON:", result.candidates[0].content.parts[0].text, e);
+            throw new Error("AI response was not valid JSON.");
+        }
     },
 
     /**
@@ -47,13 +53,17 @@ window.aiUtils = {
      * @param {Array<string>} params.locationsFeatured - Array of featured location names.
      * @param {string} params.projectTitle - The overall project/playlist title.
      * @param {string} params.projectDescription - The overall project/playlist description.
-     * @param {object} params.settings - User settings containing API key.
+     * @param {object} params.settings - User settings containing API key and knowledge bases.
      * @returns {Promise<Array<string>>} - A promise that resolves to an array of keyword strings.
      * @throws {Error} If the API call fails or returns an invalid format.
      */
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
         const videoLocations = locationsFeatured.join(', ');
+        const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
+        const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
+        const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
+
 
         const prompt = `Act as a YouTube SEO expert and keyword research tool.
         Generate a list of 25-30 potential search terms.
@@ -64,6 +74,10 @@ window.aiUtils = {
         - Featured Locations: ${videoLocations.length > 0 ? videoLocations : 'None specified'}
         - Overall Project/Playlist Title: "${projectTitle}"
         - Overall Project/Playlist Description: "${projectDescription}"
+
+        ${youtubeSeoKb ? `YouTube SEO Best Practices: ${youtubeSeoKb}` : ''}
+        ${videoTitlesKb ? `YouTube Video Title Guidelines: ${videoTitlesKb}` : ''}
+        ${videoDescriptionsKb ? `YouTube Video Description Guidelines: ${videoDescriptionsKb}` : ''}
 
         Provide a mix of:
         - Short-tail keywords (e.g., "travel Cyprus")
@@ -88,13 +102,15 @@ window.aiUtils = {
      * @param {object} params - Parameters for metadata extraction.
      * @param {string} params.videoTitle - The title of the video.
      * @param {string} params.videoDescription - The raw description of the video.
-     * @param {object} params.settings - User settings containing API key.
+     * @param {object} params.settings - User settings containing API key and knowledge bases.
      * @returns {Promise<object>} - A promise that resolves to an object like:
      * `{"locations_featured": ["Location 1", "Location 2"], "targeted_keywords": ["keyword1", "keyword2"]}`.
      * @throws {Error} If the API call fails or returns an invalid format.
      */
     extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
+        const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
+
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Cannot extract video metadata.");
         }
@@ -105,6 +121,8 @@ window.aiUtils = {
         Video Title: "${videoTitle}"
         Video Description: "${videoDescription}"
         
+        ${youtubeSeoKb ? `YouTube SEO Best Practices Context: ${youtubeSeoKb}` : ''}
+
         Provide the output as a JSON object with two keys:
         - "locations_featured": An array of strings, listing inferred locations (e.g., ["Paris", "Eiffel Tower"]). If no specific locations can be inferred, return an empty array.
         - "targeted_keywords": An array of strings, listing relevant SEO keywords/tags (e.g., ["travel vlog", "Paris guide", "Eiffel Tower climb"]). Include about 10-15 keywords.
