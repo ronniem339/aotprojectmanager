@@ -117,12 +117,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const fetchVideoStats = useCallback(async () => {
         setStatsErrorMessage('');
 
+        // Use video.youtubeVideoId for API call
         if (!settings.youtubeApiKey) {
             setStatsErrorMessage("YouTube Data API Key is not set in settings. Cannot fetch video statistics.");
             setIsFetchingStats(false);
             return;
         }
-        if (!video.id || video.tasks?.videoUploaded !== 'complete') {
+        // Only attempt to fetch if youtubeVideoId exists and video is marked as uploaded
+        if (!video.youtubeVideoId || video.tasks?.videoUploaded !== 'complete') {
             setStatsErrorMessage("Video is not marked as uploaded or YouTube ID is missing. Cannot fetch statistics.");
             setIsFetchingStats(false);
             return;
@@ -137,7 +139,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
         setIsFetchingStats(true);
         try {
-            const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.id}&key=${settings.youtubeApiKey}`;
+            // Use video.youtubeVideoId for the API call
+            const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.youtubeVideoId}&key=${settings.youtubeApiKey}`;
             const response = await fetch(statsApiUrl);
             const data = await response.json();
 
@@ -168,14 +171,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         } finally {
             setIsFetchingStats(false);
         }
-    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]);
+    }, [video.id, video.youtubeVideoId, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]);
 
 
     useEffect(() => {
-        if (video.tasks?.videoUploaded === 'complete' && video.id) {
+        // Trigger fetch only if video.youtubeVideoId exists and video is marked uploaded
+        if (video.youtubeVideoId && video.tasks?.videoUploaded === 'complete') {
             fetchVideoStats();
         }
-    }, [video.id, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]);
+    }, [video.youtubeVideoId, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]);
 
 
     const handleGenerate = async (type, currentContent, refinement) => {
@@ -358,8 +362,16 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     return (
         <main className="flex-grow"> {/* This width will now be controlled by ProjectView's flex layout */}
             <div className="space-y-4"> {/* Increased gap for overall cleaner look */}
-                {/* Video Title - moved from Video Overview Card, now simpler */}
-                {/* Removed from here, as it's now displayed in VideoDetailsSidebar */}
+                {/* Removed Video Title as it's now displayed in VideoDetailsSidebar */}
+
+                {/* Display API Error Message prominently */}
+                {statsErrorMessage && (
+                    <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm mb-4">
+                        <p className="font-semibold mb-1">YouTube API Error:</p>
+                        <p>{statsErrorMessage}</p>
+                        <p className="mt-2 text-xs text-gray-400">Please check your YouTube Data API Key in settings, ensure it's correct, has appropriate permissions, and your daily quota has not been exceeded. Also verify the video ID is valid.</p>
+                    </div>
+                )}
 
                 {/* Main Accordion Tasks */}
                 <Accordion 
