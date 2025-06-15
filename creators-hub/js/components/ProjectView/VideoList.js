@@ -79,7 +79,7 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
                                 </button>
                             </div>
                         );
-                    })}
+                    })
                 )}
             </div>
         </div>
