@@ -26,5 +26,16 @@ window.CREATOR_HUB_CONFIG = {
       3.  **Tags:** Use a mix of broad and long-tail tags (15-30 total). Your first tag should be your main target keyword.
       4.  **Thumbnails:** High-contrast, clear, emotionally compelling. Use bold, minimal text. Bright colors draw the eye. It must visually represent the title's promise.
       5.  **Playlists:** A playlist is a series. The title and description should reflect the entire journey and explain why someone should watch it in order.
-  `
+  `,
+
+  // Define TASK_PIPELINE globally in config
+  TASK_PIPELINE: [
+      { id: 'scripting', title: 'Scripting & Recording' },
+      { id: 'videoEdited', title: 'Edit Video' },
+      { id: 'feedbackProvided', title: 'Log Changes' },
+      { id: 'metadataGenerated', title: 'Generate Metadata' },
+      { id: 'thumbnailsGenerated', title: 'Generate Thumbnails' },
+      { id: 'videoUploaded', title: 'Upload to YouTube' },
+      { id: 'firstCommentGenerated', title: 'Generate First Comment'}
+  ]
 };
