@@ -3,22 +3,28 @@
 window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
 
-    // Local state for the "Tinder for Thumbnails" UI
-    const [concepts, setConcepts] = useState([]);
+    // Local state to manage the lists of concepts
+    const [suggestions, setSuggestions] = useState([]);
     const [accepted, setAccepted] = useState([]);
     const [rejected, setRejected] = useState([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
     const [showCanvaModal, setShowCanvaModal] = useState(false);
 
     // This effect syncs the component's state with the data from Firestore
     useEffect(() => {
-        setConcepts(video.tasks?.thumbnailConcepts || []);
+        // Only undecided concepts should be in the "suggestions" list
+        const acceptedOverlays = (video.tasks?.acceptedConcepts || []).map(c => c.textOverlay);
+        const rejectedOverlays = (video.tasks?.rejectedConcepts || []).map(c => c.textOverlay);
+        
+        const undecidedConcepts = (video.tasks?.thumbnailConcepts || []).filter(c => 
+            !acceptedOverlays.includes(c.textOverlay) && !rejectedOverlays.includes(c.textOverlay)
+        );
+
+        setSuggestions(undecidedConcepts);
         setAccepted(video.tasks?.acceptedConcepts || []);
         setRejected(video.tasks?.rejectedConcepts || []);
-        setCurrentIndex(video.tasks?.currentConceptIndex || 0);
-        setError(''); // Clear errors on video change
+        setError('');
     }, [video.tasks, video.id]);
     
     /**
@@ -45,7 +51,8 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
                 throw new Error("AI failed to generate any valid concepts. Please try again.");
             }
 
-            const allConcepts = [...concepts, ...validNewConcepts];
+            // Add new concepts to the full list in Firestore
+            const allConcepts = [...(video.tasks?.thumbnailConcepts || []), ...validNewConcepts];
             await onUpdateTask('thumbnailsGenerated', 'pending', { 'tasks.thumbnailConcepts': allConcepts });
         } catch (err) {
             console.error("Error generating thumbnails:", err);
@@ -56,35 +63,32 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
     };
     
     /**
-     * Handles the user's decision to accept or reject a concept and updates the state.
+     * Handles the user's decision to accept or reject a concept.
+     * This function now works on a specific concept object rather than an index.
+     * @param {object} conceptToDecide - The concept object to make a decision on.
      * @param {'accept' | 'reject'} decision - The user's choice.
      */
-    const handleDecision = async (decision) => {
-        const concept = concepts[currentIndex];
-        const newAccepted = decision === 'accept' ? [...accepted, concept] : accepted;
-        const newRejected = decision === 'reject' ? [...rejected, concept] : rejected;
-        const nextIndex = currentIndex + 1;
+    const handleDecision = async (conceptToDecide, decision) => {
+        const newAccepted = decision === 'accept' ? [...accepted, conceptToDecide] : accepted;
+        const newRejected = decision === 'reject' ? [...rejected, conceptToDecide] : rejected;
 
         const taskUpdatePayload = {
             'tasks.acceptedConcepts': newAccepted,
             'tasks.rejectedConcepts': newRejected,
-            'tasks.currentConceptIndex': nextIndex
+            // We no longer need to manage currentIndex, as we filter the suggestions list directly
+            'tasks.currentConceptIndex': 0 
         };
 
         if (newAccepted.length >= 3) {
             await onUpdateTask('thumbnailsGenerated', 'complete', taskUpdatePayload);
         } else {
             await onUpdateTask('thumbnailsGenerated', 'pending', taskUpdatePayload);
-            
-            const remainingConcepts = concepts.length - nextIndex;
-            if (newAccepted.length + remainingConcepts < 3 && !generating) {
-                handleGenerate(); 
+            // Auto-generate more if we run out of suggestions and haven't met the goal
+            if (suggestions.length <= 1 && !generating) {
+                handleGenerate();
             }
         }
     };
-
-    const currentConcept = concepts[currentIndex];
-    const isCurrentConceptValid = currentConcept && currentConcept.textOverlay;
 
     // UI for when the task is marked as complete
     if (video.tasks?.thumbnailsGenerated === 'complete') {
@@ -118,31 +122,55 @@ Your response MUST be a valid JSON object with one key "thumbnailConcepts" conta
 
     // Main UI for the task
     return (
-        <div className="text-center">
-             {isLocked && <p className="text-xs text-amber-400 mb-2">Please complete previous steps first.</p>}
+        <div className="space-y-6">
+            {isLocked && <p className="text-xs text-amber-400 text-center">Please complete previous steps first.</p>}
             
-            {/* Display the Tinder-style card if a concept is available and valid */}
-            {isCurrentConceptValid && !isLocked ? (
-                <div className="relative p-6 bg-gray-900/50 rounded-lg border border-gray-700 aspect-video flex flex-col justify-center items-center transition-opacity duration-300">
-                    <p className="text-sm text-gray-400 mb-2">{currentConcept.imageSuggestion}</p>
-                    <h4 className="text-2xl font-bold text-center text-white">{currentConcept.textOverlay}</h4>
-                    <div className="absolute bottom-[-2rem] flex gap-4">
-                        <button onClick={() => handleDecision('reject')} disabled={generating} className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-4xl transform hover:scale-110 transition-transform shadow-lg disabled:opacity-50">❌</button>
-                        <button onClick={() => handleDecision('accept')} disabled={generating} className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center text-4xl transform hover:scale-110 transition-transform shadow-lg disabled:opacity-50">✅</button>
-                    </div>
+            {/* AI Suggestions Section */}
+            <div>
+                <h4 className="font-semibold text-gray-300 mb-2">AI Suggestions ({suggestions.length} remaining)</h4>
+                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
+                    {suggestions.length > 0 ? (
+                        suggestions.map((concept, i) => (
+                             <div key={i} className="bg-gray-800/60 p-3 rounded-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div className="flex-grow">
+                                    <p className="font-semibold text-white">"{concept.textOverlay}"</p>
+                                    <p className="text-sm text-gray-400 italic mt-1">{concept.imageSuggestion}</p>
+                                </div>
+                                <div className="flex-shrink-0 flex gap-2 self-end sm:self-center">
+                                    <button onClick={() => handleDecision(concept, 'reject')} className="px-3 py-1 text-xs font-semibold bg-red-800/80 hover:bg-red-700 rounded-md">Reject</button>
+                                    <button onClick={() => handleDecision(concept, 'accept')} className="px-3 py-1 text-xs font-semibold bg-green-700 hover:bg-green-600 rounded-md">Accept</button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-gray-400 text-center py-4 italic">No suggestions available. Click below to generate some.</p>
+                    )}
+                     <div className="text-center pt-4 border-t border-gray-700/50">
+                        <button onClick={handleGenerate} disabled={generating || isLocked} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto">
+                            {generating ? <window.LoadingSpinner isButton={true} /> : '💡 Generate More Ideas'}
+                        </button>
+                     </div>
                 </div>
-            ) : (
-                // Show the generate button if no concepts are available or the current one is invalid
-                 <div className="py-8">
-                     <button onClick={handleGenerate} disabled={generating || isLocked} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto">
-                        {generating ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Concepts'}
-                    </button>
-                 </div>
-            )}
+            </div>
+
+            {/* Accepted Ideas Section */}
+            <div>
+                <h4 className="font-semibold text-gray-300 mb-2">Accepted Ideas ({accepted.length} / 3)</h4>
+                 <div className="p-4 bg-green-900/20 rounded-lg border border-green-500 space-y-3">
+                    {accepted.length > 0 ? (
+                         accepted.map((c, i) => (
+                             <div key={i} className="bg-gray-800/50 p-3 rounded-md">
+                                 <p className="font-semibold text-white">"{c.textOverlay}"</p>
+                                 <p className="text-sm text-gray-400 italic mt-1">{c.imageSuggestion}</p>
+                             </div>
+                         ))
+                    ) : (
+                        <p className="text-green-400/70 text-center py-4 italic">Accept 3 suggestions to complete this step.</p>
+                    )}
+                </div>
+            </div>
             
-            {/* Display progress and error messages */}
-            <div className="mt-12 text-sm text-gray-400">Accepted: {accepted.length} / 3</div>
-            {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
+            {error && <p className="text-red-400 mt-4 text-sm bg-red-900/50 p-3 rounded-lg">{error}</p>}
         </div>
     );
 };
