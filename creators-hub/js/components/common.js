@@ -384,12 +384,14 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
         'pending': 'border-blue-500 bg-blue-900/20',
         'locked': 'border-gray-700 bg-gray-800/50 opacity-60',
         'revisited': 'border-amber-500 bg-amber-900/20',
+        'in-progress': 'border-amber-500 bg-amber-900/20', // **FIX**: Added 'in-progress' status color
     };
     const statusTextColors = {
         'complete': 'text-green-400',
         'pending': 'text-blue-400',
         'locked': 'text-gray-400',
         'revisited': 'text-amber-400',
+        'in-progress': 'text-amber-400', // **FIX**: Added 'in-progress' status text color
     };
 
     return (
@@ -411,6 +413,7 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
                         {status === 'pending' && 'Pending'}
                         {status === 'locked' && 'Locked'}
                         {status === 'revisited' && 'Revisiting'}
+                        {status === 'in-progress' && 'In Progress'}
                         {!status && 'Not Started'}
                     </span>
                     {onRevisit && (status === 'complete') && (
