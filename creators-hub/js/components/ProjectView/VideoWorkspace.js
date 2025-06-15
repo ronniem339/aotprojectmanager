@@ -327,6 +327,9 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     // It does not directly affect whether 'revisit' or 'fullscreen' are available.
     const isTaskLocked = (index) => index > 0 && tasks[window.CREATOR_HUB_CONFIG.TASK_PIPELINE[index - 1].id] !== 'complete'; 
     
+    // Stricter check for metadata generation
+    const isMetadataReady = tasks.scripting === 'complete' && tasks.videoEdited === 'complete' && tasks.feedbackProvided === 'complete';
+    
     const handleChapterChange = (index, value) => {
         const newChapters = [...chapters];
         newChapters[index].timestamp = value;
@@ -458,7 +461,10 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 >
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
                     {tasks.feedbackProvided !== 'complete' ? (
-                        <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                        <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': 'No changes were made.' })} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">No Changes Made</button>
+                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                        </div>
                     ) : (
                         <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
                     )}
@@ -473,9 +479,20 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                     onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}
                 >
                      {tasks.metadataGenerated !== 'complete' ? ( 
-                        <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
-                            {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Metadata'}
-                        </button>
+                        <div>
+                            <button 
+                                onClick={() => handleGenerate('metadata')} 
+                                disabled={generating === 'metadata' || !isMetadataReady} 
+                                className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2"
+                            >
+                                {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '✨ Generate Metadata'}
+                            </button>
+                            {!isMetadataReady && (
+                                <p className="text-xs text-amber-400 mt-2 text-center">
+                                    Please complete Scripting, Video Editing, and Production Change Logging before generating metadata.
+                                </p>
+                            )}
+                        </div>
                      ) : ( 
                         metadata ? (
                             <div className="space-y-6">
