@@ -138,7 +138,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
                 locationsFeatured: locations.slice(1).map(l => l.name),
                 projectTitle: inputs.location, // For new project, main location is project title context
                 projectDescription: inputs.theme, // For new project, theme is project description context
-                settings: settings
+                settings: settings // Pass full settings object for KB access
             });
             setKeywordIdeas(keywords);
             setStep(3);
@@ -163,21 +163,28 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             return `- ${loc.name} (Role: ${importanceLabel}): Has ${types.join(', ')}.`;
         }).join('\n');
         
-        const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
-        const styleGuide = settings.styleGuideText ? `This is the user's personal style guide:\n${settings.styleGuideText}` : "No specific style guide was provided.";
-        
+        // Reference specific knowledge bases
+        const whoAmIKb = settings.knowledgeBases?.youtube?.whoAmI || '';
+        const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
+        const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
+        const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
+        const styleGuideText = settings.styleGuideText; // General style guide text
+
         const prompt = `You are a professional YouTube producer creating a project plan about "${inputs.location}" with the theme "${inputs.theme}".
 Context:
-1.  YouTube SEO Knowledge Base: ${knowledgeBase}
-2.  User's Style Guide: ${styleGuide}
-3.  User's Inventory: ${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
-4.  User's Targeted Keywords: ${selectedKeywords.join(', ')}
+1.  YouTube SEO Knowledge Base: ${youtubeSeoKb || 'N/A'}
+2.  User's Style Guide: ${styleGuideText || 'N/A'}
+3.  User Persona (Who Am I): ${whoAmIKb || 'N/A'}
+4.  YouTube Video Title Guidelines: ${videoTitlesKb || 'N/A'}
+5.  YouTube Video Description Guidelines: ${videoDescriptionsKb || 'N/A'}
+6.  User's Inventory: ${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
+7.  User's Targeted Keywords: ${selectedKeywords.join(', ')}
 
 Your Task:
 Generate a complete project plan as a JSON object.
--   **playlistTitleSuggestions**: Create 3 diverse, catchy titles for the whole series, inspired by the targeted keywords.
--   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description that naturally incorporates the targeted keywords. Prioritize the SEO knowledge base for structure, then infuse the user's style guide for tone.
--   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), a 'locations_featured' array, and a 'targeted_keywords' array. The 'locations_featured' array MUST ONLY contain names from the provided list of points of interest. The 'targeted_keywords' array should contain the specific keywords from the user's selection that are most relevant to that video's concept.`;
+-   **playlistTitleSuggestions**: Create 3 diverse, catchy titles for the whole series, inspired by the targeted keywords, following the YouTube Video Title Guidelines.
+-   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description that naturally incorporates the targeted keywords, following the YouTube Video Description Guidelines, and infusing the User's Style Guide and User Persona for tone.
+-   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), a 'locations_featured' array, and a 'targeted_keywords' array. The 'locations_featured' array MUST ONLY contain names from the provided list of points of interest. The 'targeted_keywords' array should contain the specific keywords from the user's selection that are most relevant to that video's concept. Ensure video concepts are consistent with the overall style and persona.`;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
@@ -207,10 +214,12 @@ Generate a complete project plan as a JSON object.
     
     const handleRefineTitle = async () => {
          setIsLoading(true); setError('');
+         const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
+
          const prompt = `The user is creating a YouTube series about "${inputs.location}" with the theme "${inputs.theme}".
 Previous title suggestions were: ${editableOutline.playlistTitleSuggestions.join(', ')}.
 The user provided this feedback: "${refinement}".
-Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate this feedback. Return as a JSON object like: {"playlistTitleSuggestions": ["title1", "title2", "title3"]}`;
+Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate this feedback, following these guidelines: ${videoTitlesKb || 'N/A'}. Return as a JSON object like: {"playlistTitleSuggestions": ["title1", "title2", "title3"]}`;
          try {
              const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
              if (parsedJson && Array.isArray(parsedJson.playlistTitleSuggestions)) {
@@ -229,11 +238,16 @@ Generate 3 NEW, creative, and SEO-friendly title suggestions that incorporate th
 
     const handleRefineDescription = async () => {
          setIsLoading(true); setError('');
+         const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
+         const styleGuideText = settings.styleGuideText; // General style guide text
+         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
+
          const prompt = `The user is creating a YouTube series titled "${finalizedTitle}". The current playlist description is: "${editableOutline.playlistDescription}".
 The user provided this feedback for refinement: "${refinement}".
 Rewrite the playlist description to incorporate the feedback, ensuring it remains SEO-optimized (300-400 words) and aligns with the user's style guide if provided.
-Style Guide: ${settings.styleGuideText || 'Not provided.'}
-SEO Knowledge Base: ${settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE}
+Style Guide: ${styleGuideText || 'Not provided.'}
+YouTube SEO Best Practices: ${youtubeSeoKb || 'Not provided.'}
+YouTube Video Description Guidelines: ${videoDescriptionsKb || 'Not provided.'}
 Return as a JSON object like: {"playlistDescription": "new description..."}`;
          try {
              const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
@@ -254,13 +268,19 @@ Return as a JSON object like: {"playlistDescription": "new description..."}`;
         setIsLoading(true); setError('');
         const videoToRefine = editableOutline.videos[videoIndex];
         const subLocationNames = locations.slice(1).map(l => l.name).join(', ');
+        const whoAmIKb = settings.knowledgeBases?.youtube?.whoAmI || '';
+        const styleGuideText = settings.styleGuideText; // General style guide text
+
+
         const prompt = `A user is planning a YouTube series titled "${finalizedTitle}". You previously suggested this video idea as part of the series:
 Original Video Idea: ${JSON.stringify(videoToRefine)}
 The user has provided this feedback to refine it: "${refinement}"
 Please generate a NEW, updated JSON object for only this video, incorporating the feedback. The overall project context (locations, theme, etc.) remains the same.
+User Persona (Who Am I): ${whoAmIKb || 'N/A'}
+User's Style Guide: ${styleGuideText || 'N/A'}
 The 'locations_featured' array MUST ONLY contain names from this list of available sub-locations: ${subLocationNames}.
 The 'targeted_keywords' array should contain relevant keywords from this main list: ${selectedKeywords.join(', ')}.
-Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...], "targeted_keywords": [...]}`;
+Return a single JSON object with the same structure: {"title": "...", "concept": "...", "estimatedLengthMinutes": "...", "locations_featured": [...], "targeted_keywords": [...]}. Ensure the concept is consistent with the User Persona and Style Guide.`;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
             if (parsedJson && parsedJson.title && parsedJson.concept) {
