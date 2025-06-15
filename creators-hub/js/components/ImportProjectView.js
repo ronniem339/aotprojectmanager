@@ -73,7 +73,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     };
 
     /**
-     * Cleans a YouTube video description by removing URLs, hashtags, and optionally chapter lines.
+     * Cleans a YouTube video description by removing URLs, hashtags, emojis, and specific structural lines.
      * @param {string} description The raw YouTube video description.
      * @param {Array<{timestamp: string, title: string}>} chapters An array of extracted chapter objects.
      * @returns {string} The cleaned description.
@@ -81,25 +81,56 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     const cleanVideoDescription = (description, chapters) => {
         let cleaned = description;
 
-        // 1. Remove chapter lines
+        // 1. Remove Emojis (using a broad Unicode emoji regex)
+        cleaned = cleaned.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE0F}]/gu, '');
+
+
+        // 2. Remove specific section titles like "Chapters:" or "Timestamps:"
+        cleaned = cleaned.replace(/^(\s*(Chapters|Timestamps|Table of Contents|Topics):?\s*)\n?/gim, '');
+        
+        // 3. Remove footer-like content based on common keywords
+        const footerKeywords = [
+            "let me know in the comments",
+            "subscribe for more",
+            "follow me on",
+            "check out my other videos",
+            "music by",
+            "social media",
+            "affiliate links",
+            "support this channel",
+            "thank you for watching",
+            "my gear",
+            "links below"
+        ];
+        // Use a regex to match from the first occurrence of a keyword to the end of the string
+        const footerRegex = new RegExp(`\\n\\s*(?:${footerKeywords.join('|')}).*`, 'gis');
+        cleaned = cleaned.replace(footerRegex, '');
+
+
+        // 4. Remove chapter lines BEFORE removing URLs and hashtags to avoid partial matches
+        // Iterate through chapters to remove their exact lines.
         if (chapters && chapters.length > 0) {
             chapters.forEach(chapter => {
                 // Escape special characters in the chapter title for regex
+                const escapedTimestamp = chapter.timestamp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const escapedTitle = chapter.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                // Create a regex to match the full chapter line (timestamp and title)
-                const chapterLineRegex = new RegExp(`(\\d{1,2}:\\d{2}(?::\\d{2})?)\\s*[-–—]?\\s*${escapedTitle}`, 'g');
+                
+                // Regex to match the chapter line, accounting for variations in separators and whitespace
+                // This is specifically targeting the line that was identified as a chapter.
+                const chapterLineRegex = new RegExp(`^\\s*${escapedTimestamp}\\s*[-–—]?\\s*${escapedTitle}\\s*$\\n?`, 'gim');
                 cleaned = cleaned.replace(chapterLineRegex, '');
             });
         }
         
-        // 2. Remove URLs (http, https, www, or just .com/.org etc. followed by path)
+        // 5. Remove URLs (http, https, www, or just .com/.org etc. followed by path)
         cleaned = cleaned.replace(/(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.(com|org|net|io|co|app)\/[^\s]*)/g, '');
 
-        // 3. Remove hashtags (e.g., #TravelVlog #Adventure)
+        // 6. Remove hashtags (e.g., #TravelVlog #Adventure)
         cleaned = cleaned.replace(/#\w+/g, '');
 
-        // 4. Remove excessive newlines, trim whitespace
+        // 7. Remove excessive newlines, trim whitespace. Do this last to clean up after other removals.
         cleaned = cleaned.replace(/\n\s*\n/g, '\n\n').trim();
+        cleaned = cleaned.replace(/^\s*\n|\n\s*$/g, ''); // Remove leading/trailing blank lines
 
         return cleaned;
     };
@@ -157,15 +188,11 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         playlistTitle = playlistSnippet.title;
         playlistDescription = playlistSnippet.description;
         
-        // --- UPDATED LOGIC FOR PLAYLIST THUMBNAIL ---
-        // Prioritize maxres, then high, medium, default. This uses the thumbnails
-        // directly provided by the YouTube API, which are guaranteed to work.
+        // Use the highest quality thumbnail directly from the YouTube API for the playlist
         playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
                                playlistSnippet.thumbnails.high?.url ||
                                playlistSnippet.thumbnails.medium?.url ||
                                playlistSnippet.thumbnails.default?.url || '';
-        // --- END UPDATED LOGIC ---
-
 
         // Fetch videos in the playlist
         do {
@@ -186,8 +213,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     videos.push({
                         id: item.snippet.resourceId.videoId,
                         title: item.snippet.title,
-                        description: rawDescription, // Keep raw for reference if needed, but use concept for AI
-                        concept: cleanedConcept, // Use cleaned description as concept
+                        description: rawDescription, // Store the raw description
+                        concept: cleanedConcept,     // Store the cleaned concept
                         thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
                         chapters: extractedChapters // Store extracted chapters
                     });
@@ -246,8 +273,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         const fetchedVideo = {
             id: videoId,
             title: videoSnippet.title,
-            description: rawDescription, // Keep raw for reference if needed
-            concept: cleanedConcept, // Use cleaned description as concept
+            description: rawDescription, // Store the raw description
+            concept: cleanedConcept,     // Store the cleaned concept
             thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
             estimatedLengthMinutes: parseDuration(contentDetails.duration),
             chapters: extractedChapters // Store extracted chapters
@@ -328,12 +355,13 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             coverImageUrl: projectCoverImageUrl, // Pass the fetched project cover image URL
             videos: videosToImport.map(v => ({
                 title: v.title,
-                concept: v.concept,
+                concept: v.concept,             // Cleaned concept for internal use
+                description: v.description,     // Raw YouTube description for metadata
                 script: v.script,
                 estimatedLengthMinutes: v.estimatedLengthMinutes,
                 locations_featured: v.locations_featured,
                 targeted_keywords: v.targeted_keywords,
-                chapters: v.chapters || [] // Ensure chapters are passed along
+                chapters: v.chapters || []      // Extracted chapters
             })),
         };
         onAnalyze(projectData);
@@ -436,14 +464,17 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                                 <button onClick={() => removeVideo(video.id)} className="text-red-400 hover:text-red-300 text-sm">&times; Remove</button>
                                             )}
                                         </div>
+                                        {/* Display the original raw description, or a warning if chapters were extracted */}
                                         {video.description && !video.isManual && (
-                                            <p className="text-sm text-gray-400 mt-1 mb-2 line-clamp-2">
-                                                {/* Display the original raw description, or show a warning if chapters were extracted */}
+                                            <div className="mt-1 mb-2">
+                                                <p className="text-xs font-semibold text-gray-400">Original YouTube Description:</p>
+                                                <p className="text-sm text-gray-300 mt-1 mb-2 line-clamp-3">
+                                                    {video.description}
+                                                </p>
                                                 {video.chapters && video.chapters.length > 0 && (
-                                                    <span className="text-amber-400">Chapters extracted. Raw description contains links/hashtags and chapters.</span>
+                                                    <p className="text-xs text-amber-400 mt-1">Note: Chapters, links, and hashtags were extracted/removed for the "Video Concept / Summary".</p>
                                                 )}
-                                                {!video.chapters || video.chapters.length === 0 ? video.description : ''}
-                                            </p>
+                                            </div>
                                         )}
                                         <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
                                         <input
@@ -464,7 +495,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                         {video.chapters && video.chapters.length > 0 && (
                                             <div className="mt-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
                                                 <h4 className="text-xs font-semibold text-gray-400 mb-1">Extracted Chapters:</h4>
-                                                <ul className="text-sm text-gray-300">
+                                                <ul className="text-sm text-gray-300 list-disc pl-5">
                                                     {video.chapters.map((chap, i) => (
                                                         <li key={i}>{chap.timestamp} - {chap.title}</li>
                                                     ))}
