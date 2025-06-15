@@ -257,14 +257,11 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 // Call AI to extract locations and keywords
                 let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
                 try {
-                    // console.log(`[AI Input] Processing video "${item.snippet.title}" for metadata extraction.`);
-                    // console.log(`[AI Input] Raw Description for "${item.snippet.title}":`, rawDescription);
                     aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
                         videoTitle: item.snippet.title,
                         videoDescription: rawDescription,
                         settings: settings
                     });
-                    // console.log(`[AI Output] Extracted data for "${item.snippet.title}":`, aiExtractedData);
                 } catch (aiError) {
                     console.error(`[AI Error] Failed to extract AI metadata for video "${item.snippet.title}":`, aiError);
                     // Ensure aiExtractedData remains correctly structured even on error
@@ -351,14 +348,11 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         // Call AI to extract locations and keywords
         let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
         try {
-            // console.log(`[AI Input] Processing single video "${videoSnippet.title}" for metadata extraction.`);
-            // console.log(`[AI Input] Raw Description for "${videoSnippet.title}":`, rawDescription);
             aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
                 videoTitle: videoSnippet.title,
                 videoDescription: rawDescription,
                 settings: settings
             });
-            // console.log(`[AI Output] Extracted data for "${videoSnippet.title}":`, aiExtractedData);
         } catch (aiError) {
             console.error(`[AI Error] Failed to extract AI metadata for single video "${videoSnippet.title}":`, aiError);
             // Continue with empty arrays if AI extraction fails
