@@ -182,7 +182,7 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
                                 placeholder="Type a keyword and press Enter..."
                             />
                             <button onClick={handleGenerateKeywords} disabled={isLoadingKeywords || !title || !concept} className="mt-3 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
-                                {isLoadingKeywords ? <window.LoadingSpinner/> : '💡 Generate Keyword Ideas'}
+                                {isLoadingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Keyword Ideas'}
                             </button>
                             {keywordError && <p className="text-red-400 mt-2 text-sm">{keywordError}</p>}
                             {keywordIdeas.length > 0 && (
@@ -208,8 +208,8 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title catchier' or 'Focus the concept on the hiking aspect'"/>
                         <div className="flex gap-4 mt-2">
-                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <window.LoadingSpinner/> : 'Refine Title'}</button>
-                             <button onClick={() => handleRefine('concept')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'concept' ? <window.LoadingSpinner/> : 'Refine Concept'}</button>
+                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <window.LoadingSpinner isButton={true} /> : 'Refine Title'}</button>
+                             <button onClick={() => handleRefine('concept')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'concept' ? <window.LoadingSpinner isButton={true} /> : 'Refine Concept'}</button>
                         </div>
                     </div>
                     
