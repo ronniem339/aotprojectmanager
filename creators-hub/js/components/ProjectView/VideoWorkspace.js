@@ -16,6 +16,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [showFullScreenScript, setShowFullScreenScript] = useState(false); // New state for full-screen script
     const [videoStats, setVideoStats] = useState(video.stats || null); // New state for video statistics
     const [isFetchingStats, setIsFetchingStats] = useState(false); // New state for stats loading indicator
+    const [statsErrorMessage, setStatsErrorMessage] = useState(''); // New state for stats error message
 
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -61,19 +62,17 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
     // New: Function to fetch video statistics from YouTube
     const fetchVideoStats = useCallback(async () => {
-        console.log("[fetchVideoStats] Attempting to fetch stats...");
-        console.log("[fetchVideoStats] YouTube API Key:", settings.youtubeApiKey ? "SET" : "NOT SET");
-        console.log("[fetchVideoStats] Video ID:", video.id);
-        console.log("[fetchVideoStats] Video Uploaded Task Status:", video.tasks?.videoUploaded);
+        setStatsErrorMessage(''); // Clear previous error messages
 
         if (!settings.youtubeApiKey) {
-            console.warn("[fetchVideoStats] YouTube Data API Key not set. Cannot fetch video statistics.");
-            setIsFetchingStats(false); // Ensure loading state is reset
+            setStatsErrorMessage("YouTube Data API Key is not set in settings. Cannot fetch video statistics.");
+            setIsFetchingStats(false);
             return;
         }
         if (!video.id || video.tasks?.videoUploaded !== 'complete') {
-            console.log("[fetchVideoStats] Video not eligible for stats fetch (missing ID or not marked as uploaded).");
-            setIsFetchingStats(false); // Ensure loading state is reset
+            // Only fetch stats for published videos with a YouTube ID
+            setStatsErrorMessage("Video is not marked as uploaded or YouTube ID is missing. Cannot fetch statistics.");
+            setIsFetchingStats(false);
             return;
         }
 
@@ -81,25 +80,22 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         const lastFetchTimestamp = video.stats?.lastFetch ? new Date(video.stats.lastFetch).getTime() : 0;
         const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
 
-        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats) {
-            console.log("[fetchVideoStats] Stats are recent. Skipping automatic fetch.");
+        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats && !isFetchingStats) { // Added isFetchingStats check
+            // Stats are recent, no need to refetch unless forced by a button click
             return;
         }
 
         setIsFetchingStats(true);
         try {
             const statsApiUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${video.id}&key=${settings.youtubeApiKey}`;
-            console.log("[fetchVideoStats] Fetching from URL:", statsApiUrl);
             const response = await fetch(statsApiUrl);
             const data = await response.json();
-            console.log("[fetchVideoStats] API Response status:", response.status);
-            console.log("[fetchVideoStats] API Response data:", data);
 
             if (!response.ok || !data.items || data.items.length === 0) {
-                console.error("[fetchVideoStats] Failed to fetch video statistics:", data.error?.message || "Video not found or API error details are missing.");
-                // If there's an error, but we have old stats, keep displaying them
-                if (!videoStats) { // Only set to null if no stats were ever loaded
-                    setVideoStats(null);
+                const errorMessage = data.error?.message || "Video not found or API error details are missing. Please check video ID and API key restrictions.";
+                setStatsErrorMessage(`Failed to fetch video statistics: ${errorMessage}`);
+                if (!videoStats) { 
+                    setVideoStats(null); // Clear stats if none were ever loaded and fetch failed
                 }
                 return;
             }
@@ -116,14 +112,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             // Update Firestore with the new stats
             const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
             await videoDocRef.update({ stats: newStats });
-            console.log("[fetchVideoStats] Successfully fetched and updated stats:", newStats);
 
         } catch (error) {
-            console.error("[fetchVideoStats] Error during fetch operation:", error);
+            console.error("Error during fetch operation:", error);
+            setStatsErrorMessage(`Error fetching stats: ${error.message}.`);
         } finally {
             setIsFetchingStats(false);
         }
-    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats]); // Added videoStats to dependencies to avoid stale closure warning
+    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]); // Added isFetchingStats to dependencies
 
 
     // Effect to trigger stats fetch when video data or API key changes
@@ -369,7 +365,13 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                                 )}
                             </div>
                         ) : (
-                            <p className="text-gray-500">No statistics available yet or failed to fetch. Ensure the video is uploaded and publicly accessible.</p>
+                            <div className="p-3 bg-gray-800/50 rounded-lg text-center">
+                                {statsErrorMessage ? (
+                                    <p className="text-red-400 text-sm">{statsErrorMessage}</p>
+                                ) : (
+                                    <p className="text-gray-500">No statistics available yet or failed to fetch. Ensure the video is uploaded and publicly accessible.</p>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
