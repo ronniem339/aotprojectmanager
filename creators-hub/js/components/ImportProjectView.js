@@ -536,7 +536,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                         />
                     </div>
                     <button onClick={fetchYoutubeData} disabled={isFetchingYoutube || !youtubeUrlOrId.trim()} className="px-6 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex-shrink-0">
-                        Fetch from YouTube
+                        {isFetchingYoutube ? <window.LoadingSpinner isButton={true} /> : 'Fetch from YouTube'}
                     </button>
                 </div>
                 {fetchError && (
