@@ -157,16 +157,15 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         playlistTitle = playlistSnippet.title;
         playlistDescription = playlistSnippet.description;
         
-        // --- IMPORTANT CHANGE HERE ---
-        // Construct the specific 'studio_square_thumbnail.jpg' URL for playlists
-        playlistThumbnailUrl = `https://i.ytimg.com/pl_c/${playlistId}/studio_square_thumbnail.jpg`;
-        // As a fallback, use standard API thumbnails if the custom one doesn't load or is not preferred
-        // (You might want to add onerror handling for ImageComponent to handle 404s for the custom URL)
-        // playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
-        //                        playlistSnippet.thumbnails.high?.url ||
-        //                        playlistSnippet.thumbnails.medium?.url ||
-        //                        playlistSnippet.thumbnails.default?.url || playlistThumbnailUrl;
-        // --- END IMPORTANT CHANGE ---
+        // --- UPDATED LOGIC FOR PLAYLIST THUMBNAIL ---
+        // Prioritize maxres, then high, medium, default. This uses the thumbnails
+        // directly provided by the YouTube API, which are guaranteed to work.
+        playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
+                               playlistSnippet.thumbnails.high?.url ||
+                               playlistSnippet.thumbnails.medium?.url ||
+                               playlistSnippet.thumbnails.default?.url || '';
+        // --- END UPDATED LOGIC ---
+
 
         // Fetch videos in the playlist
         do {
