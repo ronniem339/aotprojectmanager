@@ -144,11 +144,11 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
     const isConfirmationMatching = confirmText === 'YES';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"> {/* Increased z-index to ensure it's on top */}
             <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
-                <h3 className="text-2xl font-bold text-red-400 mb-4">Delete Project</h3>
-                <p className="text-gray-300 mb-2">This action is irreversible and will permanently delete the project:</p>
-                <p className="font-bold text-lg text-white mb-6">"{project.playlistTitle}"</p>
+                <h3 className="text-2xl font-bold text-red-400 mb-4">Delete {project.playlistTitle === 'this draft' ? 'Draft' : 'Project'}</h3>
+                <p className="text-gray-300 mb-2">This action is irreversible and will permanently delete the {project.playlistTitle === 'this draft' ? 'draft' : 'project'}:</p>
+                <p className="font-bold text-lg text-white mb-6">"{project.playlistTitle === 'this draft' ? 'this draft' : project.playlistTitle}"</p>
                 <p className="text-gray-400 mb-4">To confirm, please type <strong className="text-red-300">YES</strong> in the box below.</p>
                 
                 <input 
@@ -331,4 +331,3 @@ window.CopyButton = CopyButton;
 
 // Removed window.TaskItem as it's replaced by Accordion in VideoWorkspace.js
 // Removed window.TaskItem = TaskItem;
-
