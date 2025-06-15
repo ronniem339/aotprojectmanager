@@ -12,7 +12,11 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
     const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
 
-    // AI & UI State
+    // AI & UI State for keyword generation
+    const [keywordIdeas, setKeywordIdeas] = useState([]);
+    const [isLoadingKeywords, setIsLoadingKeywords] = useState(false);
+    const [keywordError, setKeywordError] = useState('');
+
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(false);
     const [showConfirmComplete, setShowConfirmComplete] = useState(false);
@@ -37,6 +41,35 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
 
     const handleKeywordRemove = (keywordToRemove) => {
         setTargetedKeywords(targetedKeywords.filter(kw => kw !== keywordToRemove));
+    };
+
+    // New function to generate keyword ideas using the shared utility
+    const handleGenerateKeywords = async () => {
+        setIsLoadingKeywords(true);
+        setKeywordError('');
+
+        try {
+            const keywords = await window.aiUtils.generateKeywordsAI({
+                title: title,
+                concept: concept,
+                locationsFeatured: locationsFeatured.map(l => l.name),
+                projectTitle: project.playlistTitle,
+                projectDescription: project.playlistDescription,
+                settings: settings
+            });
+            setKeywordIdeas(keywords);
+        } catch (e) {
+            setKeywordError(`Failed to generate keywords: ${e.message}`);
+            console.error("Error generating keywords:", e);
+        } finally {
+            setIsLoadingKeywords(false);
+        }
+    };
+
+    const handleKeywordSelection = (keyword) => {
+        setTargetedKeywords(prev => 
+            prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
+        );
     };
 
     const handleSave = async () => {
@@ -65,7 +98,6 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
 
     const handleMarkAllComplete = async () => {
         const completedTasks = {};
-        // Use the globally accessible TASK_PIPELINE from config.js
         window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => { 
             completedTasks[task.id] = 'complete';
         });
@@ -149,6 +181,26 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
                                 className="w-full form-input bg-gray-800 border-gray-600"
                                 placeholder="Type a keyword and press Enter..."
                             />
+                            <button onClick={handleGenerateKeywords} disabled={isLoadingKeywords || !title || !concept} className="mt-3 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
+                                {isLoadingKeywords ? <window.LoadingSpinner/> : '💡 Generate Keyword Ideas'}
+                            </button>
+                            {keywordError && <p className="text-red-400 mt-2 text-sm">{keywordError}</p>}
+                            {keywordIdeas.length > 0 && (
+                                <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                                    <h4 className="text-sm font-medium text-gray-300 mb-2">AI-Suggested Keywords:</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {keywordIdeas.map((kw) => (
+                                            <button
+                                                key={kw}
+                                                onClick={() => handleKeywordSelection(kw)}
+                                                className={`px-3 py-1.5 text-xs rounded-full transition-colors ${targetedKeywords.includes(kw) ? 'bg-primary-accent text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                                            >
+                                                {kw}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
