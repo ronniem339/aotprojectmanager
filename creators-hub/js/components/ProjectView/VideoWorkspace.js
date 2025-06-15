@@ -9,7 +9,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
     const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || video.publishDate || ''); // Use video.publishDate directly
     const [generating, setGenerating] = useState(null);
-    const [scriptContent, setScriptContent] = useState(video.script || '');
+    const [scriptContent, setScriptContent] = useState(video.script || ''); // Initialize with imported script
     const [refinementText, setRefinementText] = useState('');
     const [isConceptVisible, setIsConceptVisible] = useState(false);
     const [chapters, setChapters] = useState(video.chapters || []); // Initialize with imported chapters
@@ -20,10 +20,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || video.publishDate || '');
-        setScriptContent(video.script || '');
+        setScriptContent(video.script || ''); // Update scriptContent if video.script changes
         setIsConceptVisible(false);
         setChapters(video.chapters || []); // Update chapters if video changes
-    }, [video.id, video.script, video.publishDate, video.chapters]);
+    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks]); // Added video.tasks to dependencies
     
     useEffect(() => {
         // This effect runs when video.metadata changes.
@@ -35,8 +35,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 if(parsed.chapters) {
                     // Only update chapters from metadata if the video isn't imported with its own chapters
                     // Or if metadata generation explicitly provides new/updated chapters.
-                    // This logic might need refinement based on exact workflow.
-                    // For now, prioritize metadata chapters if they exist.
+                    // For imported videos, video.chapters will already be populated.
+                    // This logic makes sure metadata-generated chapters override if they are more recent/valid.
                     setChapters(parsed.chapters.map(ch => ({ ...ch, timestamp: ch.timestamp || '00:00' })));
                 }
             } catch(e) { console.error("Could not parse chapters from metadata", e); }
@@ -105,9 +105,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
-                setScriptContent(result.candidates[0].content.parts[0].text);
+                const newScript = result.candidates[0].content.parts[0].text;
+                setScriptContent(newScript);
                 // After generating or refining, set script and mark task as pending for review
-                await updateTask('scripting', 'pending', { script: result.candidates[0].content.parts[0].text });
+                await updateTask('scripting', 'pending', { script: newScript }); // Always mark pending for review after AI generation
                 if (isRefining) setRefinementText('');
             } else if (type === 'metadata') {
                 const prompt = `Act as a YouTube SEO expert. Based on the video script provided below, generate an optimized metadata package.
@@ -209,7 +210,9 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
     }, [video.metadata]);
     
     // Determine initial status of Scripting & Recording task
-    const initialScriptingStatus = video.script ? 'complete' : (tasks.scripting || 'pending');
+    // If video.script has content AND the task is not explicitly 'pending' (e.g., after AI generation),
+    // then it's considered 'complete'. Otherwise, respect existing task status or default to 'pending'.
+    const initialScriptingStatus = (video.script && tasks.scripting !== 'pending') ? 'complete' : (tasks.scripting || 'pending');
 
     return (
         <main className="lg:w-2/3 xl:w-3/4">
@@ -239,20 +242,23 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 <window.TaskItem 
                     title="1. Scripting & Recording" 
                     status={initialScriptingStatus} // Use calculated status
-                    isLocked={isTaskLocked(0) && !video.script} // Lock only if previous task incomplete AND no script provided
+                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} // Lock only if previous task incomplete AND not being revisited
                     onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
                 >
-                    {/* Content when script is available (either imported or generated/locked) */}
+                    {/* Content when script is available (either imported or generated/locked/revisited) */}
                     {(initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' || initialScriptingStatus === 'revisited' || video.script) ? ( 
                         <div>
                             <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
-                            <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && !video.script} /> {/* Allow editing if revisited or not complete */}
+                            <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} /> {/* Allow editing if revisited */}
                             {/* Show Fullscreen Script button if scriptContent exists */}
                             {scriptContent && (
                                 <div className="flex gap-4 mt-4">
                                     <button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
-                                    {initialScriptingStatus !== 'complete' && ( // Only show lock button if not already complete
+                                    {/* Only show lock button if not already complete AND not being revisited (if it was already complete) */}
+                                    {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
                                         <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                                    ) : (
+                                        <p className="text-gray-400 text-sm flex items-center">Script is locked. Use "Revisit" to edit.</p>
                                     )}
                                 </div>
                             )}
@@ -272,14 +278,12 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 </window.TaskItem>
 
                 <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
-                     {tasks.videoEdited !== 'complete' && <button onClick={() => updateTask('videoEdited', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>}
-                     {tasks.videoEdited === 'complete' && <p className="text-gray-400">This task is marked as complete.</p>}
+                     {tasks.videoEdited !== 'complete' ? <button onClick={() => updateTask('videoEdited', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button> : <p className="text-gray-400">This task is marked as complete.</p>}
                 </window.TaskItem>
 
                 <window.TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
-                    {tasks.feedbackProvided !== 'complete' && <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>}
-                    {tasks.feedbackProvided === 'complete' && <p className="text-gray-400">This task is marked as complete.</p>}
+                    {tasks.feedbackProvided !== 'complete' ? <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button> : <p className="text-gray-400">This task is marked as complete.</p>}
                 </window.TaskItem>
                 
                 <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}> {/* Reset metadata on revisit */}
@@ -312,8 +316,7 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                 <window.TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', 'pending')}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
                     <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto" readOnly={tasks.videoUploaded === 'complete'}/>
-                    {tasks.videoUploaded !== 'complete' && <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>}
-                    {tasks.videoUploaded === 'complete' && <p className="text-gray-400 mt-2">Video was uploaded on: {publishDate}</p>}
+                    {tasks.videoUploaded !== 'complete' ? <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button> : <p className="text-gray-400 mt-2">Video was uploaded on: {publishDate}</p>}
                 </window.TaskItem>
                 
                 <window.TaskItem title="7. Generate First Comment" status={tasks.firstCommentGenerated} isLocked={isTaskLocked(6)} onRevisit={() => updateTask('firstCommentGenerated', 'pending')}>
