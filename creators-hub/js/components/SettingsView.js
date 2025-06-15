@@ -1,8 +1,23 @@
 // js/components/SettingsMenu.js
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React; // Import useRef
 
 window.SettingsMenu = ({ onBack, onShowTechnicalSettings, onShowStyleAndTone, onShowKnowledgeBases }) => {
+    const modalRef = useRef(null); // Create a ref for the modal content
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (modalRef.current && !modalRef.current.contains(event.target)) {
+                onBack(); // Close the modal if clicked outside
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [onBack]); // Re-run effect if onBack changes
+
     const settingsOptions = [
         {
             type: 'technical',
@@ -32,7 +47,7 @@ window.SettingsMenu = ({ onBack, onShowTechnicalSettings, onShowStyleAndTone, on
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-4xl relative">
+            <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative"> {/* Attach ref here */}
                 <button onClick={onBack} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold mb-2 text-center">⚙️ Settings</h2>
                 <p className="text-gray-400 mb-8 text-center">Choose a settings category to manage.</p>
