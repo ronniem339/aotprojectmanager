@@ -72,7 +72,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                     </button>
                 </div>
             </header>
-            {loading ? <window.LoadingSpinner /> : (
+            {loading ? <window.LoadingSpinner text="Loading Projects..." /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
                     {/* Removed the large "New Project" tile from here as it's now in the header */}
                     {projects.map(project => {
