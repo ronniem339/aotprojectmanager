@@ -166,54 +166,57 @@ window.App = () => { // Exposing App component globally
         const knowledgeBase = settings.youtubeSeoKnowledgeBase || window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE;
         const styleGuide = settings.styleGuideText ? `This is the user's personal style guide:\n${settings.styleGuideText}` : "No specific style guide was provided.";
 
-        const prompt = `You are a professional YouTube producer tasked with analyzing an imported, partially complete project.
-A user has provided the following data:
-- Playlist Title: "${projectData.playlistTitle}"
-- Overall Project Plan/Concept: "${projectData.projectOutline || 'Not provided'}"
-- Existing Playlist Description: "${projectData.playlistDescription || 'Not provided'}"
-- Existing Videos: ${JSON.stringify(projectData.videos, null, 2)}
+        // For imported projects, we might not need to call the AI for initial plan generation
+        // as we are directly providing the videos and main project details.
+        // The AI is primarily used for refining or generating new content.
+        // We will directly set the projectDraft here.
 
-Your task is to analyze this data and generate a complete project plan to help the user finish their series.
-1.  **Analyze and Improve Playlist Title**: Based on the provided title and video concepts, generate 3 improved, SEO-friendly title suggestions. The first suggestion should be the user's original title if it's strong, or an improved version of it.
-2.  **Analyze and Improve Playlist Description**: Synthesize information from the "Overall Project Plan/Concept" and the "Existing Playlist Description". Use this synthesis to create a single, new, long-form (300-400 words) SEO-optimized description. If one field is empty, rely on the other. If both are empty, create a description from the video concepts. Prioritize the SEO knowledge base, then infuse the user's style guide for tone.
-3.  **Complete the Video Series**: Analyze the existing videos. If it seems like a complete series, return them as is. If there are obvious gaps (e.g., a missing introduction or conclusion), suggest 1-2 new video ideas to make the series feel complete.
-4.  **Return a JSON object**: Your entire response MUST be a single, valid JSON object with the following structure: { "playlistTitleSuggestions": ["..."], "playlistDescription": "...", "videos": [{"title": "...", "concept": "...", "script": "...", "estimatedLengthMinutes": "8-10", "locations_featured": [], "targeted_keywords": []}] }`;
-        
-        try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey); // Use shared utility
-            
-            if (parsedJson && parsedJson.playlistTitleSuggestions && parsedJson.playlistDescription && parsedJson.videos) {
-                setProjectDraft({
-                    step: 4, 
-                    editableOutline: {
-                        ...parsedJson,
-                        videos: parsedJson.videos.map(video => ({
-                            ...video,
-                            description: video.description || '', // Ensure raw description is carried through
-                            script: video.script || '',
-                            estimatedLengthMinutes: video.estimatedLengthMinutes || '',
-                            locations_featured: video.locations_featured || [],
-                            targeted_keywords: video.targeted_keywords || [],
-                            chapters: video.chapters || [],
-                            status: 'pending' // Default status
-                        }))
-                    },
-                    inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
-                    locations: [], 
-                    footageInventory: {},
-                    coverImageUrl: projectData.coverImageUrl || '', // Carry over the imported cover image
-                });
-                setCurrentView('dashboard'); 
-                setShowNewProjectWizard(true);
-            } else {
-                throw new Error("AI returned an invalid project plan. Please check the imported data and try again.");
-            }
-        } catch (e) {
-            console.error("Error analyzing project:", e);
-            displayNotification(`Analysis Error: ${e.message}`);
-        } finally {
+        if (!projectData.videos || projectData.videos.length === 0) {
             setIsLoading(false);
+            displayNotification("No videos found to import. Please check the YouTube URL/ID.");
+            return;
         }
+
+        // Set the editableOutline directly from imported projectData
+        setProjectDraft({
+            step: 6, // Go directly to the review video plan step for imported projects
+            editableOutline: {
+                playlistTitleSuggestions: [projectData.playlistTitle], // Use imported title as first suggestion
+                playlistDescription: projectData.playlistDescription,
+                videos: projectData.videos.map(video => ({
+                    ...video,
+                    script: video.script || '', // Preserve imported script or default empty
+                    metadata: video.metadata || '', // Preserve imported metadata or default empty
+                    publishDate: video.publishDate || '', // Preserve imported publishDate
+                    generatedThumbnails: video.generatedThumbnails || [], // Preserve imported thumbnails
+                    chosenTitle: video.chosenTitle || video.title, // Preserve chosen title
+                    tasks: video.tasks || { // Ensure tasks are initialized or preserved
+                        scripting: video.script ? 'complete' : 'pending', // If script exists, mark complete
+                        videoEdited: 'complete',
+                        feedbackProvided: 'complete',
+                        metadataGenerated: 'complete',
+                        thumbnailsGenerated: 'complete',
+                        videoUploaded: 'complete',
+                        firstCommentGenerated: 'complete',
+                    },
+                    status: 'accepted' // Mark imported videos as accepted by default
+                }))
+            },
+            inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
+            locations: [], // Imported projects don't directly map to this part of the wizard
+            footageInventory: {}, // Not applicable for imported projects
+            coverImageUrl: projectData.coverImageUrl || '', // Carry over the imported cover image
+            // Also need to set these so the wizard doesn't complain about missing data
+            keywordIdeas: [],
+            selectedKeywords: [],
+            finalizedTitle: projectData.playlistTitle,
+            finalizedDescription: projectData.playlistDescription,
+            selectedTitle: projectData.playlistTitle,
+        });
+        
+        setCurrentView('dashboard'); 
+        setShowNewProjectWizard(true);
+        setIsLoading(false);
     };
 
     const renderView = () => {
