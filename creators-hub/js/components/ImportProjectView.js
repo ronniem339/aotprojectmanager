@@ -30,6 +30,22 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         metadata: '' // Initialize metadata for manual video
     }]);
 
+    /**
+     * Helper to convert ISO 8601 duration to minutes.
+     * Moved this function outside of fetchSingleVideo to be accessible by both fetchPlaylistVideos and fetchSingleVideo.
+     * @param {string} iso - The ISO 8601 duration string (e.g., "PT1H30M15S").
+     * @returns {string} The duration in minutes (e.g., "90" or "90.25").
+     */
+    const parseDuration = (iso) => {
+        const matches = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+        if (!matches) return '';
+        const hours = parseInt(matches[1] || 0, 10);
+        const minutes = parseInt(matches[2] || 0, 10);
+        const seconds = parseInt(matches[3] || 0, 10);
+        // Calculate total minutes, rounding seconds to the nearest minute fraction
+        return (hours * 60 + minutes + Math.round(seconds / 60)).toString();
+    };
+
     // Helper to extract Playlist ID or Video ID from YouTube URLs
     const extractYoutubeId = (url) => {
         const playlistIdMatch = url.match(/[?&]list=([^&]+)/);
@@ -307,16 +323,6 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
 
         const videoSnippet = data.items[0].snippet;
         const contentDetails = data.items[0].contentDetails;
-
-        // Helper to convert ISO 8601 duration to minutes
-        const parseDuration = (iso) => {
-            const matches = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-            if (!matches) return '';
-            const hours = parseInt(matches[1] || 0, 10);
-            const minutes = parseInt(matches[2] || 0, 10);
-            const seconds = parseInt(matches[3] || 0, 10);
-            return (hours * 60 + minutes + Math.round(seconds / 60)).toString();
-        };
 
         const rawDescription = videoSnippet.description || '';
         const extractedChapters = extractChaptersFromDescription(rawDescription);
