@@ -121,6 +121,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         setIsFetchingYoutube(true);
         setFetchError('');
         setFetchedYoutubeData(null); // Clear previous data
+        setProjectCoverImageUrl(''); // Clear previous cover image URL
 
         try {
             if (idInfo.type === 'playlist') {
@@ -155,11 +156,17 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         const playlistSnippet = playlistDetailsData.items[0].snippet;
         playlistTitle = playlistSnippet.title;
         playlistDescription = playlistSnippet.description;
-        // Extract playlist thumbnail, preferring higher quality
-        playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
-                               playlistSnippet.thumbnails.high?.url ||
-                               playlistSnippet.thumbnails.medium?.url ||
-                               playlistSnippet.thumbnails.default?.url || '';
+        
+        // --- IMPORTANT CHANGE HERE ---
+        // Construct the specific 'studio_square_thumbnail.jpg' URL for playlists
+        playlistThumbnailUrl = `https://i.ytimg.com/pl_c/${playlistId}/studio_square_thumbnail.jpg`;
+        // As a fallback, use standard API thumbnails if the custom one doesn't load or is not preferred
+        // (You might want to add onerror handling for ImageComponent to handle 404s for the custom URL)
+        // playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
+        //                        playlistSnippet.thumbnails.high?.url ||
+        //                        playlistSnippet.thumbnails.medium?.url ||
+        //                        playlistSnippet.thumbnails.default?.url || playlistThumbnailUrl;
+        // --- END IMPORTANT CHANGE ---
 
         // Fetch videos in the playlist
         do {
@@ -242,7 +249,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             title: videoSnippet.title,
             description: rawDescription, // Keep raw for reference if needed
             concept: cleanedConcept, // Use cleaned description as concept
-            thumbnailUrl: videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
+            thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
             estimatedLengthMinutes: parseDuration(contentDetails.duration),
             chapters: extractedChapters // Store extracted chapters
         };
