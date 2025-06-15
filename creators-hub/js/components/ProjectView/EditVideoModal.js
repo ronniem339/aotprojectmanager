@@ -65,7 +65,8 @@ window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMaps
 
     const handleMarkAllComplete = async () => {
         const completedTasks = {};
-        window.TASK_PIPELINE.forEach(task => { // Use window.TASK_PIPELINE
+        // Use the globally accessible TASK_PIPELINE from config.js
+        window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => { 
             completedTasks[task.id] = 'complete';
         });
         await videoDocRef.update({ tasks: completedTasks });
