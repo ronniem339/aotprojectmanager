@@ -101,9 +101,10 @@ window.App = () => { // Exposing App component globally
         setCurrentView('dashboard');
     };
 
-    const handleShowSettings = () => setCurrentView('settings');
-    const handleShowMyStudio = () => setCurrentView('myStudio');
-    const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases'); // NEW: Handler for Knowledge Bases
+    // Updated navigation handlers
+    const handleShowSettings = () => setCurrentView('settingsMenu'); // Navigate to the new settings menu
+    const handleShowStyleAndTone = () => setCurrentView('myStudio'); // Renamed from myStudio to styleAndTone view
+    const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
 
     const handleSaveSettings = async (newSettings) => {
         if (!user) return;
@@ -111,9 +112,9 @@ window.App = () => { // Exposing App component globally
         try {
             await settingsDocRef.set(newSettings, { merge: true });
             displayNotification('Settings saved successfully!');
-            // After saving, go back to the dashboard or relevant view
+            // After saving, go back to the settings menu if applicable, otherwise dashboard
             if (currentView === 'settings' || currentView === 'myStudio' || currentView === 'knowledgeBases') {
-                setCurrentView('dashboard');
+                setCurrentView('settingsMenu'); // Go back to the settings menu
             }
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -214,25 +215,23 @@ Your task is to analyze this data and generate a complete project plan to help t
         switch (currentView) {
             case 'project':
                 return <window.ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
-            case 'settings':
-                return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
-            case 'myStudio':
-                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
+            case 'settingsMenu': // NEW CASE: For the Settings Menu
+                return <window.SettingsMenu onBack={handleBackToDashboard} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
+            case 'settings': // Technical Settings View (previously just 'settings')
+                return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
+            case 'myStudio': // Renamed to Style & Tone
+                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
             case 'importProject':
                 return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} />;
-            // NEW CASE: Render KnowledgeBaseView
             case 'knowledgeBases':
-                return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
+                return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
             default:
                 return <window.Dashboard 
                             userId={user.uid} 
                             onSelectProject={handleSelectProject} 
-                            onShowSettings={handleShowSettings} 
-                            onShowMyStudio={handleShowMyStudio} 
+                            onShowSettings={handleShowSettings} // Now leads to settingsMenu
                             onShowProjectSelection={() => setShowProjectSelection(true)}
                             onShowDeleteConfirm={handleShowDeleteConfirm}
-                            // NEW PROP: Pass handler to show Knowledge Bases
-                            onShowKnowledgeBases={handleShowKnowledgeBases}
                         />;
         }
     }
