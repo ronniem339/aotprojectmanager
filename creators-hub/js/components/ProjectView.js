@@ -13,6 +13,131 @@ const TASK_PIPELINE = [
     { id: 'firstCommentGenerated', title: 'Generate First Comment'}
 ];
 
+// Reusable component from NewProjectWizard.js for location searching
+const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
+    const inputRef = useRef(null);
+    const autocompleteRef = useRef(null);
+    const geocoderRef = useRef(null);
+
+    const determineDefaultImportance = (types) => {
+        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
+        if (types.some(type => majorTypes.includes(type))) {
+            return 'major';
+        }
+        return 'quick';
+    };
+
+    useEffect(() => {
+        if (!inputRef.current || !window.google?.maps?.places) return;
+        
+        if (!geocoderRef.current) {
+            geocoderRef.current = new window.google.maps.Geocoder();
+        }
+
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
+        autocompleteRef.current.setFields(['place_id', 'name', 'geometry', 'types']);
+
+        const placeChangedListener = () => {
+            const place = autocompleteRef.current.getPlace();
+            if (place && place.geometry && place.types) {
+                const newLocation = {
+                    name: place.name,
+                    place_id: place.place_id,
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
+                    importance: determineDefaultImportance(place.types),
+                    types: place.types
+                };
+                if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
+                    onLocationsChange([...existingLocations, newLocation]);
+                }
+                if (inputRef.current) {
+                    inputRef.current.value = '';
+                }
+            }
+        };
+        const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter' && !e.defaultPrevented) {
+                e.preventDefault();
+                const firstSuggestion = document.querySelector('.pac-container .pac-item');
+                if (firstSuggestion) {
+                    const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
+                    const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
+                    const fullAddress = `${mainText} ${secondaryText}`.trim();
+                    
+                    if (fullAddress && geocoderRef.current) {
+                        geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
+                            if (status === 'OK' && results[0]) {
+                                const place = results[0];
+                                const newLocation = {
+                                    name: mainText || place.formatted_address.split(',')[0],
+                                    place_id: place.place_id,
+                                    lat: place.geometry.location.lat(),
+                                    lng: place.geometry.location.lng(),
+                                    importance: determineDefaultImportance(place.types),
+                                    types: place.types
+                                };
+                                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
+                                    onLocationsChange([...existingLocations, newLocation]);
+                                }
+                                if (inputRef.current) {
+                                    inputRef.current.value = '';
+                                }
+                            } else {
+                                console.error('Geocode was not successful for the following reason: ' + status);
+                            }
+                        });
+                    }
+                }
+            }
+        };
+
+        const inputElement = inputRef.current;
+        inputElement.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            if (window.google?.maps?.event && placeChangedListenerHandle) {
+                window.google.maps.event.removeListener(placeChangedListenerHandle);
+            }
+            if (inputElement) {
+                inputElement.removeEventListener('keydown', handleKeyDown);
+            }
+            const pacContainers = document.querySelectorAll('.pac-container');
+            pacContainers.forEach(container => container.remove());
+        };
+    }, [onLocationsChange, existingLocations]);
+
+    const removeLocation = (place_id) => {
+        onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
+    };
+
+    return (
+        <div>
+            <input 
+                ref={inputRef} 
+                type="text" 
+                placeholder="Search for and add locations..." 
+                className="w-full form-input" 
+            />
+            <div className="flex flex-wrap gap-2 mt-3">
+                {existingLocations.map((loc) => (
+                    <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                        <span>{loc.name}</span>
+                        <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const MockLocationSearchInput = () => {
+    return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
+};
+
+
 const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const isCurrent = !isLocked && status !== 'complete' && status !== 'locked';
@@ -290,16 +415,25 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
 });
 
 // Modal for editing the overall project title and description
-const EditProjectModal = ({ project, userId, settings, onClose }) => {
+const EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoaded }) => {
     const [title, setTitle] = useState(project.playlistTitle);
     const [description, setDescription] = useState(project.playlistDescription);
+    const [locations, setLocations] = useState(project.locations || []);
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
 
+    const handleLocationsUpdate = useCallback((newLocations) => {
+        setLocations(newLocations);
+    }, []);
+
     const handleSave = async () => {
-        await projectDocRef.update({ playlistTitle: title, playlistDescription: description });
+        await projectDocRef.update({
+            playlistTitle: title,
+            playlistDescription: description,
+            locations: locations
+        });
         onClose();
     };
 
@@ -339,7 +473,7 @@ const EditProjectModal = ({ project, userId, settings, onClose }) => {
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-2xl font-bold mb-6">Edit Project Details</h2>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Title</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full form-input" />
@@ -347,6 +481,13 @@ const EditProjectModal = ({ project, userId, settings, onClose }) => {
                      <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Description</label>
                         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="6" className="w-full form-textarea" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Project Locations</label>
+                        {googleMapsLoaded 
+                            ? <LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> 
+                            : <MockLocationSearchInput />
+                        }
                     </div>
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
@@ -358,7 +499,7 @@ const EditProjectModal = ({ project, userId, settings, onClose }) => {
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-4 mt-8">
+                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-700">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
                     <button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Save Changes</button>
                 </div>
@@ -368,17 +509,66 @@ const EditProjectModal = ({ project, userId, settings, onClose }) => {
 };
 
 // Modal for editing individual video details
-const EditVideoModal = ({ video, userId, settings, project, onClose }) => {
+const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsLoaded }) => {
+    // Basic Details
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
+    
+    // Locations & Keywords
+    const [locationsFeatured, setLocationsFeatured] = useState(video.locations_featured ? video.locations_featured.map(name => project.locations.find(l => l.name === name) || { name }).filter(l => l.place_id) : []);
+    const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
+    const [keywordInput, setKeywordInput] = useState('');
+
+    // AI & UI State
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(false);
     const [showConfirmComplete, setShowConfirmComplete] = useState(false);
+    
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
+    const handleLocationsUpdate = useCallback((newLocations) => {
+        setLocationsFeatured(newLocations);
+    }, []);
+
+    const handleKeywordAdd = (e) => {
+        if (e.key === 'Enter' && keywordInput.trim() !== '') {
+            e.preventDefault();
+            const newKeyword = keywordInput.trim();
+            if (!targetedKeywords.includes(newKeyword)) {
+                setTargetedKeywords([...targetedKeywords, newKeyword]);
+            }
+            setKeywordInput('');
+        }
+    };
+
+    const handleKeywordRemove = (keywordToRemove) => {
+        setTargetedKeywords(targetedKeywords.filter(kw => kw !== keywordToRemove));
+    };
+
     const handleSave = async () => {
-        await videoDocRef.update({ chosenTitle: title, concept: concept });
+        // We need to update the main project document if new locations were added
+        const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+        const existingProjectLocations = project.locations || [];
+        const newLocationsForProject = [...existingProjectLocations];
+        
+        locationsFeatured.forEach(featuredLoc => {
+            if (!existingProjectLocations.some(projLoc => projLoc.place_id === featuredLoc.place_id)) {
+                newLocationsForProject.push(featuredLoc);
+            }
+        });
+
+        if (newLocationsForProject.length > existingProjectLocations.length) {
+            await projectDocRef.update({ locations: newLocationsForProject });
+        }
+        
+        // Now update the video document with the names of the featured locations
+        await videoDocRef.update({
+            chosenTitle: title,
+            concept: concept,
+            locations_featured: locationsFeatured.map(l => l.name),
+            targeted_keywords: targetedKeywords
+        });
         onClose();
     };
 
@@ -428,7 +618,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose }) => {
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-2xl font-bold mb-6">Edit Video Details</h2>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full form-input" />
@@ -437,6 +627,42 @@ const EditVideoModal = ({ video, userId, settings, project, onClose }) => {
                         <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept</label>
                         <textarea value={concept} onChange={(e) => setConcept(e.target.value)} rows="4" className="w-full form-textarea" />
                     </div>
+
+                    {/* Locations Section */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Locations Featured</label>
+                         <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                             {googleMapsLoaded 
+                                ? <LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locationsFeatured} /> 
+                                : <MockLocationSearchInput />
+                            }
+                        </div>
+                    </div>
+
+                    {/* Keywords Section */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Targeted Keywords</label>
+                        <div className="p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {targetedKeywords.map(kw => (
+                                    <div key={kw} className="flex items-center gap-2 px-2.5 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">
+                                        <span>{kw}</span>
+                                        <button onClick={() => handleKeywordRemove(kw)} className="text-teal-200 hover:text-white font-bold leading-none">&times;</button>
+                                    </div>
+                                ))}
+                            </div>
+                            <input
+                                type="text"
+                                value={keywordInput}
+                                onChange={(e) => setKeywordInput(e.target.value)}
+                                onKeyDown={handleKeywordAdd}
+                                className="w-full form-input bg-gray-800 border-gray-600"
+                                placeholder="Type a keyword and press Enter..."
+                            />
+                        </div>
+                    </div>
+
+
                      <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title catchier' or 'Focus the concept on the hiking aspect'"/>
@@ -461,7 +687,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose }) => {
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-4 mt-8">
+                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-700">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
                     <button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Save Changes</button>
                 </div>
@@ -471,7 +697,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose }) => {
 };
 
 
-const ProjectView = ({ project, userId, onBack, settings }) => {
+const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeVideoId, setActiveVideoId] = useState(null);
@@ -568,8 +794,8 @@ const ProjectView = ({ project, userId, onBack, settings }) => {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
-            {editingProject && <EditProjectModal project={project} userId={userId} settings={settings} onClose={() => setEditingProject(false)}/>}
-            {editingVideo && <EditVideoModal video={editingVideo} userId={userId} project={project} settings={settings} onClose={() => setEditingVideo(null)}/>}
+            {editingProject && <EditProjectModal project={project} userId={userId} settings={settings} onClose={() => setEditingProject(false)} googleMapsLoaded={googleMapsLoaded} />}
+            {editingVideo && <EditVideoModal video={editingVideo} userId={userId} project={project} settings={settings} onClose={() => setEditingVideo(null)} googleMapsLoaded={googleMapsLoaded} />}
 
             <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
