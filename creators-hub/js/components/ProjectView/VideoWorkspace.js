@@ -113,7 +113,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
             await videoDocRef.update({ stats: newStats });
 
-        } catch (error) {
+        } <<<<<<< Updated upstream =======
+        } >>>>>>> Stashed changes
+        catch (error) {
             console.error("Error during fetch operation:", error);
             setStatsErrorMessage(`Error fetching stats: ${error.message}.`);
         } finally {
