@@ -2,7 +2,7 @@
 
 const { useState, useEffect, useRef, useCallback } = React;
 
-const useDebounce = (value, delay) => {
+window.useDebounce = (value, delay) => {
     const [debouncedValue, setDebouncedValue] = useState(value);
     useEffect(() => {
         const handler = setTimeout(() => { setDebouncedValue(value); }, delay);
@@ -11,7 +11,7 @@ const useDebounce = (value, delay) => {
     return debouncedValue;
 };
 
-const loadGoogleMapsScript = (apiKey, callback) => {
+window.loadGoogleMapsScript = (apiKey, callback) => {
     if (window.google?.maps?.places) {
         if (callback) callback();
         return;
@@ -36,19 +36,19 @@ const loadGoogleMapsScript = (apiKey, callback) => {
 };
 
 
-const LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>{text && <p className="mt-3 text-sm text-gray-400">{text}</p>}</div>);
+window.LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justify-center items-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent"></div>{text && <p className="mt-3 text-sm text-gray-400">{text}</p>}</div>);
 
-const ImageComponent = ({ src, alt, className }) => {
+window.ImageComponent = ({ src, alt, className }) => {
     const [imgSrc, setImgSrc] = useState(src);
-    const placeholder = `https://placehold.co/600x400/1f2937/3b82f6?text=${encodeURIComponent(alt)}`;
+    const placeholder = `https://placehold.co/600x400/1f2937/dc493a?text=${encodeURIComponent(alt)}`; // Updated placeholder color
     useEffect(() => { setImgSrc(src) }, [src]);
     return <img src={imgSrc || placeholder} alt={alt} className={className} onError={() => setImgSrc(placeholder)} />;
 };
 
-const LoginScreen = ({ onLogin }) => (<div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white"><h1 className="text-5xl font-bold mb-4">Creator's Hub</h1><p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p><button onClick={onLogin} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105">Start Creating</button></div>);
+window.LoginScreen = ({ onLogin }) => (<div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white"><h1 className="text-5xl font-bold mb-4">Creator's Hub</h1><p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p><button onClick={onLogin} className="px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg text-lg font-semibold transition-all duration-300 transform hover:scale-105">Start Creating</button></div>);
 
 
-const DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
+window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
     const [confirmText, setConfirmText] = useState('');
     const isConfirmationMatching = confirmText === 'YES';
 
@@ -84,7 +84,7 @@ const DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
 };
 
 // Reusable component for location searching
-const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
+window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     const inputRef = useRef(null);
     const autocompleteRef = useRef(null);
     const geocoderRef = useRef(null);
@@ -193,9 +193,9 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
             />
             <div className="flex flex-wrap gap-2 mt-3">
                 {existingLocations.map((loc) => (
-                    <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                    <div key={loc.place_id} className="bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
                         <span>{loc.name}</span>
-                        <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
+                        <button onClick={() => removeLocation(loc.place_id)} className="text-secondary-accent-lighter-text hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
                     </div>
                 ))}
             </div>
@@ -203,6 +203,6 @@ const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     );
 };
 
-const MockLocationSearchInput = () => {
+window.MockLocationSearchInput = () => {
     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
 };
