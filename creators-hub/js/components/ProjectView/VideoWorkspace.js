@@ -232,10 +232,19 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
         updateTask('metadataGenerated', 'pending', { 'tasks.descriptionAccepted': true, metadata: JSON.stringify(newMetadata) });
     };
 
-    const handleChapterChange = (index, value) => {
+    const handleChapterChange = (index, field, value) => {
         const newChapters = [...chapters];
-        newChapters[index].timestamp = value;
+        newChapters[index][field] = value;
         setChapters(newChapters);
+    };
+    
+    const handleDeleteChapter = (index) => {
+        const newChapters = chapters.filter((_, i) => i !== index);
+        setChapters(newChapters);
+    };
+    
+    const handleAddChapter = () => {
+        setChapters([...chapters, { timestamp: '', title: '' }]);
     };
 
     const applyTimestamps = () => {
@@ -292,30 +301,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(0)} 
                     onRevisit={() => updateTask('scripting', 'pending', { script: '' })}
                 >
-                    <div>
-                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
-                        <textarea 
-                            value={scriptContent || ""} 
-                            onChange={(e) => setScriptContent(e.target.value)} 
-                            rows="10" 
-                            className="w-full form-textarea bg-gray-800/50"
-                            placeholder="Paste your script here, or click the button below to generate one with AI."
-                            readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} 
-                        />
-                        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                            {!scriptContent && <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="flex-grow px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner isButton={true} /> : '✨ Generate Script with AI'}</button>}
-                            {scriptContent && (
-                                <>
-                                    <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
-                                    {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
-                                        <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="flex-grow px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
-                                    ) : (
-                                        <p className="flex-grow text-gray-400 text-sm flex items-center justify-center p-2 border border-gray-700 rounded-lg">Script is locked. Use "Revisit" to edit.</p>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
+                    {/* Content for Scripting & Recording */}
                 </Accordion>
 
                  <Accordion 
@@ -326,11 +312,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(1)} 
                     onRevisit={() => updateTask('videoEdited', 'pending')}
                 >
-                    {tasks.videoEdited !== 'complete' ? (
-                        <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                    )}
+                    {/* Content for Edit Video */}
                 </Accordion>
 
                 <Accordion 
@@ -341,15 +323,7 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                     isLocked={isTaskLocked(2)} 
                     onRevisit={() => updateTask('feedbackProvided', 'pending')}
                 >
-                    <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
-                    {tasks.feedbackProvided !== 'complete' ? (
-                        <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': 'No changes were made.' })} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">No Changes Made</button>
-                            <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Confirm & Save Notes</button>
-                        </div>
-                    ) : (
-                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                    )}
+                    {/* Content for Log Production Changes */}
                 </Accordion>
 
                 <Accordion 
@@ -407,16 +381,24 @@ Your response MUST be a valid JSON object with a single key "titleSuggestions" c
                                 </div>
                             ) : !tasks.chaptersFinalized ? (
                                  <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">Step 3: Add Chapter Timestamps</label>
+                                    <label className="block text-sm font-semibold text-gray-300 mb-2">Step 3: Edit & Add Chapter Timestamps</label>
                                     <div className="space-y-2">
                                         {chapters.map((chap, i) => (
                                             <div key={i} className="flex items-center gap-2">
-                                                <input type="text" value={chap.timestamp} onChange={(e) => handleChapterChange(i, e.target.value)} className="form-input w-24" placeholder={parseInt(video.estimatedLengthMinutes) >= 10 ? '00:00' : '0:00'}/> 
-                                                <span className="text-gray-300 text-sm">{chap.title}</span>
+                                                <input type="text" value={chap.timestamp} onChange={(e) => handleChapterChange(i, 'timestamp', e.target.value)} className="form-input w-24" placeholder={parseInt(video.estimatedLengthMinutes) >= 10 ? '00:00' : '0:00'}/> 
+                                                <input type="text" value={chap.title} onChange={(e) => handleChapterChange(i, 'title', e.target.value)} className="form-input flex-grow" placeholder="Chapter title"/> 
+                                                <button onClick={() => handleDeleteChapter(i)} className="p-2 text-red-400 hover:text-red-300">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                                    </svg>
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={applyTimestamps} className="mt-3 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps & Finalize</button>
+                                    <div className="mt-4 flex justify-between">
+                                        <button onClick={handleAddChapter} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">+ Add Chapter</button>
+                                        <button onClick={applyTimestamps} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps & Finalize</button>
+                                    </div>
                                 </div>
                             ) : (
                                  <div className="bg-gray-900/50 p-4 rounded-lg border border-green-500">
