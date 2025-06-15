@@ -113,15 +113,13 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
             await videoDocRef.update({ stats: newStats });
 
-        } <<<<<<< Updated upstream =======
-        } >>>>>>> Stashed changes
-        catch (error) {
+        } catch (error) { // This `catch` block is correctly placed and matches the `try`.
             console.error("Error during fetch operation:", error);
             setStatsErrorMessage(`Error fetching stats: ${error.message}.`);
         } finally {
             setIsFetchingStats(false);
         }
-    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]); // Added isFetchingStats to dependencies
+    }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]);
 
 
     // Effect to trigger stats fetch when video data or API key changes
