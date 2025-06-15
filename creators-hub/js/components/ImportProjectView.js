@@ -1,6 +1,6 @@
 // js/components/ImportProjectView.js
 
-const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
+window.ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
     const [playlistTitle, setPlaylistTitle] = useState('');
     const [projectOutline, setProjectOutline] = useState('');
     const [playlistDescription, setPlaylistDescription] = useState('');
@@ -41,7 +41,7 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
         <div className="p-8">
              {isLoading && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-                   <LoadingSpinner text="Analyzing your project and building a plan..." />
+                   <window.LoadingSpinner text="Analyzing your project and building a plan..." />
                 </div>
             )}
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
@@ -100,7 +100,7 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
                                 </div>
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium text-gray-300 mb-1">Concept / Description</label>
-                                    <textarea value={video.concept} onChange={(e) => handleVideoChange(index, 'concept', e.target.value)} rows="3" className="w-full form-textarea" placeholder="Brief concept or description for this video"></textarea>
+                                    <textarea value={video.concept} onChange={(e) => setConcept(e.target.value)} rows="3" className="w-full form-textarea" placeholder="Brief concept or description for this video"></textarea>
                                 </div>
                                  <div className="mt-4">
                                     <label className="block text-sm font-medium text-gray-300 mb-1">Full Script / Transcript (Optional)</label>
