@@ -30,17 +30,8 @@ window.App = () => { // Exposing App component globally
         const unsubscribeAuth = auth.onAuthStateChanged(currentUser => {
             setUser(currentUser);
             if (!currentUser) {
-                // If no user (logged out or initial state), attempt anonymous sign-in if no token,
-                // or ensure settings/drafts are cleared for security.
-                if (typeof INITIAL_AUTH_TOKEN !== 'undefined' && INITIAL_AUTH_TOKEN !== null) {
-                     auth.signInWithCustomToken(INITIAL_AUTH_TOKEN).catch(error => {
-                        console.error("Custom token sign-in failed:", error);
-                        // Fallback to anonymous if custom token fails (e.g., expired)
-                        auth.signInAnonymously().catch(anonError => console.error("Anonymous sign-in failed:", anonError));
-                    });
-                } else {
-                    auth.signInAnonymously().catch(error => console.error("Anonymous sign-in failed:", error));
-                }
+                // IMPORTANT: Removed automatic anonymous sign-in here.
+                // The LoginScreen is now responsible for handling user authentication.
                 setSettings({ geminiApiKey: '', googleMapsApiKey: '', styleGuideText: '' }); // Clear settings for unauthenticated user
                 setProjectDraft(null);
             }
@@ -206,13 +197,13 @@ Your task is to analyze this data and generate a complete project plan to help t
     };
 
     const renderView = () => {
-        // Only render main app content if authentication is ready and user is logged in
+        // Only render main app content if authentication is ready
         if (!isAuthReady) {
             return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing..." /></div>;
         }
         
+        // Render LoginScreen if no user is authenticated
         if (!user) {
-            // Render LoginScreen if no user is authenticated
             return <window.LoginScreen onLogin={handleLogin} />;
         }
 
