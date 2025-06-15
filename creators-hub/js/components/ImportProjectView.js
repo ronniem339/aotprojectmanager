@@ -24,7 +24,10 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         thumbnailUrl: '', // No thumbnail for manual
         isManual: true, // Flag to identify manual entries
         status: 'pending',
-        chapters: [] // Store extracted chapters here
+        chapters: [], // Store extracted chapters here
+        tasks: {}, // Initialize tasks for manual video
+        publishDate: '', // Initialize publish date for manual video
+        metadata: '' // Initialize metadata for manual video
     }]);
 
     // Helper to extract Playlist ID or Video ID from YouTube URLs
@@ -56,7 +59,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         const chapterLines = [];
         const lines = description.split('\n');
         // Regex to match common chapter formats like HH:MM:SS, MM:SS, H:MM:SS followed by text
-        const chapterRegex = /(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–—]?\s*(.*)/;
+        const chapterRegex = /(\d{1,2}:\d{2}(?::\d{2})?)\s*[-––—]?\s*(.*)/; // Added – and — for dash variations
 
         lines.forEach(line => {
             const match = line.match(chapterRegex);
@@ -194,7 +197,10 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                                playlistSnippet.thumbnails.medium?.url ||
                                playlistSnippet.thumbnails.default?.url || '';
 
+
         // Fetch videos in the playlist
+        // Need to fetch video details separately to get `publishedAt` date and full details
+        const videoIds = [];
         do {
             const playlistItemsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
             const response = await fetch(playlistItemsUrl);
@@ -206,22 +212,70 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
 
             data.items.forEach(item => {
                 if (item.snippet.resourceId.kind === 'youtube#video') {
-                    const rawDescription = item.snippet.description || '';
-                    const extractedChapters = extractChaptersFromDescription(rawDescription);
-                    const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
-
-                    videos.push({
-                        id: item.snippet.resourceId.videoId,
-                        title: item.snippet.title,
-                        description: rawDescription, // Store the raw description
-                        concept: cleanedConcept,     // Store the cleaned concept
-                        thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-                        chapters: extractedChapters // Store extracted chapters
-                    });
+                    videoIds.push(item.snippet.resourceId.videoId);
                 }
             });
             nextPageToken = data.nextPageToken;
-        } while (nextPageToken);
+        } while (nextPageToken && videoIds.length < 200); // Limit to avoid too many requests
+
+        // Now fetch details for all collected video IDs in batches of 50
+        const videoDetailsPromises = [];
+        for (let i = 0; i < videoIds.length; i += 50) {
+            const batchIds = videoIds.slice(i, i + 50);
+            const videoDetailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${batchIds.join(',')}&key=${apiKey}`;
+            videoDetailsPromises.push(fetch(videoDetailsUrl).then(res => res.json()));
+        }
+
+        const videoDetailsResults = await Promise.all(videoDetailsPromises);
+        videoDetailsResults.forEach(data => {
+            if (data.items) {
+                data.items.forEach(item => {
+                    const rawDescription = item.snippet.description || '';
+                    const extractedChapters = extractChaptersFromDescription(rawDescription);
+                    const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
+                    const publishedAtDate = item.snippet.publishedAt ? new Date(item.snippet.publishedAt).toISOString().split('T')[0] : ''; // Format to YYYY-MM-DD
+
+                    // Construct a basic metadata object from available info
+                    const importedMetadata = JSON.stringify({
+                        titleSuggestions: [item.snippet.title],
+                        description: rawDescription, // Original description for metadata
+                        tags: '', // YouTube API does not return tags via playlistItems or video snippets directly for public videos
+                        chapters: extractedChapters,
+                        thumbnailConcepts: [{
+                            imageSuggestion: `A thumbnail for a video titled "${item.snippet.title}"`,
+                            textOverlay: item.snippet.title
+                        }]
+                    });
+
+                    videos.push({
+                        id: item.id, // Use item.id for video ID
+                        title: item.snippet.title,
+                        description: rawDescription,    // Store the raw description
+                        concept: cleanedConcept,        // Store the cleaned concept
+                        thumbnailUrl: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+                        chapters: extractedChapters,    // Store extracted chapters
+                        estimatedLengthMinutes: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : '',
+                        isManual: false,
+                        // Set initial task statuses for imported videos
+                        tasks: {
+                            scripting: 'pending', // Assume script needs review/generation unless provided
+                            videoEdited: 'complete',
+                            feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
+                            metadataGenerated: 'complete', // Metadata is largely available
+                            thumbnailsGenerated: 'complete',
+                            videoUploaded: 'complete',
+                            firstCommentGenerated: 'complete' // Assume first comment is handled
+                        },
+                        publishDate: publishedAtDate, // Store the published date
+                        metadata: importedMetadata, // Store constructed metadata
+                        generatedThumbnails: [item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url], // Store primary thumbnail
+                        chosenTitle: item.snippet.title, // Use original title as chosen title
+                        script: '' // Script needs to be provided by user or AI generated later
+                    });
+                });
+            }
+        });
+
 
         setFetchedYoutubeData({ playlistTitle, playlistDescription, videos });
         setManualPlaylistTitle(playlistTitle);
@@ -231,14 +285,12 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         setVideosToImport(prevVideos => {
             // Filter out initial empty manual video if YouTube data is fetched
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
-            const newFetchedVideos = videos.map(video => ({
+            // Ensure no duplicate videos from YouTube fetch (e.g., if re-fetching the same playlist)
+            const newFetchedVideos = videos.filter(newVid => !prevVideos.some(pVid => pVid.id === newVid.id)).map(video => ({
                 ...video,
-                script: '', // Transcripts need separate fetching/AI parsing
-                locations_featured: [],
-                targeted_keywords: [],
-                estimatedLengthMinutes: '', // Placeholder, would need YouTube API for video duration if not already fetched
-                isManual: false, // Flag to identify fetched entries
-                status: 'pending' // For internal review process
+                // Ensure default values for properties not directly from API but expected by app
+                locations_featured: video.locations_featured || [],
+                targeted_keywords: video.targeted_keywords || [],
             }));
             return [...newFetchedVideos, ...existingManualVideos];
         });
@@ -269,15 +321,44 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         const rawDescription = videoSnippet.description || '';
         const extractedChapters = extractChaptersFromDescription(rawDescription);
         const cleanedConcept = cleanVideoDescription(rawDescription, extractedChapters);
+        const publishedAtDate = videoSnippet.publishedAt ? new Date(videoSnippet.publishedAt).toISOString().split('T')[0] : '';
+
+        // Construct a basic metadata object from available info
+        const importedMetadata = JSON.stringify({
+            titleSuggestions: [videoSnippet.title],
+            description: rawDescription, // Original description for metadata
+            tags: '', // YouTube API does not return tags via playlistItems or video snippets directly for public videos
+            chapters: extractedChapters,
+            thumbnailConcepts: [{
+                imageSuggestion: `A thumbnail for a video titled "${videoSnippet.title}"`,
+                textOverlay: videoSnippet.title
+            }]
+        });
+
 
         const fetchedVideo = {
             id: videoId,
             title: videoSnippet.title,
-            description: rawDescription, // Store the raw description
-            concept: cleanedConcept,     // Store the cleaned concept
+            description: rawDescription,    // Store the raw description
+            concept: cleanedConcept,        // Store the cleaned concept
             thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url,
             estimatedLengthMinutes: parseDuration(contentDetails.duration),
-            chapters: extractedChapters // Store extracted chapters
+            chapters: extractedChapters,    // Store extracted chapters
+            // Set initial task statuses for imported video
+            tasks: {
+                scripting: 'pending', // Assume script needs review/generation unless provided
+                videoEdited: 'complete',
+                feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
+                metadataGenerated: 'complete', // Metadata is largely available
+                thumbnailsGenerated: 'complete',
+                videoUploaded: 'complete',
+                firstCommentGenerated: 'complete' // Assume first comment is handled
+            },
+            publishDate: publishedAtDate, // Store the published date
+            metadata: importedMetadata, // Store constructed metadata
+            generatedThumbnails: [videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url], // Store primary thumbnail
+            chosenTitle: videoSnippet.title, // Use original title as chosen title
+            script: '' // Script needs to be provided by user or AI generated later
         };
 
         setFetchedYoutubeData({
@@ -292,11 +373,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             const newFetchedVideo = {
                 ...fetchedVideo,
-                script: '',
-                locations_featured: [],
-                targeted_keywords: [],
-                isManual: false,
-                status: 'pending'
+                locations_featured: fetchedVideo.locations_featured || [],
+                targeted_keywords: fetchedVideo.targeted_keywords || [],
             };
             return [newFetchedVideo, ...existingManualVideos];
         });
@@ -322,7 +400,10 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 thumbnailUrl: '',
                 isManual: true,
                 status: 'pending',
-                chapters: [] // New manual videos start with no chapters
+                chapters: [], // New manual videos start with no chapters
+                tasks: {}, // Empty tasks for manual
+                publishDate: '',
+                metadata: ''
             }
         ]);
     };
@@ -357,11 +438,16 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 title: v.title,
                 concept: v.concept,             // Cleaned concept for internal use
                 description: v.description,     // Raw YouTube description for metadata
-                script: v.script,
+                script: v.script,               // Raw script if provided or empty
                 estimatedLengthMinutes: v.estimatedLengthMinutes,
                 locations_featured: v.locations_featured,
                 targeted_keywords: v.targeted_keywords,
-                chapters: v.chapters || []      // Extracted chapters
+                chapters: v.chapters || [],      // Extracted chapters
+                tasks: v.tasks || {},           // Initial task statuses
+                publishDate: v.publishDate || '',// Publish date
+                metadata: v.metadata || '',     // Full metadata object
+                generatedThumbnails: v.generatedThumbnails || [], // Generated thumbnails
+                chosenTitle: v.chosenTitle || v.title, // Chosen title
             })),
         };
         onAnalyze(projectData);
