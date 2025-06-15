@@ -257,14 +257,14 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                 // Call AI to extract locations and keywords
                 let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
                 try {
-                    console.log(`[AI Input] Processing video "${item.snippet.title}" for metadata extraction.`);
-                    console.log(`[AI Input] Raw Description for "${item.snippet.title}":`, rawDescription);
+                    // console.log(`[AI Input] Processing video "${item.snippet.title}" for metadata extraction.`);
+                    // console.log(`[AI Input] Raw Description for "${item.snippet.title}":`, rawDescription);
                     aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
                         videoTitle: item.snippet.title,
                         videoDescription: rawDescription,
                         settings: settings
                     });
-                    console.log(`[AI Output] Extracted data for "${item.snippet.title}":`, aiExtractedData);
+                    // console.log(`[AI Output] Extracted data for "${item.snippet.title}":`, aiExtractedData);
                 } catch (aiError) {
                     console.error(`[AI Error] Failed to extract AI metadata for video "${item.snippet.title}":`, aiError);
                     // Ensure aiExtractedData remains correctly structured even on error
@@ -296,7 +296,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     isManual: false,
                     // Set initial task statuses for imported videos
                     tasks: {
-                        scripting: 'pending', // Marked as complete if user provides script or it's inferred. For now, assume pending by default unless script exists.
+                        scripting: 'pending', // Scripting is pending initially, user can fill in or generate
                         videoEdited: 'complete',
                         feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
                         metadataGenerated: 'complete', // Metadata is largely available
@@ -308,7 +308,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     metadata: importedMetadata, // Store constructed metadata
                     generatedThumbnails: [item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail (filter Boolean to remove nulls/undefined)
                     chosenTitle: item.snippet.title, // Use original title as chosen title
-                    script: '' // Initial script is empty, user can provide it
+                    script: '' // Initial script is empty, user can provide it via UI or AI generate
                 };
             });
         });
@@ -351,14 +351,14 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         // Call AI to extract locations and keywords
         let aiExtractedData = { locations_featured: [], targeted_keywords: [] };
         try {
-            console.log(`[AI Input] Processing single video "${videoSnippet.title}" for metadata extraction.`);
-            console.log(`[AI Input] Raw Description for "${videoSnippet.title}":`, rawDescription);
+            // console.log(`[AI Input] Processing single video "${videoSnippet.title}" for metadata extraction.`);
+            // console.log(`[AI Input] Raw Description for "${videoSnippet.title}":`, rawDescription);
             aiExtractedData = await window.aiUtils.extractVideoMetadataAI({
                 videoTitle: videoSnippet.title,
                 videoDescription: rawDescription,
                 settings: settings
             });
-            console.log(`[AI Output] Extracted data for "${videoSnippet.title}":`, aiExtractedData);
+            // console.log(`[AI Output] Extracted data for "${videoSnippet.title}":`, aiExtractedData);
         } catch (aiError) {
             console.error(`[AI Error] Failed to extract AI metadata for single video "${videoSnippet.title}":`, aiError);
             // Continue with empty arrays if AI extraction fails
@@ -391,7 +391,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             isManual: false,
             // Set initial task statuses for imported video
             tasks: {
-                scripting: 'pending', // Assume script needs review/generation unless provided
+                scripting: 'pending', // Scripting is pending initially, user can fill in or generate
                 videoEdited: 'complete',
                 feedbackProvided: 'complete', // Changes are irrelevant for already uploaded
                 metadataGenerated: 'complete', // Metadata is largely available
@@ -403,7 +403,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             metadata: importedMetadata, // Store constructed metadata
             generatedThumbnails: [videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail
             chosenTitle: videoSnippet.title, // Use original title as chosen title
-            script: '' // Initial script is empty, user can provide it
+            script: '' // Initial script is empty, user can provide it via UI or AI generate
         };
 
         setFetchedYoutubeData({
