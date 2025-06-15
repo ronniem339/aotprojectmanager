@@ -11,7 +11,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     // States for user review and AI parsing steps
     const [manualPlaylistTitle, setManualPlaylistTitle] = useState('');
     const [manualPlaylistDescription, setManualPlaylistDescription] = useState('');
-    const [projectCoverImageUrl, setProjectCoverImageUrl] = useState(''); // New state for project cover image
+    const [projectCoverImageUrl, setProjectCoverImageUrl] = useState(''); // State for project cover image URL
     // Initialize videosToImport with one empty manual video by default if no YouTube data is fetched yet
     const [videosToImport, setVideosToImport] = useState([{
         id: `manual-${Date.now()}-0`, // Unique ID for manual entry
@@ -139,7 +139,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
     const fetchPlaylistVideos = async (playlistId, apiKey) => {
         let playlistTitle = '';
         let playlistDescription = '';
-        let playlistThumbnailUrl = ''; // New variable to store playlist thumbnail
+        let playlistThumbnailUrl = ''; 
         let videos = [];
         let nextPageToken = '';
 
