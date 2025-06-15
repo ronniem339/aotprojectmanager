@@ -298,50 +298,6 @@ window.MockLocationSearchInput = () => {
     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
 };
 
-// TaskItem Component
-const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
-    const statusColors = {
-        'complete': 'border-green-500 bg-green-900/20',
-        'pending': 'border-blue-500 bg-blue-900/20',
-        'locked': 'border-gray-700 bg-gray-800/50 opacity-60',
-        'revisited': 'border-orange-500 bg-orange-900/20',
-    };
-    const statusTextColors = {
-        'complete': 'text-green-400',
-        'pending': 'text-blue-400',
-        'locked': 'text-gray-400',
-        'revisited': 'text-orange-400',
-    };
-
-    return (
-        <div className={`glass-card p-6 rounded-lg border ${statusColors[status] || 'border-gray-700 bg-gray-800/50'}`}>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-white">{title}</h3>
-                <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${statusTextColors[status] || 'text-gray-400'}`}>
-                        {status === 'complete' && 'Complete'}
-                        {status === 'pending' && 'Pending'}
-                        {status === 'locked' && 'Locked'}
-                        {status === 'revisited' && 'Revisited'}
-                        {!status && 'Not Started'}
-                    </span>
-                    {/* Show Revisit button if status is 'complete' OR 'locked' AND onRevisit prop is provided */}
-                    {(status === 'complete' || status === 'locked') && onRevisit && (
-                        <button onClick={onRevisit} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-2 py-1 rounded">Revisit</button>
-                    )}
-                </div>
-            </div>
-            {isLocked ? (
-                <div className="p-4 bg-gray-900/50 rounded-lg text-gray-400 text-center">
-                    This task is locked until previous steps are completed.
-                </div>
-            ) : (
-                children
-            )}
-        </div>
-    );
-};
-
 // CopyButton Component
 const CopyButton = ({ textToCopy }) => {
     const [copied, setCopied] = useState(false);
@@ -371,5 +327,8 @@ const CopyButton = ({ textToCopy }) => {
 };
 
 // EXPOSE NEW COMPONENTS GLOBALLY
-window.TaskItem = TaskItem;
 window.CopyButton = CopyButton;
+
+// Removed window.TaskItem as it's replaced by Accordion in VideoWorkspace.js
+// Removed window.TaskItem = TaskItem;
+
