@@ -59,9 +59,8 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, o
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
                     {/* Removed the large "New Project" tile from here as it's now in the header */}
                     {projects.map(project => {
-                        // Dynamically generate the search term and Unsplash URL for each project here
-                        const searchTerm = generateImageSearchTerm(project.playlistTitle);
-                        const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
+                        // Dynamically determine the image URL: prioritize user-selected, then generated
+                        const imageUrl = project.coverImageUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
                         
                         return (
                             <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group">
