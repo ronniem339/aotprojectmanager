@@ -39,7 +39,7 @@ const VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReorde
                                  onDragStart={(e) => handleDragStart(e, video)}
                                  onDrop={(e) => handleDrop(e, video)}
                                  onDragOver={handleDragOver}
-                                 className={`flex items-center gap-2 rounded-lg transition-colors cursor-move ${isDragging ? 'opacity-50' : ''} ${activeVideoId === video.id ? 'bg-blue-600' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}>
+                                 className={`flex items-center gap-2 rounded-lg transition-colors cursor-move ${isDragging ? 'opacity-50' : ''} ${activeVideoId === video.id ? 'bg-primary-accent' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}>
                                 <div className="p-3 text-gray-500 hover:text-white">
                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                                 </div>
