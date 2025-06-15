@@ -1,6 +1,6 @@
 // js/components/Dashboard.js
 
-const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, onShowProjectSelection, onShowDeleteConfirm }) => {
+window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, onShowProjectSelection, onShowDeleteConfirm }) => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const projectCardsRef = useRef(null);
@@ -55,7 +55,7 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                     <button onClick={onShowProjectSelection} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">✨ New Project</button>
                 </div>
             </header>
-            {loading ? <LoadingSpinner /> : (
+            {loading ? <window.LoadingSpinner /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
                     {/* Removed the large "New Project" tile from here as it's now in the header */}
                     {projects.map(project => {
@@ -66,7 +66,7 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                         return (
                             <div key={project.id} onClick={() => onSelectProject(project)} className="glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group">
                                  <div className="relative">
-                                    <ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
+                                    <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
                                     <button 
                                         onClick={(e) => handleDeleteClick(e, project)} 
                                         className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
