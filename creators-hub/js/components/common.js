@@ -40,7 +40,7 @@ window.LoadingSpinner = ({ text = "" }) => (<div className="flex flex-col justif
 
 window.ImageComponent = ({ src, alt, className }) => {
     const [imgSrc, setImgSrc] = useState(src);
-    const placeholder = `https://placehold.co/600x400/1f2937/dc493a?text=${encodeURIComponent(alt)}`; // Updated placeholder color
+    const placeholder = `https://placehold.co/600x400/1f2937/00bfff?text=${encodeURIComponent(alt)}`; // Updated placeholder color to new primary accent
     useEffect(() => { setImgSrc(src) }, [src]);
     return <img src={imgSrc || placeholder} alt={alt} className={className} onError={() => setImgSrc(placeholder)} />;
 };
@@ -207,8 +207,6 @@ window.MockLocationSearchInput = () => {
     return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
 };
 
-// New components to be exposed globally
-
 // TaskItem Component
 const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
     const statusColors = {
@@ -236,7 +234,8 @@ const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
                         {status === 'revisited' && 'Revisited'}
                         {!status && 'Not Started'}
                     </span>
-                    {status === 'complete' && onRevisit && (
+                    {/* Show Revisit button if status is 'complete' OR 'locked' AND onRevisit prop is provided */}
+                    {(status === 'complete' || status === 'locked') && onRevisit && (
                         <button onClick={onRevisit} className="text-xs text-secondary-accent hover:text-secondary-accent-light px-2 py-1 rounded">Revisit</button>
                     )}
                 </div>
