@@ -51,14 +51,13 @@ const Dashboard = ({ userId, onSelectProject, onShowSettings, onShowMyStudio, on
                 <div className="flex gap-4">
                     <button onClick={onShowMyStudio} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">🎨 My Studio</button>
                     <button onClick={onShowSettings} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">⚙️ Settings</button>
+                    {/* Moved New Project button here */}
+                    <button onClick={onShowProjectSelection} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">✨ New Project</button>
                 </div>
             </header>
             {loading ? <LoadingSpinner /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
-                    <button onClick={onShowProjectSelection} className="glass-card rounded-lg h-64 flex flex-col justify-center items-center text-gray-400 hover:text-white hover:border-blue-500 border-2 border-dashed border-gray-600 transition-all">
-                        <span className="text-5xl">✨</span>
-                        <span className="text-xl font-semibold mt-2">New Project</span>
-                    </button>
+                    {/* Removed the large "New Project" tile from here */}
                     {projects.map(project => {
                         // Dynamically generate the search term and Unsplash URL for each project here
                         const searchTerm = generateImageSearchTerm(project.playlistTitle);
