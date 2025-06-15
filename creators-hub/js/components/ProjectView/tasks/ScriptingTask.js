@@ -32,8 +32,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
         }
 
         const prompt = `Act as a professional YouTuber and scriptwriter.
-        Based on the video title and concept below, write a complete, engaging video script.
-        The script should have clear sections (intro, main content, outro) and include placeholders for visuals or on-screen text where appropriate (e.g., "[B-roll of the cliffs]").
+        Based on the video title and concept below, write a complete, engaging video script containing only the spoken dialogue.
+        The script should have a clear intro, main content, and outro.
         Adopt the persona described in the "Who Am I" knowledge base if provided.
 
         Video Title: "${video.chosenTitle || video.title}"
@@ -41,7 +41,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
         My Persona: "${settings.knowledgeBases?.youtube?.whoAmI || 'An engaging and informative travel vlogger.'}"
         My Style Guide: "${settings.styleGuideText || 'Friendly, slightly witty, and knowledgeable.'}"
 
-        IMPORTANT: Your response must be only the raw text of the script. Do not include any introductory phrases, titles, or explanations outside of the script itself.`;
+        IMPORTANT: Your response must be only the raw text of the script. Do not include any visual directions, camera cues, on-screen text callouts (like "[B-roll of cliffs]"), or any other text that is not meant to be spoken.`;
         
         try {
             const payload = {
@@ -98,7 +98,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
         
         User's Refinement Instruction: "${refinementPrompt}"
 
-        IMPORTANT: Please provide only the complete, rewritten, raw text script as your response. Do not include any explanations, apologies, or conversational text.`;
+        IMPORTANT: Please provide only the complete, rewritten, raw text script as your response. Do not include any visual directions, camera cues, on-screen text callouts, explanations, apologies, or conversational text. Only return the spoken dialogue.`;
 
         try {
             const payload = {
