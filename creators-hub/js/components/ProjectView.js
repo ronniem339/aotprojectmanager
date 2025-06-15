@@ -12,14 +12,14 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State to control sidebar visibility on mobile
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // Listen for real-time updates to the project itself (e.g., if locations change)
+    // Listen for real-time updates to the project itself
     useEffect(() => {
         const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
         const unsubscribe = projectDocRef.onSnapshot(doc => {
             setCurrentProject({ id: doc.id, ...doc.data() });
         });
         return () => unsubscribe();
-    }, [project.id, userId]);
+    }, [project.id, userId, appId]);
 
     // Listen for real-time updates to the videos within the project
     useEffect(() => {
@@ -28,12 +28,11 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${currentProject.id}/videos`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             let videosData = querySnapshot.docs.map(doc => ({
-                id: doc.id, // This is the Firestore document ID
-                ...doc.data(), // This contains the youtubeVideoId
+                id: doc.id,
+                ...doc.data(),
                 tasks: doc.data().tasks || {}
             }));
             
-            // Sort videos by the 'order' field
             videosData.sort((a, b) => (a.order || 0) - (b.order || 0));
             
             setVideos(videosData);
@@ -48,7 +47,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         });
 
         return () => unsubscribe();
-    }, [userId, currentProject.id]);
+    }, [userId, currentProject.id, appId, loading, activeVideoId]);
 
     const handleReorderVideos = (draggedItem, targetItem) => {
         let reorderedVideos = [...videos];
@@ -74,6 +73,25 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
     };
 
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
+
+    // **NEW**: Calculate overall project progress
+    const overallProgress = useMemo(() => {
+        const totalTasks = window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
+        if (!videos || videos.length === 0 || totalTasks === 0) {
+            return 0;
+        }
+
+        let totalCompletedTasks = 0;
+        videos.forEach(video => {
+            if (video.tasks) {
+                totalCompletedTasks += Object.values(video.tasks).filter(status => status === 'complete').length;
+            }
+        });
+
+        const maxPossibleTasks = videos.length * totalTasks;
+        return (totalCompletedTasks / maxPossibleTasks) * 100;
+
+    }, [videos]);
     
     return (
         <div className="p-4 sm:p-6 lg:p-8 min-h-screen flex flex-col">
@@ -84,17 +102,16 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                 project={currentProject} 
                 onBack={onBack} 
                 onEdit={() => setEditingProject(true)} 
-                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} // Pass toggle function
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                overallProgress={overallProgress} // Pass progress to header
             />
             
             {loading ? (
                 <div className="flex justify-center mt-16 flex-grow"><window.LoadingSpinner text="Loading Project..." /></div>
             ) : (
-                <div className="flex flex-grow flex-col lg:flex-row gap-6 relative"> {/* Changed to flex-col on mobile, flex-row on larger screens */}
-                    {/* VideoList Sidebar/Drawer for mobile and desktop */}
-                    {/* Adjusted width for lg:w-1/4, xl:w-1/5 to give more space to main content */}
-                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/4 xl:w-1/5 lg:flex-shrink-0 flex flex-col rounded-lg`}> {/* Adjusted lg:w and xl:w here */}
-                        <div className="p-4 flex justify-between items-center lg:hidden border-b border-gray-700"> {/* Added border for mobile header */}
+                <div className="flex flex-grow flex-col lg:flex-row gap-6 relative">
+                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/4 xl:w-1/5 lg:flex-shrink-0 flex flex-col rounded-lg`}>
+                        <div className="p-4 flex justify-between items-center lg:hidden border-b border-gray-700">
                             <h2 className="text-lg font-semibold text-white">Videos</h2>
                             <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
                         </div>
@@ -102,20 +119,17 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                             <window.VideoList 
                                 videos={videos}
                                 activeVideoId={activeVideoId}
-                                onSelectVideo={handleSelectVideoAndCloseSidebar} // Use new handler
+                                onSelectVideo={handleSelectVideoAndCloseSidebar}
                                 onEditVideo={setEditingVideo}
                                 onReorder={handleReorderVideos}
                             />
                         </div>
                     </div>
-                    {/* Overlay for mobile sidebar */}
                     {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
                     
-                    {/* Main content area, now split into two columns on larger screens */}
                     {activeVideo ? (
-                        <div className="lg:flex-grow flex flex-col lg:flex-row gap-6"> {/* Main content area with flex-row for 2nd and 3rd columns */}
-                            {/* Left column for video workspace (tasks) */}
-                            <div className="lg:w-2/3 xl:w-3/4"> {/* Takes 2/3 or 3/4 of the available space */}
+                        <div className="lg:flex-grow flex flex-col lg:flex-row gap-6">
+                            <div className="lg:w-2/3 xl:w-3/4">
                                 <window.VideoWorkspace 
                                     video={activeVideo} 
                                     settings={settings} 
@@ -123,8 +137,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                                     userId={userId}
                                 />
                             </div>
-                            {/* Right column for video details sidebar */}
-                            <div className="lg:w-1/3 xl:w-1/4"> {/* Takes 1/3 or 1/4 of the available space */}
+                            <div className="lg:w-1/3 xl:w-1/4">
                                 <window.VideoDetailsSidebar 
                                     video={activeVideo} 
                                 />
