@@ -1,26 +1,76 @@
 // js/components/ProjectView/tasks/ScriptingTask.js
-window.ScriptingTask = ({ video, settings, onUpdateTask, onGenerate, isLocked }) => {
+
+window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
-    const [scriptContent, setScriptContent] = useState(video.script || '');
+    const [scriptContent, setScriptContent] = useState('');
     const [generating, setGenerating] = useState(false);
     const [showFullScreenScript, setShowFullScreenScript] = useState(false);
+    const [error, setError] = useState('');
 
     const taskStatus = video.tasks?.scripting || 'pending';
 
     useEffect(() => {
         setScriptContent(video.script || '');
-    }, [video.script]);
+        setError(''); // Clear error when video changes
+    }, [video.script, video.id]);
 
+    /**
+     * Calls the Gemini API to generate a video script.
+     * This logic now lives directly within the component.
+     */
     const handleGenerateScript = async () => {
         setGenerating(true);
+        setError('');
+
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            setError("Gemini API Key is not set. Please set it in the settings.");
+            setGenerating(false);
+            return;
+        }
+
+        const prompt = `Act as a professional YouTuber and scriptwriter.
+        Based on the video title and concept below, write a complete, engaging video script.
+        The script should have clear sections (intro, main content, outro) and include placeholders for visuals or on-screen text where appropriate (e.g., "[B-roll of the cliffs]").
+        Adopt the persona described in the "Who Am I" knowledge base if provided.
+
+        Video Title: "${video.chosenTitle || video.title}"
+        Video Concept: "${video.concept}"
+        My Persona: "${settings.knowledgeBases?.youtube?.whoAmI || 'An engaging and informative travel vlogger.'}"
+        My Style Guide: "${settings.styleGuideText || 'Friendly, slightly witty, and knowledgeable.'}"
+
+        Please provide the response as a raw text script, ready to be used.`;
+        
         try {
-            // This function would call the AI utility, but for simplicity, we pass it up
-            const generatedScript = await onGenerate('script');
-            if(generatedScript) {
-                 setScriptContent(generatedScript);
+            // We call the Gemini API directly from the utility, but ask for a text response
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    // Important: For a text script, we should expect plain text.
+                    responseMimeType: "text/plain", 
+                }
+            };
+    
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+    
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err?.error?.message || 'API Error');
             }
-        } catch (error) {
-            console.error("Error generating script:", error);
+            const result = await response.json();
+            
+            // For text/plain responses, the content is directly in the text field
+            const generatedScript = result.candidates[0].content.parts[0].text;
+            setScriptContent(generatedScript);
+
+        } catch (err) {
+            console.error("Error generating script:", err);
+            setError(`Failed to generate script: ${err.message}`);
         } finally {
             setGenerating(false);
         }
@@ -32,6 +82,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, onGenerate, isLocked })
 
     return (
         <div>
+            {error && <p className="text-red-400 mb-2 text-sm bg-red-900/50 p-3 rounded-lg">{error}</p>}
             <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
             <textarea
                 value={scriptContent}
