@@ -1,6 +1,6 @@
 // js/app.js
 
-function App() {
+window.App = () => { // Exposing App component globally
     const [user, setUser] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [currentView, setCurrentView] = useState('dashboard');
@@ -67,7 +67,7 @@ function App() {
                 setSettings(newSettings);
 
                 if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
-                    loadGoogleMapsScript(newSettings.googleMapsApiKey, () => {
+                    window.loadGoogleMapsScript(newSettings.googleMapsApiKey, () => {
                         setGoogleMapsLoaded(true);
                     });
                 }
@@ -208,15 +208,15 @@ Your task is to analyze this data and generate a complete project plan to help t
     const renderView = () => {
         switch (currentView) {
             case 'project':
-                return <ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
+                return <window.ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
             case 'settings':
-                return <SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
+                return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
             case 'myStudio':
-                return <MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
+                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleBackToDashboard} />;
             case 'importProject':
-                return <ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} />;
+                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} />;
             default:
-                return <Dashboard 
+                return <window.Dashboard 
                             userId={user.uid} 
                             onSelectProject={handleSelectProject} 
                             onShowSettings={handleShowSettings} 
@@ -228,16 +228,16 @@ Your task is to analyze this data and generate a complete project plan to help t
     }
 
     return (
-        <div className="min-h-screen bg-gray-900"> {/* Body background is now handled by style.css */}
+        <div className="min-h-screen"> {/* Removed bg-gray-900 as body handles */}
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && <NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
-            {projectToDelete && <DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {showProjectSelection && <ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} />}
+            {showNewProjectWizard && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={() => { setShowNewProjectWizard(false); setProjectDraft(null); }} googleMapsLoaded={googleMapsLoaded} initialDraft={projectDraft} />}
+            {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
+            {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} />}
             <main>
                 {!isAuthReady
-                    ? <div className="min-h-screen flex justify-center items-center"><LoadingSpinner text="Initializing..." /></div>
+                    ? <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing..." /></div>
                     : !user
-                        ? <LoginScreen onLogin={handleLogin} />
+                        ? <window.LoginScreen onLogin={handleLogin} />
                         : renderView()
                 }
             </main>
