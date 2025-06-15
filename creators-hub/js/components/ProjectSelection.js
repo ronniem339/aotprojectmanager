@@ -1,6 +1,8 @@
 // js/components/ProjectSelection.js
 
-const ProjectSelection = ({ onSelectWorkflow, onClose }) => {
+const { useState } = React; // Add React import for useState
+
+window.ProjectSelection = ({ onSelectWorkflow, onClose }) => {
     const workflowOptions = [
         {
             type: 'post-trip',
@@ -33,7 +35,7 @@ const ProjectSelection = ({ onSelectWorkflow, onClose }) => {
                 <p className="text-gray-400 mb-8 text-center">How would you like to begin?</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {workflowOptions.map(option => (
-                        <button 
+                        <button
                             key={option.type}
                             onClick={() => onSelectWorkflow(option.type)}
                             disabled={!option.enabled}
