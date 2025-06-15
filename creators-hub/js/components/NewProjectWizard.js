@@ -52,7 +52,18 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         if (editableOutline && editableOutline.playlistTitleSuggestions && !selectedTitle) {
             setSelectedTitle(editableOutline.playlistTitleSuggestions[0]);
         }
-    }, [editableOutline]);
+        // Initialize finalizedTitle and finalizedDescription if they come from initialDraft (e.g., from import)
+        if (initialDraft?.finalizedTitle && !finalizedTitle) {
+            setFinalizedTitle(initialDraft.finalizedTitle);
+        }
+        if (initialDraft?.finalizedDescription && !finalizedDescription) {
+            setFinalizedDescription(initialDraft.finalizedDescription);
+        }
+        if (initialDraft?.coverImageUrl && !coverImageUrl) {
+            setCoverImageUrl(initialDraft.coverImageUrl);
+        }
+
+    }, [editableOutline, initialDraft, selectedTitle, finalizedTitle, finalizedDescription, coverImageUrl]);
 
 
     useEffect(() => {
@@ -82,7 +93,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     
     const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
-        setInputs(prev => ({ ...p, location: newLocations[0]?.name || '' }));
+        setInputs(prev => ({ ...prev, location: newLocations[0]?.name || '' })); // Corrected: Use prev for consistent state updates
 
         const newInventory = {};
         newLocations.forEach(loc => {
@@ -91,7 +102,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             };
         });
         setFootageInventory(newInventory);
-    }, [footageInventory]);
+    }, [footageInventory]); // Added footageInventory to dependency array for useCallback
     
     const handleKeywordSelection = (keyword) => {
         setSelectedKeywords(prev => 
@@ -175,6 +186,12 @@ Generate a complete project plan as a JSON object.
                     video.status = 'pending';
                     video.description = video.concept; // For new videos, concept is the initial description
                     video.chapters = []; // No chapters for newly generated videos
+                    video.tasks = {}; // Initialize empty tasks for newly generated videos
+                    video.publishDate = '';
+                    video.metadata = '';
+                    video.generatedThumbnails = [];
+                    video.chosenTitle = video.title;
+                    video.script = '';
                 });
                 setEditableOutline(parsedJson);
                 setStep(4);
@@ -252,7 +269,13 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     ...parsedJson, 
                     description: parsedJson.concept, // When refining, concept also becomes the description
                     status: 'pending',
-                    chapters: newVideos[videoIndex].chapters // Preserve existing chapters
+                    chapters: newVideos[videoIndex].chapters || [], // Preserve existing chapters, or initialize empty
+                    tasks: newVideos[videoIndex].tasks || {}, // Preserve existing tasks, or initialize empty
+                    publishDate: newVideos[videoIndex].publishDate || '',
+                    metadata: newVideos[videoIndex].metadata || '',
+                    generatedThumbnails: newVideos[videoIndex].generatedThumbnails || [],
+                    chosenTitle: parsedJson.title || videoToRefine.title, // Use refined title as chosen
+                    script: newVideos[videoIndex].script || '',
                 };
                 setEditableOutline(prev => ({ ...prev, videos: newVideos }));
                 setRefinement('');
@@ -308,11 +331,14 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                     locations_featured: video.locations_featured,
                     targeted_keywords: video.targeted_keywords,
                     chapters: video.chapters || [],
-                    chosenTitle: video.title, // For initial chosen title
-                    script: '', // Scripts start empty
-                    metadata: '', // Metadata starts empty
-                    blogPost: '',
-                    shortsIdeas: '',
+                    chosenTitle: video.chosenTitle || video.title, // For initial chosen title
+                    script: video.script || '', // Preserve script or initialize empty
+                    metadata: video.metadata || '', // Preserve metadata or initialize empty
+                    blogPost: video.blogPost || '',
+                    shortsIdeas: video.shortsIdeas || '',
+                    tasks: video.tasks || {}, // Preserve tasks or initialize empty
+                    publishDate: video.publishDate || '', // Preserve publish date or initialize empty
+                    generatedThumbnails: video.generatedThumbnails || [], // Preserve generated thumbnails
                     createdAt: new Date().toISOString()
                 });
             });
@@ -534,6 +560,12 @@ Return a single JSON object with the same structure: {"title": "...", "concept":
                                                             <li key={i}>{chap.timestamp} - {chap.title}</li>
                                                         ))}
                                                     </ul>
+                                                </div>
+                                            )}
+                                            {video.publishDate && ( // Display publish date
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-400 mb-1">Published Date:</label>
+                                                    <p className="text-sm text-gray-300">{video.publishDate}</p>
                                                 </div>
                                             )}
                                         </div>
