@@ -24,7 +24,8 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
     const handleAnalyzeClick = () => {
         // Basic validation
         if (!playlistTitle || videos.some(v => !v.title)) {
-            alert('Please provide at least a playlist title and a title for each video.');
+            // Replaced alert with console.error as per instructions.
+            console.error('Please provide at least a playlist title and a title for each video.');
             return;
         }
         const projectData = {
@@ -43,7 +44,7 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
                    <LoadingSpinner text="Analyzing your project and building a plan..." />
                 </div>
             )}
-            <button onClick={onBack} className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6">
+            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
                 ⬅️ Back to Dashboard
             </button>
             <h1 className="text-4xl font-bold mb-2">Import Existing Project</h1>
@@ -89,7 +90,7 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
                     <div className="space-y-6">
                         {videos.map((video, index) => (
                             <div key={index} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 relative">
-                                <h3 className="text-lg font-bold text-blue-300 mb-3">Video {index + 1}</h3>
+                                <h3 className="text-lg font-bold text-primary-accent mb-3">Video {index + 1}</h3>
                                 {videos.length > 1 && (
                                     <button onClick={() => removeVideo(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-300">&times; Remove</button>
                                 )}
@@ -108,12 +109,12 @@ const ImportProjectView = ({ onAnalyze, onBack, isLoading }) => {
                             </div>
                         ))}
                     </div>
-                    <button onClick={addVideo} className="mt-6 px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-semibold">
+                    <button onClick={addVideo} className="mt-6 px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg text-sm font-semibold">
                         + Add Another Video
                     </button>
                 </div>
                  <div className="text-right">
-                    <button onClick={handleAnalyzeClick} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition-colors">
+                    <button onClick={handleAnalyzeClick} className="px-8 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold transition-colors">
                         Analyze & Plan Project 🪄
                     </button>
                 </div>
