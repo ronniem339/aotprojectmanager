@@ -2,67 +2,118 @@
 
 const { useState, useEffect, useMemo, useCallback } = React; // Added useCallback
 
-// No longer need to define TASK_PIPELINE or expose TaskItem/CopyButton globally here,
-// as they are now handled via window.CREATOR_HUB_CONFIG.TASK_PIPELINE and other window. exposures in common.js.
+// A new common Accordion component for collapsible sections
+const Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isLocked = false, onRevisit }) => {
+    const statusColors = {
+        'complete': 'border-green-500 bg-green-900/20',
+        'pending': 'border-blue-500 bg-blue-900/20',
+        'locked': 'border-gray-700 bg-gray-800/50 opacity-60',
+        'revisited': 'border-amber-500 bg-amber-900/20', // Using amber for revisited state
+    };
+    const statusTextColors = {
+        'complete': 'text-green-400',
+        'pending': 'text-blue-400',
+        'locked': 'text-gray-400',
+        'revisited': 'text-amber-400',
+    };
+
+    return (
+        <div className={`glass-card rounded-lg border ${statusColors[status] || 'border-gray-700 bg-gray-800/50'} overflow-hidden`}>
+            <button 
+                onClick={onToggle} 
+                className="w-full flex justify-between items-center p-4 text-left font-semibold text-white transition-colors duration-200"
+                disabled={isLocked && !isOpen} // Allow opening locked sections but prevent toggling if locked and closed
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-xl">{isOpen ? '👇' : '👉'}</span>
+                    <h3 className="text-xl">{title}</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${statusTextColors[status] || 'text-gray-400'}`}>
+                        {status === 'complete' && 'Complete'}
+                        {status === 'pending' && 'Pending'}
+                        {status === 'locked' && 'Locked'}
+                        {status === 'revisited' && 'Revisited'}
+                        {!status && 'Not Started'}
+                    </span>
+                    {onRevisit && (status === 'complete' || status === 'locked') && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onRevisit(); }} 
+                            className="text-xs text-secondary-accent hover:text-secondary-accent-light px-2 py-1 rounded border border-gray-600 hover:border-gray-500"
+                        >
+                            Revisit
+                        </button>
+                    )}
+                </div>
+            </button>
+            <div className={`transition-max-height duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-screen' : 'max-h-0'}`}>
+                <div className="p-4 pt-0">
+                    {isLocked && !isOpen ? ( // Only show locked message if section is actually locked and not open
+                        <div className="p-4 bg-gray-900/50 rounded-lg text-gray-400 text-center text-sm">
+                            This task is locked until previous steps are completed.
+                        </div>
+                    ) : (
+                        children
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const [feedbackText, setFeedbackText] = useState(video.tasks?.feedbackText || '');
-    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || video.publishDate || ''); // Use video.publishDate directly
+    const [publishDate, setPublishDate] = useState(video.tasks?.publishDate || video.publishDate || '');
     const [generating, setGenerating] = useState(null);
-    const [scriptContent, setScriptContent] = useState(video.script || ''); // Initialize with imported script
+    const [scriptContent, setScriptContent] = useState(video.script || '');
     const [refinementText, setRefinementText] = useState('');
     const [isConceptVisible, setIsConceptVisible] = useState(false);
-    const [chapters, setChapters] = useState(video.chapters || []); // Initialize with imported chapters
-    const [showFullScreenScript, setShowFullScreenScript] = useState(false); // New state for full-screen script
-    const [videoStats, setVideoStats] = useState(video.stats || null); // New state for video statistics
-    const [isFetchingStats, setIsFetchingStats] = useState(false); // New state for stats loading indicator
-    const [statsErrorMessage, setStatsErrorMessage] = useState(''); // New state for stats error message
+    const [chapters, setChapters] = useState(video.chapters || []);
+    const [showFullScreenScript, setShowFullScreenScript] = useState(false);
+    const [videoStats, setVideoStats] = useState(video.stats || null);
+    const [isFetchingStats, setIsFetchingStats] = useState(false);
+    const [statsErrorMessage, setStatsErrorMessage] = useState('');
 
+    // State to manage open/closed state of each accordion task
+    const [openTask, setOpenTask] = useState(null); // Stores the ID of the currently open task
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
         setFeedbackText(video.tasks?.feedbackText || '');
         setPublishDate(video.tasks?.publishDate || video.publishDate || '');
-        setScriptContent(video.script || ''); // Update scriptContent if video.script changes
+        setScriptContent(video.script || '');
         setIsConceptVisible(false);
-        setChapters(video.chapters || []); // Update chapters if video changes
-        setVideoStats(video.stats || null); // Update stats if video object changes
-    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks, video.stats]); // Added video.stats to dependencies
+        setChapters(video.chapters || []);
+        setVideoStats(video.stats || null);
+        setStatsErrorMessage(''); // Clear stats error on video change
+        setOpenTask(null); // Collapse all tasks on video change
+    }, [video.id, video.script, video.publishDate, video.chapters, video.tasks, video.stats]);
     
     useEffect(() => {
-        // This effect runs when video.metadata changes.
-        // It's crucial for re-parsing chapters if metadata is generated AFTER import
-        // or if it changes for a non-imported video.
         if (video.metadata) {
             try {
                 const parsed = JSON.parse(video.metadata);
                 if(parsed.chapters) {
-                    // Only update chapters from metadata if the video isn't imported with its own chapters
-                    // Or if metadata generation explicitly provides new/updated chapters.
-                    // For imported videos, video.chapters will already be populated.
-                    // This logic makes sure metadata-generated chapters override if they are more recent/valid.
                     setChapters(parsed.chapters.map(ch => ({ ...ch, timestamp: ch.timestamp || '00:00' })));
                 }
             } catch(e) { console.error("Could not parse chapters from metadata", e); }
         } else if (video.chapters) {
-            // If no metadata, but video has pre-existing chapters (from import), use them.
             setChapters(video.chapters.map(ch => ({ ...ch, timestamp: ch.timestamp || '00:00' })));
         }
-    }, [video.metadata, video.chapters]); // Added video.chapters as dependency
+    }, [video.metadata, video.chapters]);
 
     const updateTask = async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        // Merge the extraData into the video document directly, and update the task status
         await videoDocRef.update({ 
             [`tasks.${taskName}`]: status, 
-            ...extraData // This will apply chosenTitle, metadata, script, etc.
+            ...extraData 
         });
     };
 
-    // New: Function to fetch video statistics from YouTube
     const fetchVideoStats = useCallback(async () => {
-        setStatsErrorMessage(''); // Clear previous error messages
+        setStatsErrorMessage('');
 
         if (!settings.youtubeApiKey) {
             setStatsErrorMessage("YouTube Data API Key is not set in settings. Cannot fetch video statistics.");
@@ -70,18 +121,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             return;
         }
         if (!video.id || video.tasks?.videoUploaded !== 'complete') {
-            // Only fetch stats for published videos with a YouTube ID
             setStatsErrorMessage("Video is not marked as uploaded or YouTube ID is missing. Cannot fetch statistics.");
             setIsFetchingStats(false);
             return;
         }
 
-        // Check if stats were fetched recently (e.g., within the last 24 hours)
         const lastFetchTimestamp = video.stats?.lastFetch ? new Date(video.stats.lastFetch).getTime() : 0;
-        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
 
-        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats && !isFetchingStats) { // Added isFetchingStats check
-            // Stats are recent, no need to refetch unless forced by a button click
+        if (lastFetchTimestamp > twentyFourHoursAgo && videoStats && !isFetchingStats) {
             return;
         }
 
@@ -95,7 +143,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 const errorMessage = data.error?.message || "Video not found or API error details are missing. Please check video ID and API key restrictions.";
                 setStatsErrorMessage(`Failed to fetch video statistics: ${errorMessage}`);
                 if (!videoStats) { 
-                    setVideoStats(null); // Clear stats if none were ever loaded and fetch failed
+                    setVideoStats(null); 
                 }
                 return;
             }
@@ -105,15 +153,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 viewCount: stats.viewCount || '0',
                 likeCount: stats.likeCount || '0',
                 commentCount: stats.commentCount || '0',
-                lastFetch: new Date().toISOString() // Store ISO string for consistency
+                lastFetch: new Date().toISOString()
             };
 
             setVideoStats(newStats);
-            // Update Firestore with the new stats
             const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
             await videoDocRef.update({ stats: newStats });
 
-        } catch (error) { // This `catch` block is correctly placed and matches the `try`.
+        } catch (error) {
             console.error("Error during fetch operation:", error);
             setStatsErrorMessage(`Error fetching stats: ${error.message}.`);
         } finally {
@@ -122,13 +169,11 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     }, [video.id, video.tasks?.videoUploaded, video.stats, settings.youtubeApiKey, appId, userId, project.id, videoStats, isFetchingStats]);
 
 
-    // Effect to trigger stats fetch when video data or API key changes
     useEffect(() => {
-        // Only attempt to fetch if the video is uploaded and has a YouTube ID
         if (video.tasks?.videoUploaded === 'complete' && video.id) {
             fetchVideoStats();
         }
-    }, [video.id, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]); // Re-run if these dependencies change
+    }, [video.id, video.tasks?.videoUploaded, settings.youtubeApiKey, fetchVideoStats]);
 
 
     const handleGenerate = async (type, currentContent, refinement) => {
@@ -310,96 +355,105 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
 
     return (
         <main className="lg:w-2/3 xl:w-3/4">
-            <div className="space-y-3">
-                 <div className="glass-card p-6 rounded-lg mb-6">
-                    <div className="flex justify-between items-start">
-                        <h3 className="text-2xl font-bold text-primary-accent mb-3">{video.chosenTitle || video.title}</h3>
-                        <button onClick={() => setIsConceptVisible(!isConceptVisible)} className="text-xs text-secondary-accent hover:text-secondary-accent-light flex-shrink-0 ml-4">
+            <div className="space-y-4"> {/* Increased gap for overall cleaner look */}
+                 {/* Video Overview Card */}
+                 <div className="glass-card p-6 rounded-lg">
+                    <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-2xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
+                        <button onClick={() => setIsConceptVisible(!isConceptVisible)} className="text-sm text-secondary-accent hover:text-secondary-accent-light flex-shrink-0 ml-4 px-3 py-1 rounded-full border border-gray-700">
                             {isConceptVisible ? 'Hide Concept' : 'Show Concept'}
                         </button>
                     </div>
                     
-                    {isConceptVisible && <p className="text-gray-300 mb-4">{video.concept || <span className="italic text-gray-500">No concept provided.</span>}</p>}
+                    {isConceptVisible && <p className="text-gray-300 text-sm leading-relaxed mb-4">{video.concept || <span className="italic text-gray-500">No concept provided.</span>}</p>}
                     
-                    <div className="space-y-3 pt-4 border-t border-gray-700">
+                    <div className="pt-4 border-t border-gray-700 space-y-3">
                         <div>
-                            <span className="text-xs font-semibold text-gray-400 block mb-2">LOCATIONS FEATURED:</span>
+                            <span className="text-xs font-semibold text-gray-400 block mb-1">LOCATIONS FEATURED:</span>
                             {video.locations_featured?.length > 0 ? ( <div className="flex flex-wrap items-center gap-2">{video.locations_featured.map(loc => ( <span key={loc} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{loc}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No locations listed.</p>)}
                         </div>
                         <div>
-                            <span className="text-xs font-semibold text-gray-400 block mb-2">TARGETED KEYWORDS:</span>
+                            <span className="text-xs font-semibold text-gray-400 block mb-1">TARGETED KEYWORDS:</span>
                             {video.targeted_keywords?.length > 0 ? (<div className="flex flex-wrap items-center gap-2">{video.targeted_keywords.map(kw => ( <span key={kw} className="px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{kw}</span> ))}</div>) : (<p className="text-sm text-gray-500 italic">No keywords targeted.</p>)}
                         </div>
                     </div>
                 </div>
 
-                {/* New Section for Video Statistics */}
+                {/* Video Statistics Section - Now an Accordion */}
                 {(video.tasks?.videoUploaded === 'complete' && video.id) && (
-                    <div className="glass-card p-6 rounded-lg">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-semibold text-white">📈 Video Statistics</h3>
+                    <Accordion 
+                        title="📈 Video Statistics" 
+                        isOpen={openTask === 'stats'} 
+                        onToggle={() => setOpenTask(openTask === 'stats' ? null : 'stats')}
+                        status={videoStats ? 'complete' : 'pending'} // Indicate if stats are loaded
+                    >
+                        <div className="p-2 -mt-2"> {/* Negative margin to align with accordion padding */}
                             <button 
                                 onClick={fetchVideoStats} 
                                 disabled={isFetchingStats}
-                                className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-50"
+                                className="mb-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-50"
                             >
                                 {isFetchingStats ? <window.LoadingSpinner /> : 'Refresh Stats'}
                             </button>
-                        </div>
-                        {videoStats ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-                                <div className="p-3 bg-gray-800/50 rounded-lg">
-                                    <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.viewCount).toLocaleString()}</p>
-                                    <p className="text-sm text-gray-400">Views</p>
+
+                            {videoStats ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                                        <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.viewCount).toLocaleString()}</p>
+                                        <p className="text-sm text-gray-400">Views</p>
+                                    </div>
+                                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                                        <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.likeCount).toLocaleString()}</p>
+                                        <p className="text-sm text-gray-400">Likes</p>
+                                    </div>
+                                    <div className="p-3 bg-gray-800/50 rounded-lg">
+                                        <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.commentCount).toLocaleString()}</p>
+                                        <p className="text-sm text-gray-400">Comments</p>
+                                    </div>
+                                    {videoStats.lastFetch && (
+                                        <p className="col-span-full text-xs text-gray-500 mt-2">Last fetched: {new Date(videoStats.lastFetch).toLocaleString()}</p>
+                                    )}
                                 </div>
-                                <div className="p-3 bg-gray-800/50 rounded-lg">
-                                    <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.likeCount).toLocaleString()}</p>
-                                    <p className="text-sm text-gray-400">Likes</p>
-                                </div>
-                                <div className="p-3 bg-gray-800/50 rounded-lg">
-                                    <p className="text-2xl font-bold text-primary-accent">{parseInt(videoStats.commentCount).toLocaleString()}</p>
-                                    <p className="text-sm text-gray-400">Comments</p>
-                                </div>
-                                {videoStats.lastFetch && (
-                                    <p className="col-span-full text-xs text-gray-500 mt-2">Last fetched: {new Date(videoStats.lastFetch).toLocaleString()}</p>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="p-3 bg-gray-800/50 rounded-lg text-center">
-                                {statsErrorMessage ? (
-                                    <p className="text-red-400 text-sm">{statsErrorMessage}</p>
-                                ) : (
-                                    <p className="text-gray-500">No statistics available yet or failed to fetch. Ensure the video is uploaded and publicly accessible.</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-                
-                <window.TaskItem 
-                    title="1. Scripting & Recording" 
-                    status={initialScriptingStatus} // Use calculated status
-                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} // Lock only if previous task incomplete AND not being revisited
-                    onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
-                >
-                    {/* Content when script is available (either imported or generated/locked/revisited) */}
-                    {(initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' || initialScriptingStatus === 'revisited' || video.script) ? ( 
-                        <div>
-                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
-                            <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} /> {/* Allow editing if revisited */}
-                            {/* Show Fullscreen Script button if scriptContent exists */}
-                            {scriptContent && (
-                                <div className="flex gap-4 mt-4">
-                                    <button onClick={() => setShowFullScreenScript(true)} className="px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
-                                    {/* Only show lock button if not already complete AND not being revisited (if it was already complete) */}
-                                    {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
-                                        <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                            ) : (
+                                <div className="p-3 bg-gray-800/50 rounded-lg text-center">
+                                    {statsErrorMessage ? (
+                                        <p className="text-red-400 text-sm">{statsErrorMessage}</p>
                                     ) : (
-                                        <p className="text-gray-400 text-sm flex items-center">Script is locked. Use "Revisit" to edit.</p>
+                                        <p className="text-gray-500">No statistics available yet or failed to fetch. Ensure the video is uploaded and publicly accessible.</p>
                                     )}
                                 </div>
                             )}
-                            {/* Refinement section for existing script */}
+                        </div>
+                    </Accordion>
+                )}
+                
+                {/* Task: Scripting & Recording */}
+                <Accordion 
+                    title="1. Scripting & Recording" 
+                    isOpen={openTask === 'scripting'} 
+                    onToggle={() => setOpenTask(openTask === 'scripting' ? null : 'scripting')}
+                    status={initialScriptingStatus}
+                    isLocked={isTaskLocked(0) && initialScriptingStatus !== 'revisited'} 
+                    onRevisit={initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' ? () => updateTask('scripting', 'revisited', { script: scriptContent }) : undefined}
+                >
+                    {(initialScriptingStatus === 'complete' || initialScriptingStatus === 'locked' || initialScriptingStatus === 'revisited' || video.script) ? ( 
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="text-sm font-semibold text-gray-400 mb-2">Script Content</h4>
+                                <textarea value={scriptContent || ""} onChange={(e) => setScriptContent(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50" readOnly={initialScriptingStatus === 'complete' && tasks.scripting !== 'revisited'} />
+                            </div>
+                            
+                            {scriptContent && (
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <button onClick={() => setShowFullScreenScript(true)} className="flex-grow px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">View Fullscreen Script</button>
+                                    {initialScriptingStatus !== 'complete' || tasks.scripting === 'revisited' ? ( 
+                                        <button onClick={() => updateTask('scripting', 'complete', { script: scriptContent })} className="flex-grow px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Confirm & Lock Script</button>
+                                    ) : (
+                                        <p className="flex-grow text-gray-400 text-sm flex items-center justify-center p-2 border border-gray-700 rounded-lg">Script is locked. Use "Revisit" to edit.</p>
+                                    )}
+                                </div>
+                            )}
+                            
                             { (initialScriptingStatus !== 'complete' || initialScriptingStatus === 'revisited') && scriptContent && (
                                 <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Refinement Instructions</label>
@@ -409,56 +463,167 @@ Your response MUST be a valid JSON object with these exact keys: "titleSuggestio
                             )}
                         </div> 
                     ) : ( 
-                        // Content when script is not available and task is pending (needs generation)
-                        <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
+                        <button onClick={() => handleGenerate('script')} disabled={generating === 'script'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">{generating === 'script' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Script'}</button> 
                     )}
-                </window.TaskItem>
+                </Accordion>
 
-                <window.TaskItem title="2. Edit Video" status={tasks.videoEdited} isLocked={isTaskLocked(1)} onRevisit={() => updateTask('videoEdited', 'pending')}>
-                     {tasks.videoEdited !== 'complete' ? <button onClick={() => updateTask('videoEdited', 'complete')} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button> : <p className="text-gray-400">This task is marked as complete.</p>}
-                </window.TaskItem>
+                {/* Task: Edit Video */}
+                <Accordion 
+                    title="2. Edit Video" 
+                    isOpen={openTask === 'videoEdited'} 
+                    onToggle={() => setOpenTask(openTask === 'videoEdited' ? null : 'videoEdited')}
+                    status={tasks.videoEdited} 
+                    isLocked={isTaskLocked(1)} 
+                    onRevisit={() => updateTask('videoEdited', 'pending')}
+                >
+                    {tasks.videoEdited !== 'complete' ? (
+                        <button onClick={() => updateTask('videoEdited', 'complete')} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Mark as Edited</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
+                    )}
+                </Accordion>
 
-                <window.TaskItem title="3. Log Production Changes" status={tasks.feedbackProvided} isLocked={isTaskLocked(2)} onRevisit={() => updateTask('feedbackProvided', 'pending')}>
+                {/* Task: Log Production Changes */}
+                <Accordion 
+                    title="3. Log Production Changes" 
+                    isOpen={openTask === 'feedbackProvided'} 
+                    onToggle={() => setOpenTask(openTask === 'feedbackProvided' ? null : 'feedbackProvided')}
+                    status={tasks.feedbackProvided} 
+                    isLocked={isTaskLocked(2)} 
+                    onRevisit={() => updateTask('feedbackProvided', 'pending')}
+                >
                     <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows="5" className="w-full form-textarea" placeholder="e.g., 'We decided to combine the first two locations...'" readOnly={tasks.feedbackProvided === 'complete'} />
-                    {tasks.feedbackProvided !== 'complete' ? <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button> : <p className="text-gray-400">This task is marked as complete.</p>}
-                </window.TaskItem>
+                    {tasks.feedbackProvided !== 'complete' ? (
+                        <button onClick={() => updateTask('feedbackProvided', 'complete', { 'tasks.feedbackText': feedbackText })} disabled={!feedbackText} className="mt-4 w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm & Save Notes</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
+                    )}
+                </Accordion>
                 
-                <window.TaskItem title="4. Generate Metadata" status={tasks.metadataGenerated} isLocked={isTaskLocked(3)} onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}> {/* Reset metadata on revisit */}
-                     {tasks.metadataGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}</button>) : 
-                     ( metadata ? <div className="space-y-6">
-                         <div>
-                             <label className="block text-sm font-semibold text-gray-400 mb-2">Title Suggestions</label>
-                             <div className="space-y-2">{metadata.titleSuggestions.map(title => ( <label key={title} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 cursor-pointer"><input type="radio" name={`title-${video.id}`} value={title} checked={video.chosenTitle === title} onChange={() => updateTask('metadataGenerated', 'complete', { chosenTitle: title })} className="h-4 w-4 bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/><span>{title}</span></label>))}</div>
-                         </div>
-                         <div>
-                             <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Description</label><window.CopyButton textToCopy={metadata.description} /></div>
-                             <textarea readOnly value={metadata.description} rows="10" className="w-full form-textarea bg-gray-800/50"/>
-                         </div>
-                         <div>
-                             <label className="block text-sm font-semibold text-gray-400 mb-2">Chapter Timestamps</label>
-                             <div className="space-y-2">{chapters.map((chap, i) => (<div key={i} className="flex items-center gap-2"><input type="text" value={chap.timestamp} onChange={(e) => handleChapterChange(i, e.target.value)} className="form-input w-20" placeholder="00:00"/> <span className="text-gray-300">{chap.title}</span></div>))}</div>
-                             <button onClick={applyTimestamps} className="mt-3 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps</button>
-                         </div>
-                          <div>
-                             <div className="flex justify-between items-center mb-2"><label className="block text-sm font-semibold text-gray-400">Tags</label><window.CopyButton textToCopy={metadata.tags} /></div>
-                             <div className="p-3 rounded-lg bg-gray-800/50 text-sm text-gray-300 whitespace-pre-wrap">{metadata.tags}</div>
-                         </div>
-                     </div> : <p className="text-gray-500">Could not parse metadata.</p> )}
-                </window.TaskItem>
+                {/* Task: Generate Metadata */}
+                <Accordion 
+                    title="4. Generate Metadata" 
+                    isOpen={openTask === 'metadataGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'metadataGenerated' ? null : 'metadataGenerated')}
+                    status={tasks.metadataGenerated} 
+                    isLocked={isTaskLocked(3)} 
+                    onRevisit={() => updateTask('metadataGenerated', 'pending', { metadata: '' })}
+                >
+                     {tasks.metadataGenerated !== 'complete' ? ( 
+                        <button onClick={() => handleGenerate('metadata')} disabled={generating === 'metadata'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
+                            {generating === 'metadata' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Metadata'}
+                        </button>
+                     ) : ( 
+                        metadata ? (
+                            <div className="space-y-6">
+                                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                    <label className="block text-sm font-semibold text-gray-300 mb-2">Title Suggestions</label>
+                                    <div className="space-y-2">
+                                        {metadata.titleSuggestions.map(title => ( 
+                                            <label key={title} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 cursor-pointer border border-transparent has-checked:border-primary-accent transition-all">
+                                                <input type="radio" name={`title-${video.id}`} value={title} checked={video.chosenTitle === title} onChange={() => updateTask('metadataGenerated', 'complete', { chosenTitle: title })} className="h-4 w-4 bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
+                                                <span>{title}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-sm font-semibold text-gray-300">Description</label>
+                                        <window.CopyButton textToCopy={metadata.description} />
+                                    </div>
+                                    <textarea readOnly value={metadata.description} rows="10" className="w-full form-textarea bg-gray-800/50 resize-y"/>
+                                </div>
+                                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                    <label className="block text-sm font-semibold text-gray-300 mb-2">Chapter Timestamps</label>
+                                    <div className="space-y-2">
+                                        {chapters.map((chap, i) => (
+                                            <div key={i} className="flex items-center gap-2">
+                                                <input type="text" value={chap.timestamp} onChange={(e) => handleChapterChange(i, e.target.value)} className="form-input w-24" placeholder="00:00"/> 
+                                                <span className="text-gray-300 text-sm">{chap.title}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button onClick={applyTimestamps} className="mt-3 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps</button>
+                                </div>
+                                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-sm font-semibold text-gray-300">Tags</label>
+                                        <window.CopyButton textToCopy={metadata.tags} />
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-gray-800/50 text-sm text-gray-300 whitespace-pre-wrap">{metadata.tags}</div>
+                                </div>
+                            </div> 
+                        ) : (
+                            <p className="text-gray-500 text-center py-2 text-sm">Could not parse metadata.</p>
+                        )
+                     )}
+                </Accordion>
                 
-                <window.TaskItem title="5. Generate Thumbnails" status={tasks.thumbnailsGenerated} isLocked={isTaskLocked(4)} onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'generatedThumbnails': [] })}>
-                    {tasks.thumbnailsGenerated !== 'complete' ? (<button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}</button> ) : ( <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{video.generatedThumbnails?.map((src, index) => ( <window.ImageComponent key={index} src={src} className="rounded-lg object-cover" alt={`Generated Thumbnail ${index + 1}`}/> ))}</div> )}
-                </window.TaskItem>
+                {/* Task: Generate Thumbnails */}
+                <Accordion 
+                    title="5. Generate Thumbnails" 
+                    isOpen={openTask === 'thumbnailsGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'thumbnailsGenerated' ? null : 'thumbnailsGenerated')}
+                    status={tasks.thumbnailsGenerated} 
+                    isLocked={isTaskLocked(4)} 
+                    onRevisit={() => updateTask('thumbnailsGenerated', 'pending', { 'generatedThumbnails': [] })}
+                >
+                    {tasks.thumbnailsGenerated !== 'complete' ? (
+                        <button onClick={() => handleGenerate('thumbnails')} disabled={generating === 'thumbnails'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
+                            {generating === 'thumbnails' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Thumbnails'}
+                        </button>
+                    ) : ( 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {video.generatedThumbnails?.length > 0 ? (
+                                video.generatedThumbnails.map((src, index) => ( 
+                                    <window.ImageComponent key={index} src={src} className="rounded-lg object-cover w-full h-auto" alt={`Generated Thumbnail ${index + 1}`}/> 
+                                ))
+                            ) : (
+                                <p className="col-span-full text-gray-500 text-center py-2 text-sm">No thumbnails generated yet.</p>
+                            )}
+                        </div> 
+                    )}
+                </Accordion>
 
-                <window.TaskItem title="6. Upload to YouTube" status={tasks.videoUploaded} isLocked={isTaskLocked(5)} onRevisit={() => updateTask('videoUploaded', 'pending')}>
+                {/* Task: Upload to YouTube */}
+                <Accordion 
+                    title="6. Upload to YouTube" 
+                    isOpen={openTask === 'videoUploaded'} 
+                    onToggle={() => setOpenTask(openTask === 'videoUploaded' ? null : 'videoUploaded')}
+                    status={tasks.videoUploaded} 
+                    isLocked={isTaskLocked(5)} 
+                    onRevisit={() => updateTask('videoUploaded', 'pending')}
+                >
                     <label className="block text-sm font-medium text-gray-300 mb-2">Publish Date</label>
-                    <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-auto" readOnly={tasks.videoUploaded === 'complete'}/>
-                    {tasks.videoUploaded !== 'complete' ? <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button> : <p className="text-gray-400 mt-2">Video was uploaded on: {publishDate}</p>}
-                </window.TaskItem>
+                    <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="form-input w-full sm:w-auto mb-4" readOnly={tasks.videoUploaded === 'complete'}/>
+                    {tasks.videoUploaded !== 'complete' ? (
+                        <button onClick={() => updateTask('videoUploaded', 'complete', { publishDate: publishDate })} disabled={!publishDate} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:bg-gray-500">Confirm Upload & Save Date</button>
+                    ) : (
+                        <p className="text-gray-400 text-center py-2 text-sm">Video was uploaded on: {publishDate}</p>
+                    )}
+                </Accordion>
                 
-                <window.TaskItem title="7. Generate First Comment" status={tasks.firstCommentGenerated} isLocked={isTaskLocked(6)} onRevisit={() => updateTask('firstCommentGenerated', 'pending')}>
-                    {tasks.firstCommentGenerated !== 'complete' ? ( <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Comment'}</button> ) : ( <div><h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4><textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" /></div> )}
-                </window.TaskItem>
+                {/* Task: Generate First Comment */}
+                <Accordion 
+                    title="7. Generate First Comment" 
+                    isOpen={openTask === 'firstCommentGenerated'} 
+                    onToggle={() => setOpenTask(openTask === 'firstCommentGenerated' ? null : 'firstCommentGenerated')}
+                    status={tasks.firstCommentGenerated} 
+                    isLocked={isTaskLocked(6)} 
+                    onRevisit={() => updateTask('firstCommentGenerated', 'pending')}
+                >
+                    {tasks.firstCommentGenerated !== 'complete' ? ( 
+                        <button onClick={() => handleGenerate('firstComment')} disabled={generating === 'firstComment'} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center justify-center gap-2">
+                            {generating === 'firstComment' ? <window.LoadingSpinner text="Generating..." /> : '🪄 Generate Comment'}
+                        </button>
+                    ) : ( 
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-400 mb-2">Generated Comment</h4>
+                            <textarea readOnly value={tasks.firstComment || ""} rows="5" className="w-full form-textarea bg-gray-800/50" />
+                        </div> 
+                    )}
+                </Accordion>
             </div>
             {/* Full-screen script view component */}
             {showFullScreenScript && (
