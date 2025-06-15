@@ -13,131 +13,6 @@ const TASK_PIPELINE = [
     { id: 'firstCommentGenerated', title: 'Generate First Comment'}
 ];
 
-// Reusable component from NewProjectWizard.js for location searching
-const LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
-    const inputRef = useRef(null);
-    const autocompleteRef = useRef(null);
-    const geocoderRef = useRef(null);
-
-    const determineDefaultImportance = (types) => {
-        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
-        if (types.some(type => majorTypes.includes(type))) {
-            return 'major';
-        }
-        return 'quick';
-    };
-
-    useEffect(() => {
-        if (!inputRef.current || !window.google?.maps?.places) return;
-        
-        if (!geocoderRef.current) {
-            geocoderRef.current = new window.google.maps.Geocoder();
-        }
-
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
-        autocompleteRef.current.setFields(['place_id', 'name', 'geometry', 'types']);
-
-        const placeChangedListener = () => {
-            const place = autocompleteRef.current.getPlace();
-            if (place && place.geometry && place.types) {
-                const newLocation = {
-                    name: place.name,
-                    place_id: place.place_id,
-                    lat: place.geometry.location.lat(),
-                    lng: place.geometry.location.lng(),
-                    importance: determineDefaultImportance(place.types),
-                    types: place.types
-                };
-                if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                    onLocationsChange([...existingLocations, newLocation]);
-                }
-                if (inputRef.current) {
-                    inputRef.current.value = '';
-                }
-            }
-        };
-        const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
-
-        const handleKeyDown = (e) => {
-            if (e.key === 'Enter' && !e.defaultPrevented) {
-                e.preventDefault();
-                const firstSuggestion = document.querySelector('.pac-container .pac-item');
-                if (firstSuggestion) {
-                    const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
-                    const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
-                    const fullAddress = `${mainText} ${secondaryText}`.trim();
-                    
-                    if (fullAddress && geocoderRef.current) {
-                        geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
-                            if (status === 'OK' && results[0]) {
-                                const place = results[0];
-                                const newLocation = {
-                                    name: mainText || place.formatted_address.split(',')[0],
-                                    place_id: place.place_id,
-                                    lat: place.geometry.location.lat(),
-                                    lng: place.geometry.location.lng(),
-                                    importance: determineDefaultImportance(place.types),
-                                    types: place.types
-                                };
-                                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                                    onLocationsChange([...existingLocations, newLocation]);
-                                }
-                                if (inputRef.current) {
-                                    inputRef.current.value = '';
-                                }
-                            } else {
-                                console.error('Geocode was not successful for the following reason: ' + status);
-                            }
-                        });
-                    }
-                }
-            }
-        };
-
-        const inputElement = inputRef.current;
-        inputElement.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            if (window.google?.maps?.event && placeChangedListenerHandle) {
-                window.google.maps.event.removeListener(placeChangedListenerHandle);
-            }
-            if (inputElement) {
-                inputElement.removeEventListener('keydown', handleKeyDown);
-            }
-            const pacContainers = document.querySelectorAll('.pac-container');
-            pacContainers.forEach(container => container.remove());
-        };
-    }, [onLocationsChange, existingLocations]);
-
-    const removeLocation = (place_id) => {
-        onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
-    };
-
-    return (
-        <div>
-            <input 
-                ref={inputRef} 
-                type="text" 
-                placeholder="Search for and add locations..." 
-                className="w-full form-input" 
-            />
-            <div className="flex flex-wrap gap-2 mt-3">
-                {existingLocations.map((loc) => (
-                    <div key={loc.place_id} className="bg-blue-600/50 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
-                        <span>{loc.name}</span>
-                        <button onClick={() => removeLocation(loc.place_id)} className="text-blue-200 hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const MockLocationSearchInput = () => {
-    return <p className="text-sm text-amber-400 p-3 bg-amber-900/50 rounded-lg">Please enter a valid Google Maps API Key in the settings to enable location search.</p>;
-};
-
-
 const TaskItem = ({ title, status, isLocked, children, onRevisit }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const isCurrent = !isLocked && status !== 'complete' && status !== 'locked';
@@ -515,7 +390,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsL
     const [concept, setConcept] = useState(video.concept);
     
     // Locations & Keywords
-    const [locationsFeatured, setLocationsFeatured] = useState(video.locations_featured ? video.locations_featured.map(name => project.locations.find(l => l.name === name) || { name }).filter(l => l.place_id) : []);
+    const [locationsFeatured, setLocationsFeatured] = useState(video.locations_featured ? video.locations_featured.map(name => project.locations.find(l => l.name === name) || { name, place_id: name }).filter(l => l.place_id !== name) : []);
     const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
 
@@ -705,12 +580,21 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
     const [editingVideo, setEditingVideo] = useState(null);
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
     const [draggedItem, setDraggedItem] = useState(null);
+    const [currentProject, setCurrentProject] = useState(project);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
-        if (!userId || !project?.id) return;
+        const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+        const unsubscribe = projectDocRef.onSnapshot(doc => {
+            setCurrentProject({ id: doc.id, ...doc.data() });
+        });
+        return () => unsubscribe();
+    }, [project.id, userId]);
+
+    useEffect(() => {
+        if (!userId || !currentProject?.id) return;
         
-        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`);
+        const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${currentProject.id}/videos`);
         const unsubscribe = videosCollectionRef.onSnapshot(querySnapshot => {
             let videosData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -725,7 +609,7 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
                 
                 const batch = db.batch();
                 sortedByDate.forEach((video, index) => {
-                    const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+                    const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${currentProject.id}/videos`).doc(video.id);
                     batch.update(docRef, { order: index });
                 });
                 batch.commit().catch(err => {
@@ -748,11 +632,12 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
         });
 
         return () => unsubscribe();
-    }, [userId, project.id, loading]);
+    }, [userId, currentProject.id, loading, activeVideoId]);
 
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
     
     const calculateProgress = (tasks) => {
+        if (!tasks) return 0;
         const completedTasks = TASK_PIPELINE.filter(task => tasks[task.id] === 'complete').length;
         return (completedTasks / TASK_PIPELINE.length) * 100;
     };
@@ -781,11 +666,13 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
 
         const batch = db.batch();
         reorderedVideos.forEach((video, index) => {
-            const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+            const docRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${currentProject.id}/videos`).doc(video.id);
             batch.update(docRef, { order: index });
         });
         batch.commit().catch(err => {
             console.error("Failed to reorder videos:", err);
+            // Revert optimistic UI update on failure
+            setVideos(videos);
         });
         
         setDraggedItem(null);
@@ -794,8 +681,8 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
-            {editingProject && <EditProjectModal project={project} userId={userId} settings={settings} onClose={() => setEditingProject(false)} googleMapsLoaded={googleMapsLoaded} />}
-            {editingVideo && <EditVideoModal video={editingVideo} userId={userId} project={project} settings={settings} onClose={() => setEditingVideo(null)} googleMapsLoaded={googleMapsLoaded} />}
+            {editingProject && <EditProjectModal project={currentProject} userId={userId} settings={settings} onClose={() => setEditingProject(false)} googleMapsLoaded={googleMapsLoaded} />}
+            {editingVideo && <EditVideoModal video={editingVideo} userId={userId} project={currentProject} settings={settings} onClose={() => setEditingVideo(null)} googleMapsLoaded={googleMapsLoaded} />}
 
             <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
@@ -803,7 +690,7 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
                         ⬅️ Back to All Projects
                     </button>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-3xl lg:text-4xl font-bold text-white">{project.playlistTitle || 'Untitled Project'}</h1>
+                        <h1 className="text-3xl lg:text-4xl font-bold text-white">{currentProject.playlistTitle || 'Untitled Project'}</h1>
                         <button onClick={() => setEditingProject(true)} className="p-2 rounded-full bg-gray-700/50 hover:bg-gray-600/50">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
                         </button>
@@ -813,7 +700,7 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
                              {isDescriptionVisible ? 'Hide' : 'Show'} Description
                         </button>
                     </div>
-                    {isDescriptionVisible && <p className="text-gray-400 mt-2 max-w-2xl">{project.playlistDescription || ''}</p>}
+                    {isDescriptionVisible && <p className="text-gray-400 mt-2 max-w-2xl">{currentProject.playlistDescription || ''}</p>}
                 </div>
             </header>
             
@@ -862,7 +749,7 @@ const ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =>
                             <VideoWorkspace 
                                 video={activeVideo} 
                                 settings={settings} 
-                                project={project} 
+                                project={currentProject} 
                                 userId={userId}
                             />
                         ) : (
