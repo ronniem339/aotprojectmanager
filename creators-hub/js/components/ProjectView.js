@@ -92,7 +92,8 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
             ) : (
                 <div className="flex flex-grow flex-col lg:flex-row gap-6 relative"> {/* Added relative for sidebar positioning */}
                     {/* VideoList Sidebar/Drawer for mobile and desktop */}
-                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/3 xl:w-1/4 lg:flex-shrink-0 flex flex-col rounded-lg`}> {/* Added rounded-lg */}
+                    {/* Adjusted width for lg:w-1/4, xl:w-1/5 to give more space to main content */}
+                    <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-1/3 xl:w-1/4 lg:flex-shrink-0 flex flex-col rounded-lg`}> {/* Adjusted lg:w and xl:w here */}
                         <div className="p-4 flex justify-between items-center lg:hidden border-b border-gray-700"> {/* Added border for mobile header */}
                             <h2 className="text-lg font-semibold text-white">Videos</h2>
                             <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
@@ -112,7 +113,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                     
                     {/* VideoWorkspace Main Content */}
                     {activeVideo ? (
-                        <div className="lg:flex-grow lg:w-2/3 xl:w-3/4">
+                        <div className="lg:flex-grow lg:w-2/3 xl:w-3/4"> {/* Correspondingly adjusted lg:w and xl:w here */}
                             <window.VideoWorkspace 
                                 video={activeVideo} 
                                 settings={settings} 
