@@ -5,7 +5,19 @@ const { useState, useEffect, useCallback, useMemo } = React;
 window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoaded, onClose, onSaveAndSuggestConcepts }) => {
     // Stage 1: Edit Inventory
     const [localLocations, setLocalLocations] = useState(project.locations || []);
-    const [localFootageInventory, setLocalFootageInventory] = useState(project.footageInventory || {});
+    // Initialize localFootageInventory by merging existing project footage with new locations
+    const initialFootageInventory = useMemo(() => {
+        const inventory = { ...project.footageInventory };
+        (project.locations || []).forEach(loc => {
+            if (!inventory[loc.place_id]) {
+                inventory[loc.place_id] = { bRoll: false, onCamera: false, drone: false, importance: 'major' };
+            }
+        });
+        return inventory;
+    }, [project.footageInventory, project.locations]);
+
+    const [localFootageInventory, setLocalFootageInventory] = useState(initialFootageInventory);
+    
     const [aiLocationSuggestions, setAiLocationSuggestions] = useState([]);
     const [isFindingPois, setIsFindingPois] = useState(false);
     const [poiError, setPoiError] = useState('');
@@ -31,10 +43,11 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
         const newInventory = { ...localFootageInventory };
         newLocations.forEach(loc => {
             if (!newInventory[loc.place_id]) {
+                // Initialize new locations with default importance and no footage
                 newInventory[loc.place_id] = { bRoll: false, onCamera: false, drone: false, importance: determineDefaultImportance(loc.types || []) };
             }
         });
-        // Remove inventory for locations that no longer exist
+        // Remove inventory for locations that no longer exist in newLocations
         Object.keys(newInventory).forEach(place_id => {
             if (!newLocations.some(loc => loc.place_id === place_id)) {
                 delete newInventory[place_id];
@@ -88,7 +101,8 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                     types: place.types
                 };
                 if (!localLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                    handleLocationsUpdate([...localLocations, newLocation]);
+                    // Update locations and let handleLocationsUpdate re-derive inventory
+                    setLocalLocations(prev => [...prev, newLocation]);
                     setAiLocationSuggestions(prev => prev.filter(name => name !== locationName));
                 }
             } else {
@@ -104,17 +118,23 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
         
         videos.forEach(video => {
             let isImpacted = false;
-            // Check if any featured location's inventory or importance has changed or been removed
-            if (video.locations_featured && video.locations_featured.length > 0) {
-                isImpacted = video.locations_featured.some(locName => {
+            const videoLocationsFeatured = video.locations_featured || [];
+
+            // Check for changes in locations that were previously featured in this video
+            if (videoLocationsFeatured.length > 0) {
+                isImpacted = videoLocationsFeatured.some(locName => {
                     const featuredLoc = project.locations.find(l => l.name === locName);
-                    if (!featuredLoc) return false; // Location not found in old project. Should not happen unless data is bad.
+                    // If featuredLoc is null, it means this location was previously in the video.locations_featured
+                    // but not in project.locations. This might indicate bad data or a scenario where
+                    // a location was deleted from project.locations without affecting video.locations_featured.
+                    // For robustness, treat as impacted if it *was* there and is now gone or changed.
+                    if (!featuredLoc) return false; 
 
                     const oldInventory = currentProjectLocationsMap.get(featuredLoc.place_id) || {};
-                    const newInventory = newProjectLocationsMap.get(featuredLoc.place_id); // Can be undefined if removed
+                    const newInventory = newProjectLocationsMap.get(featuredLoc.place_id); 
 
                     // If location removed from project locations OR its inventory/importance changed
-                    if (!newInventory || 
+                    if (!newInventory || // Location was removed from the project entirely
                         oldInventory.bRoll !== newInventory.bRoll ||
                         oldInventory.onCamera !== newInventory.onCamera ||
                         oldInventory.drone !== newInventory.drone ||
@@ -125,24 +145,30 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                     return false;
                 });
             }
-            // Also check if any new major locations were added that *could* impact this video
-            // This is complex and might lead to too many false positives. For now, focus on explicit changes.
+
+            // Also check if any *newly added* locations are now featured in this video's concept/title.
+            // This is more of an inference, and might require AI to determine if concept should change.
+            // For simplicity, focus on changes to explicitly linked/featured locations.
+            // For now, if a video is already "impacted" by explicit changes, we add it.
 
             if (isImpacted) {
                 affectedVideos.push({
                     videoId: video.id,
                     videoTitle: video.title,
                     currentConcept: video.concept,
-                    newConceptSuggestion: null, // Will be filled by AI
+                    newConceptSuggestion: null, // Will be filled by AI if regenerated
                     status: video.tasks?.scripting === 'complete' ? 'script_complete' : 'pending', // Indicate if scripting is done
-                    locationsFeaturedInVideo: video.locations_featured,
-                    relevantFootageChanges: video.locations_featured.map(locName => {
+                    locationsFeaturedInVideo: videoLocationsFeatured,
+                    relevantFootageChanges: videoLocationsFeatured.map(locName => {
                         const featuredLoc = project.locations.find(l => l.name === locName);
-                        if (!featuredLoc) return null;
+                        // Ensure featuredLoc exists in the old project locations before trying to get its old inventory
+                        const oldInv = featuredLoc ? (currentProjectLocationsMap.get(featuredLoc.place_id) || {}) : null;
+                        const newInv = localFootageInventory[featuredLoc?.place_id] || null; // Safely get new inventory
+
                         return {
                             name: locName,
-                            old: currentProjectLocationsMap.get(featuredLoc.place_id),
-                            new: newProjectLocationsMap.get(featuredLoc.place_id)
+                            old: oldInv,
+                            new: newInv
                         };
                     }).filter(Boolean)
                 });
@@ -169,44 +195,21 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
         setConceptErrors(prev => ({ ...prev, [videoToImpact.videoId]: '' }));
 
         const oldVideo = videos.find(v => v.id === videoToImpact.videoId);
-        const originalVideoConcept = oldVideo?.concept || oldVideo?.description || '';
+        const originalVideoConcept = oldVideo?.concept || '';
 
         const footageSummary = videoToImpact.relevantFootageChanges.map(change => {
-            const oldStatus = change.old ? `(Old: B:${change.old.bRoll} OC:${change.old.onCamera} D:${change.old.drone} Imp:${change.old.importance})` : 'N/A';
-            const newStatus = change.new ? `(New: B:${change.new.bRoll} OC:${change.new.onCamera} D:${change.new.drone} Imp:${change.new.importance})` : 'Removed';
+            const oldStatus = change.old ? `(Old: B:${change.old.bRoll ? 'Yes' : 'No'} OC:${change.old.onCamera ? 'Yes' : 'No'} D:${change.old.drone ? 'Yes' : 'No'} Imp:${change.old.importance})` : 'N/A (Location was likely newly added or not previously detailed)';
+            const newStatus = change.new ? `(New: B:${change.new.bRoll ? 'Yes' : 'No'} OC:${change.new.onCamera ? 'Yes' : 'No'} D:${change.new.drone ? 'Yes' : 'No'} Imp:${change.new.importance})` : 'Removed from Project Locations';
             return `- ${change.name}: ${oldStatus} -> ${newStatus}`;
         }).join('\n');
 
-
-        const prompt = `You are a YouTube video concept reviser. A user has changed their footage inventory for locations featured in a video.
-Please review the original video concept and the changes to the footage inventory, then provide a revised, brief outline or high-level plan for the video's content. Focus on key segments and main takeaways, NOT a full script.
-
-Original Video Title: "${videoToImpact.videoTitle}"
-Original Video Concept/Plan: "${originalVideoConcept}"
-
-Changes in footage inventory for featured locations:
-${footageSummary}
-
-Based on these changes, how should the video concept be updated? Provide only the revised concept string.`;
-
         try {
-            const payload = {
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "text/plain" }
-            };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${settings.geminiApiKey}`;
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            const newConcept = await window.aiUtils.refineVideoConceptBasedOnInventory({
+                videoTitle: videoToImpact.videoTitle,
+                currentConcept: originalVideoConcept,
+                footageChangesSummary: footageSummary,
+                settings: settings
             });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err?.error?.message || 'API Error');
-            }
-            const result = await response.json();
-            const newConcept = result.candidates[0].content.parts[0].text;
 
             setImpactedVideos(prev => prev.map((video, idx) => 
                 idx === videoIndex ? { ...video, newConceptSuggestion: newConcept } : video
@@ -222,11 +225,7 @@ Based on these changes, how should the video concept be updated? Provide only th
 
     const handleAcceptNewConcept = (videoIndex, newConcept) => {
         setImpactedVideos(prev => prev.map((video, idx) => 
-            idx === videoIndex ? { ...video, newConceptSuggestion: newConcept } : video // Set the accepted concept
-        ));
-        // Mark as "accepted" within the impactedVideos state so we know to send it to Firestore
-        setImpactedVideos(prev => prev.map((video, idx) =>
-            idx === videoIndex ? { ...video, status: 'accepted' } : video
+            idx === videoIndex ? { ...video, newConceptSuggestion: newConcept, status: 'accepted' } : video 
         ));
     };
 
@@ -237,9 +236,9 @@ Based on these changes, how should the video concept be updated? Provide only th
     };
 
     const handleFinalizeConceptUpdates = async () => {
-        const videosToUpdatePayload = impactedVideos.filter(v => v.status === 'accepted' && v.newConceptSuggestion !== null).map(v => ({
+        const videosToUpdatePayload = impactedVideos.filter(v => v.status === 'accepted').map(v => ({
             videoId: v.videoId,
-            newConcept: v.newConceptSuggestion,
+            newConcept: v.newConceptSuggestion !== null ? v.newConceptSuggestion : v.currentConcept, // Ensure we send *a* concept, even if it's the old one
             resetScriptingTask: v.status === 'script_complete' && v.newConceptSuggestion !== v.currentConcept // Only reset if script was complete AND concept actually changed
         }));
         
