@@ -18,7 +18,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     /**
      * Calls the Gemini API to generate a video script.
-     * This logic now lives directly within the component.
      */
     const handleGenerateScript = async () => {
         setGenerating(true);
@@ -98,7 +97,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
         
         User's Refinement Instruction: "${refinementPrompt}"
 
-        IMPORTANT: Please provide only the complete, rewritten, raw text script as your response. Do not include any visual directions, camera cues, on-screen text callouts, explanations, apologies, or conversational text. Only return the spoken dialogue.`;
+        IMPORTANT: Please provide only the complete, rewritten, raw text script as your response. Do not include any explanations, apologies, or conversational text. Only return the spoken dialogue.`;
 
         try {
             const payload = {
@@ -182,11 +181,18 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
                     </>
                 )}
             </div>
-            {showFullScreenScript && (
+            
+            {/* FIX: Use ReactDOM.createPortal to render the FullScreenScriptView 
+              outside of the current component's DOM hierarchy. This allows it to
+              break free of any parent containers with properties that would
+              otherwise trap it (like 'transform' on the accordion).
+            */}
+            {showFullScreenScript && ReactDOM.createPortal(
                 <window.FullScreenScriptView
                     scriptContent={scriptContent}
                     onClose={() => setShowFullScreenScript(false)}
-                />
+                />,
+                document.body
             )}
         </div>
     );
