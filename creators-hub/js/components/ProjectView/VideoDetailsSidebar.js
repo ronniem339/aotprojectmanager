@@ -62,6 +62,24 @@ window.VideoDetailsSidebar = ({ video }) => {
                     <p className="text-sm text-gray-500 italic">None targeted.</p>
                 )}
             </div>
+
+            {/* NEW: Display Saved Shorts Ideas */}
+            {video.shortsIdeas && video.shortsIdeas.length > 0 && (
+                <div>
+                    <span className="text-sm font-semibold text-gray-400 block mb-2">Saved Shorts Ideas:</span>
+                    <div className="space-y-2">
+                        {video.shortsIdeas.map((short, index) => (
+                            <div key={short.id || index} className="p-3 bg-gray-800/50 rounded-lg border border-green-700">
+                                <h4 className="text-md font-semibold text-white">{short.title}</h4>
+                                <p className="text-xs text-gray-400 mt-1 italic line-clamp-2">{short.description}</p>
+                                {short.metadata && (
+                                    <p className="text-xs text-green-400 mt-1">Metadata Generated ✅</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
