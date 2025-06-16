@@ -6,46 +6,35 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
 
-    // This effect closes any open accordion when the user selects a different video
     useEffect(() => {
         setOpenTask(null); 
     }, [video.id]);
 
-    // A single, memoized function to update Firestore for any task
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         const payload = { [`tasks.${taskName}`]: status, ...extraData };
         await videoDocRef.update(payload);
     }, [userId, project.id, video.id, appId]);
 
-    /**
-     * Handles the logic for revisiting a completed task. It identifies which
-     * data fields need to be cleared for that specific task and updates Firestore.
-     * @param {string} taskId - The ID of the task to revisit (e.g., 'scripting').
-     */
     const handleRevisit = (taskId) => {
         let dataToReset = {};
-        // Use a switch statement for clear, task-specific reset logic
         switch (taskId) {
             case 'scripting':
                 dataToReset = { script: '' };
                 break;
             case 'videoEdited':
-                dataToReset = { 
-                    'tasks.feedbackText': '',
-                    'tasks.musicTrack': ''
-                 };
+                dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
                 break;
-            case 'metadataGenerated':
-                dataToReset = {
-                    metadata: '',
-                    chosenTitle: '',
-                    chapters: [],
-                    'tasks.rejectedTitles': [],
-                    'tasks.descriptionAccepted': false,
-                    'tasks.chaptersFinalized': false
-                };
+            // **FIX**: Updated revisit logic for new granular tasks
+            case 'titleGenerated':
+                dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false }; // Reset to original title
                 break;
+            case 'descriptionGenerated':
+                 dataToReset = { metadata: '', chapters: [] };
+                 break;
+            case 'chaptersGenerated':
+                 dataToReset = { 'tasks.chaptersFinalized': false };
+                 break;
             case 'thumbnailsGenerated':
                 dataToReset = {
                     'tasks.thumbnailConcepts': [],
@@ -60,18 +49,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             default:
                 break;
         }
-        // Update the task status to 'pending' and clear the relevant data
         updateTask(taskId, 'pending', dataToReset);
     };
 
-    // Determines if a task should be locked based on the completion of the previous task
     const isTaskLocked = (index) => {
         if (index === 0) return false;
         const previousTaskId = taskPipeline[index - 1].id;
         return video.tasks?.[previousTaskId] !== 'complete';
     };
 
-    // This function decides which specialized component to render for a given task
     const renderTaskComponent = (task, index) => {
         const status = video.tasks?.[task.id] || 'pending';
         const locked = isTaskLocked(index);
@@ -80,10 +66,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'scripting':
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'videoEdited':
-                // **FIX**: Pass the `settings` prop down to the EditVideoTask component.
                 return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-            case 'metadataGenerated':
-                return <window.MetadataTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+            // **FIX**: New cases for the refactored metadata tasks
+            case 'titleGenerated':
+                return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+            case 'descriptionGenerated':
+                return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+            case 'chaptersGenerated':
+                return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'thumbnailsGenerated':
                 return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'videoUploaded':
