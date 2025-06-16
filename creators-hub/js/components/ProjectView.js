@@ -16,29 +16,23 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // Remove Firebase initialization from here. It's now passed via props from App.js.
-    // const app = firebase.initializeApp(firebaseConfig, `ProjectViewApp_${projectId}`); 
-    // const db = app.firestore();
-    // const auth = app.auth();
-
     useEffect(() => {
         const fetchProjectAndVideos = async () => {
-            if (!userId || !projectId || !db || !auth) { // Ensure db and auth are available
-                setError("Project ID, User ID, or Firebase instances are missing.");
+            // Ensure db, auth, userId, and projectId are present before proceeding
+            if (!db || !auth || !userId || !projectId) {
+                // This condition should ideally be handled by the parent component (App.js)
+                // ensuring ProjectView is not rendered until these are available.
+                // However, as a safeguard, we set loading to false and return.
                 setLoading(false);
+                setError("Project ID, User ID, or Firebase instances are missing.");
                 return;
             }
 
             try {
-                // Ensure user is authenticated before fetching data.
-                // If auth is passed from App.js, it should already be ready/signing in.
-                // No need for signInWithCustomToken here again if App.js handles it.
-                // Assuming auth.currentUser is set by App.js's onAuthStateChanged listener.
+                // No need for signInWithCustomToken here; App.js handles authentication.
+                // The auth.currentUser should be available if App.js renders ProjectView.
                 if (!auth.currentUser) {
-                    // This might happen if auth state hasn't propagated yet or user is not logged in.
-                    // For now, let's just wait or throw an error.
-                    // Ideally, App.js should ensure user is authenticated before rendering ProjectView.
-                    setError("User not authenticated for project data access.");
+                    setError("User not authenticated for project data access. Please log in.");
                     setLoading(false);
                     return;
                 }
@@ -82,7 +76,12 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
             }
         };
 
-        fetchProjectAndVideos();
+        // Only call fetchProjectAndVideos if all necessary props are available
+        if (db && auth && userId && projectId) {
+            fetchProjectAndVideos();
+        } else {
+            setLoading(false); // If props are not ready, stop loading and wait
+        }
     }, [userId, projectId, appId, db, auth]); // Add db and auth to dependencies
 
     const handleEditProject = useCallback(async (updatedFields) => {
@@ -299,7 +298,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
                     userId={userId}
                     projectId={projectId}
                     settings={settings}
-                    db={db} // Pass db to ManageFootageModal
+                    db={db}
                 />
             )}
 
