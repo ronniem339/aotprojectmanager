@@ -34,7 +34,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'chaptersGenerated':
                  dataToReset = { 'tasks.chaptersFinalized': false };
                  break;
-            // **NEW**: Added revisit logic for tags
             case 'tagsGenerated':
                  dataToReset = { metadata: JSON.stringify({ ...(JSON.parse(video.metadata || '{}')), tags: '' }) };
                  break;
@@ -74,13 +73,13 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'chaptersGenerated':
                 return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
-            // **NEW**: Case to render the new TagsTask component
             case 'tagsGenerated':
                 return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'thumbnailsGenerated':
                 return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+            // **FIX**: Render the new UploadToYouTubeTask component.
             case 'videoUploaded':
-                return <window.SimpleConfirmationTask status={status} onUpdate={() => updateTask(task.id, 'complete')} buttonText="Mark as Uploaded" />;
+                return <window.UploadToYouTubeTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'firstCommentGenerated':
                  return <window.FirstCommentTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             default:
