@@ -32,36 +32,41 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
         try {
             const parsedData = await window.aiUtils.parseVideoFromTextAI({
                 textInput,
+                projectLocation: mainProjectLocationName,
                 settings
             });
 
             // Geocode location names returned by the AI into location objects
             const geocodeLocation = (name) => {
                 return new Promise((resolve) => {
+                    const fallback = { name: name, place_id: null, lat: null, lng: null, types: [] };
+
                     if (!googleMapsLoaded || !window.google?.maps?.Geocoder) {
-                        resolve({ name: name, place_id: null, lat: null, lng: null, types: [] });
+                        console.warn("Google Maps not available for geocoding, returning location name only.");
+                        resolve(fallback);
                         return;
                     }
                     const geocoder = new window.google.maps.Geocoder();
-                    geocoder.geocode({ 'address': name }, (results, status) => {
+                    geocoder.geocode({ 'address': name, 'region': mainProjectLocationName }, (results, status) => {
                         if (status === 'OK' && results[0]) {
                             const place = results[0];
                             resolve({
-                                name: place.name,
+                                name: name, // Keep original name for display consistency
                                 place_id: place.place_id,
                                 lat: place.geometry.location.lat(),
                                 lng: place.geometry.location.lng(),
                                 types: place.types
                             });
                         } else {
-                            resolve({ name: name, place_id: null, lat: null, lng: null, types: [] });
+                             console.warn(`Geocoding failed for "${name}": ${status}`);
+                            resolve(fallback);
                         }
                     });
                 });
             };
 
             const locationObjects = await Promise.all(
-                (parsedData.locations_featured || []).map(name => geocodeLocation(name))
+                (parsedData.locations_featured || []).map(name => geocodeLocation(name.trim()))
             );
 
             setVideoData(prev => ({
@@ -70,7 +75,7 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
                 concept: parsedData.concept || '',
                 script: parsedData.script || '',
                 estimatedLengthMinutes: parsedData.estimatedLengthMinutes || '',
-                locations_featured: locationObjects.filter(loc => loc.place_id), // Only keep successfully geocoded locations
+                locations_featured: locationObjects.filter(loc => loc && loc.name),
                 targeted_keywords: parsedData.targeted_keywords || [],
                 tasks: (parsedData.script || '').trim() !== '' ? { ...prev.tasks, scripting: 'complete' } : { ...prev.tasks, scripting: 'pending' },
             }));
@@ -88,12 +93,10 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
         setStep(1); // Skip AI and go directly to manual input
     };
     
-    // Callback for updating locations from the LocationSearchInput component
     const handleLocationsUpdate = useCallback((newLocations) => {
         setVideoData(prev => ({ ...prev, locations_featured: newLocations }));
     }, []);
 
-    // ... (handleKeywordAdd, handleKeywordRemove, handleGenerateKeywords, handleKeywordSelection logic remains the same)
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && e.target.value.trim() !== '') {
             e.preventDefault();
@@ -102,7 +105,7 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
                 ...prev,
                 targeted_keywords: prev.targeted_keywords.includes(newKeyword) ? prev.targeted_keywords : [...prev.targeted_keywords, newKeyword]
             }));
-            e.target.value = ''; // Clear input
+            e.target.value = '';
         }
     };
 
@@ -143,19 +146,17 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
     const handleSaveVideo = () => {
         if (!videoData.title.trim() || !videoData.concept.trim()) {
             setError("Title and Concept are required before creating the video.");
-            setStep(1); // Go back to review step
+            setStep(1);
             return;
         }
         onSave({
             ...videoData,
-            locations_featured: videoData.locations_featured.map(l => l.name), // Save just names
+            locations_featured: videoData.locations_featured.map(l => l.name),
             chosenTitle: videoData.title,
         });
         onClose();
     };
 
-
-    // Combined step for reviewing and refining all video details
     const renderReviewAndRefineStep = () => (
         <div className="space-y-4">
              <div>
@@ -267,12 +268,9 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
         </div>
     );
     
-    // Render logic for wizard steps
     const renderContent = () => {
         switch (step) {
             case 0:
-                // I need to create this component or inline it.
-                // For now, I'll create it conceptually.
                 return <window.WizardStep_AIParse onAnalyze={handleAnalyzeText} onSkip={handleSkipAI} isLoading={isLoading} />;
             case 1:
                 return renderReviewAndRefineStep();
@@ -297,7 +295,7 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
         setError('');
     };
 
-    const totalSteps = 2; // AI Parse -> Review & Refine -> Final Review
+    const totalSteps = 2;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
