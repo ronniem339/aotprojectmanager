@@ -53,6 +53,12 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId);
                 const videoCollectionRef = projectRef.collection('videos');
 
+                // NEW: Update lastAccessed timestamp when project is opened
+                await projectRef.update({
+                    lastAccessed: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(err => console.error("Error updating lastAccessed:", err)); // Catch error but don't block loading
+
+
                 const unsubscribeProject = projectRef.onSnapshot(docSnap => {
                     if (docSnap.exists) {
                         setLocalProject({ id: docSnap.id, ...docSnap.data() });
@@ -161,7 +167,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, []);
 
-    // Handler for saving experiences from ScriptPlanModal
     const handleSaveLocationExperiences = useCallback(async (videoId, experiences) => {
         setLoading(true);
         setError(null);
@@ -200,7 +205,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, [userId, localProject?.id, appId, taskBeingEdited, db]);
 
-    // NEW: Handle saving a new video from the wizard modal
     const handleSaveNewVideo = useCallback(async (newVideoData) => {
         setLoading(true);
         setError(null);
@@ -211,23 +215,19 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
             const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`);
             
-            // Add the new video document
             await videosCollectionRef.add({
                 ...newVideoData,
-                order: videos.length, // Place it at the end
+                order: videos.length,
                 createdAt: new Date().toISOString(),
-                // Ensure default tasks if not already set by wizard (e.g., for manual script)
                 tasks: newVideoData.tasks || { scripting: 'pending' }, 
             });
 
-            // Update videoCount on the parent project
             const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
             await projectRef.update({
-                videoCount: firebase.firestore.FieldValue.increment(1) // Increment video count
+                videoCount: firebase.firestore.FieldValue.increment(1)
             });
 
-            setShowNewVideoWizard(false); // Close the wizard
-            // Firestore listeners will automatically update videos and localProject state
+            setShowNewVideoWizard(false);
         } catch (e) {
             console.error("Error saving new video:", e);
             setError(`Failed to add new video: ${e.message}`);
@@ -298,7 +298,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 overallProgress={overallProgress}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 hideDescription={isSingleVideoProject}
-                onAddVideo={() => setShowNewVideoWizard(true)} // Removed the trailing comment
+                onAddVideo={() => setShowNewVideoWizard(true)}
             />
 
             <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
@@ -453,7 +453,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 />
             )}
 
-            {/* NEW: Render NewVideoWizardModal */}
+            {/* Render NewVideoWizardModal */}
             {showNewVideoWizard && (
                 <window.NewVideoWizardModal
                     onClose={() => setShowNewVideoWizard(false)}
