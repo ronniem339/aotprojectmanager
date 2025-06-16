@@ -298,7 +298,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 overallProgress={overallProgress}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 hideDescription={isSingleVideoProject}
-                onAddVideo={() => setShowNewVideoWizard(true)} {/* NEW: Add Video button handler */}
+                onAddVideo={() => setShowNewVideoWizard(true)} // Removed the trailing comment
             />
 
             <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
@@ -460,7 +460,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     onSave={handleSaveNewVideo}
                     settings={settings}
                     googleMapsLoaded={googleMapsLoaded}
-                    projectLocations={localProject?.locations || []} // Pass project locations for context
+                    projectLocations={localProject?.locations || []}
                 />
             )}
         </div>
