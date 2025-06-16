@@ -1,6 +1,6 @@
 // js/components/ProjectView/tasks/ScriptingTask.js
 
-window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
+window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId }) => { // Added project and userId to props
     const { useState, useEffect } = React;
 
     // Main script content and general UI states
@@ -21,7 +21,16 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
     // Sync component's state with the video data from Firestore
     useEffect(() => {
         setScriptContent(video.script || '');
-        setScriptingStage(video.tasks?.scriptingStage || (video.script ? 'script_review' : 'pending'));
+        // When video data changes, determine the current scripting stage.
+        // If there's a script, it's at least in review. If there's a plan, it's in plan_review.
+        // Otherwise, it's pending.
+        if (video.script) {
+            setScriptingStage(video.tasks?.scriptingStage || 'script_review');
+        } else if (video.tasks?.scriptPlan) {
+            setScriptingStage(video.tasks?.scriptingStage || 'plan_review');
+        } else {
+            setScriptingStage(video.tasks?.scriptingStage || 'pending');
+        }
         setScriptPlan(video.tasks?.scriptPlan || '');
         setLocationQuestions(video.tasks?.locationQuestions || []);
         setUserExperiences(video.tasks?.userExperiences || {});
@@ -49,7 +58,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
         try {
             // Fetch project's full location data and footage inventory for context
-            const projectDocRef = db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${settings.userId}/projects`).doc(video.projectId); // Assuming video has projectId
+            // Corrected: Use userId and project.id from props
+            const projectDocRef = db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects`).doc(project.id);
             const projectSnap = await projectDocRef.get();
             const projectData = projectSnap.data();
 
@@ -65,14 +75,19 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
             setScriptPlan(planData.scriptPlan);
             setLocationQuestions(planData.locationQuestions);
-            setUserExperiences(planData.locationQuestions.reduce((acc, q) => ({ ...acc, [q.locationName || 'overall']: '' }), {})); // Initialize user experiences
+            // Initialize userExperiences using the questions, ensuring 'overall' is always present if no specific locations
+            const initialUserExperiences = planData.locationQuestions.reduce((acc, q) => ({ ...acc, [q.locationName || 'overall']: '' }), {});
+            if (planData.locationQuestions.length === 0) { // Ensure 'overall' if no specific questions
+                initialUserExperiences.overall = '';
+            }
+            setUserExperiences(initialUserExperiences);
             setGeneralFeedback(''); // Reset general feedback for new plan
             setScriptingStage('plan_review');
             // Save the current state of the task to Firestore
             await onUpdateTask('scriptingStage', 'plan_review', {
                 'tasks.scriptPlan': planData.scriptPlan,
                 'tasks.locationQuestions': planData.locationQuestions,
-                'tasks.userExperiences': planData.locationQuestions.reduce((acc, q) => ({ ...acc, [q.locationName || 'overall']: '' }), {}),
+                'tasks.userExperiences': initialUserExperiences, // Save initialized experiences
                 'tasks.generalFeedback': ''
             });
 
