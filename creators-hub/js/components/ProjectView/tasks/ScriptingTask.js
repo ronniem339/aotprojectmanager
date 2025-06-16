@@ -188,7 +188,7 @@ const ScriptingWorkspaceModal = ({
 };
 
 
-window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId }) => {
+window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     
     // Simplified task data structure for the new flow
