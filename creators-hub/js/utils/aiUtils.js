@@ -72,14 +72,14 @@ For each suggestion, provide:
 -   A concise name for the location.
 -   A brief, engaging description (1-2 sentences) explaining why it's a good filming location or a key point of interest for content.
 
-Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string) and "description" (string) properties.
+Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string), "description" (string) and "place_id" (string - a unique identifier if possible, otherwise use the name) properties. If you use Google Places, use their place_id.
 
 Example JSON response:
 {
     "suggestedLocations": [
-        {"name": "Local Street Art Scene", "description": "Vibrant murals and graffiti offer unique visual backdrops for dynamic B-roll and on-camera commentary."},
-        {"name": "Hidden Waterfall Hike", "description": "A picturesque natural escape, perfect for drone shots and showcasing the region's untouched beauty."},
-        {"name": "Artisanal Cheese Shop", "description": "Highlight local culinary delights and traditional craftsmanship with engaging close-ups and interviews."}
+        {"name": "Local Street Art Scene", "description": "Vibrant murals and graffiti offer unique visual backdrops for dynamic B-roll and on-camera commentary.", "place_id": "ChIJT2_nCg_Yl_R_M2..."},
+        {"name": "Hidden Waterfall Hike", "description": "A picturesque natural escape, perfect for drone shots and showcasing the region's untouched beauty.", "place_id": "ChIJT2_nCg_Yl_R_M2..."},
+        {"name": "Artisanal Cheese Shop", "description": "Highlight local culinary delights and traditional craftsmanship with engaging close-ups and interviews.", "place_id": "ChIJT2_nCg_Yl_R_M2..."}
     ]
 }`;
 
