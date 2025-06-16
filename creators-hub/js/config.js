@@ -9,7 +9,7 @@ window.CREATOR_HUB_CONFIG = {
     apiKey: "AIzaSyDMyKgfdFF55V8OKp_1u684IWeWkpWtQNA", 
     authDomain: "aot-project-manager.firebaseapp.com",
     projectId: "aot-project-manager",
-    storageBucket: "aot-project-manager.firebasestorage.com",
+    storageBucket: "aot-project-manager.firebasestorage.app",
     messagingSenderId: "732535263997",
     appId: "1:732535263997:web:c9281e5696b8830f0f6494"
   },
