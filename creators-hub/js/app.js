@@ -194,6 +194,7 @@ window.App = () => { // Exposing App component globally
     };
 
     const handleSelectProject = (project) => {
+            console.log("App.js: Project selected:", project); // Add this line
         setSelectedProject(project);
         setCurrentView('project');
     };
