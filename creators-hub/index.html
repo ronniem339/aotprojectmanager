@@ -16,14 +16,31 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- IMPORTANT: Relying ONLY on data-presets here. Removed the inline script that caused TypeError. -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" data-presets="env,react"></script> 
+    
+    <!-- Load Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Load Babel Presets explicitly -->
+    <script src="https://unpkg.com/@babel/preset-env-standalone/dist/babel-preset-env.min.js"></script>
+    <script src="https://unpkg.com/@babel/preset-react-standalone/dist/babel-preset-react.min.js"></script>
+    
+    <!-- Manually set Babel presets AFTER all Babel components are loaded -->
+    <script type="text/javascript">
+        window.onload = function() {
+            if (typeof Babel !== 'undefined' && Babel.availablePresets && Babel.availablePresets['env'] && Babel.availablePresets['react']) {
+                Babel.setPresets([Babel.availablePresets['env'], Babel.availablePresets['react']]);
+                console.log("Babel presets 'env' and 'react' set successfully after window load.");
+            } else {
+                console.error("Babel or its presets are not fully loaded/available. Cannot set presets.");
+            }
+        };
+    </script>
 
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
     
-    <!-- Application Logic -->
+    <!-- Application Logic - all use type="text/babel" -->
     <script src="js/config.js" type="text/babel"></script>
     <script src="js/auth.js" type="text/babel"></script>
     <script src="js/components/common.js" type="text/babel"></script>
