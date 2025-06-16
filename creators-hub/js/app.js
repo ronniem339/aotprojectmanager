@@ -1,6 +1,7 @@
 // js/app.js
 
 window.App = () => { // Exposing App component globally
+    const { useState, useEffect, useCallback } = React; // Added React to destructure useState, useEffect, useCallback
     const [user, setUser] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [currentView, setCurrentView] = useState('dashboard');
@@ -41,6 +42,9 @@ window.App = () => { // Exposing App component globally
     const [isLoading, setIsLoading] = useState(false); // Add a general loading state
 
     const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
+
+    // FIX: Parse firebaseConfig from the global __firebase_config variable
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
     // The handleLogin function now is simpler because LoginScreen handles its own auth calls
     const handleLogin = useCallback(async () => {
@@ -382,7 +386,15 @@ window.App = () => { // Exposing App component globally
 
         switch (currentView) {
             case 'project':
-                return <window.ProjectView project={selectedProject} userId={user.uid} onBack={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} />;
+                // FIX: Pass firebaseConfig to ProjectView
+                return <window.ProjectView 
+                            project={selectedProject} 
+                            userId={user.uid} 
+                            onCloseProject={handleBackToDashboard} // Changed from onBack to onCloseProject for clarity
+                            settings={settings} 
+                            googleMapsLoaded={googleMapsLoaded}
+                            firebaseConfig={firebaseConfig} // Pass the parsed firebaseConfig
+                        />;
             case 'settingsMenu': // For the Settings Menu
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
             case 'settings': // Technical Settings View
