@@ -2,7 +2,7 @@
 
 const { useState } = React;
 
-window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress, onManageFootage, hideDescription }) => { // Added hideDescription
+window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress, onManageFootage, hideDescription, onAddVideo }) => { // Added onAddVideo
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
 
     // Only show the toggle button if description is not explicitly hidden
@@ -51,7 +51,7 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgr
                         </button>
                     )}
                     
-                    {/* NEW: Manage Footage button */}
+                    {/* Manage Footage button */}
                     <button
                         onClick={onManageFootage}
                         className="flex-shrink-0 p-2 rounded-full bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-colors"
@@ -61,9 +61,22 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgr
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-2m3 2v-2M9 9H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2v-2m0-4h4a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2h4a2 2 0 012 2v.5m-4 10.5H12"></path>
                         </svg>
                     </button>
+
+                    {/* NEW: Add Video Button */}
+                    {onAddVideo && ( // Only render if onAddVideo prop is provided
+                        <button
+                            onClick={onAddVideo}
+                            className="flex-shrink-0 p-2 rounded-full bg-primary-accent hover:bg-primary-accent-darker text-gray-900 transition-colors"
+                            title="Add New Video"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"></path>
+                            </svg>
+                        </button>
+                    )}
                 </div>
                 
-                {/* --- NEW: Overall Project Progress Bar --- */}
+                {/* Overall Project Progress Bar */}
                 <div className="w-full mt-3">
                     <div className="flex justify-between items-center mb-1">
                         <span className="text-xs font-semibold text-gray-400">Overall Project Progress</span>
