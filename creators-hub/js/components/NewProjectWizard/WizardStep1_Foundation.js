@@ -15,6 +15,20 @@ window.WizardStep1_Foundation = ({
     const [isFindingPois, setIsFindingPois] = useState(false);
     const [poiError, setPoiError] = useState('');
 
+    /**
+     * **FIX**: Re-added the helper function to determine if a location
+     * is a major city/country or a more specific, smaller point of interest.
+     */
+    const determineDefaultImportance = (types) => {
+        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
+        // If the location's types include any of the major types, it's a 'major' feature.
+        if (types.some(type => majorTypes.includes(type))) {
+            return 'major';
+        }
+        // Otherwise, it's a smaller point of interest and should default to 'quick'.
+        return 'quick';
+    };
+
     const handleFindPointsOfInterest = async () => {
         const mainLocation = locations[0];
         if (!mainLocation) {
@@ -49,7 +63,8 @@ window.WizardStep1_Foundation = ({
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
-                    importance: 'major',
+                    // **FIX**: Use the helper function to set the correct default importance.
+                    importance: determineDefaultImportance(place.types),
                     types: place.types
                 };
                 if (!locations.some(loc => loc.place_id === newLocation.place_id)) {
