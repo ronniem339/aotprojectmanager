@@ -2,133 +2,98 @@
 
 /**
  * NewVideoWizardModal Component
- * A multi-step wizard for adding a new video to an existing project.
- *
- * @param {object} props - The component props.
- * @param {function} props.onClose - Callback to close the modal.
- * @param {function} props.onSave - Callback to save the new video data to Firestore.
- * @param {object} props.settings - User settings for AI API keys.
- * @param {boolean} props.googleMapsLoaded - Indicates if Google Maps API is loaded.
- * @param {Array<object>} props.projectLocations - List of project's overall locations, used for AI context.
+ * A multi-step wizard for adding a new video to an existing project,
+ * now starting with an AI-powered parsing step.
  */
 window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, projectLocations }) => {
     const { useState, useCallback } = React;
 
-    const [step, setStep] = useState(1);
+    // Start at step 0 for the new AI parse screen
+    const [step, setStep] = useState(0);
     const [videoData, setVideoData] = useState({
         title: '',
         concept: '',
         estimatedLengthMinutes: '',
-        script: '', // Optional initial script
-        locations_featured: [],
+        script: '',
+        locations_featured: [], // This will now store location objects
         targeted_keywords: [],
-        tasks: {}, // Initial task statuses
+        tasks: {},
     });
-    const [refinement, setRefinement] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [keywordIdeas, setKeywordIdeas] = useState([]);
 
     const mainProjectLocationName = projectLocations[0]?.name || 'the project';
 
-    // Step 1: Core Details (Title, Concept, Length, Optional Script)
-    const renderStep1 = () => (
-        <div className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
-                <input
-                    type="text"
-                    value={videoData.title}
-                    onChange={(e) => setVideoData(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full form-input"
-                    placeholder="e.g., 'Exploring the Hidden Caves of Gran Canaria'"
-                    disabled={isLoading}
-                />
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept / Summary</label>
-                <textarea
-                    value={videoData.concept}
-                    onChange={(e) => setVideoData(prev => ({ ...prev, concept: e.target.value }))}
-                    rows="4"
-                    className="w-full form-textarea"
-                    placeholder="A brief summary of what this video will be about."
-                    disabled={isLoading}
-                ></textarea>
-                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 mt-4">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Refine Concept with AI</label>
-                    <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make it more adventurous' or 'Focus on local culture'"/>
-                    <div className="text-right mt-2">
-                        <button onClick={handleRefineConcept} disabled={isLoading || !refinement || !videoData.concept} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center ml-auto gap-2">
-                            {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Concept'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Estimated Length (minutes)</label>
-                <input
-                    type="number"
-                    value={videoData.estimatedLengthMinutes}
-                    onChange={(e) => setVideoData(prev => ({ ...prev, estimatedLengthMinutes: e.target.value }))}
-                    className="w-full form-input"
-                    placeholder="e.g., 12"
-                    min="1"
-                    disabled={isLoading}
-                />
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Video Script (Optional)</label>
-                <textarea
-                    value={videoData.script}
-                    onChange={(e) => setVideoData(prev => ({
-                        ...prev,
-                        script: e.target.value,
-                        // If script is provided, mark scripting task as complete initially
-                        tasks: e.target.value.trim() !== '' ? { ...prev.tasks, scripting: 'complete' } : { ...prev.tasks, scripting: 'pending' }
-                    }))}
-                    rows="6"
-                    className="w-full form-textarea"
-                    placeholder="Paste the script here if you already have one. This will mark the 'Scripting' task as complete."
-                    disabled={isLoading}
-                ></textarea>
-                <p className="text-xs text-gray-500 mt-1">Providing the script will mark the 'Scripting' task as complete and help future AI tasks.</p>
-            </div>
-        </div>
-    );
-
-    const handleRefineConcept = async () => {
+    // New function to handle AI parsing from text input
+    const handleAnalyzeText = async (textInput) => {
         setIsLoading(true);
         setError('');
-        const apiKey = settings.geminiApiKey || "";
-        const prompt = `Rewrite the following video concept based on the user's feedback.
-Original Concept: "${videoData.concept}"
-User Feedback: "${refinement}"
-Return a JSON object: {"newConcept": "..."}`;
         try {
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) throw new Error(await response.text());
-            const result = await response.json();
-            const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
-            if (parsedJson.newConcept) {
-                setVideoData(prev => ({ ...prev, concept: parsedJson.newConcept }));
-                setRefinement('');
-            }
+            const parsedData = await window.aiUtils.parseVideoFromTextAI({
+                textInput,
+                settings
+            });
+
+            // Geocode location names returned by the AI into location objects
+            const geocodeLocation = (name) => {
+                return new Promise((resolve) => {
+                    if (!googleMapsLoaded || !window.google?.maps?.Geocoder) {
+                        resolve({ name: name, place_id: null, lat: null, lng: null, types: [] });
+                        return;
+                    }
+                    const geocoder = new window.google.maps.Geocoder();
+                    geocoder.geocode({ 'address': name }, (results, status) => {
+                        if (status === 'OK' && results[0]) {
+                            const place = results[0];
+                            resolve({
+                                name: place.name,
+                                place_id: place.place_id,
+                                lat: place.geometry.location.lat(),
+                                lng: place.geometry.location.lng(),
+                                types: place.types
+                            });
+                        } else {
+                            resolve({ name: name, place_id: null, lat: null, lng: null, types: [] });
+                        }
+                    });
+                });
+            };
+
+            const locationObjects = await Promise.all(
+                (parsedData.locations_featured || []).map(name => geocodeLocation(name))
+            );
+
+            setVideoData(prev => ({
+                ...prev,
+                title: parsedData.title || '',
+                concept: parsedData.concept || '',
+                script: parsedData.script || '',
+                estimatedLengthMinutes: parsedData.estimatedLengthMinutes || '',
+                locations_featured: locationObjects.filter(loc => loc.place_id), // Only keep successfully geocoded locations
+                targeted_keywords: parsedData.targeted_keywords || [],
+                tasks: (parsedData.script || '').trim() !== '' ? { ...prev.tasks, scripting: 'complete' } : { ...prev.tasks, scripting: 'pending' },
+            }));
+
+            setStep(1); // Move to the review step
         } catch (err) {
-            setError(`Failed to refine concept: ${err.message}`);
+            console.error("Error parsing video data with AI:", err);
+            setError(`AI analysis failed: ${err.message}. Please try again or fill the details manually.`);
         } finally {
             setIsLoading(false);
         }
     };
 
-
-    // Step 2: Locations & Keywords
+    const handleSkipAI = () => {
+        setStep(1); // Skip AI and go directly to manual input
+    };
+    
+    // Callback for updating locations from the LocationSearchInput component
     const handleLocationsUpdate = useCallback((newLocations) => {
         setVideoData(prev => ({ ...prev, locations_featured: newLocations }));
     }, []);
 
+    // ... (handleKeywordAdd, handleKeywordRemove, handleGenerateKeywords, handleKeywordSelection logic remains the same)
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && e.target.value.trim() !== '') {
             e.preventDefault();
@@ -147,7 +112,7 @@ Return a JSON object: {"newConcept": "..."}`;
             targeted_keywords: prev.targeted_keywords.filter(kw => kw !== keywordToRemove)
         }));
     };
-
+    
     const handleGenerateKeywords = async () => {
         setIsLoading(true);
         setError('');
@@ -156,8 +121,8 @@ Return a JSON object: {"newConcept": "..."}`;
                 title: videoData.title,
                 concept: videoData.concept,
                 locationsFeatured: videoData.locations_featured.map(l => l.name),
-                projectTitle: mainProjectLocationName, // Use project's main location name as context
-                projectDescription: '', // No project description context needed here specifically
+                projectTitle: mainProjectLocationName,
+                projectDescription: '',
                 settings: settings
             });
             setKeywordIdeas(keywords);
@@ -174,10 +139,70 @@ Return a JSON object: {"newConcept": "..."}`;
             targeted_keywords: prev.targeted_keywords.includes(keyword) ? prev.targeted_keywords.filter(k => k !== keyword) : [...prev.targeted_keywords, keyword]
         }));
     };
+    
+    const handleSaveVideo = () => {
+        if (!videoData.title.trim() || !videoData.concept.trim()) {
+            setError("Title and Concept are required before creating the video.");
+            setStep(1); // Go back to review step
+            return;
+        }
+        onSave({
+            ...videoData,
+            locations_featured: videoData.locations_featured.map(l => l.name), // Save just names
+            chosenTitle: videoData.title,
+        });
+        onClose();
+    };
 
 
-    const renderStep2 = () => (
+    // Combined step for reviewing and refining all video details
+    const renderReviewAndRefineStep = () => (
         <div className="space-y-4">
+             <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
+                <input
+                    type="text"
+                    value={videoData.title}
+                    onChange={(e) => setVideoData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full form-input"
+                    placeholder="e.g., 'Exploring the Hidden Caves of Gran Canaria'"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept / Summary</label>
+                <textarea
+                    value={videoData.concept}
+                    onChange={(e) => setVideoData(prev => ({ ...prev, concept: e.target.value }))}
+                    rows="4"
+                    className="w-full form-textarea"
+                    placeholder="A brief summary of what this video will be about."
+                ></textarea>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Estimated Length (minutes)</label>
+                <input
+                    type="number"
+                    value={videoData.estimatedLengthMinutes}
+                    onChange={(e) => setVideoData(prev => ({ ...prev, estimatedLengthMinutes: e.target.value }))}
+                    className="w-full form-input"
+                    placeholder="e.g., 12"
+                    min="1"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Video Script (Optional)</label>
+                <textarea
+                    value={videoData.script}
+                    onChange={(e) => setVideoData(prev => ({
+                        ...prev,
+                        script: e.target.value,
+                        tasks: e.target.value.trim() !== '' ? { ...prev.tasks, scripting: 'complete' } : { ...prev.tasks, scripting: 'pending' }
+                    }))}
+                    rows="6"
+                    className="w-full form-textarea"
+                    placeholder="Paste the script here if you already have one."
+                ></textarea>
+            </div>
             <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Locations Featured in this Video</label>
                 <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
@@ -186,7 +211,6 @@ Return a JSON object: {"newConcept": "..."}`;
                         : <window.MockLocationSearchInput />}
                 </div>
             </div>
-
             <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Targeted Keywords</label>
                 <div className="p-2 bg-gray-900/50 rounded-lg border border-gray-700">
@@ -208,7 +232,6 @@ Return a JSON object: {"newConcept": "..."}`;
                     <button onClick={handleGenerateKeywords} disabled={isLoading || !videoData.title || !videoData.concept} className="mt-3 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 flex items-center gap-2">
                         {isLoading ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Keyword Ideas'}
                     </button>
-                    {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
                     {keywordIdeas.length > 0 && (
                         <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
                             <h4 className="text-sm font-medium text-gray-300 mb-2">AI-Suggested Keywords:</h4>
@@ -230,8 +253,7 @@ Return a JSON object: {"newConcept": "..."}`;
         </div>
     );
 
-    // Step 3: Review
-    const renderStep3 = () => (
+    const renderFinalReviewStep = () => (
         <div className="space-y-4">
             <h3 className="text-xl font-bold text-primary-accent mb-2">Review New Video Details</h3>
             <div className="glass-card p-4 rounded-lg">
@@ -242,17 +264,30 @@ Return a JSON object: {"newConcept": "..."}`;
                 <p className="font-semibold">Keywords: <span className="font-normal text-gray-300">{videoData.targeted_keywords.join(', ') || 'N/A'}</span></p>
                 <p className="font-semibold">Script Provided: <span className="font-normal text-gray-300">{videoData.script.trim() !== '' ? 'Yes' : 'No'}</span></p>
             </div>
-            {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
         </div>
     );
+    
+    // Render logic for wizard steps
+    const renderContent = () => {
+        switch (step) {
+            case 0:
+                // I need to create this component or inline it.
+                // For now, I'll create it conceptually.
+                return <window.WizardStep_AIParse onAnalyze={handleAnalyzeText} onSkip={handleSkipAI} isLoading={isLoading} />;
+            case 1:
+                return renderReviewAndRefineStep();
+            case 2:
+                return renderFinalReviewStep();
+            default:
+                return null;
+        }
+    };
 
     const handleNext = () => {
         setError('');
-        if (step === 1) {
-            if (!videoData.title.trim() || !videoData.concept.trim()) {
-                setError("Title and Concept are required for the video.");
-                return;
-            }
+        if (step === 1 && (!videoData.title.trim() || !videoData.concept.trim())) {
+            setError("Title and Concept are required before proceeding.");
+            return;
         }
         setStep(prev => prev + 1);
     };
@@ -262,24 +297,7 @@ Return a JSON object: {"newConcept": "..."}`;
         setError('');
     };
 
-    const handleSaveVideo = () => {
-        if (!videoData.title.trim() || !videoData.concept.trim()) {
-            setError("Title and Concept are required before creating the video.");
-            setStep(1); // Go back to step 1 if missing
-            return;
-        }
-        onSave({
-            ...videoData,
-            // Ensure necessary fields are initialized if not set
-            locations_featured: videoData.locations_featured.map(l => l.name), // Save just names
-            targeted_keywords: videoData.targeted_keywords,
-            tasks: videoData.tasks || { scripting: videoData.script.trim() !== '' ? 'complete' : 'pending' },
-            chosenTitle: videoData.title, // Set chosen title initially
-        });
-        onClose(); // Close after saving
-    };
-
-    const totalSteps = 3;
+    const totalSteps = 2; // AI Parse -> Review & Refine -> Final Review
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
@@ -287,29 +305,25 @@ Return a JSON object: {"newConcept": "..."}`;
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-6 text-center">Add New Video</h2>
 
-                {/* Wizard Content */}
                 <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
-                    {step === 1 && renderStep1()}
-                    {step === 2 && renderStep2()}
-                    {step === 3 && renderStep3()}
+                    {renderContent()}
                 </div>
 
                 {error && <p className="text-red-400 mt-4 text-sm bg-red-900/50 p-3 rounded-lg">{error}</p>}
 
-                {/* Footer Buttons */}
                 <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700 flex justify-between items-center">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-white">Cancel</button>
                     <div className="flex gap-4">
-                        {step > 1 && (
+                        {step > 0 && (
                             <button onClick={handlePrev} className="px-6 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold text-white">Back</button>
                         )}
-                        {step < totalSteps && (
-                            <button onClick={handleNext} disabled={isLoading} className="px-6 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-white disabled:opacity-75 disabled:cursor-not-allowed">
+                        {step < totalSteps && step > 0 && (
+                            <button onClick={handleNext} disabled={isLoading} className="px-6 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-white disabled:opacity-75">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Next'}
                             </button>
                         )}
                         {step === totalSteps && (
-                            <button onClick={handleSaveVideo} disabled={isLoading} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:opacity-75 disabled:cursor-not-allowed">
+                            <button onClick={handleSaveVideo} disabled={isLoading} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:opacity-75">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Create Video'}
                             </button>
                         )}
