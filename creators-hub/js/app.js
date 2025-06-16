@@ -47,7 +47,7 @@ window.App = () => { // Exposing App component globally
     const [firebaseDb, setFirebaseDb] = useState(null);
     const [firebaseAuth, setFirebaseAuth] = useState(null);
 
-    const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
+    const { APP_ID } = window.CREATOR_HUB_CONFIG; // Removed INITIAL_AUTH_TOKEN as it's no longer used here
 
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
@@ -69,39 +69,13 @@ window.App = () => { // Exposing App component globally
                 setFirebaseDb(dbInstance);
                 setFirebaseAuth(authInstance);
 
-                // Sign in logic
-                const signIn = async () => {
-                    if (!authInstance.currentUser) {
-                        try {
-                            // Attempt signInWithCustomToken ONLY if the token is explicitly provided and looks valid
-                            // Otherwise, fall back to anonymous sign-in, which is more robust for general Canvas usage.
-                            if (typeof INITIAL_AUTH_TOKEN === 'string' && INITIAL_AUTH_TOKEN.length > 0) {
-                                // Add a more robust check if the token is a "true" user token from an admin source
-                                // or if it's meant for anonymous sign-in in Canvas.
-                                // For Canvas, if the custom token fails, anonymous is the preferred fallback.
-                                try {
-                                    await authInstance.signInWithCustomToken(INITIAL_AUTH_TOKEN);
-                                    console.log("Signed in with custom token.");
-                                } catch (customTokenError) {
-                                    console.warn("Custom token sign-in failed, attempting anonymous sign-in:", customTokenError);
-                                    await authInstance.signInAnonymously(); // Fallback
-                                    console.log("Signed in anonymously after custom token failure.");
-                                }
-                            } else {
-                                await authInstance.signInAnonymously();
-                                console.log("Signed in anonymously.");
-                            }
-                        } catch (signInError) {
-                            console.error("Firebase Sign-in Error:", signInError);
-                            setAppError(`Authentication failed: ${signInError.message}`);
-                        }
-                    }
-                    setIsAuthReady(true);
-                };
-
+                // Set up the authentication state listener
                 const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
                     setUser(currentUser);
+                    // Mark auth as ready once the initial state is known
+                    setIsAuthReady(true); 
                     if (!currentUser) {
+                        // Clear settings for unauthenticated user
                         setSettings({ 
                             geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
                             myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
@@ -118,24 +92,22 @@ window.App = () => { // Exposing App component globally
                         }); 
                         setActiveProjectDraft(null);
                     }
-                    setIsAuthReady(true); 
                 });
-
-                signIn();
 
                 return () => unsubscribeAuth();
 
             } catch (e) {
                 console.error("Firebase initialization error:", e);
                 setAppError(`Failed to initialize Firebase: ${e.message}`);
-                setIsAuthReady(true);
+                setIsAuthReady(true); // Still set authReady to true even on error to prevent infinite loading
             }
         };
 
         initFirebase();
-    }, [firebaseConfig, INITIAL_AUTH_TOKEN]);
+    }, [firebaseConfig]); // Only re-run if firebaseConfig changes
 
 
+    // Effect for loading user data and settings once authenticated AND Firebase is ready
     useEffect(() => {
         if (user && user.uid && firebaseDb && firebaseAuth) { 
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
@@ -413,13 +385,14 @@ window.App = () => { // Exposing App component globally
     };
 
     const renderView = () => {
-        // Render loading state if Firebase instances are not yet ready
+        // Render loading state if Firebase instances or auth state are not yet ready
         if (!isAuthReady || !firebaseDb || !firebaseAuth) {
             return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
         }
         
-        // Render LoginScreen if no user is authenticated
+        // Render LoginScreen if no user is authenticated after auth is ready
         if (!user) {
+            // Pass firebaseAuth to LoginScreen for email/password auth
             return <window.LoginScreen onLogin={() => { /* auth is handled by LoginScreen internally */ }} firebaseAuth={firebaseAuth} />;
         }
 
