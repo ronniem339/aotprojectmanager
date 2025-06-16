@@ -14,6 +14,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [showManageFootageModal, setShowManageFootageModal] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State for mobile sidebar
+    const [showNewVideoWizard, setShowNewVideoWizard] = useState(false); // NEW: State for new video wizard
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -160,6 +161,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, []);
 
+    // Handler for saving experiences from ScriptPlanModal
     const handleSaveLocationExperiences = useCallback(async (videoId, experiences) => {
         setLoading(true);
         setError(null);
@@ -197,6 +199,43 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             setError(`Failed to update task status: ${e.message}`);
         }
     }, [userId, localProject?.id, appId, taskBeingEdited, db]);
+
+    // NEW: Handle saving a new video from the wizard modal
+    const handleSaveNewVideo = useCallback(async (newVideoData) => {
+        setLoading(true);
+        setError(null);
+        try {
+            if (!db || !localProject?.id) {
+                throw new Error("Database or project information is missing.");
+            }
+
+            const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`);
+            
+            // Add the new video document
+            await videosCollectionRef.add({
+                ...newVideoData,
+                order: videos.length, // Place it at the end
+                createdAt: new Date().toISOString(),
+                // Ensure default tasks if not already set by wizard (e.g., for manual script)
+                tasks: newVideoData.tasks || { scripting: 'pending' }, 
+            });
+
+            // Update videoCount on the parent project
+            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
+            await projectRef.update({
+                videoCount: firebase.firestore.FieldValue.increment(1) // Increment video count
+            });
+
+            setShowNewVideoWizard(false); // Close the wizard
+            // Firestore listeners will automatically update videos and localProject state
+        } catch (e) {
+            console.error("Error saving new video:", e);
+            setError(`Failed to add new video: ${e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }, [db, localProject, videos.length, userId, appId]);
+
 
     const overallProgress = React.useMemo(() => {
         if (!videos.length || !window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) {
@@ -250,7 +289,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
 
     return (
-        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white"> {/* Restored bg-gray-900 */}
+        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white">
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
@@ -258,16 +297,13 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 onManageFootage={() => setShowManageFootageModal(true)}
                 overallProgress={overallProgress}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                hideDescription={isSingleVideoProject} // Pass prop to hide description for single video
+                hideDescription={isSingleVideoProject}
+                onAddVideo={() => setShowNewVideoWizard(true)} {/* NEW: Add Video button handler */}
             />
 
-            {/* Main content area layout adjustment */}
-            {/* If single video: no sidebar, full width content */}
-            {/* If playlist: left sidebar and then main content + RHS sidebar */}
-            <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}> {/* Adjusted gap for consistent spacing */}
+            <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
 
                 {/* Left Sidebar - Video List (conditionally rendered) */}
-                {/* Always hidden if single video project, otherwise responsive */}
                 {!isSingleVideoProject && (
                     <div className={`lg:w-1/4 ${isSidebarOpen ? 'w-full' : 'hidden'} lg:block bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg`}>
                         <window.VideoList
@@ -295,6 +331,12 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                                 if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
                                     try {
                                         await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
+                                        // Decrement videoCount on the parent project
+                                        const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
+                                        await projectRef.update({
+                                            videoCount: firebase.firestore.FieldValue.increment(-1)
+                                        });
+
                                         if (activeVideoId === videoToDelete.id) {
                                             setActiveVideoId(null);
                                         }
@@ -309,12 +351,11 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 )}
 
                 {/* Main Content Area (VideoWorkspace) and RHS Sidebar (VideoDetailsSidebar) */}
-                {/* This flex container now holds both the Workspace and the Details Sidebar */}
                 <div className={`${isSingleVideoProject ? 'flex-1' : `flex-1 flex flex-col lg:flex-row`} gap-4 ${isSidebarOpen ? 'hidden lg:flex' : 'flex'}`}>
                     {activeVideo ? (
                         <>
                             {/* Central Task Viewer (VideoWorkspace) */}
-                            <main className={`flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-2/3' : ''}`}> {/* Added w-full lg:w-2/3 for single video layout */}
+                            <main className={`flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-2/3' : ''}`}>
                                 <window.VideoWorkspace
                                     video={activeVideo}
                                     settings={settings}
@@ -324,7 +365,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                             </main>
 
                             {/* RHS Sidebar (VideoDetailsSidebar) - Always present when activeVideo is selected */}
-                            <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : ''}`}> {/* Added w-full lg:w-1/3 for single video layout */}
+                            <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : ''}`}>
                                 <window.VideoDetailsSidebar
                                     video={activeVideo}
                                     projectLocations={localProject?.locations}
@@ -336,7 +377,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                         <div className="flex-1 flex flex-col items-center justify-center h-full glass-card rounded-lg">
                             <p className="text-gray-500 text-xl">Select a video from the left to start working!</p>
                             {videos.length === 0 && (
-                                <p className="text-gray-500 mt-2">No videos in this project yet. Use the "Add Video" button in the header.</p>
+                                <p className="text-gray-500 mt-2">No videos in this project yet. Click "Add Video" above to create one.</p>
                             )}
                         </div>
                     )}
@@ -409,6 +450,17 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     initialLocationExperiences={activeVideo?.locationExperiences || {}}
                     onClose={() => setShowScriptPlanModal(false)}
                     onSaveExperiences={(experiences) => handleSaveLocationExperiences(scriptPlanData.videoId, experiences)}
+                />
+            )}
+
+            {/* NEW: Render NewVideoWizardModal */}
+            {showNewVideoWizard && (
+                <window.NewVideoWizardModal
+                    onClose={() => setShowNewVideoWizard(false)}
+                    onSave={handleSaveNewVideo}
+                    settings={settings}
+                    googleMapsLoaded={googleMapsLoaded}
+                    projectLocations={localProject?.locations || []} // Pass project locations for context
                 />
             )}
         </div>
