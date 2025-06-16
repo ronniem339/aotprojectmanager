@@ -13,7 +13,7 @@ window.ConfirmationModal = ({ onConfirm, onCancel }) => (
     </div>
 );
 
-window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft, draftId }) => {
+window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initialDraft, draftId, db, auth }) => {
     const { useState, useEffect, useCallback } = React;
     
     // Overall state for the entire wizard
@@ -44,7 +44,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
             draftRef.set({ ...debouncedState, updatedAt: new Date() }, { merge: true });
         }
-    }, [debouncedState, userId, draftId, appId]);
+    }, [debouncedState, userId, draftId, appId, db]); // Added db to dependencies
 
     // Initialize selectedTitle when suggestions load
     useEffect(() => {
@@ -226,7 +226,7 @@ Generate a complete project plan as a JSON object with keys:
             });
             await batch.commit();
             if (draftId) await db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId).delete();
-            onClose();
+            onClose(); // Close the wizard and return to dashboard
         } catch(e) { setError(`Failed to save project. ${e.message}`); } finally { setIsLoading(false); }
     };
     
