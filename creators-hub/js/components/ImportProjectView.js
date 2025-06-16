@@ -163,16 +163,24 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings, firebaseAp
      * @param {string} uploadPath - The desired path in Firebase Storage (e.g., 'project_thumbnails/my_image.jpg').
      * @returns {Promise<string>} - A promise that resolves to the Firebase Storage download URL, or an empty string on error.
      */
-    const downloadAndUploadImage = async (imageUrl, uploadPath) => {
+  const downloadAndUploadImage = async (imageUrl, uploadPath) => {
         if (!imageUrl || !storage) {
             console.warn("No image URL or Firebase Storage instance available for upload.");
             return '';
         }
 
+        // Use a CORS proxy to bypass browser restrictions on fetching cross-origin image data
+        const proxyUrl = 'https://proxy.cors.sh/';
+        const fetchUrl = `${proxyUrl}${imageUrl}`;
+
         try {
-            const response = await fetch(imageUrl);
+            const response = await fetch(fetchUrl, {
+                headers: {
+                    'x-cors-api-key': 'temp_1a7295052cb108865773e534431f79f7' // Public key for cors.sh proxy
+                }
+            });
             if (!response.ok) {
-                console.warn(`Failed to fetch image from ${imageUrl}. Status: ${response.status}`);
+                console.warn(`Failed to fetch image from ${fetchUrl}. Status: ${response.status}`);
                 return '';
             }
             const blob = await response.blob(); // Get image as Blob
@@ -182,7 +190,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings, firebaseAp
             const downloadUrl = await storageRef.getDownloadURL(); // Get the permanent URL
             return downloadUrl;
         } catch (error) {
-            console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
+            console.error(`Error downloading or uploading image from ${fetchUrl} to ${uploadPath}:`, error);
             return '';
         }
     };
