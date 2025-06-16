@@ -10,8 +10,9 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
     const [editingVideo, setEditingVideo] = useState(null);
     const [currentProject, setCurrentProject] = useState(project);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State to control sidebar visibility on mobile
-    // NEW: State for the video to be deleted
     const [videoToDelete, setVideoToDelete] = useState(null);
+    // NEW: State for showing the footage management modal
+    const [showManageFootageModal, setShowManageFootageModal] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     // Listen for real-time updates to the project itself
@@ -42,7 +43,6 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
             if (loading && videosData.length > 0 && !activeVideoId) {
                 setActiveVideoId(videosData[0].id);
             } else if (videosData.length === 0) {
-                // If all videos are deleted, clear active video
                 setActiveVideoId(null);
             }
             setLoading(false);
@@ -77,9 +77,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         setIsSidebarOpen(false); // Close sidebar on mobile after selecting a video
     };
 
-    // NEW: Function to handle video deletion
     const handleDeleteVideo = async (video) => {
-        // Show confirmation modal first
         setVideoToDelete(video);
     };
 
@@ -90,24 +88,52 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         
         try {
             await videoDocRef.delete();
-            // After deletion, if the deleted video was active, clear activeVideoId
             if (activeVideoId === videoId) {
                 setActiveVideoId(null);
             }
-            // Optionally, re-fetch or update local state to reflect deletion
-            // The onSnapshot listener should handle this automatically.
         } catch (error) {
             console.error("Error deleting video:", error);
-            // Optionally, show an error notification to the user
         } finally {
-            setVideoToDelete(null); // Close the confirmation modal
+            setVideoToDelete(null);
+        }
+    };
+
+    // NEW: Function to handle saving inventory changes and suggesting concept updates
+    const handleSaveFootageAndSuggestConcepts = async (newLocations, newFootageInventory, videosToUpdatePayload) => {
+        const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(currentProject.id);
+        const batch = db.batch();
+
+        // 1. Update project's locations and footageInventory
+        batch.update(projectDocRef, {
+            locations: newLocations,
+            footageInventory: newFootageInventory
+        });
+
+        // 2. Update individual video concepts (if any AI re-generation/acceptance was done)
+        videosToUpdatePayload.forEach(videoPayload => {
+            const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${currentProject.id}/videos`).doc(videoPayload.videoId);
+            const updateData = { concept: videoPayload.newConcept };
+
+            // If the script was complete and the concept actually changed, reset scripting task
+            if (videoPayload.resetScriptingTask) {
+                updateData['tasks.scripting'] = 'pending';
+                updateData.script = ''; // Clear the script as it's now outdated
+            }
+            batch.update(videoDocRef, updateData);
+        });
+
+        try {
+            await batch.commit();
+            setShowManageFootageModal(false); // Close modal after successful save
+        } catch (error) {
+            console.error("Error saving footage or updating concepts:", error);
+            // Handle error, e.g., show a notification
         }
     };
 
 
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
 
-    // Calculate overall project progress
     const overallProgress = useMemo(() => {
         const totalTasks = window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
         if (!videos || videos.length === 0 || totalTasks === 0) {
@@ -130,12 +156,23 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         <div className="p-4 sm:p-6 lg:p-8 min-h-screen flex flex-col">
             {editingProject && <window.EditProjectModal project={currentProject} userId={userId} settings={settings} onClose={() => setEditingProject(false)} googleMapsLoaded={googleMapsLoaded} />}
             {editingVideo && <window.EditVideoModal video={editingVideo} userId={userId} project={currentProject} settings={settings} onClose={() => setEditingVideo(null)} googleMapsLoaded={googleMapsLoaded} />}
-            {/* NEW: Confirmation Modal for video deletion */}
             {videoToDelete && (
                 <window.DeleteConfirmationModal 
-                    project={{ id: videoToDelete.id, playlistTitle: videoToDelete.title || 'this video' }} // Re-using existing modal, adapting title
+                    project={{ id: videoToDelete.id, playlistTitle: videoToDelete.title || 'this video' }}
                     onConfirm={() => confirmDeleteVideo(videoToDelete.id)} 
                     onCancel={() => setVideoToDelete(null)} 
+                />
+            )}
+            {/* NEW: Render the ManageFootageModal */}
+            {showManageFootageModal && (
+                <window.ManageFootageModal
+                    project={currentProject}
+                    videos={videos} // Pass videos to the modal for impact analysis
+                    userId={userId}
+                    settings={settings}
+                    googleMapsLoaded={googleMapsLoaded}
+                    onClose={() => setShowManageFootageModal(false)}
+                    onSaveAndSuggestConcepts={handleSaveFootageAndSuggestConcepts}
                 />
             )}
 
@@ -144,7 +181,9 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                 onBack={onBack} 
                 onEdit={() => setEditingProject(true)} 
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                overallProgress={overallProgress} // Pass progress to header
+                overallProgress={overallProgress}
+                // NEW: Pass prop to open footage management modal
+                onManageFootage={() => setShowManageFootageModal(true)}
             />
             
             {loading ? (
@@ -163,7 +202,7 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
                                 onSelectVideo={handleSelectVideoAndCloseSidebar}
                                 onEditVideo={setEditingVideo}
                                 onReorder={handleReorderVideos}
-                                onDeleteVideo={handleDeleteVideo} // Pass the new delete handler
+                                onDeleteVideo={handleDeleteVideo}
                             />
                         </div>
                     </div>
@@ -195,4 +234,3 @@ window.ProjectView = ({ project, userId, onBack, settings, googleMapsLoaded }) =
         </div>
     );
 };
-
