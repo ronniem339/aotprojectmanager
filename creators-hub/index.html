@@ -16,8 +16,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- IMPORTANT: Added data-presets="env,react" here -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" data-presets="env,react"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Explicitly configure Babel presets after Babel loads -->
+    <script type="text/javascript">
+        if (typeof Babel !== 'undefined') {
+            Babel.setPresets(['env', 'react']);
+            console.log("Babel presets 'env' and 'react' set.");
+        } else {
+            console.error("Babel is not defined. Cannot set presets.");
+        }
+    </script>
 
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
