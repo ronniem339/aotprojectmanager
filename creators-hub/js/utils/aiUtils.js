@@ -62,7 +62,6 @@ window.aiUtils = {
             ? currentLocations.map(loc => `- ${loc.name}`).join('\n')
             : 'No specific locations added yet.';
 
-        // Updated prompt to request "up to 50" points of interest and emphasize providing as many as possible
         const prompt = `You are a creative travel planner and content idea generator. Your task is to suggest as many relevant *new and distinct* points of interest as possible, up to 50, for a video project focusing on "${mainLocationName}".
 
 Consider the following existing locations already planned for the project:
@@ -97,68 +96,93 @@ Example JSON response:
     },
 
     /**
-     * Generates a high-level script plan for a video, including specific questions for user input.
-     * @param {object} params - Parameters for script plan generation.
-     * @param {string} params.videoTitle - The title of the video.
-     * @param {string} params.videoConcept - The high-level concept/summary of the video.
-     * @param {Array<object>} params.videoLocationsFeatured - Array of featured location objects (from video.locations_featured).
-     * @param {object} params.projectFootageInventory - The project's full footage inventory.
-     * @param {string} params.whoAmI - User's persona.
-     * @param {string} params.styleGuideText - User's style guide.
-     * @param {string} params.apiKey - The Gemini API key.
-     * @returns {Promise<object>} - A promise that resolves to an object with `scriptPlan` (string) and `locationQuestions` (array of {name, question}).
-     * @throws {Error} If the API call fails or returns an invalid format.
+     * Generates simple, high-level questions to gather initial thoughts from the user.
+     */
+    generateInitialScriptQuestionsAI: async ({ videoTitle, videoConcept, apiKey }) => {
+        const prompt = `You are a video producer in a pre-production meeting. Your goal is to understand the creator's raw experience before structuring a script.
+For a video titled "${videoTitle}" about "${videoConcept}", generate 3-5 simple, open-ended questions.
+These questions should probe for memorable moments, unexpected discoveries, key footage they captured, and the overall feeling or message they want to convey.
+Avoid asking about script structure. Focus on the experience itself.
+
+Your response MUST be a valid JSON object with a single key "questions", which is an array of strings.
+Example:
+{
+    "questions": [
+        "What was the single most surprising moment during this experience?",
+        "Which specific shot or piece of footage are you most excited about using?",
+        "If the viewer could only remember one thing from this video, what should it be?"
+    ]
+}`;
+        return await window.aiUtils.callGeminiAPI(prompt, apiKey);
+    },
+
+    /**
+     * Generates a draft script outline based on the user's answers to initial questions.
+     */
+    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialAnswers, apiKey }) => {
+        const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
+Video Title: "${videoTitle}"
+Video Concept: "${videoConcept}"
+User's raw notes and answers to initial questions:
+---
+${initialAnswers}
+---
+Based *only* on the user's notes above, create a logical draft script outline.
+This outline should have a clear Introduction, 2-4 Main Segments, and a Conclusion.
+For each part, briefly describe the narrative focus. The goal is to turn their raw experiences into a coherent story flow.
+
+Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the formatted outline.
+Example:
+{
+    "draftOutline": "Introduction:\\n- Start with the user's surprising moment to create a hook.\\n- Briefly introduce the main goal of the video.\\n\\nMain Segment 1: The Journey Begins\\n- Cover the initial part of the experience, focusing on the key footage mentioned.\\n\\nMain Segment 2: The Core Discovery\\n- Build up to the main message the user wants to convey.\\n\\nConclusion:\\n- Summarize the key takeaway and end with a powerful concluding thought."
+}`;
+        return await window.aiUtils.callGeminiAPI(prompt, apiKey);
+    },
+
+    /**
+     * Generates a high-level script plan and specific refinement questions based on a draft outline.
      */
     generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, whoAmI, styleGuideText, apiKey }) => {
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
 
-        const locationsDetail = videoLocationsFeatured.map(locName => {
-            // Find the full location object from project.locations if available, to get place_id and importance
-            const locInventory = Object.values(projectFootageInventory).find(inv => inv.name === locName) || {}; // Simplified
+        const locationsDetail = (videoLocationsFeatured || []).map(locName => {
+            const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
             const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
                 if (type === 'bRoll') return 'B-Roll';
                 if (type === 'onCamera') return 'On-Camera';
                 if (type === 'drone') return 'Drone';
-                return ''; // Should not happen
+                return '';
             }).join(', ');
             const importance = locInventory.importance ? `(${locInventory.importance} feature)` : '';
             return ` - ${locName}${importance}: ${footageTypes ? footageTypes + ' available' : 'No specific footage type recorded'}.`;
-        }
-        ).join('\n');
+        }).join('\n');
 
-
-        const prompt = `Act as a highly experienced YouTube video script planner. Your goal is to create a structured outline for a video, and then identify key moments or locations where the user's specific experience and available footage can be woven in.
+        const prompt = `You are a highly experienced YouTube video script planner. You have a draft outline, and your goal is now to refine it by asking for more specific details.
 
 Video Title: "${videoTitle}"
-Video Concept/Summary: "${videoConcept}"
+Draft Outline / Concept:
+---
+${videoConcept}
+---
 
 Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
-
-Featured Locations (and their available footage from project inventory):
+Featured Locations & Available Footage:
 ${locationsDetail || 'No specific featured locations listed.'}
 
-Your task:
-1.  **Generate a Script Plan Outline:** Provide a high-level, chronological outline for the video script. Break it into main sections (e.g., "Introduction", "Main Segment: [Location Name]", "Conclusion"). For each segment, briefly describe its focus based on the video concept and featured locations. Focus on *what will be covered*, NOT a full script with dialogue or detailed scene descriptions.
-2.  **Generate Specific User Questions:** For each *featured location* mentioned, or for overall key aspects of the video, formulate *one* direct, open-ended question to gather the user's *unique experience, personal anecdotes, or specific footage details*. These questions should prompt the user about what they *did, saw, felt*, or *captured*, rather than asking for more details on the AI's suggested script elements.
+Your task is to:
+1.  **Refine the Script Plan Outline:** Slightly improve upon the provided draft outline based on the locations and footage available. Make it a bit more detailed.
+2.  **Generate Specific User Questions:** Based on your refined outline, formulate *one* direct, open-ended question for each major segment or featured location to gather the user's *unique experience, personal anecdotes, or specific footage details*. These questions should prompt the user about what they *did, saw, felt*, or *captured*.
 
 Your response MUST be a valid JSON object with the following structure:
 {
-    "scriptPlan": "A clear, detailed text outline for the video script, structured with headings like 'Introduction', 'Main Segment: [Location Name]', 'Conclusion', etc., suggesting the flow and content of each part. Example: 'Introduction: Hook, introduce topic. Main Segment: Explore XYZ, highlight key features. Conclusion: Summary, call to action.'",
+    "scriptPlan": "A refined, more detailed text outline for the video script...",
     "locationQuestions": [
         {"locationName": "Optional Location Name (if question is location-specific)", "question": "A question asking for specific details about the user's experience or available footage."}
-        // ... more location questions
     ]
-}
-
-Example of locationQuestions:
-[
-    {"locationName": "Eiffel Tower", "question": "What was your most memorable moment or unexpected view from the Eiffel Tower, and do you have any unique footage of it?"},
-    {"locationName": "Louvre Museum", "question": "Which specific artworks or exhibits did you find most captivating at the Louvre, and what personal insights or challenges did you experience while filming there?"},
-    {"locationName": "Overall Experience", "question": "Beyond the specific locations, were there any surprising interactions, logistical challenges, or spontaneous discoveries during your trip that would add a personal touch to the video?"}
-]`;
+}`;
 
         const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
         
@@ -173,17 +197,52 @@ Example of locationQuestions:
     },
 
     /**
+     * Generates a full, clean script from a refined outline and user details.
+     */
+    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, apiKey }) => {
+        const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
+        
+        const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script.
+
+Video Title: "${videoTitle}"
+Creator Persona: "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+
+Script Outline:
+---
+${scriptPlan}
+---
+
+User's Specific Experiences & Details:
+---
+${experienceDetails}
+---
+
+User's General Feedback on the Plan: "${generalFeedback || 'None provided.'}"
+
+Based on all the above information, write the final, complete video script. The output should be **only the spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), or any text that isn't part of the dialogue.
+`;
+
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "text/plain" }
+        };
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err?.error?.message || 'API Error');
+        }
+        const result = await response.json();
+        return result.candidates[0].content.parts[0].text;
+    },
+
+    /**
      * Generates keyword ideas using the Gemini AI.
-     *
-     * @param {object} params - Parameters for keyword generation.
-     * @param {string} params.title - The main title (project or video).
-     * @param {string} params.concept - The concept/description.
-     * @param {Array<string>} params.locationsFeatured - Array of featured location names.
-     * @param {string} params.projectTitle - The overall project/playlist title.
-     * @param {string} params.projectDescription - The overall project/playlist description.
-     * @param {object} params.settings - User settings containing API key and knowledge bases.
-     * @returns {Promise<Array<string>>} - A promise that resolves to an array of keyword strings.
-     * @throws {Error} If the API call fails or returns an invalid format.
      */
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
@@ -191,7 +250,6 @@ Example of locationQuestions:
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
         const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
         const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
-
 
         const prompt = `Act as a YouTube SEO expert and keyword research tool.
         Generate a list of 25-30 potential search terms.
@@ -202,7 +260,6 @@ Example of locationQuestions:
         - Featured Locations: ${videoLocations.length > 0 ? videoLocations : 'None specified'}
         - Overall Project/Playlist Title: "${projectTitle}"
         - Overall Project/Playlist Description: "${projectDescription}"
-
         ${youtubeSeoKb ? `YouTube SEO Best Practices: ${youtubeSeoKb}` : ''}
         ${videoTitlesKb ? `YouTube Video Title Guidelines: ${videoTitlesKb}` : ''}
         ${videoDescriptionsKb ? `YouTube Video Description Guidelines: ${videoDescriptionsKb}` : ''}
@@ -225,15 +282,6 @@ Example of locationQuestions:
 
     /**
      * Extracts and infers video metadata (locations and keywords/tags) using Gemini AI.
-     * This is useful for parsing content from imported sources like YouTube descriptions.
-     *
-     * @param {object} params - Parameters for metadata extraction.
-     * @param {string} params.videoTitle - The title of the video.
-     * @param {string} params.videoDescription - The raw description of the video.
-     * @param {object} params.settings - User settings containing API key and knowledge bases.
-     * @returns {Promise<object>} - A promise that resolves to an object like:
-     * `{"locations_featured": ["Location 1", "Location 2"], "targeted_keywords": ["keyword1", "keyword2"]}`.
-     * @throws {Error} If the API call fails or returns an invalid format.
      */
     extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
@@ -272,14 +320,9 @@ Example of locationQuestions:
             throw new Error("AI returned an invalid format for video metadata extraction.");
         }
     },
-
+    
     /**
      * Parses a natural language text input to extract structured video data.
-     * @param {object} params - The parameters for the function.
-     * @param {string} params.textInput - The user's raw text about the new video.
-     * @param {string} params.projectLocation - The main location of the project for context.
-     * @param {object} params.settings - User settings for API key.
-     * @returns {Promise<object>} - A promise that resolves to a structured video data object.
      */
     parseVideoFromTextAI: async ({ textInput, projectLocation, settings }) => {
         const apiKey = settings.geminiApiKey;
@@ -317,15 +360,6 @@ Your response MUST be only the valid JSON object, with no other text or explanat
 
     /**
      * Refines a video concept/plan based on updated footage inventory.
-     * This function will be used by ManageFootageModal.
-     *
-     * @param {object} params - Parameters for concept refinement.
-     * @param {string} params.videoTitle - The title of the video.
-     * @param {string} params.currentConcept - The current high-level concept/plan for the video.
-     * @param {string} params.footageChangesSummary - A summary of how footage inventory for featured locations has changed.
-     * @param {object} params.settings - User settings containing API key.
-     * @returns {Promise<string>} - A promise that resolves to the revised concept string.
-     * @throws {Error} If the API call fails.
      */
     refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings }) => {
         const apiKey = settings.geminiApiKey;
@@ -345,7 +379,6 @@ ${footageChangesSummary}
 
 Based on these changes, how should the video concept be updated? Provide only the revised concept string.`;
 
-        // Using text/plain for the responseMimeType as we only expect a string back
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "text/plain" }
@@ -368,20 +401,6 @@ Based on these changes, how should the video concept be updated? Provide only th
 
     /**
      * Generates YouTube Shorts ideas based on video and project context.
-     *
-     * @param {object} params - Parameters for shorts idea generation.
-     * @param {string} params.videoTitle - The title of the current video.
-     * @param {string} params.videoConcept - The concept/description of the current video.
-     * @param {Array<string>} params.videoLocationsFeatured - Array of location names featured in this video.
-     * @param {object} params.projectFootageInventory - The full footage inventory for the project.
-     * @param {string} params.projectTitle - The overall project/playlist title.
-     * @param {string} params.shortsIdeaGenerationKb - User's knowledge base for Shorts ideas.
-     * @param {string} params.whoAmI - User's persona.
-     * @param {string} params.styleGuideText - User's style guide.
-     * @param {string} params.apiKey - The Gemini API key.
-     * @param {Array<object>} [params.previouslyCreatedShorts=[]] - Array of previously created shorts data for this video.
-     * @returns {Promise<Array<object>>} - A promise that resolves to an array of suggested shorts ideas (objects with title, description, and footageToUse).
-     * @throws {Error} If the API call fails or returns an invalid format.
      */
     generateShortsIdeasAI: async ({
         videoTitle,
@@ -399,9 +418,8 @@ Based on these changes, how should the video concept be updated? Provide only th
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
 
-        const featuredLocationsDetail = videoLocationsFeatured.length > 0
-            ? videoLocationsFeatured.map(locName => {
-                const locInventory = Object.values(projectFootageInventory).find(inv => inv.name === locName) || {};
+        const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
+                const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
                 const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
                     if (type === 'bRoll') return 'B-Roll';
                     if (type === 'onCamera') return 'On-Camera';
@@ -409,8 +427,7 @@ Based on these changes, how should the video concept be updated? Provide only th
                     return '';
                 }).join(', ');
                 return ` - ${locName}: ${footageTypes ? footageTypes + ' footage available' : 'No specific footage recorded'}.`;
-            }).join('\n')
-            : 'No specific locations featured in this video.';
+            }).join('\n');
 
         const previouslyCreatedShortsSummary = previouslyCreatedShorts.length > 0
             ? previouslyCreatedShorts.map(short => `- "${short.title}" (Status: ${short.status || 'unknown'})`).join('\n')
@@ -423,7 +440,7 @@ Current Long-Form Video:
 - Title: "${videoTitle}"
 - Concept/Summary: "${videoConcept}"
 - Featured Locations with Footage Availability:
-${featuredLocationsDetail}
+${featuredLocationsDetail || 'No specific locations featured in this video.'}
 
 Overall Project Context:
 - Project/Series Title: "${projectTitle}"
@@ -466,15 +483,6 @@ Example JSON response:
 
     /**
      * Generates YouTube Shorts metadata (on-screen text, caption, description, tags) for an accepted idea.
-     *
-     * @param {object} params - Parameters for metadata generation.
-     * @param {string} params.videoTitle - The title of the long-form video.
-     * @param {object} params.shortsIdea - The accepted shorts idea object ({ title, description, footageToUse }).
-     * @param {string} params.whoAmI - User's persona.
-     * @param {string} params.styleGuideText - User's style guide.
-     * @param {string} params.apiKey - The Gemini API key.
-     * @returns {Promise<object>} - A promise that resolves to an object with generated metadata.
-     * @throws {Error} If the API call fails or returns an invalid format.
      */
     generateShortsMetadataAI: async ({
         videoTitle,
