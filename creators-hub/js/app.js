@@ -56,13 +56,12 @@ window.App = () => { // Exposing App component globally
         const initFirebase = async () => {
             try {
                 let app;
-                // Get the default app if it exists, otherwise initialize it
                 if (!firebase.apps.length) {
                     app = firebase.initializeApp(firebaseConfig);
                 } else {
                     app = firebase.app();
                 }
-                setFirebaseAppInstance(app); // Store the app instance
+                setFirebaseAppInstance(app);
 
                 const dbInstance = app.firestore();
                 const authInstance = app.auth();
@@ -70,21 +69,31 @@ window.App = () => { // Exposing App component globally
                 setFirebaseDb(dbInstance);
                 setFirebaseAuth(authInstance);
 
-                // Sign in anonymously if not already signed in (and auth is ready)
+                // Sign in logic
                 const signIn = async () => {
                     if (!authInstance.currentUser) {
                         try {
-                            // Only use signInWithCustomToken if INITIAL_AUTH_TOKEN is a non-empty string
+                            // Attempt signInWithCustomToken ONLY if the token is explicitly provided and looks valid
+                            // Otherwise, fall back to anonymous sign-in, which is more robust for general Canvas usage.
                             if (typeof INITIAL_AUTH_TOKEN === 'string' && INITIAL_AUTH_TOKEN.length > 0) {
-                                await authInstance.signInWithCustomToken(INITIAL_AUTH_TOKEN);
-                                console.log("Signed in with custom token.");
+                                // Add a more robust check if the token is a "true" user token from an admin source
+                                // or if it's meant for anonymous sign-in in Canvas.
+                                // For Canvas, if the custom token fails, anonymous is the preferred fallback.
+                                try {
+                                    await authInstance.signInWithCustomToken(INITIAL_AUTH_TOKEN);
+                                    console.log("Signed in with custom token.");
+                                } catch (customTokenError) {
+                                    console.warn("Custom token sign-in failed, attempting anonymous sign-in:", customTokenError);
+                                    await authInstance.signInAnonymously(); // Fallback
+                                    console.log("Signed in anonymously after custom token failure.");
+                                }
                             } else {
                                 await authInstance.signInAnonymously();
                                 console.log("Signed in anonymously.");
                             }
                         } catch (signInError) {
                             console.error("Firebase Sign-in Error:", signInError);
-                            setAppError(`Authentication failed: ${signInError.message}`); // Use setAppError
+                            setAppError(`Authentication failed: ${signInError.message}`);
                         }
                     }
                     setIsAuthReady(true);
@@ -93,7 +102,6 @@ window.App = () => { // Exposing App component globally
                 const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
                     setUser(currentUser);
                     if (!currentUser) {
-                        // Clear settings for unauthenticated user
                         setSettings({ 
                             geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
                             myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
@@ -113,22 +121,21 @@ window.App = () => { // Exposing App component globally
                     setIsAuthReady(true); 
                 });
 
-                signIn(); // Call signIn immediately to handle initial auth
+                signIn();
 
                 return () => unsubscribeAuth();
 
             } catch (e) {
                 console.error("Firebase initialization error:", e);
-                setAppError(`Failed to initialize Firebase: ${e.message}`); // Use setAppError
-                setIsAuthReady(true); // Set authReady to true even on error to stop loading
+                setAppError(`Failed to initialize Firebase: ${e.message}`);
+                setIsAuthReady(true);
             }
         };
 
         initFirebase();
-    }, [firebaseConfig, INITIAL_AUTH_TOKEN]); // Removed isAuthReady from dependencies to prevent infinite loop
+    }, [firebaseConfig, INITIAL_AUTH_TOKEN]);
 
 
-    // Effect for loading user data and settings once authenticated AND Firebase is ready
     useEffect(() => {
         if (user && user.uid && firebaseDb && firebaseAuth) { 
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
@@ -205,7 +212,7 @@ window.App = () => { // Exposing App component globally
                 unsubscribeSettings();
             };
         }
-    }, [user, googleMapsLoaded, firebaseDb, firebaseAuth, APP_ID]); // Added APP_ID to dependencies
+    }, [user, googleMapsLoaded, firebaseDb, firebaseAuth, APP_ID]);
 
 
     const displayNotification = (message) => {
@@ -418,20 +425,17 @@ window.App = () => { // Exposing App component globally
 
         switch (currentView) {
             case 'project':
-                // Only render ProjectView if selectedProject and its ID are available, AND Firebase instances are ready
-                if (selectedProject && selectedProject.id) { // firebaseDb and firebaseAuth are already checked above
+                if (selectedProject && selectedProject.id) {
                     return <window.ProjectView 
                                 project={selectedProject} 
                                 userId={user.uid} 
                                 onCloseProject={handleBackToDashboard}
                                 settings={settings} 
                                 googleMapsLoaded={googleMapsLoaded}
-                                db={firebaseDb} // Pass the Firestore instance
-                                auth={firebaseAuth} // Pass the Auth instance
+                                db={firebaseDb} 
+                                auth={firebaseAuth} 
                             />;
                 } else {
-                    // This case should ideally not be reached if routing is handled well,
-                    // but it acts as a fallback for missing selected project data.
                     return <div className="min-h-screen flex justify-center items-center">
                                 <window.LoadingSpinner text="Loading project details..." />
                             </div>;
@@ -461,7 +465,6 @@ window.App = () => { // Exposing App component globally
 
     return (
         <div className="min-h-screen"> 
-            {/* Display application-wide errors */}
             {appError && (
                 <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
                     {appError}
