@@ -68,7 +68,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         onClose();
     };
     
-    // Handler functions passed to Step 1
     const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
         setInputs(prev => ({ ...prev, location: newLocations[0]?.name || '' }));
@@ -81,7 +80,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [footageInventory]);
 
-    // Handler functions passed to Step 2
     const handleInventoryChange = useCallback((place_id, type, value) => {
         setFootageInventory(prev => ({
             ...prev,
@@ -97,7 +95,17 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [locations, footageInventory]);
 
-    // AI Handler functions
+    // **FIX**: Correctly handle toggling keywords in the array
+    const handleKeywordSelection = (keyword) => {
+        setSelectedKeywords(prevSelected => {
+            if (prevSelected.includes(keyword)) {
+                return prevSelected.filter(k => k !== keyword); // Remove if exists
+            } else {
+                return [...prevSelected, keyword]; // Add if it doesn't exist
+            }
+        });
+    };
+
     const handleGenerateKeywords = useCallback(async () => {
         if (keywordIdeas.length > 0) { setStep(3); return; }
         setIsLoading(true); setError('');
@@ -210,12 +218,12 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
         } catch(e) { setError(`Failed to save project. ${e.message}`); } finally { setIsLoading(false); }
     };
     
-    // Renders the correct step component
     const renderWizardStep = () => {
         switch (step) {
             case 1: return <window.WizardStep1_Foundation inputs={inputs} locations={locations} coverImageUrl={coverImageUrl} settings={settings} googleMapsLoaded={googleMapsLoaded} onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} onLocationsUpdate={handleLocationsUpdate} onCoverImageUrlChange={setCoverImageUrl} />;
             case 2: return <window.WizardStep2_Inventory locations={locations} footageInventory={footageInventory} onInventoryChange={handleInventoryChange} onSelectAllFootage={handleSelectAllFootage} />;
-            case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={setSelectedKeywords} isLoading={isLoading} error={error} />;
+            // **FIX**: Pass the correct handler function down to the component
+            case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isLoading} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
             case 5: return <window.WizardStep5_Description description={editableOutline?.playlistDescription} refinement={refinement} isLoading={isLoading} error={error} onDescriptionChange={(val) => setEditableOutline(p => ({...p, playlistDescription: val}))} onRefinementChange={setRefinement} onRefine={handleRefineDescription} />;
             case 6: return <window.WizardStep6_Review videos={editableOutline?.videos || []} refiningVideoIndex={refiningVideoIndex} refinement={refinement} isLoading={isLoading} error={error} onRefinementChange={setRefinement} onSetRefiningVideoIndex={setRefiningVideoIndex} onRefineVideo={handleRefineVideo} onAcceptVideo={handleAcceptVideo} onDeleteVideo={handleDeleteVideoSuggestion} />;
@@ -223,7 +231,6 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
         }
     };
     
-    // Renders the correct action buttons for each step
     const renderActionButtons = () => {
         const isInventoryComplete = locations.length <= 1 || locations.slice(1).every(loc => footageInventory[loc.place_id] && (footageInventory[loc.place_id].bRoll || footageInventory[loc.place_id].onCamera || footageInventory[loc.place_id].drone));
         const atLeastOneVideoAccepted = editableOutline?.videos.some(v => v.status === 'accepted');
