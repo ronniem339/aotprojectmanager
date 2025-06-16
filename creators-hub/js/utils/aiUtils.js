@@ -166,5 +166,57 @@ Example for "Paris": {"points_of_interest": ["Eiffel Tower", "Louvre Museum", "N
         } else {
             throw new Error("AI returned an invalid format for video metadata extraction.");
         }
+    },
+
+    /**
+     * **NEW**: Refines a video concept/plan based on updated footage inventory.
+     * This function will be used by ManageFootageModal.
+     *
+     * @param {object} params - Parameters for concept refinement.
+     * @param {string} params.videoTitle - The title of the video.
+     * @param {string} params.currentConcept - The current high-level concept/plan for the video.
+     * @param {string} params.footageChangesSummary - A summary of how footage inventory for featured locations has changed.
+     * @param {object} params.settings - User settings containing API key.
+     * @returns {Promise<string>} - A promise that resolves to the revised concept string.
+     * @throws {Error} If the API call fails.
+     */
+    refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings }) => {
+        const apiKey = settings.geminiApiKey;
+
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Cannot refine video concept.");
+        }
+
+        const prompt = `You are a YouTube video concept reviser. A user has changed their footage inventory for locations featured in a video.
+Please review the original video concept and the changes to the footage inventory, then provide a revised, brief outline or high-level plan for the video's content. Focus on key segments and main takeaways, NOT a full script.
+
+Original Video Title: "${videoTitle}"
+Original Video Concept/Plan: "${currentConcept}"
+
+Changes in footage inventory for featured locations:
+${footageChangesSummary}
+
+Based on these changes, how should the video concept be updated? Provide only the revised concept string.`;
+
+        // Using text/plain for the responseMimeType as we only expect a string back
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "text/plain" }
+        };
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err?.error?.message || 'API Error');
+        }
+        const result = await response.json();
+        return result.candidates[0].content.parts[0].text;
     }
 };
+
