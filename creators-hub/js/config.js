@@ -29,13 +29,14 @@ window.CREATOR_HUB_CONFIG = {
   `,
 
   // Define TASK_PIPELINE globally in config
-  // **FIX**: Refactored the single metadata task into three distinct tasks.
+  // **FIX**: Added 'tagsGenerated' as a new, separate task.
   TASK_PIPELINE: [
       { id: 'scripting', title: 'Scripting & Recording' },
       { id: 'videoEdited', title: 'Edit Video & Log Changes' },
       { id: 'titleGenerated', title: 'Finalize Title' },
       { id: 'descriptionGenerated', title: 'Finalize Description' },
       { id: 'chaptersGenerated', title: 'Finalize Chapters' },
+      { id: 'tagsGenerated', title: 'Generate Tags'},
       { id: 'thumbnailsGenerated', title: 'Generate Thumbnails' },
       { id: 'videoUploaded', title: 'Upload to YouTube' },
       { id: 'firstCommentGenerated', title: 'Generate First Comment'}
