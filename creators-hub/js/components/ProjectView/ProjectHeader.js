@@ -2,8 +2,11 @@
 
 const { useState } = React;
 
-window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress, onManageFootage }) => { // Added onManageFootage
+window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress, onManageFootage, hideDescription }) => { // Added hideDescription
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
+
+    // Only show the toggle button if description is not explicitly hidden
+    const showDescriptionToggle = !hideDescription;
 
     return (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -35,16 +38,19 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgr
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
                     </button>
 
-                    {/* Info Icon to toggle description */}
-                    <button 
-                        onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} 
-                        className="p-2 rounded-full bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-colors flex-shrink-0"
-                        aria-label="Toggle project description"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                    </button>
+                    {/* Info Icon to toggle description - conditionally rendered */}
+                    {showDescriptionToggle && (
+                        <button 
+                            onClick={() => setIsDescriptionVisible(!isDescriptionVisible)} 
+                            className="p-2 rounded-full bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                            aria-label="Toggle project description"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                        </button>
+                    )}
+                    
                     {/* NEW: Manage Footage button */}
                     <button
                         onClick={onManageFootage}
@@ -73,11 +79,14 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgr
 
 
                 {/* Conditionally rendered description with smooth transition */}
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isDescriptionVisible ? 'max-h-96 mt-2' : 'max-h-0'}`}>
-                    <p className="text-gray-400 max-w-4xl text-sm leading-relaxed glass-card p-4 rounded-lg">
-                        {project.playlistDescription || 'No description provided.'}
-                    </p>
-                </div>
+                {/* Render only if showDescriptionToggle is true and content exists */}
+                {showDescriptionToggle && (project.playlistDescription || isDescriptionVisible) && (
+                    <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isDescriptionVisible ? 'max-h-96 mt-2' : 'max-h-0'}`}>
+                        <p className="text-gray-400 max-w-4xl text-sm leading-relaxed glass-card p-4 rounded-lg">
+                            {project.playlistDescription || 'No description provided.'}
+                        </p>
+                    </div>
+                )}
             </div>
         </header>
     );
