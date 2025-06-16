@@ -194,7 +194,6 @@ window.App = () => { // Exposing App component globally
     };
 
     const handleSelectProject = (project) => {
-            console.log("App.js: Project selected:", project); // Add this line
         setSelectedProject(project);
         setCurrentView('project');
     };
@@ -330,53 +329,63 @@ window.App = () => { // Exposing App component globally
             return;
         }
     
-        // Create a new draft document in Firestore for the imported project
-        const newDraftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
-        const newDraftData = {
-            step: 6, // Go directly to the review video plan step for imported projects
-            editableOutline: {
-                playlistTitleSuggestions: [projectData.playlistTitle],
+        try {
+            const batch = firebaseDb.batch();
+            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(); // Create new project doc
+            batch.set(projectRef, {
+                playlistTitle: projectData.playlistTitle,
                 playlistDescription: projectData.playlistDescription,
-                videos: projectData.videos.map(video => ({
-                    ...video,
+                locations: [], // Imported projects don't initially have locations defined in this way
+                footageInventory: {}, // Not applicable initially
+                coverImageUrl: projectData.coverImageUrl || '',
+                createdAt: new Date().toISOString()
+            });
+
+            // Add videos to the new project
+            projectData.videos.forEach((video, index) => {
+                const videoRef = projectRef.collection('videos').doc();
+                // Ensure all fields are present for imported videos.
+                // The `id` from the import process (`v.id`) is just a temporary key, Firestore creates a new one.
+                batch.set(videoRef, {
+                    title: video.title,
+                    concept: video.concept || '',
                     script: video.script || '',
-                    metadata: video.metadata || '',
-                    publishDate: video.publishDate || '',
-                    generatedThumbnails: video.generatedThumbnails || [],
-                    chosenTitle: video.chosenTitle || video.title,
+                    locations_featured: video.locations_featured || [],
+                    targeted_keywords: video.targeted_keywords || [],
+                    estimatedLengthMinutes: video.estimatedLengthMinutes || '',
+                    thumbnailUrl: video.thumbnailUrl || '',
+                    isManual: video.isManual || false,
+                    chapters: video.chapters || [],
                     tasks: video.tasks || {
                         scripting: video.script ? 'complete' : 'pending',
                         videoEdited: 'complete',
                         feedbackProvided: 'complete',
-                        metadataGenerated: 'complete',
-                        thumbnailsGenerated: 'complete',
+                        metadataGenerated: 'complete', // Assuming extracted metadata is "generated"
+                        thumbnailsGenerated: 'complete', // Assuming YT thumbnails suffice
                         videoUploaded: 'complete',
                         firstCommentGenerated: 'complete',
+                        tagsGenerated: 'complete' // Assuming AI extraction covers tags
                     },
-                    status: 'accepted'
-                }))
-            },
-            inputs: { location: projectData.playlistTitle, theme: projectData.projectOutline || '' },
-            locations: [], // Imported projects don't directly map to this part of the wizard
-            footageInventory: {}, // Not applicable for imported projects
-            coverImageUrl: projectData.coverImageUrl || '',
-            keywordIdeas: [],
-            selectedKeywords: [],
-            finalizedTitle: projectData.playlistTitle,
-            finalizedDescription: projectData.playlistDescription,
-            selectedTitle: projectData.playlistTitle,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        };
-    
-        await newDraftRef.set(newDraftData);
-    
-        setActiveDraftId(newDraftRef.id);
-        setActiveProjectDraft(newDraftData);
-    
-        setCurrentView('dashboard');
-        setShowNewProjectWizard(true);
-        setIsLoading(false);
+                    publishDate: video.publishDate || '',
+                    metadata: video.metadata || '',
+                    generatedThumbnails: video.generatedThumbnails || [],
+                    chosenTitle: video.chosenTitle || video.title,
+                    order: index, // Set initial order
+                    createdAt: new Date().toISOString()
+                });
+            });
+
+            await batch.commit();
+            displayNotification('Project imported and created successfully!');
+            setCurrentView('dashboard'); // Go back to dashboard to see new project
+            setSelectedProject({ id: projectRef.id, playlistTitle: projectData.playlistTitle, playlistDescription: projectData.playlistDescription, coverImageUrl: projectData.coverImageUrl }); // Select the newly created project
+            setCurrentView('project'); // Immediately open the new project
+        } catch (error) {
+            console.error("Error importing project:", error);
+            displayNotification(`Error importing project: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
     };
     
     const handleCloseWizard = () => {
@@ -401,7 +410,7 @@ window.App = () => { // Exposing App component globally
             case 'project':
                 if (selectedProject && selectedProject.id) {
                     return <window.ProjectView 
-                                project={selectedProject} 
+                                project={selectedProject} // Pass the full selectedProject object
                                 userId={user.uid} 
                                 onCloseProject={handleBackToDashboard}
                                 settings={settings} 
