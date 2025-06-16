@@ -174,7 +174,7 @@ const ScriptingWorkspaceModal = ({
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
-            <div className="glass-card rounded-lg p-8 w-full max-w-4xl h-[90vh] flex flex-col relative">
+            <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
                 <button onClick={() => onUpdate(localTaskData)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-6 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
                 
