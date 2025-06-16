@@ -12,7 +12,6 @@ const ScriptingWorkspaceModal = ({
     onClose,
     onSave,
     onUpdate, // Function to update intermediate data
-    onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onGenerateRefinementPlan,
     onGenerateFullScript
@@ -25,10 +24,8 @@ const ScriptingWorkspaceModal = ({
         setLocalTaskData(taskData);
     }, [taskData]);
 
-    const handleAnswerChange = (index, value) => {
-        const newAnswers = [...(localTaskData.initialAnswers || [])];
-        newAnswers[index] = value;
-        setLocalTaskData(prev => ({ ...prev, initialAnswers: newAnswers }));
+    const handleInitialThoughtsChange = (value) => {
+        setLocalTaskData(prev => ({ ...prev, initialThoughts: value }));
     };
 
     const handleExperienceChange = (locationName, value) => {
@@ -61,37 +58,21 @@ const ScriptingWorkspaceModal = ({
         const stage = localTaskData.scriptingStage || 'pending';
 
         switch (stage) {
-            case 'pending':
-                return (
-                    <div className="text-center">
-                        <p className="text-lg text-gray-300 mb-6">Let's start by gathering your core ideas for this video.</p>
-                        <button onClick={() => handleAction(onGenerateInitialQuestions)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
-                            {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Start Scripting'}
-                        </button>
-                    </div>
-                );
-            
-            case 'initial_qa':
+            case 'pending': // Fallback
+            case 'initial_thoughts': // New first step
                 return (
                     <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Initial Thoughts & Experiences</h3>
-                        <p className="text-gray-400 mb-6">Answer these high-level questions to form the foundation of your script.</p>
-                        <div className="space-y-6">
-                            {(localTaskData.initialQuestions || []).map((q, i) => (
-                                <div key={i}>
-                                    <label className="block text-md font-medium text-gray-200 mb-2">{q}</label>
-                                    <textarea
-                                        value={(localTaskData.initialAnswers || [])[i] || ''}
-                                        onChange={(e) => handleAnswerChange(i, e.target.value)}
-                                        rows="3"
-                                        className="w-full form-textarea"
-                                        placeholder="Your thoughts, key moments, best footage..."
-                                    />
-                                </div>
-                            ))}
-                        </div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Your Raw Experience & Ideas</h3>
+                        <p className="text-gray-400 mb-6">This is your creative space. Paste or write down everything you can remember or want to include—key moments, specific shots, feelings, funny anecdotes, important facts. The more you add, the better the AI's first draft will be.</p>
+                        <textarea
+                            value={localTaskData.initialThoughts || ''}
+                            onChange={(e) => handleInitialThoughtsChange(e.target.value)}
+                            rows="15"
+                            className="w-full form-textarea"
+                            placeholder="Paste your script notes, brain dump, or describe your experience here..."
+                        />
                          <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData.initialAnswers.join('\n\n'))} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                            <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
                             </button>
                         </div>
@@ -102,7 +83,7 @@ const ScriptingWorkspaceModal = ({
                  return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Draft Outline Review</h3>
-                        <p className="text-gray-400 mb-4">Here is a draft outline based on your answers. Review it, then we'll generate specific questions to flesh it out.</p>
+                        <p className="text-gray-400 mb-4">Here is a draft outline based on your notes. Review it, then we'll generate specific questions to flesh it out.</p>
                         <textarea
                             value={localTaskData.scriptPlan}
                             onChange={e => setLocalTaskData(prev => ({...prev, scriptPlan: e.target.value}))}
@@ -191,40 +172,41 @@ const ScriptingWorkspaceModal = ({
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     
-    // Simplified task data structure for the new flow
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'pending',
-        initialQuestions: video.tasks?.initialQuestions || [],
-        initialAnswers: video.tasks?.initialAnswers || [],
-        scriptPlan: video.tasks?.scriptPlan || '', // Will hold the draft outline
-        locationQuestions: video.tasks?.locationQuestions || [], // For refinement questions
+        initialThoughts: video.tasks?.initialThoughts || '',
+        scriptPlan: video.tasks?.scriptPlan || '',
+        locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
         script: video.script || ''
     };
 
-    const handleGenerateInitialQuestions = async () => {
-        const { questions } = await window.aiUtils.generateInitialScriptQuestionsAI({
-            videoTitle: video.chosenTitle || video.title,
-            videoConcept: video.concept,
-            apiKey: settings.geminiApiKey
-        });
-        await onUpdateTask('scripting', 'in-progress', { 
-            'tasks.scriptingStage': 'initial_qa',
-            'tasks.initialQuestions': questions,
-            'tasks.initialAnswers': new Array(questions.length).fill('')
-        });
+    const handleOpenWorkspace = () => {
+        // When opening, if the task is pending, immediately move to the first step.
+        if (taskData.scriptingStage === 'pending') {
+            onUpdateTask('scripting', 'in-progress', { 
+                'tasks.scriptingStage': 'initial_thoughts'
+            });
+        }
+        setShowWorkspace(true);
     };
 
-    const handleGenerateDraftOutline = async (answersText) => {
+    const handleGenerateDraftOutline = async (thoughtsText) => {
+        // First, save the user's thoughts to Firestore
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText });
+
+        // Then, call the AI
         const { draftOutline } = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
-            initialAnswers: answersText,
+            initialThoughts: thoughtsText,
             apiKey: settings.geminiApiKey
         });
+        
+        // Finally, update the state with the new outline
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'draft_outline_review',
-            'tasks.scriptPlan': draftOutline // Storing the draft outline in the scriptPlan field
+            'tasks.scriptPlan': draftOutline
         });
     };
 
@@ -235,7 +217,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
         const planData = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
-            videoConcept: taskData.scriptPlan, // Use the draft outline as the new concept
+            videoConcept: taskData.scriptPlan,
             videoLocationsFeatured: video.locations_featured || [],
             projectFootageInventory: projectData.footageInventory || {},
             whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
@@ -245,16 +227,16 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'refinement_qa',
-            'tasks.scriptPlan': planData.scriptPlan, // The refined plan
+            'tasks.scriptPlan': planData.scriptPlan,
             'tasks.locationQuestions': planData.locationQuestions,
-            'tasks.userExperiences': {} // Reset experiences for new questions
+            'tasks.userExperiences': {}
         });
     };
     
     const handleGenerateFullScript = async () => {
         const fullScript = await window.aiUtils.generateFullScriptAI({
             scriptPlan: taskData.scriptPlan,
-            generalFeedback: '', // This can be added back if needed
+            generalFeedback: '',
             locationExperiences: taskData.userExperiences,
             videoTitle: video.chosenTitle || video.title,
             whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
@@ -268,11 +250,9 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
-        // Just save the intermediate state without changing the status
         onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
-            'tasks.initialQuestions': updatedTaskData.initialQuestions,
-            'tasks.initialAnswers': updatedTaskData.initialAnswers,
+            'tasks.initialThoughts': updatedTaskData.initialThoughts,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
@@ -284,8 +264,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const handleSaveAndComplete = (finalScript, finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
              'tasks.scriptingStage': 'complete',
-             'tasks.initialQuestions': finalTaskData.initialQuestions,
-             'tasks.initialAnswers': finalTaskData.initialAnswers,
+             'tasks.initialThoughts': finalTaskData.initialThoughts,
              'tasks.scriptPlan': finalTaskData.scriptPlan,
              'tasks.locationQuestions': finalTaskData.locationQuestions,
              'tasks.userExperiences': finalTaskData.userExperiences,
@@ -304,7 +283,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             return (
                 <div className="text-center">
                     <p className="text-gray-400 py-2 text-sm">Scripting is complete.</p>
-                    <button onClick={() => setShowWorkspace(true)} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
+                    <button onClick={handleOpenWorkspace} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
                         View/Edit Script
                     </button>
                 </div>
@@ -313,7 +292,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         
         return (
             <div className="text-center py-4">
-                <button onClick={() => setShowWorkspace(true)} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold">
+                <button onClick={handleOpenWorkspace} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold">
                     Open Scripting Workspace
                 </button>
             </div>
@@ -330,7 +309,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     onClose={() => setShowWorkspace(false)}
                     onUpdate={handleUpdateAndCloseWorkspace}
                     onSave={handleSaveAndComplete}
-                    onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onGenerateRefinementPlan={handleGenerateRefinementPlan}
                     onGenerateFullScript={handleGenerateFullScript}
