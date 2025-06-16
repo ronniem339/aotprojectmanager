@@ -13,6 +13,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const [scriptPlanData, setScriptPlanData] = useState(null);
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [showManageFootageModal, setShowManageFootageModal] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State for mobile sidebar
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -249,21 +250,23 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const activeVideo = videos.find(v => v.id === activeVideoId);
 
     return (
-        // Changed bg-gray-900 to bg-black for a darker background
-        <div className="p-8 flex flex-col h-screen bg-black text-white">
+        // Changed bg-black back to bg-gray-900 for a more subtle dark background
+        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white">
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
                 onEdit={() => setShowEditProjectModal(true)}
                 onManageFootage={() => setShowManageFootageModal(true)}
                 overallProgress={overallProgress}
-                onToggleSidebar={() => { /* Implement sidebar toggle logic if needed */ }}
+                // Toggle sidebar function passed to header
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             />
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Left Sidebar - Video List */}
-                {/* Removed p-2 from VideoList's container as outer div now provides padding */}
-                <div className="w-1/4 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar">
+            {/* Adjusted flex layout for main content area */}
+            <div className="flex flex-1 overflow-hidden gap-4"> {/* Added gap-4 between columns */}
+                {/* Left Sidebar - Video List (conditionally rendered for mobile) */}
+                {/* Made sidebar always visible on large screens, conditional on `isSidebarOpen` for smaller screens */}
+                <div className={`lg:w-1/4 ${isSidebarOpen ? 'w-full' : 'hidden'} lg:block bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg`}>
                     <window.VideoList
                         videos={videos}
                         activeVideoId={activeVideoId}
@@ -301,18 +304,34 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     />
                 </div>
 
-                {/* Main Content Area - Video Details / Workspace */}
-                {/* Removed p-4 here as the outer ProjectView div now provides overall padding */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {/* Main Content Area (VideoWorkspace) and RHS Sidebar (VideoDetailsSidebar) */}
+                {/* This flex container now holds both the Workspace and the Details Sidebar */}
+                <div className={`flex-1 flex flex-col lg:flex-row gap-4 ${isSidebarOpen ? 'hidden lg:flex' : 'flex'}`}> {/* Hide this whole section if sidebar is open on small screens */}
                     {activeVideo ? (
-                        <window.VideoWorkspace
-                            video={activeVideo}
-                            settings={settings}
-                            project={localProject}
-                            userId={userId}
-                        />
+                        <>
+                            {/* Central Task Viewer (VideoWorkspace) */}
+                            {/* Added p-4 for padding within the task viewer */}
+                            <main className="flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card">
+                                <window.VideoWorkspace
+                                    video={activeVideo}
+                                    settings={settings}
+                                    project={localProject}
+                                    userId={userId}
+                                />
+                            </main>
+
+                            {/* RHS Sidebar (VideoDetailsSidebar) - Reintroduced */}
+                            <aside className="lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg">
+                                <window.VideoDetailsSidebar
+                                    video={activeVideo}
+                                    projectLocations={localProject?.locations}
+                                    projectFootageInventory={localProject?.footageInventory}
+                                    // onUpdateVideo, onGenerateScriptPlan, onTaskComplete are not props for sidebar
+                                />
+                            </aside>
+                        </>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full">
+                        <div className="flex-1 flex flex-col items-center justify-center h-full glass-card rounded-lg">
                             <p className="text-gray-500 text-xl">Select a video from the left to start working!</p>
                             {videos.length === 0 && (
                                 <p className="text-gray-500 mt-2">No videos in this project yet. Use the "Add Video" button in the header.</p>
@@ -372,7 +391,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                             });
                             await batch.commit();
 
-                            // displayNotification is not directly available here, assuming parent will handle
                             console.log('Footage inventory and video concepts updated!');
                         } catch (e) {
                             console.error("Error saving footage and concepts:", e);
