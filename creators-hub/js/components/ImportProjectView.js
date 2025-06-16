@@ -2,7 +2,7 @@
 
 const { useState, useEffect } = React; // Add React import for useState and useEffect
 
-window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
+window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings, firebaseAppInstance }) => { // Added firebaseAppInstance
     const [youtubeUrlOrId, setYoutubeUrlOrId] = useState('');
     const [fetchError, setFetchError] = useState('');
     const [isFetchingYoutube, setIsFetchingYoutube] = useState(false);
@@ -29,6 +29,9 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         publishDate: '', // Initialize publish date for manual video
         metadata: '' // Initialize metadata for manual video
     }]);
+
+    // Initialize Firebase Storage
+    const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
     /**
      * Helper to convert ISO 8601 duration to minutes.
@@ -154,11 +157,45 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         return cleaned;
     };
 
+    /**
+     * Downloads an image from a URL and uploads it to Firebase Storage.
+     * @param {string} imageUrl - The URL of the image to download.
+     * @param {string} uploadPath - The desired path in Firebase Storage (e.g., 'project_thumbnails/my_image.jpg').
+     * @returns {Promise<string>} - A promise that resolves to the Firebase Storage download URL, or an empty string on error.
+     */
+    const downloadAndUploadImage = async (imageUrl, uploadPath) => {
+        if (!imageUrl || !storage) {
+            console.warn("No image URL or Firebase Storage instance available for upload.");
+            return '';
+        }
+
+        try {
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                console.warn(`Failed to fetch image from ${imageUrl}. Status: ${response.status}`);
+                return '';
+            }
+            const blob = await response.blob(); // Get image as Blob
+
+            const storageRef = storage.ref(uploadPath);
+            await storageRef.put(blob); // Upload the Blob
+            const downloadUrl = await storageRef.getDownloadURL(); // Get the permanent URL
+            return downloadUrl;
+        } catch (error) {
+            console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
+            return '';
+        }
+    };
+
 
     const fetchYoutubeData = async () => {
         const apiKey = settings.youtubeApiKey;
         if (!apiKey) {
             setFetchError("Please set your YouTube Data API Key in Technical Settings to use this feature.");
+            return;
+        }
+        if (!storage) {
+            setFetchError("Firebase Storage is not initialized. Cannot save thumbnails.");
             return;
         }
 
@@ -208,10 +245,16 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         playlistDescription = playlistSnippet.description;
         
         // Use the highest quality thumbnail directly from the YouTube API for the playlist
-        playlistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
-                               playlistSnippet.thumbnails.high?.url ||
-                               playlistSnippet.thumbnails.medium?.url ||
-                               playlistSnippet.thumbnails.default?.url || '';
+        const rawPlaylistThumbnailUrl = playlistSnippet.thumbnails.maxres?.url ||
+                                        playlistSnippet.thumbnails.high?.url ||
+                                        playlistSnippet.thumbnails.medium?.url ||
+                                        playlistSnippet.thumbnails.default?.url || '';
+
+        // Upload playlist thumbnail to Firebase Storage
+        playlistThumbnailUrl = await downloadAndUploadImage(
+            rawPlaylistThumbnailUrl,
+            `project_thumbnails/${playlistId}_cover.jpg`
+        );
 
 
         // Fetch videos in the playlist
@@ -244,8 +287,8 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
 
         const videoDetailsResults = await Promise.all(videoDetailsPromises);
         
-        // Use Promise.all for AI calls to run them concurrently
-        const videosWithAiDataPromises = videoDetailsResults.flatMap(data => {
+        // Use Promise.all for AI calls and image uploads to run them concurrently
+        const videosWithAiAndImagePromises = videoDetailsResults.flatMap(data => {
             if (!data.items) return [];
 
             return data.items.map(async item => {
@@ -268,6 +311,13 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     aiExtractedData = { locations_featured: [], targeted_keywords: [] };
                 }
 
+                // Upload individual video thumbnail to Firebase Storage
+                const rawVideoThumbnailUrl = item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url;
+                const uploadedVideoThumbnailUrl = await downloadAndUploadImage(
+                    rawVideoThumbnailUrl,
+                    `video_thumbnails/${item.id}_${Date.now()}.jpg` // Use video ID and timestamp for uniqueness
+                );
+
                 // Construct a basic metadata object from available info
                 const importedMetadata = JSON.stringify({
                     titleSuggestions: [item.snippet.title],
@@ -286,7 +336,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     title: item.snippet.title,
                     description: rawDescription,    // Store the raw description
                     concept: cleanedConcept,        // Store the cleaned concept
-                    thumbnailUrl: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+                    thumbnailUrl: uploadedVideoThumbnailUrl, // Use the uploaded Firebase Storage URL
                     chapters: extractedChapters,    // Store extracted chapters
                     estimatedLengthMinutes: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : '',
                     locations_featured: aiExtractedData.locations_featured, // Use AI-generated locations
@@ -304,15 +354,15 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
                     },
                     publishDate: publishedAtDate, // Store the published date
                     metadata: importedMetadata, // Store constructed metadata
-                    generatedThumbnails: [item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail (filter Boolean to remove nulls/undefined)
+                    generatedThumbnails: [uploadedVideoThumbnailUrl].filter(Boolean), // Store primary thumbnail (filter Boolean to remove nulls/undefined)
                     chosenTitle: item.snippet.title, // Use original title as chosen title
                     script: '' // Initial script is empty, user can provide it via UI or AI generate
                 };
             });
         });
 
-        // Resolve all video promises including AI calls
-        videos = await Promise.all(videosWithAiDataPromises);
+        // Resolve all video promises including AI calls and image uploads
+        videos = await Promise.all(videosWithAiAndImagePromises);
 
 
         setFetchedYoutubeData({ playlistTitle, playlistDescription, videos });
@@ -359,6 +409,13 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             // Continue with empty arrays if AI extraction fails
             aiExtractedData = { locations_featured: [], targeted_keywords: [] };
         }
+        
+        // Upload individual video thumbnail to Firebase Storage
+        const rawVideoThumbnailUrl = videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url;
+        const uploadedVideoThumbnailUrl = await downloadAndUploadImage(
+            rawVideoThumbnailUrl,
+            `video_thumbnails/${videoId}_${Date.now()}.jpg`
+        );
 
         // Construct a basic metadata object from available info
         const importedMetadata = JSON.stringify({
@@ -379,7 +436,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             title: videoSnippet.title,
             description: rawDescription,    // Store the raw description
             concept: cleanedConcept,        // Store the cleaned concept
-            thumbnailUrl: videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
+            thumbnailUrl: uploadedVideoThumbnailUrl, // Use the uploaded Firebase Storage URL
             estimatedLengthMinutes: parseDuration(contentDetails.duration),
             chapters: extractedChapters,    // Store extracted chapters
             locations_featured: aiExtractedData.locations_featured, // Use AI-generated locations
@@ -397,7 +454,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
             },
             publishDate: publishedAtDate, // Store the published date
             metadata: importedMetadata, // Store constructed metadata
-            generatedThumbnails: [videoSnippet.thumbnails.maxres?.url || videoSnippet.thumbnails.high?.url || videoSnippet.thumbnails.medium?.url || videoSnippet.thumbnails.default?.url].filter(Boolean), // Store primary thumbnail
+            generatedThumbnails: [uploadedVideoThumbnailUrl].filter(Boolean), // Store primary thumbnail
             chosenTitle: videoSnippet.title, // Use original title as chosen title
             script: '' // Initial script is empty, user can provide it via UI or AI generate
         };
@@ -409,7 +466,7 @@ window.ImportProjectView = ({ onAnalyze, onBack, isLoading, settings }) => {
         });
         setManualPlaylistTitle(fetchedVideo.title);
         setManualPlaylistDescription(fetchedVideo.description);
-        setProjectCoverImageUrl(fetchedVideo.thumbnailUrl); // Set project cover image from single video thumbnail
+        setProjectCoverImageUrl(uploadedVideoThumbnailUrl); // Set project cover image from single video thumbnail
         setVideosToImport(prevVideos => {
             const existingManualVideos = prevVideos.filter(v => v.isManual && v.title);
             const newFetchedVideo = {
