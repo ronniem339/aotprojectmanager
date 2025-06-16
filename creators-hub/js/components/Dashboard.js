@@ -51,7 +51,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
 
                 const totalTasks = window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
                 if (videos.length === 0 || totalTasks === 0) {
-                    return { ...project, progress: 0 };
+                    return { ...project, progress: 0, videoCount: videos.length }; // Include videoCount
                 }
 
                 let totalCompletedTasks = 0;
@@ -64,7 +64,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                 const maxPossibleTasks = videos.length * totalTasks;
                 const progress = maxPossibleTasks > 0 ? (totalCompletedTasks / maxPossibleTasks) * 100 : 0;
                 
-                return { ...project, progress };
+                return { ...project, progress, videoCount: videos.length }; // Include videoCount
             }));
 
             setProjects(projectsWithProgress);
@@ -126,15 +126,25 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
                     {projects.map(project => {
                         const imageUrl = project.coverImageUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
-                        // **FIX**: Generate a unique and consistent border color class for each project
                         const borderColorClass = getColorForString(project.id);
+                        const isSingleVideo = project.videoCount === 1; // Determine if it's a single video project
                         
                         return (
-                             // **FIX**: Added left border with the unique color
                             <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
-                                 {/* NEW: Aspect ratio container for the thumbnail */}
-                                 <div className="relative pt-[56.25%] overflow-hidden"> {/* pt-[56.25%] creates a 16:9 aspect ratio */}
-                                    <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" /> {/* Image fills the container */}
+                                <div className="relative pt-[56.25%] overflow-hidden">
+                                    <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" />
+                                    {/* Icon for single video vs playlist */}
+                                    <div className="absolute top-2 left-2 p-1 bg-black/50 rounded-full text-white text-xs" title={isSingleVideo ? "Single Video Project" : "Playlist Project"}>
+                                        {isSingleVideo ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14 14a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2a2 2 0 012-2h10z" />
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A.5.5 0 0011.379 3H8.621a.5.5 0 00-.354.146L7.293 4.293A1 1 0 016.586 4H4zm6 1a1 1 0 100 2h.01a1 1 0 100-2H10zm0 3a1 1 0 100 2h.01a1 1 0 100-2H10zm0 3a1 1 0 100 2h.01a1 1 0 100-2H10z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
                                     <button 
                                         onClick={(e) => handleDeleteClick(e, project)} 
                                         className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
