@@ -17,6 +17,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
+        console.log("ProjectView: projectId received:", projectId); // Add this line
         const fetchProjectAndVideos = async () => {
             // Ensure db, auth, userId, and projectId are present before proceeding
             if (!db || !auth || !userId || !projectId) {
@@ -26,6 +27,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
                 setLoading(false);
                 setError("Project ID, User ID, or Firebase instances are missing.");
                 return;
+                
             }
 
             try {
