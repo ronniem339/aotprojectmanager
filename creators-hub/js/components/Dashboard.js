@@ -132,8 +132,9 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                         return (
                              // **FIX**: Added left border with the unique color
                             <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
-                                 <div className="relative">
-                                    <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="w-full h-32 object-cover" />
+                                 {/* NEW: Aspect ratio container for the thumbnail */}
+                                 <div className="relative pt-[56.25%] overflow-hidden"> {/* pt-[56.25%] creates a 16:9 aspect ratio */}
+                                    <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" /> {/* Image fills the container */}
                                     <button 
                                         onClick={(e) => handleDeleteClick(e, project)} 
                                         className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
