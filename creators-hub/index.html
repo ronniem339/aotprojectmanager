@@ -16,17 +16,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Explicitly configure Babel presets after Babel loads -->
-    <script type="text/javascript">
-        if (typeof Babel !== 'undefined') {
-            Babel.setPresets(['env', 'react']);
-            console.log("Babel presets 'env' and 'react' set.");
-        } else {
-            console.error("Babel is not defined. Cannot set presets.");
-        }
-    </script>
+    <!-- IMPORTANT: Relying ONLY on data-presets here. Removed the inline script that caused TypeError. -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" data-presets="env,react"></script> 
 
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
@@ -36,7 +27,7 @@
     <script src="js/config.js" type="text/babel"></script>
     <script src="js/auth.js" type="text/babel"></script>
     <script src="js/components/common.js" type="text/babel"></script>
-    <script src="js/utils/aiUtils.js" type="text/babel"></script> <!-- Ensure this is type="text/babel" -->
+    <script src="js/utils/aiUtils.js" type="text/babel"></script> 
     
     <!-- Project Wizard Step Components -->
     <script src="js/components/NewProjectWizard/WizardStep1_Foundation.js" type="text/babel"></script>
