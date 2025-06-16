@@ -1,7 +1,7 @@
 // js/components/Dashboard.js
 
-window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm }) => {
-    const { useState, useEffect, useRef, useMemo } = React; // Added useMemo
+window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm, onShowKnowledgeBases }) => { // Added onShowKnowledgeBases just in case, though not directly used in header per new order
+    const { useState, useEffect, useRef, useMemo } = React;
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const projectCardsRef = useRef(null);
@@ -10,6 +10,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     // NEW: State for search and sort
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('lastAccessed'); // Default sort order
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // NEW state for mobile menu
 
     // Helper function to generate a consistent, unique color for each project
     const getColorForString = (str) => {
@@ -160,11 +161,55 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
 
     return (
         <div className="p-8">
-            <header className="flex justify-between items-center mb-8">
-                <div className="flex gap-4">
-                    <button onClick={onShowSettings} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">⚙️ Settings</button>
-                    <button onClick={onShowProjectSelection} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">✨ New Project</button>
-                    <button onClick={handleLogout} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-red-800 transition-colors text-red-400 hover:text-white">
+            <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                {/* Mobile Hamburger Button and Title (visible on small screens) */}
+                <div className="w-full flex justify-between items-center md:hidden">
+                    <h1 className="text-2xl font-bold text-white">Creator's Hub</h1> {/* Simple branding for mobile */}
+                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded-md text-gray-400 hover:bg-gray-700/50 hover:text-white transition-colors">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+                </div>
+
+                {/* Main Header Row (visible on desktop, collapsed/expanded on mobile) */}
+                <div className={`w-full flex flex-col md:flex-row md:items-center justify-end gap-4 transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'flex' : 'hidden md:flex'}`}>
+                    {/* Search Input */}
+                    <div className="relative flex-grow md:flex-grow-0 md:w-64"> {/* Reduced width on medium+ screens */}
+                        <input
+                            type="text"
+                            placeholder="Search projects..."
+                            className="form-input w-full pl-10 bg-gray-800 border-gray-700 text-white"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+
+                    {/* Sort Dropdown */}
+                    <div className="flex-shrink-0 md:w-auto">
+                        <label htmlFor="sort-by" className="sr-only">Sort by</label>
+                        <select
+                            id="sort-by"
+                            className="form-input w-full bg-gray-800 border-gray-700 text-white p-2"
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                        >
+                            <option value="lastAccessed">Last Accessed</option>
+                            <option value="completion">Completion</option>
+                            <option value="dateCreated">Date Created</option>
+                            <option value="alphabetical">Alphabetical</option>
+                        </select>
+                    </div>
+                    
+                    {/* New Project Button */}
+                    <button onClick={onShowProjectSelection} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex-shrink-0">✨ New Project</button>
+                    
+                    {/* Settings Button */}
+                    <button onClick={onShowSettings} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex-shrink-0">⚙️ Settings</button>
+                    
+                    {/* Logout Button */}
+                    <button onClick={handleLogout} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-red-800 transition-colors text-red-400 hover:text-white flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                         </svg>
@@ -172,36 +217,6 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                     </button>
                 </div>
             </header>
-
-            {/* NEW: Search and Sort Controls */}
-            <div className="mb-8 flex flex-col sm:flex-row gap-4 items-center">
-                <div className="relative w-full sm:w-1/2">
-                    <input
-                        type="text"
-                        placeholder="Search projects..."
-                        className="form-input w-full pl-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                </div>
-                <div className="w-full sm:w-auto flex-shrink-0">
-                    <label htmlFor="sort-by" className="sr-only">Sort by</label>
-                    <select
-                        id="sort-by"
-                        className="form-input w-full bg-gray-800 border-gray-700 text-white rounded-lg p-2"
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                    >
-                        <option value="lastAccessed">Last Accessed</option>
-                        <option value="completion">Completion</option>
-                        <option value="dateCreated">Date Created</option>
-                        <option value="alphabetical">Alphabetical</option>
-                    </select>
-                </div>
-            </div>
 
             {loading ? <window.LoadingSpinner text="Loading Projects..." /> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
@@ -217,7 +232,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                                 <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
                                     <div className="relative pt-[56.25%] overflow-hidden">
                                         <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" />
-                                        {/* Removed project type icon from thumbnail */}
+                                        {/* Removed project type icon from thumbnail as requested */}
                                         <button 
                                             onClick={(e) => handleDeleteClick(e, project)} 
                                             className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
@@ -248,13 +263,13 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                                             </div>
                                         </div>
 
-                                        {/* NEW: Video Count, Project Type, and Date Created */}
+                                        {/* Updated: Video Count, Project Type, and Date Created */}
                                         <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-700/50">
                                             <div className="flex justify-between items-center">
                                                 <span>
                                                     {project.videoCount} {project.videoCount === 1 ? 'Video' : 'Videos'}
                                                     {' • '}
-                                                    {isSingleVideo ? 'Single Video Project' : 'Playlist Project'}
+                                                    {isSingleVideo ? 'Single Video Project' : 'Playlist'}
                                                 </span>
                                                 <span>Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</span>
                                             </div>
