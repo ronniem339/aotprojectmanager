@@ -249,8 +249,8 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const activeVideo = videos.find(v => v.id === activeVideoId);
 
     return (
-        // Added p-8 for consistent padding around the entire ProjectView content
-        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white">
+        // Changed bg-gray-900 to bg-black for a darker background
+        <div className="p-8 flex flex-col h-screen bg-black text-white">
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
