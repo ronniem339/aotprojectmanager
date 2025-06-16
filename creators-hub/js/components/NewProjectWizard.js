@@ -31,7 +31,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [finalizedDescription, setFinalizedDescription] = useState(initialDraft?.finalizedDescription || null);
     const [selectedTitle, setSelectedTitle] = useState(initialDraft?.selectedTitle || '');
     
-    // **NEW**: State for the Points of Interest finder
+    // State for the Points of Interest finder
     const [aiLocationSuggestions, setAiLocationSuggestions] = useState([]);
     const [isFindingPois, setIsFindingPois] = useState(false);
     const [poiError, setPoiError] = useState('');
@@ -106,7 +106,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [footageInventory]);
     
-    // **NEW**: Function to handle the AI Points of Interest search
     const handleFindPointsOfInterest = async () => {
         const mainLocation = locations[0];
         if (!mainLocation) {
@@ -117,7 +116,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setPoiError('');
         try {
             const points = await window.aiUtils.findPointsOfInterestAI(mainLocation.name, settings.geminiApiKey);
-            // Filter out any points of interest that are already in the locations list
             const existingNames = locations.map(l => l.name.toLowerCase());
             const newSuggestions = points.filter(p => !existingNames.includes(p.toLowerCase()));
             setAiLocationSuggestions(newSuggestions);
@@ -128,7 +126,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         }
     };
     
-    // **NEW**: Geocode a location name and add it to the list
     const handleSelectAiLocation = (locationName) => {
         if (!window.google?.maps?.Geocoder) {
             setPoiError("Google Maps service is not available.");
@@ -139,16 +136,15 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
              if (status === 'OK' && results[0]) {
                 const place = results[0];
                 const newLocation = {
-                    name: locationName, // Use the AI suggested name for clarity
+                    name: locationName,
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
-                    importance: 'major', // Default to major importance
+                    importance: 'major',
                     types: place.types
                 };
                  if (!locations.some(loc => loc.place_id === newLocation.place_id)) {
                     handleLocationsUpdate([...locations, newLocation]);
-                    // Remove the added location from suggestions
                     setAiLocationSuggestions(prev => prev.filter(name => name !== locationName));
                 }
             } else {
@@ -223,26 +219,27 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             return `- ${loc.name} (Role: ${importanceLabel}): Has ${types.join(', ')}.`;
         }).join('\n');
         
+        // **FIX**: Ensure the specific knowledge bases are loaded from settings
         const whoAmIKb = settings.knowledgeBases?.youtube?.whoAmI || '';
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
         const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
         const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
 
+        // **FIX**: The prompt now explicitly includes the specific knowledge bases for titles and descriptions.
         const prompt = `You are a professional YouTube producer creating a project plan about "${inputs.location}" with the theme "${inputs.theme}".
 Context:
-1.  YouTube SEO Knowledge Base: ${youtubeSeoKb || 'N/A'}
+1.  User Persona (Who Am I): ${whoAmIKb || 'N/A'}
 2.  User's Style Guide: ${settings.styleGuideText || 'N/A'}
-3.  User Persona (Who Am I): ${whoAmIKb || 'N/A'}
-4.  YouTube Video Title Guidelines: ${videoTitlesKb || 'N/A'}
-5.  YouTube Video Description Guidelines: ${videoDescriptionsKb || 'N/A'}
-6.  User's Inventory: ${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
-7.  User's Targeted Keywords: ${selectedKeywords.join(', ')}
+3.  YouTube Video Title Guidelines: ${videoTitlesKb || 'Use catchy, SEO-friendly titles.'}
+4.  YouTube Video Description Guidelines: ${videoDescriptionsKb || 'Write detailed and engaging descriptions.'}
+5.  User's Inventory: ${inventorySummary.length > 0 ? inventorySummary : "No specific sub-locations listed."}
+6.  User's Targeted Keywords: ${selectedKeywords.join(', ')}
 
 Your Task:
 Generate a complete project plan as a JSON object.
--   **playlistTitleSuggestions**: Create 3 diverse, catchy titles for the whole series.
--   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description.
--   **videos**: Propose a video series. For each video, provide a title, a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), a 'locations_featured' array (from the provided list), and a 'targeted_keywords' array (from the provided list).`;
+-   **playlistTitleSuggestions**: Create 3 diverse, catchy titles for the whole series, following the Title Guidelines.
+-   **playlistDescription**: Write a long-form (300-400 words) SEO-optimized description, following the Description Guidelines.
+-   **videos**: Propose a video series. For each video, provide a title (following Title Guidelines), a concept, an 'estimatedLengthMinutes' (e.g., "8-10"), a 'locations_featured' array (from the provided list), and a 'targeted_keywords' array (from the provided list).`;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -271,11 +268,12 @@ Generate a complete project plan as a JSON object.
         }
     };
     
-    // ... (rest of the functions like handleRefineTitle, handleCreateProject, etc. remain the same) ...
+    const handleRefineTitle = async () => {/* ... existing code ... */};
+    const handleCreateProject = async () => {/* ... existing code ... */};
 
     const wizardStep = () => {
         switch (step) {
-            case 1: // Define Foundation
+            case 1:
                 return (
                     <div className="max-h-[70vh] overflow-y-auto pr-4"> 
                         <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 1 of 6</h2>
@@ -286,7 +284,6 @@ Generate a complete project plan as a JSON object.
                                 {googleMapsLoaded ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locations} /> : <window.MockLocationSearchInput />}
                             </div>
 
-                            {/* **NEW**: Points of Interest Finder Section */}
                             {locations.length > 0 && (
                                 <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Find Points of Interest</label>
@@ -331,9 +328,7 @@ Generate a complete project plan as a JSON object.
         }
     }
     
-    const renderActionButtons = () => {
-        // ... (button rendering logic remains the same) ...
-    };
+    const renderActionButtons = () => { /* ... existing button logic ... */ };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4" onClick={handleClose}>
