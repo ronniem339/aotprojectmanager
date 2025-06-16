@@ -431,7 +431,7 @@ window.App = () => { // Exposing App component globally
             case 'myStudio':
                 return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'importProject':
-                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} />;
+                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
             case 'knowledgeBases':
                 return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             default:
