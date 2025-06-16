@@ -22,6 +22,7 @@ window.DescriptionTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const handleGenerateDescription = async () => {
         setGenerating(true);
         setError('');
+        // **FIX**: Removed 'tags' from the prompt. It now only generates description and chapters.
         const prompt = `Act as a YouTube SEO expert. Based on the video script and title, generate a metadata package.
 Video Script:
 ---
@@ -30,13 +31,13 @@ ${video.script}
 Video Title: "${video.chosenTitle}"
 YouTube Video Description Guidelines: "${settings.knowledgeBases?.youtube?.videoDescriptions || 'Write a compelling and SEO-friendly description.'}"
 
-Your response MUST be a valid JSON object with these exact keys: "description" (a detailed description with a {{CHAPTERS}} placeholder for later), "tags" (string of comma-separated tags), and "chapters" (array of objects: {"timestamp": "0:00", "title": "..."}).`;
+Your response MUST be a valid JSON object with these exact keys: "description" (a detailed description with a {{CHAPTERS}} placeholder for later) and "chapters" (array of objects: {"timestamp": "0:00", "title": "..."}).`;
         
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
             await onUpdateTask('descriptionGenerated', 'pending', { 
                 metadata: JSON.stringify(parsedJson),
-                chapters: parsedJson.chapters, // Save chapters for the next step
+                chapters: parsedJson.chapters,
             });
         } catch (err) {
             setError(`Failed to generate description: ${err.message}`);
@@ -81,7 +82,7 @@ Return a JSON object with one key: {"newDescription": "..."}`;
         return <p className="text-gray-400 text-center py-2 text-sm">Description has been finalized.</p>;
     }
 
-    if (!metadata) {
+    if (!metadata || !metadata.description) {
         return (
             <div className="text-center py-4">
                 <button onClick={handleGenerateDescription} disabled={generating} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75">
