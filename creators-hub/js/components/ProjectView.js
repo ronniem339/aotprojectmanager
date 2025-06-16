@@ -1,6 +1,6 @@
 // js/components/ProjectView.js
 
-window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => {
+window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsLoaded, db, auth }) => { // Accept db and auth as props
     const { useState, useEffect, useCallback } = React;
     const [project, setProject] = useState(null);
     const [videos, setVideos] = useState([]);
@@ -9,29 +9,39 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
     const [activeVideoId, setActiveVideoId] = useState(null);
     const [showEditProjectModal, setShowEditProjectModal] = useState(false);
     const [showVideoModal, setShowVideoModal] = useState(false);
-    const [showScriptPlanModal, setShowScriptPlanModal] = useState(false); // New state for script plan modal
-    const [scriptPlanData, setScriptPlanData] = useState(null); // New state to hold script plan and questions
-    const [taskBeingEdited, setTaskBeingEdited] = useState(null); // To track which task is active in a modal/full view
+    const [showScriptPlanModal, setShowScriptPlanModal] = useState(false);
+    const [scriptPlanData, setScriptPlanData] = useState(null);
+    const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [showManageFootageModal, setShowManageFootageModal] = useState(false);
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // Firebase initialization and auth (if not already done globally)
-    const app = firebase.initializeApp(firebaseConfig, `ProjectViewApp_${projectId}`); // Use a unique name
-    const db = app.firestore();
-    const auth = app.auth();
+    // Remove Firebase initialization from here. It's now passed via props from App.js.
+    // const app = firebase.initializeApp(firebaseConfig, `ProjectViewApp_${projectId}`); 
+    // const db = app.firestore();
+    // const auth = app.auth();
 
     useEffect(() => {
         const fetchProjectAndVideos = async () => {
-            if (!userId || !projectId) {
-                setError("Project ID or User ID is missing.");
+            if (!userId || !projectId || !db || !auth) { // Ensure db and auth are available
+                setError("Project ID, User ID, or Firebase instances are missing.");
                 setLoading(false);
                 return;
             }
 
             try {
-                // Ensure user is authenticated before fetching data
-                await auth.signInWithCustomToken(__initial_auth_token || 'some-default-token'); // Assuming __initial_auth_token is available globally
+                // Ensure user is authenticated before fetching data.
+                // If auth is passed from App.js, it should already be ready/signing in.
+                // No need for signInWithCustomToken here again if App.js handles it.
+                // Assuming auth.currentUser is set by App.js's onAuthStateChanged listener.
+                if (!auth.currentUser) {
+                    // This might happen if auth state hasn't propagated yet or user is not logged in.
+                    // For now, let's just wait or throw an error.
+                    // Ideally, App.js should ensure user is authenticated before rendering ProjectView.
+                    setError("User not authenticated for project data access.");
+                    setLoading(false);
+                    return;
+                }
 
                 const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId);
                 const videoCollectionRef = projectRef.collection('videos');
@@ -66,17 +76,17 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                 };
 
             } catch (err) {
-                console.error("Firebase Auth or Fetch Error:", err);
-                setError(`Authentication or data fetch failed: ${err.message}`);
+                console.error("Firebase Fetch Error:", err);
+                setError(`Data fetch failed: ${err.message}`);
                 setLoading(false);
             }
         };
 
         fetchProjectAndVideos();
-    }, [userId, projectId, appId, firebaseConfig]);
+    }, [userId, projectId, appId, db, auth]); // Add db and auth to dependencies
 
     const handleEditProject = useCallback(async (updatedFields) => {
-        if (!project) return;
+        if (!project || !db) return;
         setLoading(true);
         try {
             await db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId).update(updatedFields);
@@ -87,7 +97,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
         } finally {
             setLoading(false);
         }
-    }, [project, userId, projectId, appId]);
+    }, [project, userId, projectId, appId, db]);
 
     const handleVideoSelected = useCallback((video) => {
         setActiveVideoId(video.id);
@@ -101,21 +111,16 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
 
     // Function to update a specific video's fields
     const updateVideo = useCallback(async (videoId, updates) => {
+        if (!db) return;
         const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${projectId}/videos`).doc(videoId);
         try {
             await videoRef.update(updates);
             setVideos(prevVideos => prevVideos.map(vid => vid.id === videoId ? { ...vid, ...updates } : vid));
-            // After updating, if the video is active, also update the active video state in VideoModal
-            if (activeVideoId === videoId) {
-                const updatedVideo = videos.find(vid => vid.id === videoId);
-                // This will trigger a re-render of VideoModal with updated data
-                // No direct state update needed here for VideoModal, as it observes `videos`
-            }
         } catch (e) {
             console.error(`Failed to update video ${videoId}:`, e);
             setError(`Failed to update video: ${e.message}`);
         }
-    }, [userId, projectId, appId, videos, activeVideoId]); // Include videos and activeVideoId in dependencies
+    }, [userId, projectId, appId, db]);
 
     // Scripting Task Handler
     const handleGenerateScriptPlan = useCallback(async (videoId, videoTitle, videoConcept, locationsFeatured, projectFootageInventory) => {
@@ -136,18 +141,13 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                 apiKey: settings.geminiApiKey
             });
 
-            // Set the data and open the modal
             setScriptPlanData({
                 videoId: videoId,
                 scriptPlan: aiResponse.scriptPlan,
                 locationQuestions: aiResponse.locationQuestions
             });
             setShowScriptPlanModal(true);
-            setTaskBeingEdited({ videoId: videoId, taskType: 'scripting' }); // Indicate this task is being handled by a modal
-
-            // You might want to temporarily save the generated scriptPlan and questions to the video object
-            // or hold off until the user provides feedback in the modal.
-            // For now, let's just open the modal.
+            setTaskBeingEdited({ videoId: videoId, taskType: 'scripting' });
 
         } catch (e) {
             console.error("Error generating script plan:", e);
@@ -168,24 +168,23 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                 locationQuestions: scriptPlanData.locationQuestions, // Save the questions asked
                 locationExperiences: experiences, // Save the user's answers
                 scriptingTaskStatus: 'user_input_collected', // Update task status
-                // You might also want to set the generated script plan here if it's considered part of the video data
             });
-            setShowScriptPlanModal(false); // Close the modal
-            setScriptPlanData(null); // Clear modal data
-            setTaskBeingEdited(null); // Clear the task being edited
+            setShowScriptPlanModal(false);
+            setScriptPlanData(null);
+            setTaskBeingEdited(null);
         } catch (e) {
             console.error("Error saving location experiences:", e);
             setError(`Failed to save experiences: ${e.message}`);
         } finally {
             setLoading(false);
         }
-    }, [updateVideo, scriptPlanData]); // Add scriptPlanData to dependencies
+    }, [updateVideo, scriptPlanData]);
 
     // Task completion handler (for tasks that don't open modals, or after modal closes)
     const handleTaskCompletion = useCallback(async (videoId, taskName, status, data = {}) => {
+        if (!db) return;
         const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${projectId}/videos`).doc(videoId);
         try {
-            // Merge status into tasks object for the specific task
             await videoRef.update({
                 [`tasks.${taskName}`]: { status: status, completedAt: firebase.firestore.FieldValue.serverTimestamp(), ...data }
             });
@@ -198,7 +197,6 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                     }
                 } : vid
             ));
-            // If the completed task was being edited in a fullscreen view, close it.
             if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
                 setTaskBeingEdited(null);
             }
@@ -206,7 +204,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
             console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
             setError(`Failed to update task status: ${e.message}`);
         }
-    }, [userId, projectId, appId, taskBeingEdited]);
+    }, [userId, projectId, appId, taskBeingEdited, db]);
 
     const projectVideos = videos.filter(video => video.projectId === projectId);
 
@@ -262,10 +260,10 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                     {activeVideo ? (
                         <window.VideoDetailsSidebar
                             video={activeVideo}
-                            projectLocations={project.locations} // Pass project locations for context
-                            projectFootageInventory={project.footageInventory} // Pass project footage inventory
+                            projectLocations={project.locations}
+                            projectFootageInventory={project.footageInventory}
                             onUpdateVideo={updateVideo}
-                            onGenerateScriptPlan={handleGenerateScriptPlan} // Pass the new handler
+                            onGenerateScriptPlan={handleGenerateScriptPlan}
                             onTaskComplete={handleTaskCompletion}
                         />
                     ) : (
@@ -300,7 +298,8 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                     onClose={() => setShowManageFootageModal(false)}
                     userId={userId}
                     projectId={projectId}
-                    settings={window.CURRENT_USER_SETTINGS} // Pass settings
+                    settings={settings}
+                    db={db} // Pass db to ManageFootageModal
                 />
             )}
 
@@ -309,7 +308,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, firebaseConfig }) => 
                 <window.ScriptPlanModal
                     scriptPlan={scriptPlanData.scriptPlan}
                     locationQuestions={scriptPlanData.locationQuestions}
-                    initialLocationExperiences={activeVideo?.locationExperiences || {}} // Pass existing experiences
+                    initialLocationExperiences={activeVideo?.locationExperiences || {}}
                     onClose={() => setShowScriptPlanModal(false)}
                     onSaveExperiences={(experiences) => handleSaveLocationExperiences(scriptPlanData.videoId, experiences)}
                 />
