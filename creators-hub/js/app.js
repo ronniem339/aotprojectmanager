@@ -1,7 +1,7 @@
 // js/app.js
 
 window.App = () => { // Exposing App component globally
-    const { useState, useEffect, useCallback } = React; // Added React to destructure useState, useEffect, useCallback
+    const { useState, useEffect, useCallback } = React;
     const [user, setUser] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [currentView, setCurrentView] = useState('dashboard');
@@ -41,53 +41,68 @@ window.App = () => { // Exposing App component globally
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [isLoading, setIsLoading] = useState(false); // Add a general loading state
 
+    // Firebase instances - initialized once and passed down
+    const [firebaseDb, setFirebaseDb] = useState(null);
+    const [firebaseAuth, setFirebaseAuth] = useState(null);
+
     const { APP_ID, INITIAL_AUTH_TOKEN } = window.CREATOR_HUB_CONFIG;
 
-    // FIX: Parse firebaseConfig from the global __firebase_config variable
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
-    // The handleLogin function now is simpler because LoginScreen handles its own auth calls
-    const handleLogin = useCallback(async () => {
-        // This function can be empty or trigger specific post-login actions if needed,
-        // as authentication is handled within LoginScreen directly.
-        // The onAuthStateChanged listener will update the user state.
-    }, []);
-
-    // Effect for handling authentication state changes
+    // Initialize Firebase app, Firestore, and Auth only once
     useEffect(() => {
-        // onAuthStateChanged is the primary way to manage user state in Firebase
-        const unsubscribeAuth = auth.onAuthStateChanged(currentUser => {
-            setUser(currentUser);
-            if (!currentUser) {
-                // IMPORTANT: Removed automatic anonymous sign-in here.
-                // The LoginScreen is now responsible for handling user authentication.
-                // Clear settings for unauthenticated user, including new KB structures
-                setSettings({ 
-                    geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
-                    myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-                    knowledgeBases: {
-                        youtube: {
-                            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
-                            firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
-                            youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
-                        },
-                        blog: {
-                            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
-                        }
-                    }
-                }); 
-                setActiveProjectDraft(null);
+        try {
+            // Check if Firebase app is already initialized, if not, initialize it
+            let app;
+            if (!firebase.apps.length) {
+                app = firebase.initializeApp(firebaseConfig);
+            } else {
+                app = firebase.app(); // Get the default app if already initialized
             }
-            setIsAuthReady(true);
-        });
-        return () => unsubscribeAuth();
-    }, [INITIAL_AUTH_TOKEN]); // Depend on INITIAL_AUTH_TOKEN if it changes, though usually it's static.
+            
+            const dbInstance = app.firestore();
+            const authInstance = app.auth();
+
+            setFirebaseDb(dbInstance);
+            setFirebaseAuth(authInstance);
+
+            // Set up authentication listener *after* firebaseAuth is set
+            const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
+                setUser(currentUser);
+                if (!currentUser) {
+                    setSettings({ 
+                        geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
+                        myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+                        knowledgeBases: {
+                            youtube: {
+                                whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
+                                firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
+                                youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
+                            },
+                            blog: {
+                                postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                            }
+                        }
+                    }); 
+                    setActiveProjectDraft(null);
+                }
+                setIsAuthReady(true);
+            });
+            return () => unsubscribeAuth();
+
+        } catch (e) {
+            console.error("Firebase initialization error:", e);
+            // Handle error, e.g., display a message to the user
+            setIsAuthReady(true); // Still set authReady to true to prevent infinite loading
+            setError(`Failed to initialize Firebase: ${e.message}`);
+        }
+    }, [firebaseConfig]); // Re-run if config changes, though typically static
 
 
     // Effect for loading user data and scripts once authenticated
     useEffect(() => {
-        if (user && user.uid) { // Ensure user and uid exist
-            const settingsDocRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
+        if (user && user.uid && firebaseDb) { // Ensure user, uid, and db instance exist
+            const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
                     geminiApiKey: '',
@@ -152,7 +167,6 @@ window.App = () => { // Exposing App component globally
                     delete newSettings.youtubeSeoKnowledgeBase; 
                 }
 
-
                 setSettings(newSettings);
 
                 // Load Google Maps script only once and if API key is present
@@ -163,19 +177,11 @@ window.App = () => { // Exposing App component globally
                 }
             });
 
-            // No longer listening to a single draft here, drafts are loaded in ProjectSelection
-            // const draftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc('newProjectDraft');
-            // const unsubscribeDraft = draftRef.onSnapshot(docSnap => {
-            //     setProjectDraft(docSnap.exists ? docSnap.data() : null);
-            // });
-
             return () => {
                 unsubscribeSettings();
-                // unsubscribeDraft();
             };
         }
-    }, [user, googleMapsLoaded]);
-
+    }, [user, googleMapsLoaded, firebaseDb]); // Depend on firebaseDb
 
     const displayNotification = (message) => {
         setNotificationMessage(message);
@@ -194,23 +200,19 @@ window.App = () => { // Exposing App component globally
     };
 
     // Updated navigation handlers
-    const handleShowSettings = () => setCurrentView('settingsMenu'); // Navigate to the new settings menu
-    const handleShowTechnicalSettings = () => setCurrentView('settings'); // Navigate to the specific Technical Settings view
-    const handleShowStyleAndTone = () => setCurrentView('myStudio'); // Renamed from myStudio to styleAndTone view
+    const handleShowSettings = () => setCurrentView('settingsMenu');
+    const handleShowTechnicalSettings = () => setCurrentView('settings');
+    const handleShowStyleAndTone = () => setCurrentView('myStudio');
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
 
     const handleSaveSettings = async (newSettings) => {
-        if (!user) return;
-        const settingsDocRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
+        if (!user || !firebaseDb) return;
+        const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
         try {
-            // Firestore does deep merges, so sending the whole object should work.
-            // However, ensure you're not unintentionally overwriting the entire knowledgeBases object
-            // if only a sub-part changed. The approach in state update should manage this.
             await settingsDocRef.set(newSettings, { merge: true });
             displayNotification('Settings saved successfully!');
-            // After saving, go back to the settings menu if applicable, otherwise dashboard
             if (currentView === 'settings' || currentView === 'myStudio' || currentView === 'knowledgeBases') {
-                setCurrentView('settingsMenu'); // Go back to the settings menu after saving a sub-setting
+                setCurrentView('settingsMenu');
             }
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -223,14 +225,14 @@ window.App = () => { // Exposing App component globally
     };
     
     const handleConfirmDelete = async (projectId) => {
-        if (!user) return; // Ensure user is authenticated
+        if (!user || !firebaseDb) return;
 
-        const projectRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
+        const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
         const videosCollectionRef = projectRef.collection('videos');
         
         try {
             const videoSnapshot = await videosCollectionRef.get();
-            const batch = db.batch();
+            const batch = firebaseDb.batch(); // Use firebaseDb.batch()
             videoSnapshot.forEach(doc => {
                 batch.delete(doc.ref);
             });
@@ -251,9 +253,9 @@ window.App = () => { // Exposing App component globally
     };
     
     const handleConfirmDeleteDraft = async (draftId) => {
-        if (!user) return;
+        if (!user || !firebaseDb) return;
         try {
-            await db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId).delete();
+            await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId).delete();
             displayNotification('Draft deleted successfully.');
             setDraftToDelete(null); 
         } catch (error) {
@@ -263,8 +265,8 @@ window.App = () => { // Exposing App component globally
     };
     
     const handleResumeDraft = async (draftId) => {
-        if (!user) return;
-        const draftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId);
+        if (!user || !firebaseDb) return;
+        const draftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId);
         try {
             const docSnap = await draftRef.get();
             if (docSnap.exists) {
@@ -282,10 +284,11 @@ window.App = () => { // Exposing App component globally
     };
 
     const handleSelectWorkflow = async (type) => {
+        if (!user || !firebaseDb) return;
         setShowProjectSelection(false);
         if (type === 'post-trip') {
              // Create a new draft document in Firestore
-            const newDraftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
+            const newDraftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
             const newDraftData = {
                 step: 1,
                 inputs: { location: '', theme: '' },
@@ -317,9 +320,14 @@ window.App = () => { // Exposing App component globally
             displayNotification("No videos found to import. Please check the YouTube URL/ID.");
             return;
         }
+        if (!user || !firebaseDb) {
+            setIsLoading(false);
+            displayNotification("Authentication not ready. Please try again.");
+            return;
+        }
     
         // Create a new draft document in Firestore for the imported project
-        const newDraftRef = db.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
+        const newDraftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
         const newDraftData = {
             step: 6, // Go directly to the review video plan step for imported projects
             editableOutline: {
@@ -374,44 +382,47 @@ window.App = () => { // Exposing App component globally
     };
 
     const renderView = () => {
-        // Only render main app content if authentication is ready
-        if (!isAuthReady) {
-            return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing..." /></div>;
+        // Only render main app content if authentication and Firebase are ready
+        if (!isAuthReady || !firebaseDb || !firebaseAuth) {
+            return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
         }
         
         // Render LoginScreen if no user is authenticated
         if (!user) {
-            return <window.LoginScreen onLogin={handleLogin} />;
+            return <window.LoginScreen onLogin={handleLogin} firebaseAuth={firebaseAuth} />; // Pass auth instance to LoginScreen
         }
 
         switch (currentView) {
             case 'project':
-                // FIX: Pass firebaseConfig to ProjectView
+                // Pass db and auth instances to ProjectView
                 return <window.ProjectView 
                             project={selectedProject} 
                             userId={user.uid} 
-                            onCloseProject={handleBackToDashboard} // Changed from onBack to onCloseProject for clarity
+                            onCloseProject={handleBackToDashboard}
                             settings={settings} 
                             googleMapsLoaded={googleMapsLoaded}
-                            firebaseConfig={firebaseConfig} // Pass the parsed firebaseConfig
+                            db={firebaseDb} // Pass the Firestore instance
+                            auth={firebaseAuth} // Pass the Auth instance
                         />;
-            case 'settingsMenu': // For the Settings Menu
+            case 'settingsMenu':
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
-            case 'settings': // Technical Settings View
-                return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
-            case 'myStudio': // Style & Tone View
-                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
+            case 'settings':
+                return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+            case 'myStudio':
+                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'importProject':
-                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} />; // Pass settings to ImportProjectView
+                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} />; // Pass firebaseDb
             case 'knowledgeBases':
-                return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />; // Go back to SettingsMenu
+                return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             default:
                 return <window.Dashboard 
                             userId={user.uid} 
                             onSelectProject={handleSelectProject} 
-                            onShowSettings={handleShowSettings} // Now leads to settingsMenu
+                            onShowSettings={handleShowSettings}
                             onShowProjectSelection={() => setShowProjectSelection(true)}
                             onShowDeleteConfirm={handleShowDeleteConfirm}
+                            db={firebaseDb} // Pass db to Dashboard
+                            auth={firebaseAuth} // Pass auth to Dashboard
                         />;
         }
     }
@@ -419,10 +430,30 @@ window.App = () => { // Exposing App component globally
     return (
         <div className="min-h-screen"> 
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} />}
-            {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
-            {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} />}
+            {showNewProjectWizard && user && firebaseDb && // Ensure firebaseDb is ready before rendering wizard
+                <window.NewProjectWizard 
+                    userId={user.uid} 
+                    settings={settings} 
+                    onClose={handleCloseWizard} 
+                    googleMapsLoaded={googleMapsLoaded} 
+                    initialDraft={activeProjectDraft} 
+                    draftId={activeDraftId} 
+                    db={firebaseDb} // Pass db to NewProjectWizard
+                    auth={firebaseAuth} // Pass auth to NewProjectWizard
+                />
+            }
+            {projectToDelete && firebaseDb && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
+            {draftToDelete && firebaseDb && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
+            {showProjectSelection && user && firebaseDb && // Ensure firebaseDb is ready
+                <window.ProjectSelection 
+                    onSelectWorkflow={handleSelectWorkflow} 
+                    onClose={() => setShowProjectSelection(false)} 
+                    userId={user.uid} 
+                    onResumeDraft={handleResumeDraft} 
+                    onDeleteDraft={handleShowDeleteDraftConfirm}
+                    db={firebaseDb} // Pass db to ProjectSelection
+                />
+            }
             <main>
                 {renderView()}
             </main>
