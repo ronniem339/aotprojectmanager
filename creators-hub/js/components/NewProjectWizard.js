@@ -140,7 +140,16 @@ Context:
 - User's Targeted Keywords: ${selectedKeywords.join(', ')}
 
 Your Task:
-Generate a complete project plan as a JSON object with keys: "playlistTitleSuggestions" (array of 3 strings), "playlistDescription" (string - an initial, comprehensive description for the entire playlist, designed to be immediately usable but fully editable later), and "videos" (array of objects, each with title, concept, estimatedLengthMinutes, locations_featured, targeted_keywords).`;
+Generate a complete project plan as a JSON object with keys:
+"playlistTitleSuggestions" (array of 3 strings),
+"playlistDescription" (string - an initial, comprehensive description for the entire playlist, designed to be immediately usable but fully editable later),
+"videos" (array of objects, each with:
+    "title": string (the video's main title),
+    "concept": string (a brief outline or high-level plan for the video's content, focusing on key segments and main takeaways, NOT a full script),
+    "estimatedLengthMinutes": number,
+    "locations_featured": array of strings,
+    "targeted_keywords": array of strings
+).`; // MODIFIED PROMPT: Added specific instructions for 'concept' to be a brief outline/plan.
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -175,7 +184,8 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
     const handleRefineVideo = useCallback(async (index) => {
         setIsLoading(true); setError('');
         const video = editableOutline.videos[index];
-        const prompt = `Refine this video concept: ${JSON.stringify(video)} based on this feedback: "${refinement}". Return a single JSON object for the updated video.`;
+        // MODIFIED PROMPT: Clarified to refine the 'outline/plan' for the video concept.
+        const prompt = `Refine this video concept outline/plan: ${JSON.stringify(video)} based on this feedback: "${refinement}". Return a single JSON object for the updated video (only the video object itself, not the full outline). The 'concept' field should remain a brief outline or high-level plan.`;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
             const newVideos = [...editableOutline.videos];
