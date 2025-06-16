@@ -7,36 +7,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS CDN - Note: For production, consider using PostCSS plugin or Tailwind CLI for better performance -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- GSAP for animations (if used) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     
-    <!-- React Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
-    <!-- Load Babel Standalone for in-browser JSX/ES6 transformation -->
-    <!-- This version automatically includes presets for React and modern JS features. -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
     
-    <!-- Application Logic - all use type="text/babel" to enable JSX and ES6+ features -->
     <script src="js/config.js" type="text/babel"></script>
     <script src="js/auth.js" type="text/babel"></script>
     <script src="js/components/common.js" type="text/babel"></script>
     <script src="js/utils/aiUtils.js" type="text/babel"></script> 
     
-    <!-- Project Wizard Step Components -->
     <script src="js/components/NewProjectWizard/WizardStep1_Foundation.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep2_Inventory.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep3_Keywords.js" type="text/babel"></script>
@@ -46,7 +38,6 @@
     
     <script src="js/components/NewProjectWizard.js" type="text/babel"></script>
     
-    <!-- Other Main Components -->
     <script src="js/components/Dashboard.js" type="text/babel"></script>
     <script src="js/components/SettingsMenu.js" type="text/babel"></script> 
     <script src="js/components/SettingsView.js" type="text/babel"></script> 
@@ -55,7 +46,6 @@
     <script src="js/components/ImportProjectView.js" type="text/babel"></script>
     <script src="js/components/KnowledgeBaseView.js" type="text/babel"></script> 
 
-    <!-- ProjectView Components and their Tasks -->
     <script src="js/components/ProjectView/ProjectHeader.js" type="text/babel"></script>
     <script src="js/components/ProjectView/VideoList.js" type="text/babel"></script>
     <script src="js/components/ProjectView/EditProjectModal.js" type="text/babel"></script>
@@ -76,10 +66,10 @@
     <script src="js/components/ProjectView/ManageFootageModal.js" type="text/babel"></script>
     <script src="js/components/ProjectView.js" type="text/babel"></script>
 
-    <!-- NEW: New Video Wizard Modal -->
+    <script src="js/components/ProjectView/ShortsIdeasToolModal.js" type="text/babel"></script>
     <script src="js/components/NewVideoWizardModal.js" type="text/babel"></script>
 
-    <!-- Main App component -->
+
     <script src="js/app.js" type="text/babel"></script>
 </body>
 </html>
