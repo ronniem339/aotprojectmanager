@@ -25,9 +25,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'videoEdited':
                 dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
                 break;
-            // **FIX**: Updated revisit logic for new granular tasks
             case 'titleGenerated':
-                dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false }; // Reset to original title
+                dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false };
                 break;
             case 'descriptionGenerated':
                  dataToReset = { metadata: '', chapters: [] };
@@ -35,12 +34,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             case 'chaptersGenerated':
                  dataToReset = { 'tasks.chaptersFinalized': false };
                  break;
+            // **NEW**: Added revisit logic for tags
+            case 'tagsGenerated':
+                 dataToReset = { metadata: JSON.stringify({ ...(JSON.parse(video.metadata || '{}')), tags: '' }) };
+                 break;
             case 'thumbnailsGenerated':
                 dataToReset = {
-                    'tasks.thumbnailConcepts': [],
-                    'tasks.acceptedConcepts': [],
-                    'tasks.rejectedConcepts': [],
-                    'tasks.currentConceptIndex': 0
+                    'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
+                    'tasks.rejectedConcepts': [], 'tasks.currentConceptIndex': 0
                 };
                 break;
             case 'firstCommentGenerated':
@@ -67,13 +68,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'videoEdited':
                 return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-            // **FIX**: New cases for the refactored metadata tasks
             case 'titleGenerated':
                 return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'descriptionGenerated':
                 return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'chaptersGenerated':
                 return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
+            // **NEW**: Case to render the new TagsTask component
+            case 'tagsGenerated':
+                return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'thumbnailsGenerated':
                 return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'videoUploaded':
