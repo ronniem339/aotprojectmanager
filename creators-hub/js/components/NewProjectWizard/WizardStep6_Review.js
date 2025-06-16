@@ -9,12 +9,13 @@ window.WizardStep6_Review = ({
     onRefinementChange,
     onRefineVideo,
     onAcceptVideo,
-    onSetRefiningVideoIndex
+    onSetRefiningVideoIndex,
+    onDeleteVideo // NEW PROP for deleting a video suggestion
 }) => {
     return (
         <div className="max-h-[70vh] overflow-y-auto pr-4">
             <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 6 of 6 - Review Video Plan</h2>
-            <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review and accept each video idea to finalize the project.</p>
+            <p className="text-gray-400 mb-6">This is the overall plan for your video series. Review, refine, or delete each video idea to build your final project.</p>
             {isLoading && !videos.length && <window.LoadingSpinner text="Generating..." />}
             {videos.length > 0 && (
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
@@ -25,12 +26,18 @@ window.WizardStep6_Review = ({
                                     <h3 className="font-bold text-lg text-primary-accent">{`Video ${index + 1}: ${video.title}`}</h3>
                                     <p className="text-sm text-gray-400 mt-1 italic">Est. Length: {video.estimatedLengthMinutes} minutes</p>
                                 </div>
-                                {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
+                                <div className="flex items-center gap-2">
+                                    {video.status === 'accepted' && <span className="text-green-400 font-bold text-sm flex items-center gap-2">✅ Accepted</span>}
+                                    {/* NEW DELETE BUTTON */}
+                                    <button onClick={() => onDeleteVideo(index)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0" title="Delete Suggestion">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-sm mt-3">{video.concept}</p>
                             
-                            {/* Further details like keywords, locations etc. can be added here if needed */}
-
                             {video.status === 'pending' && (
                                 <div className="mt-4 pt-4 border-t border-gray-700">
                                     {refiningVideoIndex === index ? (
