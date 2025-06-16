@@ -133,15 +133,17 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                             <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
                                 <div className="relative pt-[56.25%] overflow-hidden">
                                     <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" />
-                                    {/* Icon for single video vs playlist */}
+                                    {/* Updated Icons for Single Video vs Playlist */}
                                     <div className="absolute top-2 left-2 p-1 bg-black/50 rounded-full text-white text-xs" title={isSingleVideo ? "Single Video Project" : "Playlist Project"}>
                                         {isSingleVideo ? (
+                                            // New Film Icon for Single Video
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14 14a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2a2 2 0 012-2h10z" />
+                                                <path fillRule="evenodd" d="M11.333 3.013A.75.75 0 0 1 12 3h5.75c.414 0 .75.336.75.75v12.5a.75.75 0 0 1-.75.75H12a.75.75 0 0 1-.667-.378L8.683 8.322a.75.75 0 0 0-1.282.025L3.667 15.11A.75.75 0 0 1 3 14.5v-12a.75.75 0 0 1 .667-.378L7.317 7.678a.75.75 0 0 0 1.282-.025L11.333 3.013Z" clipRule="evenodd" />
                                             </svg>
                                         ) : (
+                                            // New Collection/Stacked Icon for Playlist
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A.5.5 0 0011.379 3H8.621a.5.5 0 00-.354.146L7.293 4.293A1 1 0 016.586 4H4zm6 1a1 1 0 100 2h.01a1 1 0 100-2H10zm0 3a1 1 0 100 2h.01a1 1 0 100-2H10zm0 3a1 1 0 100 2h.01a1 1 0 100-2H10z" clipRule="evenodd" />
+                                                <path fillRule="evenodd" d="M7 2.25A2.25 2.25 0 0 0 4.75 4.5v9.25a.75.75 0 0 0 1.5 0V4.5a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 .75.75v9.25a.75.75 0 0 0 1.5 0V4.5A2.25 2.25 0 0 0 15.25 2.25H7ZM1.5 8.25a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H1.5ZM1.5 11.25a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H1.5ZM1.5 14.25a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H1.5Z" clipRule="evenodd" />
                                             </svg>
                                         )}
                                     </div>
