@@ -46,12 +46,6 @@ window.aiUtils = {
 
     /**
      * Finds points of interest using AI based on a main location and current locations.
-     * @param {object} params - Parameters for finding points of interest.
-     * @param {string} params.mainLocationName - The name of the main travel destination or project focus.
-     * @param {Array<object>} params.currentLocations - An array of existing location objects in the project (each with a `name` property).
-     * @param {string} params.apiKey - The Gemini API key.
-     * @returns {Promise<Array<object>>} - A promise that resolves to an array of suggested location objects ({ name: string, description: string }).
-     * @throws {Error} If the API call fails or returns an invalid format.
      */
     findPointsOfInterestAI: async ({ mainLocationName, currentLocations, apiKey }) => {
         if (!apiKey) {
@@ -96,37 +90,18 @@ Example JSON response:
     },
 
     /**
-     * Generates simple, high-level questions to gather initial thoughts from the user.
+     * Generates a draft script outline based on the user's raw text input.
      */
-    generateInitialScriptQuestionsAI: async ({ videoTitle, videoConcept, apiKey }) => {
-        const prompt = `You are a video producer in a pre-production meeting. Your goal is to understand the creator's raw experience before structuring a script.
-For a video titled "${videoTitle}" about "${videoConcept}", generate 3-5 simple, open-ended questions.
-These questions should probe for memorable moments, unexpected discoveries, key footage they captured, and the overall feeling or message they want to convey.
-Avoid asking about script structure. Focus on the experience itself.
-
-Your response MUST be a valid JSON object with a single key "questions", which is an array of strings.
-Example:
-{
-    "questions": [
-        "What was the single most surprising moment during this experience?",
-        "Which specific shot or piece of footage are you most excited about using?",
-        "If the viewer could only remember one thing from this video, what should it be?"
-    ]
-}`;
-        return await window.aiUtils.callGeminiAPI(prompt, apiKey);
-    },
-
-    /**
-     * Generates a draft script outline based on the user's answers to initial questions.
-     */
-    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialAnswers, apiKey }) => {
+    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, apiKey }) => {
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
 Video Concept: "${videoConcept}"
-User's raw notes and answers to initial questions:
+
+User's raw notes, experiences, and brain dump:
 ---
-${initialAnswers}
+${initialThoughts}
 ---
+
 Based *only* on the user's notes above, create a logical draft script outline.
 This outline should have a clear Introduction, 2-4 Main Segments, and a Conclusion.
 For each part, briefly describe the narrative focus. The goal is to turn their raw experiences into a coherent story flow.
@@ -195,7 +170,7 @@ Your response MUST be a valid JSON object with the following structure:
             throw new Error("AI returned an invalid format for script plan.");
         }
     },
-
+    
     /**
      * Generates a full, clean script from a refined outline and user details.
      */
@@ -246,7 +221,7 @@ Based on all the above information, write the final, complete video script. The 
      */
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
-        const videoLocations = locationsFeatured.join(', ');
+        const videoLocations = (locationsFeatured || []).join(', ');
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
         const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
         const videoDescriptionsKb = settings.knowledgeBases?.youtube?.videoDescriptions || '';
