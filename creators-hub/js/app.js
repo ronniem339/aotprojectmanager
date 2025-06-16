@@ -40,6 +40,7 @@ window.App = () => { // Exposing App component globally
     const [draftToDelete, setDraftToDelete] = useState(null);
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [isLoading, setIsLoading] = useState(false); // Add a general loading state
+    const [appError, setAppError] = useState(null); // New state for application-wide errors
 
     // Firebase instances - initialized once and passed down
     const [firebaseAppInstance, setFirebaseAppInstance] = useState(null); // Keep track of the Firebase app instance
@@ -52,86 +53,84 @@ window.App = () => { // Exposing App component globally
 
     // Initialize Firebase app, Firestore, and Auth only once
     useEffect(() => {
-        try {
-            let app;
-            // Get the default app if it exists, otherwise initialize it
-            if (!firebase.apps.length) {
-                app = firebase.initializeApp(firebaseConfig);
-            } else {
-                app = firebase.app();
-            }
-            setFirebaseAppInstance(app); // Store the app instance
-
-            const dbInstance = app.firestore();
-            const authInstance = app.auth();
-
-            setFirebaseDb(dbInstance);
-            setFirebaseAuth(authInstance);
-
-            // Sign in anonymously if not already signed in (and auth is ready)
-            // This is primarily for the Canvas environment to function.
-            const signIn = async () => {
-                if (!authInstance.currentUser) {
-                    try {
-                        if (typeof INITIAL_AUTH_TOKEN !== 'undefined' && INITIAL_AUTH_TOKEN) {
-                            await authInstance.signInWithCustomToken(INITIAL_AUTH_TOKEN);
-                            console.log("Signed in with custom token.");
-                        } else {
-                            await authInstance.signInAnonymously();
-                            console.log("Signed in anonymously.");
-                        }
-                    } catch (signInError) {
-                        console.error("Firebase Sign-in Error:", signInError);
-                        setError(`Authentication failed: ${signInError.message}`);
-                    }
+        const initFirebase = async () => {
+            try {
+                let app;
+                // Get the default app if it exists, otherwise initialize it
+                if (!firebase.apps.length) {
+                    app = firebase.initializeApp(firebaseConfig);
+                } else {
+                    app = firebase.app();
                 }
-                // Only set isAuthReady to true AFTER the initial auth state is known
-                // This ensures components don't try to access auth.currentUser before it's set.
-                // If sign-in is managed elsewhere (like LoginScreen), this listener will react.
-                if (!isAuthReady) setIsAuthReady(true); // Only set once
-            };
+                setFirebaseAppInstance(app); // Store the app instance
 
-            const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
-                setUser(currentUser);
-                if (!currentUser) {
-                    // Clear settings for unauthenticated user
-                    setSettings({ 
-                        geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
-                        myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-                        knowledgeBases: {
-                            youtube: {
-                                whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
-                                firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
-                                youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
-                            },
-                            blog: {
-                                postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                const dbInstance = app.firestore();
+                const authInstance = app.auth();
+
+                setFirebaseDb(dbInstance);
+                setFirebaseAuth(authInstance);
+
+                // Sign in anonymously if not already signed in (and auth is ready)
+                const signIn = async () => {
+                    if (!authInstance.currentUser) {
+                        try {
+                            // Only use signInWithCustomToken if INITIAL_AUTH_TOKEN is a non-empty string
+                            if (typeof INITIAL_AUTH_TOKEN === 'string' && INITIAL_AUTH_TOKEN.length > 0) {
+                                await authInstance.signInWithCustomToken(INITIAL_AUTH_TOKEN);
+                                console.log("Signed in with custom token.");
+                            } else {
+                                await authInstance.signInAnonymously();
+                                console.log("Signed in anonymously.");
                             }
+                        } catch (signInError) {
+                            console.error("Firebase Sign-in Error:", signInError);
+                            setAppError(`Authentication failed: ${signInError.message}`); // Use setAppError
                         }
-                    }); 
-                    setActiveProjectDraft(null);
-                }
-                // Only set isAuthReady to true even if auth.currentUser is null,
-                // because authStateChanged has fired and the auth state is known.
-                // This prevents infinite loading if no user is signed in.
-                setIsAuthReady(true); 
-            });
+                    }
+                    setIsAuthReady(true);
+                };
 
-            // Call signIn immediately to handle initial auth
-            signIn();
+                const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
+                    setUser(currentUser);
+                    if (!currentUser) {
+                        // Clear settings for unauthenticated user
+                        setSettings({ 
+                            geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
+                            myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+                            knowledgeBases: {
+                                youtube: {
+                                    whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
+                                    firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
+                                    youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
+                                },
+                                blog: {
+                                    postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                                }
+                            }
+                        }); 
+                        setActiveProjectDraft(null);
+                    }
+                    setIsAuthReady(true); 
+                });
 
-            return () => unsubscribeAuth();
+                signIn(); // Call signIn immediately to handle initial auth
 
-        } catch (e) {
-            console.error("Firebase initialization error:", e);
-            setError(`Failed to initialize Firebase: ${e.message}`);
-            setIsAuthReady(true); // Set authReady to true even on error to stop loading
-        }
+                return () => unsubscribeAuth();
+
+            } catch (e) {
+                console.error("Firebase initialization error:", e);
+                setAppError(`Failed to initialize Firebase: ${e.message}`); // Use setAppError
+                setIsAuthReady(true); // Set authReady to true even on error to stop loading
+            }
+        };
+
+        initFirebase();
     }, [firebaseConfig, INITIAL_AUTH_TOKEN]); // Removed isAuthReady from dependencies to prevent infinite loop
 
-    // Effect for loading user data and scripts once authenticated AND Firebase is ready
+
+    // Effect for loading user data and settings once authenticated AND Firebase is ready
     useEffect(() => {
-        if (user && user.uid && firebaseDb && firebaseAuth) { // Ensure all necessary Firebase instances are ready
+        if (user && user.uid && firebaseDb && firebaseAuth) { 
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
@@ -144,7 +143,7 @@ window.App = () => { // Exposing App component globally
                     keywords: '',
                     dosAndDonts: '',
                     excludedPhrases: '',
-                    knowledgeBases: { // Default structure for new knowledge bases
+                    knowledgeBases: { 
                         youtube: {
                             whoAmI: '',
                             videoTitles: '',
@@ -152,7 +151,7 @@ window.App = () => { // Exposing App component globally
                             thumbnailIdeas: '',
                             firstPinnedCommentExpert: '',
                             shortsIdeaGeneration: '',
-                            youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE, // Still default here
+                            youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
                         },
                         blog: {
                             postIdeaGeneration: '',
@@ -164,42 +163,37 @@ window.App = () => { // Exposing App component globally
                 };
                 const data = docSnap.exists ? docSnap.data() : {};
                 
-                // Deep merge for knowledgeBases to preserve existing nested values
                 const mergedKnowledgeBases = {
-                    ...defaultSettings.knowledgeBases, // Start with all defaults
-                    ...data.knowledgeBases, // Overlay any saved top-level KB objects if they were flat for some reason
-                    youtube: { // Deep merge YouTube KBs
+                    ...defaultSettings.knowledgeBases, 
+                    ...data.knowledgeBases, 
+                    youtube: { 
                         ...defaultSettings.knowledgeBases.youtube,
-                        ...data.knowledgeBases?.youtube, // Overlay saved YouTube KBs
-                        // Special handling for youtubeSeoKnowledgeBase to ensure default from config is used if not explicitly saved
+                        ...data.knowledgeBases?.youtube, 
                         youtubeSeoKnowledgeBase: data.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase !== undefined ? 
                                                  data.knowledgeBases.youtube.youtubeSeoKnowledgeBase : 
                                                  (data.youtubeSeoKnowledgeBase !== undefined ? data.youtubeSeoKnowledgeBase : window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE)
                     },
-                    blog: { // Deep merge Blog KBs
+                    blog: { 
                         ...defaultSettings.knowledgeBases.blog,
-                        ...data.knowledgeBases?.blog, // Overlay saved Blog KBs
+                        ...data.knowledgeBases?.blog, 
                     }
                 };
 
                 const newSettings = { 
-                    ...defaultSettings, // Start with all flat defaults
-                    ...data, // Overlay any saved flat settings
-                    knowledgeBases: mergedKnowledgeBases // Use the deeply merged KB object
+                    ...defaultSettings, 
+                    ...data, 
+                    knowledgeBases: mergedKnowledgeBases 
                 };
 
-                // Remove the old top-level youtubeSeoKnowledgeBase if it exists directly on data, to prevent conflicts
-                // This is specifically for migration from old structure.
                 if (newSettings.youtubeSeoKnowledgeBase !== undefined && 
                     newSettings.youtubeSeoKnowledgeBase !== window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE &&
-                    newSettings.youtubeSeoKnowledgeBase === mergedKnowledgeBases.youtube.youtubeSeoKnowledgeBase // Only delete if it's been successfully migrated
+                    newSettings.youtubeSeoKnowledgeBase === mergedKnowledgeBases.youtube.youtubeSeoKnowledgeBase 
                 ) {
                     delete newSettings.youtubeSeoKnowledgeBase; 
                 }
 
                 setSettings(newSettings);
 
-                // Load Google Maps script only once and if API key is present
                 if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
                     window.loadGoogleMapsScript(newSettings.googleMapsApiKey, () => {
                         setGoogleMapsLoaded(true);
@@ -211,7 +205,7 @@ window.App = () => { // Exposing App component globally
                 unsubscribeSettings();
             };
         }
-    }, [user, googleMapsLoaded, firebaseDb, firebaseAuth]); // Depend on all Firebase instances
+    }, [user, googleMapsLoaded, firebaseDb, firebaseAuth, APP_ID]); // Added APP_ID to dependencies
 
 
     const displayNotification = (message) => {
@@ -230,7 +224,6 @@ window.App = () => { // Exposing App component globally
         setCurrentView('dashboard');
     };
 
-    // Updated navigation handlers
     const handleShowSettings = () => setCurrentView('settingsMenu');
     const handleShowTechnicalSettings = () => setCurrentView('settings');
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
@@ -275,7 +268,7 @@ window.App = () => { // Exposing App component globally
             setProjectToDelete(null); 
         } catch (error) {
             console.error("Error deleting project:", error);
-            displayNotification(`Error: ${e.message}`); // Fixed typo: 'e' instead of 'error'
+            displayNotification(`Error: ${error.message}`); 
         }
     };
     
@@ -291,7 +284,7 @@ window.App = () => { // Exposing App component globally
             setDraftToDelete(null); 
         } catch (error) {
             console.error("Error deleting draft:", error);
-            displayNotification(`Error: ${e.message}`); // Fixed typo: 'e' instead of 'error'
+            displayNotification(`Error: ${error.message}`); 
         }
     };
     
@@ -310,7 +303,7 @@ window.App = () => { // Exposing App component globally
             }
         } catch (error) {
             console.error("Error resuming draft:", error);
-            displayNotification(`Error: ${e.message}`); // Fixed typo: 'e' instead of 'error'
+            displayNotification(`Error: ${error.message}`); 
         }
     };
 
@@ -413,7 +406,7 @@ window.App = () => { // Exposing App component globally
     };
 
     const renderView = () => {
-        // Only render main app content if authentication and Firebase instances are ready
+        // Render loading state if Firebase instances are not yet ready
         if (!isAuthReady || !firebaseDb || !firebaseAuth) {
             return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
         }
@@ -426,7 +419,7 @@ window.App = () => { // Exposing App component globally
         switch (currentView) {
             case 'project':
                 // Only render ProjectView if selectedProject and its ID are available, AND Firebase instances are ready
-                if (selectedProject && selectedProject.id && firebaseDb && firebaseAuth) {
+                if (selectedProject && selectedProject.id) { // firebaseDb and firebaseAuth are already checked above
                     return <window.ProjectView 
                                 project={selectedProject} 
                                 userId={user.uid} 
@@ -437,10 +430,10 @@ window.App = () => { // Exposing App component globally
                                 auth={firebaseAuth} // Pass the Auth instance
                             />;
                 } else {
-                    // Fallback if selectedProject is not ready but currentView is 'project'
+                    // This case should ideally not be reached if routing is handled well,
+                    // but it acts as a fallback for missing selected project data.
                     return <div className="min-h-screen flex justify-center items-center">
                                 <window.LoadingSpinner text="Loading project details..." />
-                                {/* Optionally, add an error message here if selectedProject is null/undefined */}
                             </div>;
                 }
             case 'settingsMenu':
@@ -468,8 +461,14 @@ window.App = () => { // Exposing App component globally
 
     return (
         <div className="min-h-screen"> 
+            {/* Display application-wide errors */}
+            {appError && (
+                <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+                    {appError}
+                </div>
+            )}
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && user && firebaseDb && firebaseAuth && // Ensure all Firebase instances are ready
+            {showNewProjectWizard && user && firebaseDb && firebaseAuth && 
                 <window.NewProjectWizard 
                     userId={user.uid} 
                     settings={settings} 
@@ -483,7 +482,7 @@ window.App = () => { // Exposing App component globally
             }
             {projectToDelete && firebaseDb && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             {draftToDelete && firebaseDb && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
-            {showProjectSelection && user && firebaseDb && firebaseAuth && // Ensure all Firebase instances are ready
+            {showProjectSelection && user && firebaseDb && firebaseAuth && 
                 <window.ProjectSelection 
                     onSelectWorkflow={handleSelectWorkflow} 
                     onClose={() => setShowProjectSelection(false)} 
