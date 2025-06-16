@@ -378,20 +378,20 @@ window.CanvaModal = ({ canvaUrl, onClose }) => {
 
 
 // A new common Accordion component for collapsible sections
-window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isLocked = false, onRevisit }) => {
+window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isLocked = false, onRevisit, onRestart }) => {
     const statusColors = {
         'complete': 'border-green-500 bg-green-900/20',
         'pending': 'border-blue-500 bg-blue-900/20',
         'locked': 'border-gray-700 bg-gray-800/50 opacity-60',
         'revisited': 'border-amber-500 bg-amber-900/20',
-        'in-progress': 'border-amber-500 bg-amber-900/20', // **FIX**: Added 'in-progress' status color
+        'in-progress': 'border-amber-500 bg-amber-900/20',
     };
     const statusTextColors = {
         'complete': 'text-green-400',
         'pending': 'text-blue-400',
         'locked': 'text-gray-400',
         'revisited': 'text-amber-400',
-        'in-progress': 'text-amber-400', // **FIX**: Added 'in-progress' status text color
+        'in-progress': 'text-amber-400',
     };
 
     return (
@@ -422,6 +422,15 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
                             className="text-xs text-secondary-accent hover:text-secondary-accent-light px-2 py-1 rounded border border-gray-600 hover:border-gray-500"
                         >
                             Revisit
+                        </button>
+                    )}
+                    {/* NEW: Restart button for "In Progress" tasks */}
+                    {onRestart && (status === 'in-progress') && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onRestart(); }}
+                            className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded border border-amber-600 hover:border-amber-500"
+                        >
+                            Restart Task
                         </button>
                     )}
                 </div>
