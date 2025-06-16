@@ -1,8 +1,8 @@
 // js/components/ProjectView.js
 
-window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsLoaded, db, auth }) => { // Accept db and auth as props
+window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoaded, db, auth }) => { // Accept 'project' instead of 'projectId'
     const { useState, useEffect, useCallback } = React;
-    const [project, setProject] = useState(null);
+    const [localProject, setLocalProject] = useState(null); // Use local state for project
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -16,23 +16,25 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
+    // Set localProject when the 'project' prop changes
     useEffect(() => {
-        console.log("ProjectView: projectId received:", projectId); // Add this line
+        setLocalProject(project);
+        setActiveVideoId(null); // Reset active video when project changes
+    }, [project]);
+
+    useEffect(() => {
         const fetchProjectAndVideos = async () => {
+            const projectId = project?.id; // Get projectId from the 'project' prop
+            console.log("ProjectView: projectId received:", projectId); // Debugging log
+
             // Ensure db, auth, userId, and projectId are present before proceeding
             if (!db || !auth || !userId || !projectId) {
-                // This condition should ideally be handled by the parent component (App.js)
-                // ensuring ProjectView is not rendered until these are available.
-                // However, as a safeguard, we set loading to false and return.
                 setLoading(false);
                 setError("Project ID, User ID, or Firebase instances are missing.");
                 return;
-                
             }
 
             try {
-                // No need for signInWithCustomToken here; App.js handles authentication.
-                // The auth.currentUser should be available if App.js renders ProjectView.
                 if (!auth.currentUser) {
                     setError("User not authenticated for project data access. Please log in.");
                     setLoading(false);
@@ -45,10 +47,10 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
                 // Real-time listener for project data
                 const unsubscribeProject = projectRef.onSnapshot(docSnap => {
                     if (docSnap.exists) {
-                        setProject({ id: docSnap.id, ...docSnap.data() });
+                        setLocalProject({ id: docSnap.id, ...docSnap.data() }); // Update localProject state
                     } else {
                         setError("Project not found.");
-                        setProject(null);
+                        setLocalProject(null);
                     }
                     setLoading(false);
                 }, err => {
@@ -78,31 +80,31 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
             }
         };
 
-        // Only call fetchProjectAndVideos if all necessary props are available
-        if (db && auth && userId && projectId) {
+        // Only call fetchProjectAndVideos if all necessary props are available and project.id is valid
+        if (db && auth && userId && project?.id) {
             fetchProjectAndVideos();
         } else {
             setLoading(false); // If props are not ready, stop loading and wait
         }
-    }, [userId, projectId, appId, db, auth]); // Add db and auth to dependencies
+    }, [userId, project?.id, appId, db, auth]); // Depend on project.id
 
     const handleEditProject = useCallback(async (updatedFields) => {
-        if (!project || !db) return;
+        if (!localProject || !db) return;
         setLoading(true);
         try {
-            await db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId).update(updatedFields);
-            setProject(prev => ({ ...prev, ...updatedFields }));
+            await db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id).update(updatedFields);
+            // setLocalProject(prev => ({ ...prev, ...updatedFields })); // Firestore snapshot will update this
             setShowEditProjectModal(false);
         } catch (e) {
             setError(`Failed to update project: ${e.message}`);
         } finally {
             setLoading(false);
         }
-    }, [project, userId, projectId, appId, db]);
+    }, [localProject, userId, appId, db]);
 
     const handleVideoSelected = useCallback((video) => {
         setActiveVideoId(video.id);
-        setShowVideoModal(true);
+        // setShowVideoModal(true); // Moved to VideoWorkspace, no longer needed here
     }, []);
 
     const handleCloseVideoModal = useCallback(() => {
@@ -112,16 +114,16 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
 
     // Function to update a specific video's fields
     const updateVideo = useCallback(async (videoId, updates) => {
-        if (!db) return;
-        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${projectId}/videos`).doc(videoId);
+        if (!db || !localProject?.id) return; // Ensure localProject.id is available
+        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
         try {
             await videoRef.update(updates);
-            setVideos(prevVideos => prevVideos.map(vid => vid.id === videoId ? { ...vid, ...updates } : vid));
+            // setVideos(prevVideos => prevVideos.map(vid => vid.id === videoId ? { ...vid, ...updates } : vid)); // Firestore snapshot will update this
         } catch (e) {
             console.error(`Failed to update video ${videoId}:`, e);
             setError(`Failed to update video: ${e.message}`);
         }
-    }, [userId, projectId, appId, db]);
+    }, [userId, localProject?.id, appId, db]);
 
     // Scripting Task Handler
     const handleGenerateScriptPlan = useCallback(async (videoId, videoTitle, videoConcept, locationsFeatured, projectFootageInventory) => {
@@ -183,21 +185,14 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
 
     // Task completion handler (for tasks that don't open modals, or after modal closes)
     const handleTaskCompletion = useCallback(async (videoId, taskName, status, data = {}) => {
-        if (!db) return;
-        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${projectId}/videos`).doc(videoId);
+        if (!db || !localProject?.id) return; // Ensure localProject.id is available
+        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
         try {
             await videoRef.update({
-                [`tasks.${taskName}`]: { status: status, completedAt: firebase.firestore.FieldValue.serverTimestamp(), ...data }
+                [`tasks.${taskName}`]: status, // Simplified status update
+                ...data // Spread other data directly
             });
-            setVideos(prevVideos => prevVideos.map(vid =>
-                vid.id === videoId ? {
-                    ...vid,
-                    tasks: {
-                        ...vid.tasks,
-                        [taskName]: { status: status, completedAt: new Date(), ...data }
-                    }
-                } : vid
-            ));
+            // Firestore snapshot will update video state
             if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
                 setTaskBeingEdited(null);
             }
@@ -205,9 +200,28 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
             console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
             setError(`Failed to update task status: ${e.message}`);
         }
-    }, [userId, projectId, appId, taskBeingEdited, db]);
+    }, [userId, localProject?.id, appId, taskBeingEdited, db]);
 
-    const projectVideos = videos.filter(video => video.projectId === projectId);
+    // The projectVideos state should likely be removed or adjusted if videos are already tied to the project prop
+    // const projectVideos = videos.filter(video => video.projectId === project.id); // This filter might be redundant/problematic if videos are already project-specific
+
+    // Calculate overall progress for the project header
+    const overallProgress = React.useMemo(() => {
+        if (!videos.length || !window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) {
+            return 0;
+        }
+        let totalCompletedTasks = 0;
+        videos.forEach(video => {
+            window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => {
+                if (video.tasks?.[task.id] === 'complete') {
+                    totalCompletedTasks++;
+                }
+            });
+        });
+        const maxPossibleTasks = videos.length * window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
+        return (totalCompletedTasks / maxPossibleTasks) * 100;
+    }, [videos]);
+
 
     if (loading) {
         return (
@@ -228,7 +242,7 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
         );
     }
 
-    if (!project) {
+    if (!localProject) { // Use localProject here
         return (
             <div className="fixed inset-0 bg-gray-900 text-white flex flex-col items-center justify-center p-4">
                 <p className="text-red-400 text-lg">Project not found or an error occurred.</p>
@@ -244,28 +258,67 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
     return (
         <div className="flex flex-col h-screen bg-gray-900 text-white">
             <window.ProjectHeader
-                project={project}
-                onCloseProject={onCloseProject}
-                onEditProject={() => setShowEditProjectModal(true)}
+                project={localProject} // Use localProject
+                onBack={onCloseProject}
+                onEdit={() => setShowEditProjectModal(true)}
                 onManageFootage={() => setShowManageFootageModal(true)}
+                overallProgress={overallProgress} // Pass overall progress
+                onToggleSidebar={() => { /* Implement sidebar toggle logic if needed */ }}
             />
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Left Sidebar - Video List */}
                 <div className="w-1/4 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar">
-                    <window.VideoList videos={videos} onVideoSelected={handleVideoSelected} activeVideoId={activeVideoId} />
+                    <window.VideoList 
+                        videos={videos} 
+                        activeVideoId={activeVideoId} 
+                        onSelectVideo={(id) => setActiveVideoId(id)} // Ensure setActiveVideoId is called directly
+                        onEditVideo={(videoToEdit) => { // This function should actually open EditVideoModal
+                            setActiveVideoId(videoToEdit.id); // Set active video to the one being edited
+                            setShowVideoModal(true);
+                        }}
+                        onReorder={async (dragged, target) => {
+                            const newOrder = [...videos];
+                            const draggedIndex = newOrder.findIndex(v => v.id === dragged.id);
+                            const targetIndex = newOrder.findIndex(v => v.id === target.id);
+                            const [removed] = newOrder.splice(draggedIndex, 1);
+                            newOrder.splice(targetIndex, 0, removed);
+                            // Update order in Firestore
+                            const batch = db.batch();
+                            newOrder.forEach((video, index) => {
+                                const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(video.id);
+                                batch.update(videoRef, { order: index });
+                            });
+                            await batch.commit();
+                        }}
+                        onDeleteVideo={async (videoToDelete) => {
+                            if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
+                                try {
+                                    await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
+                                    // Firestore listener will update the videos state
+                                    if (activeVideoId === videoToDelete.id) {
+                                        setActiveVideoId(null);
+                                    }
+                                } catch (e) {
+                                    console.error("Error deleting video:", e);
+                                    setError(`Failed to delete video: ${e.message}`);
+                                }
+                            }
+                        }}
+                    />
                 </div>
 
                 {/* Main Content Area - Video Details / Workspace */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4"> {/* Added p-4 for consistent padding */}
                     {activeVideo ? (
-                        <window.VideoDetailsSidebar
+                        <window.VideoWorkspace
                             video={activeVideo}
-                            projectLocations={project.locations}
-                            projectFootageInventory={project.footageInventory}
-                            onUpdateVideo={updateVideo}
-                            onGenerateScriptPlan={handleGenerateScriptPlan}
-                            onTaskComplete={handleTaskCompletion}
+                            settings={settings}
+                            project={localProject} // Pass localProject
+                            userId={userId}
+                            // onUpdateVideo is not directly passed to VideoWorkspace, its tasks components get it
+                            // onGenerateScriptPlan={handleGenerateScriptPlan} // Moved into ScriptingTask
+                            // onTaskComplete={handleTaskCompletion} // Moved to individual task components
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full">
@@ -280,27 +333,62 @@ window.ProjectView = ({ userId, projectId, onCloseProject, settings, googleMapsL
 
             {showEditProjectModal && (
                 <window.EditProjectModal
-                    project={project}
+                    project={localProject} // Use localProject
                     onClose={() => setShowEditProjectModal(false)}
-                    onSave={handleEditProject}
+                    userId={userId}
+                    settings={settings}
+                    googleMapsLoaded={googleMapsLoaded}
+                    // onSave is now handleEditProject passed to it
                 />
             )}
 
             {showVideoModal && activeVideo && (
-                <window.VideoModal
+                <window.EditVideoModal // Changed from VideoModal to EditVideoModal for consistency
                     video={activeVideo}
                     onClose={handleCloseVideoModal}
+                    userId={userId}
+                    settings={settings}
+                    project={localProject} // Pass localProject
+                    googleMapsLoaded={googleMapsLoaded}
                 />
             )}
 
             {showManageFootageModal && (
                 <window.ManageFootageModal
-                    project={project}
+                    project={localProject} // Use localProject
                     onClose={() => setShowManageFootageModal(false)}
                     userId={userId}
-                    projectId={projectId}
                     settings={settings}
-                    db={db}
+                    googleMapsLoaded={googleMapsLoaded}
+                    videos={videos} // Pass videos for concept refinement
+                    onSaveAndSuggestConcepts={async (updatedLocations, updatedFootageInventory, videosToUpdate) => {
+                        try {
+                            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
+                            await projectRef.update({
+                                locations: updatedLocations,
+                                footageInventory: updatedFootageInventory
+                            });
+
+                            const batch = db.batch();
+                            videosToUpdate.forEach(videoUpdate => {
+                                const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoUpdate.videoId);
+                                const updatePayload = { concept: videoUpdate.newConcept };
+                                if (videoUpdate.resetScriptingTask) {
+                                    updatePayload['tasks.scripting'] = 'pending'; // Reset scripting task
+                                    updatePayload['tasks.scriptingStage'] = 'pending'; // Reset scripting stage
+                                    updatePayload['script'] = ''; // Clear the old script
+                                }
+                                batch.update(videoRef, updatePayload);
+                            });
+                            await batch.commit();
+
+                            setShowManageFootageModal(false);
+                            displayNotification('Footage inventory and video concepts updated!');
+                        } catch (e) {
+                            console.error("Error saving footage and concepts:", e);
+                            setError(`Failed to save changes: ${e.message}`);
+                        }
+                    }}
                 />
             )}
 
