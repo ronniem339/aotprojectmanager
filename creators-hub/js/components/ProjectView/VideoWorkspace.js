@@ -6,6 +6,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
 
+    // NEW: State for Shorts Ideas Modal
+    const [showShortsIdeasModal, setShowShortsIdeasModal] = useState(false);
+
     useEffect(() => {
         setOpenTask(null); 
     }, [video.id]);
@@ -92,6 +95,12 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     return (
         <main className="flex-grow">
             <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
+            {/* NEW: Button to open Shorts Ideas Modal */}
+            <div className="mb-6">
+                <button onClick={() => setShowShortsIdeasModal(true)} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2">
+                    💡 Generate Shorts Ideas
+                </button>
+            </div>
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
                     let status = video.tasks?.[task.id] || 'pending';
@@ -118,6 +127,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     );
                 })}
             </div>
+            {/* NEW: Render ShortsIdeasToolModal */}
+            {showShortsIdeasModal && (
+                <window.ShortsIdeasToolModal
+                    video={video}
+                    project={project}
+                    settings={settings}
+                    onClose={() => setShowShortsIdeasModal(false)}
+                />
+            )}
         </main>
     );
 });
