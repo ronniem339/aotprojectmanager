@@ -16,7 +16,7 @@ window.WizardStep1_Foundation = ({
     const [poiError, setPoiError] = useState('');
 
     /**
-     * **FIX**: Re-added the helper function to determine if a location
+     * Helper function to determine if a location
      * is a major city/country or a more specific, smaller point of interest.
      */
     const determineDefaultImportance = (types) => {
@@ -38,9 +38,16 @@ window.WizardStep1_Foundation = ({
         setIsFindingPois(true);
         setPoiError('');
         try {
-            const points = await window.aiUtils.findPointsOfInterestAI(mainLocation.name, settings.geminiApiKey);
+            // FIX: Pass arguments as a single object as expected by aiUtils.findPointsOfInterestAI
+            const points = await window.aiUtils.findPointsOfInterestAI({
+                mainLocationName: mainLocation.name,
+                currentLocations: locations, // Pass all current locations for better AI context
+                apiKey: settings.geminiApiKey // Ensure API key is correctly passed
+            });
+            
+            // Filter out suggestions that are already in the locations list
             const existingNames = locations.map(l => l.name.toLowerCase());
-            const newSuggestions = points.filter(p => !existingNames.includes(p.toLowerCase()));
+            const newSuggestions = points.filter(p => !existingNames.includes(p.name.toLowerCase())); // Note: p.name now as it's an object
             setAiLocationSuggestions(newSuggestions);
         } catch (e) {
             setPoiError(`AI failed to find locations: ${e.message}`);
@@ -49,30 +56,30 @@ window.WizardStep1_Foundation = ({
         }
     };
 
-    const handleSelectAiLocation = (locationName) => {
+    const handleSelectAiLocation = (suggestedLocation) => { // Now receives an object
         if (!window.google?.maps?.Geocoder) {
             setPoiError("Google Maps service is not available.");
             return;
         }
         const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ 'address': `${locationName}, ${locations[0].name}` }, (results, status) => {
+        // Use the suggestedLocation.name for geocoding
+        geocoder.geocode({ 'address': `${suggestedLocation.name}, ${locations[0].name}` }, (results, status) => {
             if (status === 'OK' && results[0]) {
                 const place = results[0];
                 const newLocation = {
-                    name: locationName,
+                    name: suggestedLocation.name, // Use the suggested name
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
-                    // **FIX**: Use the helper function to set the correct default importance.
                     importance: determineDefaultImportance(place.types),
                     types: place.types
                 };
                 if (!locations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsUpdate([...locations, newLocation]);
-                    setAiLocationSuggestions(prev => prev.filter(name => name !== locationName));
+                    setAiLocationSuggestions(prev => prev.filter(sug => sug.name !== suggestedLocation.name)); // Filter by object.name
                 }
             } else {
-                setPoiError(`Could not find details for "${locationName}". Please add it manually.`);
+                setPoiError(`Could not find details for "${suggestedLocation.name}". Please add it manually.`);
             }
         });
     };
@@ -99,13 +106,14 @@ window.WizardStep1_Foundation = ({
                             <div className="mt-4 pt-4 border-t border-gray-700/50">
                                 <h4 className="text-sm font-semibold text-gray-300 mb-2">AI Suggestions:</h4>
                                 <div className="flex flex-wrap gap-2">
-                                    {aiLocationSuggestions.map(name => (
+                                    {aiLocationSuggestions.map(suggestion => ( // Loop over objects, not just names
                                         <button
-                                            key={name}
-                                            onClick={() => handleSelectAiLocation(name)}
+                                            key={suggestion.name} // Use name for key
+                                            onClick={() => handleSelectAiLocation(suggestion)}
+                                            title={suggestion.description} // Show description on hover
                                             className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded-full font-medium"
                                         >
-                                            + {name}
+                                            + {suggestion.name}
                                         </button>
                                     ))}
                                 </div>
