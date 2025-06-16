@@ -2,7 +2,7 @@
 
 const { useState, useCallback } = React; // Add React import for useState and useCallback
 
-window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoaded }) => {
+window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance }) => { // Added firebaseAppInstance
     const [title, setTitle] = useState(project.playlistTitle);
     const [description, setDescription] = useState(project.playlistDescription);
     const [locations, setLocations] = useState(project.locations || []);
@@ -10,21 +10,78 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
     const [generating, setGenerating] = useState(null);
     // Add state for cover image URL
     const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || ''); 
+    const [isSaving, setIsSaving] = useState(false); // New state for saving loading indicator
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+
+    // Initialize Firebase Storage
+    const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
+
+    /**
+     * Downloads an image from a URL and uploads it to Firebase Storage.
+     * @param {string} imageUrl - The URL of the image to download.
+     * @param {string} uploadPath - The desired path in Firebase Storage (e.g., 'project_thumbnails/my_image.jpg').
+     * @returns {Promise<string>} - A promise that resolves to the Firebase Storage download URL, or an empty string on error.
+     */
+    const downloadAndUploadImage = async (imageUrl, uploadPath) => {
+        if (!imageUrl || !storage) {
+            console.warn("No image URL or Firebase Storage instance available for upload.");
+            return '';
+        }
+
+        try {
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                console.warn(`Failed to fetch image from ${imageUrl}. Status: ${response.status}`);
+                return '';
+            }
+            const blob = await response.blob(); // Get image as Blob
+
+            const storageRef = storage.ref(uploadPath);
+            await storageRef.put(blob); // Upload the Blob
+            const downloadUrl = await storageRef.getDownloadURL(); // Get the permanent URL
+            return downloadUrl;
+        } catch (error) {
+            console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
+            return '';
+        }
+    };
 
     const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
     }, []);
 
     const handleSave = async () => {
-        await projectDocRef.update({
-            playlistTitle: title,
-            playlistDescription: description,
-            locations: locations,
-            coverImageUrl: coverImageUrl // Save the new cover image URL
-        });
-        onClose();
+        setIsSaving(true); // Start loading
+
+        let finalCoverImageUrl = coverImageUrl;
+        // Check if the URL is a new external URL (not already a Firebase Storage URL)
+        if (coverImageUrl && !coverImageUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+                const fileExtension = coverImageUrl.split('.').pop().split('?')[0]; // Get extension, remove query params
+                const path = `project_thumbnails/${project.id}_${Date.now()}.${fileExtension}`;
+                finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
+            } catch (error) {
+                console.error("Failed to upload new cover image to Firebase Storage:", error);
+                // Optionally, revert to old image or keep current external URL if upload fails
+                finalCoverImageUrl = project.coverImageUrl || ''; 
+            }
+        }
+
+        try {
+            await projectDocRef.update({
+                playlistTitle: title,
+                playlistDescription: description,
+                locations: locations,
+                coverImageUrl: finalCoverImageUrl // Save the new cover image URL (Firebase or original if failed)
+            });
+            onClose();
+        } catch (error) {
+            console.error("Error saving project details:", error);
+            // Handle error (e.g., show a message to the user)
+        } finally {
+            setIsSaving(false); // Stop loading
+        }
     };
 
     const handleRefine = async (type) => {
@@ -91,7 +148,7 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                         />
                         {coverImageUrl && (
                             <div className="mt-2 text-center">
-                                <img src={coverImageUrl} alt="Project Cover Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: '150px', objectFit: 'cover' }} />
+                                <window.ImageComponent src={coverImageUrl} alt="Project Cover Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: '150px', objectFit: 'cover' }} />
                             </div>
                         )}
                     </div>
@@ -120,7 +177,9 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
 
                 <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-700">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
-                    <button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Save Changes</button>
+                    <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        {isSaving ? <window.LoadingSpinner isButton={true} /> : 'Save Changes'}
+                    </button>
                 </div>
             </div>
         </div>
