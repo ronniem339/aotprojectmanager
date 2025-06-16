@@ -23,12 +23,19 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         setActiveVideoId(null); // Reset active video when project changes
     }, [project]);
 
+    // Set active video to the first one if it's a single video project upon loading
+    useEffect(() => {
+        if (localProject && localProject.videoCount === 1 && videos.length === 1 && !activeVideoId) {
+            setActiveVideoId(videos[0].id);
+        }
+    }, [localProject, videos, activeVideoId]);
+
+
     useEffect(() => {
         const fetchProjectAndVideos = async () => {
-            const projectId = project?.id; // Get projectId from the 'project' prop
-            // console.log("ProjectView: projectId received:", projectId); // Debugging log
+            const projectId = project?.id;
+            // console.log("ProjectView: projectId received:", projectId);
 
-            // Ensure db, auth, userId, and projectId are present before proceeding
             if (!db || !auth || !userId || !projectId) {
                 setLoading(false);
                 setError("Project ID, User ID, or Firebase instances are missing.");
@@ -45,10 +52,9 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId);
                 const videoCollectionRef = projectRef.collection('videos');
 
-                // Real-time listener for project data
                 const unsubscribeProject = projectRef.onSnapshot(docSnap => {
                     if (docSnap.exists) {
-                        setLocalProject({ id: docSnap.id, ...docSnap.data() }); // Update localProject state
+                        setLocalProject({ id: docSnap.id, ...docSnap.data() });
                     } else {
                         setError("Project not found.");
                         setLocalProject(null);
@@ -60,7 +66,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     setLoading(false);
                 });
 
-                // Real-time listener for videos collection
                 const unsubscribeVideos = videoCollectionRef.orderBy('order').onSnapshot(snapshot => {
                     const videosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setVideos(videosData);
@@ -81,11 +86,10 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             }
         };
 
-        // Only call fetchProjectAndVideos if all necessary props are available and project.id is valid
         if (db && auth && userId && project?.id) {
             fetchProjectAndVideos();
         } else {
-            setLoading(false); // If props are not ready, stop loading and wait
+            setLoading(false);
         }
     }, [userId, project?.id, appId, db, auth]);
 
@@ -111,7 +115,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         setShowVideoModal(false);
     }, []);
 
-    // Function to update a specific video's fields
     const updateVideo = useCallback(async (videoId, updates) => {
         if (!db || !localProject?.id) return;
         const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
@@ -123,7 +126,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, [userId, localProject?.id, appId, db]);
 
-    // Scripting Task Handler
     const handleGenerateScriptPlan = useCallback(async (videoId, videoTitle, videoConcept, locationsFeatured, projectFootageInventory) => {
         setLoading(true);
         setError(null);
@@ -158,12 +160,10 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, []);
 
-    // Handler for saving experiences from ScriptPlanModal
     const handleSaveLocationExperiences = useCallback(async (videoId, experiences) => {
         setLoading(true);
         setError(null);
         try {
-            // Update the video document with the user's experiences
             await updateVideo(videoId, {
                 scriptPlan: scriptPlanData.scriptPlan,
                 locationQuestions: scriptPlanData.locationQuestions,
@@ -181,7 +181,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, [updateVideo, scriptPlanData]);
 
-    // Task completion handler (for tasks that don't open modals, or after modal closes)
     const handleTaskCompletion = useCallback(async (videoId, taskName, status, data = {}) => {
         if (!db || !localProject?.id) return;
         const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
@@ -199,7 +198,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         }
     }, [userId, localProject?.id, appId, taskBeingEdited, db]);
 
-    // Calculate overall progress for the project header
     const overallProgress = React.useMemo(() => {
         if (!videos.length || !window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) {
             return 0;
@@ -247,71 +245,76 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         );
     }
 
-    const activeVideo = videos.find(v => v.id === activeVideoId);
+    const isSingleVideoProject = localProject.videoCount === 1;
+    const activeVideo = isSingleVideoProject ? videos[0] : videos.find(v => v.id === activeVideoId);
+
 
     return (
-        // Changed bg-black back to bg-gray-900 for a more subtle dark background
-        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white">
+        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white"> {/* Restored bg-gray-900 */}
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
                 onEdit={() => setShowEditProjectModal(true)}
                 onManageFootage={() => setShowManageFootageModal(true)}
                 overallProgress={overallProgress}
-                // Toggle sidebar function passed to header
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                hideDescription={isSingleVideoProject} // Pass prop to hide description for single video
             />
 
-            {/* Adjusted flex layout for main content area */}
-            <div className="flex flex-1 overflow-hidden gap-4"> {/* Added gap-4 between columns */}
-                {/* Left Sidebar - Video List (conditionally rendered for mobile) */}
-                {/* Made sidebar always visible on large screens, conditional on `isSidebarOpen` for smaller screens */}
-                <div className={`lg:w-1/4 ${isSidebarOpen ? 'w-full' : 'hidden'} lg:block bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg`}>
-                    <window.VideoList
-                        videos={videos}
-                        activeVideoId={activeVideoId}
-                        onSelectVideo={(id) => setActiveVideoId(id)}
-                        onEditVideo={(videoToEdit) => {
-                            setActiveVideoId(videoToEdit.id);
-                            setShowVideoModal(true);
-                        }}
-                        onReorder={async (dragged, target) => {
-                            const newOrder = [...videos];
-                            const draggedIndex = newOrder.findIndex(v => v.id === dragged.id);
-                            const targetIndex = newOrder.findIndex(v => v.id === target.id);
-                            const [removed] = newOrder.splice(draggedIndex, 1);
-                            newOrder.splice(targetIndex, 0, removed);
-                            const batch = db.batch();
-                            newOrder.forEach((video, index) => {
-                                const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(video.id);
-                                batch.update(videoRef, { order: index });
-                            });
-                            await batch.commit();
-                        }}
-                        onDeleteVideo={async (videoToDelete) => {
-                            if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
-                                try {
-                                    await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
-                                    if (activeVideoId === videoToDelete.id) {
-                                        setActiveVideoId(null);
+            {/* Main content area layout adjustment */}
+            {/* If single video: no sidebar, full width content */}
+            {/* If playlist: left sidebar and then main content + RHS sidebar */}
+            <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}> {/* Adjusted gap for consistent spacing */}
+
+                {/* Left Sidebar - Video List (conditionally rendered) */}
+                {/* Always hidden if single video project, otherwise responsive */}
+                {!isSingleVideoProject && (
+                    <div className={`lg:w-1/4 ${isSidebarOpen ? 'w-full' : 'hidden'} lg:block bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg`}>
+                        <window.VideoList
+                            videos={videos}
+                            activeVideoId={activeVideoId}
+                            onSelectVideo={(id) => setActiveVideoId(id)}
+                            onEditVideo={(videoToEdit) => {
+                                setActiveVideoId(videoToEdit.id);
+                                setShowVideoModal(true);
+                            }}
+                            onReorder={async (dragged, target) => {
+                                const newOrder = [...videos];
+                                const draggedIndex = newOrder.findIndex(v => v.id === dragged.id);
+                                const targetIndex = newOrder.findIndex(v => v.id === target.id);
+                                const [removed] = newOrder.splice(draggedIndex, 1);
+                                newOrder.splice(targetIndex, 0, removed);
+                                const batch = db.batch();
+                                newOrder.forEach((video, index) => {
+                                    const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(video.id);
+                                    batch.update(videoRef, { order: index });
+                                });
+                                await batch.commit();
+                            }}
+                            onDeleteVideo={async (videoToDelete) => {
+                                if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
+                                    try {
+                                        await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
+                                        if (activeVideoId === videoToDelete.id) {
+                                            setActiveVideoId(null);
+                                        }
+                                    } catch (e) {
+                                        console.error("Error deleting video:", e);
+                                        setError(`Failed to delete video: ${e.message}`);
                                     }
-                                } catch (e) {
-                                    console.error("Error deleting video:", e);
-                                    setError(`Failed to delete video: ${e.message}`);
                                 }
-                            }
-                        }}
-                    />
-                </div>
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* Main Content Area (VideoWorkspace) and RHS Sidebar (VideoDetailsSidebar) */}
                 {/* This flex container now holds both the Workspace and the Details Sidebar */}
-                <div className={`flex-1 flex flex-col lg:flex-row gap-4 ${isSidebarOpen ? 'hidden lg:flex' : 'flex'}`}> {/* Hide this whole section if sidebar is open on small screens */}
+                <div className={`${isSingleVideoProject ? 'flex-1' : `flex-1 flex flex-col lg:flex-row`} gap-4 ${isSidebarOpen ? 'hidden lg:flex' : 'flex'}`}>
                     {activeVideo ? (
                         <>
                             {/* Central Task Viewer (VideoWorkspace) */}
-                            {/* Added p-4 for padding within the task viewer */}
-                            <main className="flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card">
+                            <main className={`flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-2/3' : ''}`}> {/* Added w-full lg:w-2/3 for single video layout */}
                                 <window.VideoWorkspace
                                     video={activeVideo}
                                     settings={settings}
@@ -320,13 +323,12 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                                 />
                             </main>
 
-                            {/* RHS Sidebar (VideoDetailsSidebar) - Reintroduced */}
-                            <aside className="lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg">
+                            {/* RHS Sidebar (VideoDetailsSidebar) - Always present when activeVideo is selected */}
+                            <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : ''}`}> {/* Added w-full lg:w-1/3 for single video layout */}
                                 <window.VideoDetailsSidebar
                                     video={activeVideo}
                                     projectLocations={localProject?.locations}
                                     projectFootageInventory={localProject?.footageInventory}
-                                    // onUpdateVideo, onGenerateScriptPlan, onTaskComplete are not props for sidebar
                                 />
                             </aside>
                         </>
