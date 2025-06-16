@@ -55,19 +55,20 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
                                  onDrop={(e) => handleDrop(e, video)}
                                  onDragEnd={handleDragEnd}
                                  // Added flex-nowrap to prevent content from forcing horizontal scroll
+                                 // Changed active background to a darker gray, and active text to soft white
                                  className={`flex items-center flex-nowrap gap-2 rounded-lg transition-colors cursor-pointer relative group p-2 pr-1
                                              ${isDragging ? 'opacity-50 border border-primary-accent' : ''} 
-                                             ${isActive ? 'bg-primary-accent text-gray-900 shadow-lg' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}
+                                             ${isActive ? 'bg-gray-700/60 text-white shadow-lg' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}
                             >
                                 {/* Drag handle */}
-                                <div className={`flex-shrink-0 p-1 text-gray-500 cursor-grab ${isActive ? 'text-gray-900' : 'group-hover:text-white'}`}>
+                                <div className={`flex-shrink-0 p-1 text-gray-500 cursor-grab ${isActive ? 'text-white' : 'group-hover:text-white'}`}>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                                 </div>
                                 {/* Video Info and Progress */}
                                 {/* flex-grow and min-w-0 ensures text truncates without pushing content */}
                                 <button
                                     onClick={() => onSelectVideo(video.id)}
-                                    className={`flex-grow min-w-0 text-left flex flex-col ${isActive ? 'text-gray-900' : 'text-white'}`}
+                                    className={`flex-grow min-w-0 text-left flex flex-col ${isActive ? 'text-white' : 'text-white'}`}
                                 >
                                     <p className="font-semibold text-sm leading-tight truncate">{video.chosenTitle || video.title}</p>
                                     <div className="w-full bg-gray-600 rounded-full h-1 mt-1">
@@ -97,4 +98,3 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
         </div>
     );
 };
-
