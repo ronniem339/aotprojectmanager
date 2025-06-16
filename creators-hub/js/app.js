@@ -338,7 +338,8 @@ window.App = () => { // Exposing App component globally
                 locations: [], // Imported projects don't initially have locations defined in this way
                 footageInventory: {}, // Not applicable initially
                 coverImageUrl: projectData.coverImageUrl || '',
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                videoCount: projectData.videos.length // Store video count for imported projects
             });
 
             // Add videos to the new project
@@ -378,7 +379,7 @@ window.App = () => { // Exposing App component globally
             await batch.commit();
             displayNotification('Project imported and created successfully!');
             setCurrentView('dashboard'); // Go back to dashboard to see new project
-            setSelectedProject({ id: projectRef.id, playlistTitle: projectData.playlistTitle, playlistDescription: projectData.playlistDescription, coverImageUrl: projectData.coverImageUrl }); // Select the newly created project
+            setSelectedProject({ id: projectRef.id, playlistTitle: projectData.playlistTitle, playlistDescription: projectData.playlistDescription, coverImageUrl: projectData.coverImageUrl, videoCount: projectData.videos.length }); // Select the newly created project with videoCount
             setCurrentView('project'); // Immediately open the new project
         } catch (error) {
             console.error("Error importing project:", error);
