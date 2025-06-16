@@ -322,5 +322,92 @@ Based on these changes, how should the video concept be updated? Provide only th
         }
         const result = await response.json();
         return result.candidates[0].content.parts[0].text;
-    }
+    },
+
+    /**
+     * Generates YouTube Shorts ideas based on video and project context.
+     *
+     * @param {object} params - Parameters for shorts idea generation.
+     * @param {string} params.videoTitle - The title of the current video.
+     * @param {string} params.videoConcept - The concept/description of the current video.
+     * @param {Array<string>} params.videoLocationsFeatured - Array of location names featured in this video.
+     * @param {object} params.projectFootageInventory - The full footage inventory for the project.
+     * @param {string} params.projectTitle - The overall project/playlist title.
+     * @param {string} params.shortsIdeaGenerationKb - User's knowledge base for Shorts ideas.
+     * @param {string} params.whoAmI - User's persona.
+     * @param {string} params.styleGuideText - User's style guide.
+     * @param {string} params.apiKey - The Gemini API key.
+     * @returns {Promise<Array<string>>} - A promise that resolves to an array of suggested shorts ideas (strings).
+     * @throws {Error} If the API call fails or returns an invalid format.
+     */
+    generateShortsIdeasAI: async ({
+        videoTitle,
+        videoConcept,
+        videoLocationsFeatured,
+        projectFootageInventory,
+        projectTitle,
+        shortsIdeaGenerationKb,
+        whoAmI,
+        styleGuideText,
+        apiKey
+    }) => {
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+
+        const featuredLocationsDetail = videoLocationsFeatured.length > 0
+            ? videoLocationsFeatured.map(locName => {
+                const locInventory = Object.values(projectFootageInventory).find(inv => inv.name === locName) || {};
+                const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
+                    if (type === 'bRoll') return 'B-Roll';
+                    if (type === 'onCamera') return 'On-Camera';
+                    if (type === 'drone') return 'Drone';
+                    return '';
+                }).join(', ');
+                return ` - ${locName}: ${footageTypes ? footageTypes + ' footage available' : 'No specific footage recorded'}.`;
+            }).join('\n')
+            : 'No specific locations featured in this video.';
+
+        const prompt = `You are a YouTube Shorts content strategist. Your goal is to generate compelling, short-form video ideas for YouTube Shorts based on the provided long-form video and project context.
+
+Current Long-Form Video:
+- Title: "${videoTitle}"
+- Concept/Summary: "${videoConcept}"
+- Featured Locations with Footage Availability:
+${featuredLocationsDetail}
+
+Overall Project Context:
+- Project/Series Title: "${projectTitle}"
+
+Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+YouTube Shorts Ideas Knowledge Base: "${shortsIdeaGenerationKb || 'Focus on quick hooks, trending sounds, and challenges. Keep it concise.'}"
+
+Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
+-   A concise, catchy title for the Short.
+-   A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts, including how it leverages available footage or themes.
+
+Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string) and "description" (string) properties.
+
+Example JSON response:
+{
+    "shortsIdeas": [
+        {"title": "Epic Drone Shots of [Location]", "description": "Quick montage of the most breathtaking drone footage, set to trending audio, showcasing the beauty of the location."},
+        {"title": "Hidden Gem Foodie Spot in [City]", "description": "Fast-paced reveal of a unique local eatery featured in the long-form, highlighting a signature dish and quirky atmosphere."},
+        {"title": "Reacting to [Specific Moment/Challenge]", "description": "Short clip of me reacting to a funny or unexpected moment from the long-form video, with text overlays and trending sound."}
+    ]
+}`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            if (parsedJson && Array.isArray(parsedJson.shortsIdeas)) {
+                return parsedJson.shortsIdeas;
+            } else {
+                throw new Error("AI returned an invalid format for shorts ideas.");
+            }
+        } catch (error) {
+            console.error("Error generating shorts ideas:", error);
+            throw new Error(`AI failed to generate shorts ideas: ${error.message || error}`);
+        }
+    },
 };
