@@ -274,6 +274,47 @@ Example of locationQuestions:
     },
 
     /**
+     * Parses a natural language text input to extract structured video data.
+     * @param {object} params - The parameters for the function.
+     * @param {string} params.textInput - The user's raw text about the new video.
+     * @param {object} params.settings - User settings for API key.
+     * @returns {Promise<object>} - A promise that resolves to a structured video data object.
+     */
+    parseVideoFromTextAI: async ({ textInput, settings }) => {
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set in settings.");
+        }
+
+        const prompt = `You are an expert video project manager. Analyze the following text provided by a user who is planning a new video. The text may contain a mix of ideas, a full script, title suggestions, location notes, and more.
+
+Your task is to meticulously extract and structure this information into a single, valid JSON object.
+
+The user's text is:
+---
+${textInput}
+---
+
+Based on the text, identify and populate the following fields in the JSON object:
+- "title": (string) The most likely and compelling title for the video. If multiple are suggested, choose the best one.
+- "concept": (string) A concise but comprehensive summary or concept for the video. Synthesize this from all provided details.
+- "script": (string) The full video script if it appears to be included. If a script is present, extract only the spoken words and dialogue, omitting scene numbers, camera directions, or speaker names unless they are part of the spoken content. If no script is provided, this field should be an empty string.
+- "locations_featured": (array of strings) An array of all distinct geographical location names mentioned (cities, landmarks, countries, etc.).
+- "targeted_keywords": (array of strings) An array of 10-15 relevant SEO keywords or tags. Infer these from the main topics and locations.
+- "estimatedLengthMinutes": (number) An estimated length in minutes if mentioned. If not mentioned, infer a reasonable length based on the script's word count (assume ~150 words per minute), or return null if no script is present.
+
+Your response MUST be only the valid JSON object, with no other text or explanations before or after it.`;
+
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+
+        if (!parsedJson || typeof parsedJson.title === 'undefined' || typeof parsedJson.concept === 'undefined') {
+            throw new Error("AI returned an invalid or incomplete data structure.");
+        }
+
+        return parsedJson;
+    },
+
+    /**
      * Refines a video concept/plan based on updated footage inventory.
      * This function will be used by ManageFootageModal.
      *
