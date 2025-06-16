@@ -141,12 +141,12 @@ Featured Locations (and their available footage from project inventory):
 ${locationsDetail || 'No specific featured locations listed.'}
 
 Your task:
-1.  **Generate a Script Plan Outline:** Provide a high-level, chronological plan for the video script. Break it into main sections (e.g., Intro, Segment 1, Segment 2, Outro). For each segment, briefly describe its focus based on the video concept and featured locations.
-2.  **Generate Specific User Questions:** For each *featured location* mentioned, or for overall key aspects of the video, formulate *one* direct, open-ended question to gather the user's unique experience or specific footage details. These questions should directly relate to the content of that segment or location.
+1.  **Generate a Script Plan Outline:** Provide a high-level, chronological outline for the video script. Break it into main sections (e.g., "Introduction", "Main Segment: [Location Name]", "Conclusion"). For each segment, briefly describe its focus based on the video concept and featured locations. Focus on *what will be covered*, NOT a full script with dialogue or detailed scene descriptions.
+2.  **Generate Specific User Questions:** For each *featured location* mentioned, or for overall key aspects of the video, formulate *one* direct, open-ended question to gather the user's *unique experience, personal anecdotes, or specific footage details*. These questions should prompt the user about what they *did, saw, felt*, or *captured*, rather than asking for more details on the AI's suggested script elements.
 
 Your response MUST be a valid JSON object with the following structure:
 {
-    "scriptPlan": "A clear, detailed text outline for the video script, structured with headings like 'Intro', 'Main Segment: [Location Name]', 'Conclusion', etc., suggesting the flow and content of each part.",
+    "scriptPlan": "A clear, detailed text outline for the video script, structured with headings like 'Introduction', 'Main Segment: [Location Name]', 'Conclusion', etc., suggesting the flow and content of each part. Example: 'Introduction: Hook, introduce topic. Main Segment: Explore XYZ, highlight key features. Conclusion: Summary, call to action.'",
     "locationQuestions": [
         {"locationName": "Optional Location Name (if question is location-specific)", "question": "A question asking for specific details about the user's experience or available footage."}
         // ... more location questions
@@ -155,9 +155,9 @@ Your response MUST be a valid JSON object with the following structure:
 
 Example of locationQuestions:
 [
-    {"locationName": "Eiffel Tower", "question": "What unique angle or specific B-roll did you get of the Eiffel Tower, or a memorable story from your visit there?"},
-    {"locationName": "Louvre Museum", "question": "Which specific artworks or exhibits stood out to you at the Louvre, and what was your personal take on them?"},
-    {"locationName": "Overall Experience", "question": "Were there any unexpected moments or challenges during this trip that would be interesting to include?"}
+    {"locationName": "Eiffel Tower", "question": "What was your most memorable moment or unexpected view from the Eiffel Tower, and do you have any unique footage of it?"},
+    {"locationName": "Louvre Museum", "question": "Which specific artworks or exhibits did you find most captivating at the Louvre, and what personal insights or challenges did you experience while filming there?"},
+    {"locationName": "Overall Experience", "question": "Beyond the specific locations, were there any surprising interactions, logistical challenges, or spontaneous discoveries during your trip that would add a personal touch to the video?"}
 ]`;
 
         const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
