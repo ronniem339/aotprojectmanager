@@ -149,7 +149,7 @@ Generate a complete project plan as a JSON object with keys:
     "estimatedLengthMinutes": number,
     "locations_featured": array of strings,
     "targeted_keywords": array of strings
-).`; // MODIFIED PROMPT: Added specific instructions for 'concept' to be a brief outline/plan.
+).`; 
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -184,7 +184,6 @@ Generate a complete project plan as a JSON object with keys:
     const handleRefineVideo = useCallback(async (index) => {
         setIsLoading(true); setError('');
         const video = editableOutline.videos[index];
-        // MODIFIED PROMPT: Clarified to refine the 'outline/plan' for the video concept.
         const prompt = `Refine this video concept outline/plan: ${JSON.stringify(video)} based on this feedback: "${refinement}". Return a single JSON object for the updated video (only the video object itself, not the full outline). The 'concept' field should remain a brief outline or high-level plan.`;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -270,11 +269,13 @@ Generate a complete project plan as a JSON object with keys:
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4"> {/* Added p-4 for some padding */}
             {showConfirmModal && <ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
-            <div className="glass-card rounded-lg p-8 w-full max-w-5xl flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Modified classes for full screen and proper height management */}
+            <div className="glass-card rounded-lg p-8 w-full h-full flex flex-col" onClick={e => e.stopPropagation()}> 
                 <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <div className="flex-grow overflow-y-auto pr-2">
+                {/* Changed max-h-[70vh] to flex-grow to take available space */}
+                <div className="flex-grow overflow-y-auto pr-2"> 
                     {renderWizardStep()}
                 </div>
                 <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700">
