@@ -7,40 +7,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN - Note: For production, consider using PostCSS plugin or Tailwind CLI for better performance -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="root"></div>
 
+    <!-- GSAP for animations (if used) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- React Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
-    <!-- Load Babel Standalone -->
+    <!-- Load Babel Standalone for in-browser JSX/ES6 transformation -->
+    <!-- This version automatically includes presets for React and modern JS features. -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Load Babel Presets explicitly -->
-    <script src="https://unpkg.com/@babel/preset-env-standalone/dist/babel-preset-env.min.js"></script>
-    <script src="https://unpkg.com/@babel/preset-react-standalone/dist/babel-preset-react.min.js"></script>
-    
-    <!-- Manually set Babel presets AFTER all Babel components are loaded -->
-    <script type="text/javascript">
-        window.onload = function() {
-            if (typeof Babel !== 'undefined' && Babel.availablePresets && Babel.availablePresets['env'] && Babel.availablePresets['react']) {
-                Babel.setPresets([Babel.availablePresets['env'], Babel.availablePresets['react']]);
-                console.log("Babel presets 'env' and 'react' set successfully after window load.");
-            } else {
-                console.error("Babel or its presets are not fully loaded/available. Cannot set presets.");
-            }
-        };
-    </script>
-
+    <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
     
-    <!-- Application Logic - all use type="text/babel" -->
+    <!-- Application Logic - all use type="text/babel" to enable JSX and ES6+ features -->
     <script src="js/config.js" type="text/babel"></script>
     <script src="js/auth.js" type="text/babel"></script>
     <script src="js/components/common.js" type="text/babel"></script>
