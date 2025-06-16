@@ -45,6 +45,29 @@ window.aiUtils = {
     },
 
     /**
+     * **NEW**: Finds points of interest for a given location using AI.
+     * @param {string} locationName - The name of the main location (e.g., "Paris").
+     * @param {string} apiKey - The Gemini API key.
+     * @returns {Promise<Array<string>>} - A promise that resolves to an array of location name strings.
+     */
+    findPointsOfInterestAI: async (locationName, apiKey) => {
+        const prompt = `I am a travel vlogger planning a trip to "${locationName}".
+Please act as a local expert and generate a list of the top 10-15 most important and popular points of interest in this location.
+Include a mix of famous landmarks, museums, viewpoints, and significant attractions.
+
+Return the list as a JSON object with a single key "points_of_interest", which is an array of strings.
+Example for "Paris": {"points_of_interest": ["Eiffel Tower", "Louvre Museum", "Notre-Dame Cathedral", "Sacre-Coeur Basilica"]}`;
+
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+        if (parsedJson && Array.isArray(parsedJson.points_of_interest)) {
+            return parsedJson.points_of_interest;
+        } else {
+            throw new Error("AI returned an invalid format for points of interest.");
+        }
+    },
+
+
+    /**
      * Generates keyword ideas using the Gemini AI.
      *
      * @param {object} params - Parameters for keyword generation.
