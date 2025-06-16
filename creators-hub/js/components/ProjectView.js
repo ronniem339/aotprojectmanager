@@ -137,10 +137,8 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         setLoading(true);
         setError(null);
         try {
-            const settings = {
-                geminiApiKey: window.CURRENT_USER_SETTINGS.geminiApiKey,
-                knowledgeBases: window.CURRENT_USER_SETTINGS.knowledgeBases
-            };
+            // CURRENT_USER_SETTINGS is not a reliable global.
+            // Pass the settings prop which comes from App.js state.
             const aiResponse = await window.aiUtils.generateScriptPlanAI({
                 videoTitle: videoTitle,
                 videoConcept: videoConcept,
@@ -165,7 +163,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [settings]); // Added settings to dependency array
 
     const handleSaveLocationExperiences = useCallback(async (videoId, experiences) => {
         setLoading(true);
@@ -361,6 +359,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                                     settings={settings}
                                     project={localProject}
                                     userId={userId}
+                                    db={db} // Pass db to VideoWorkspace
                                 />
                             </main>
 
