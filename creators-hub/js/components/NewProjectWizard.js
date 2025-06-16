@@ -31,7 +31,9 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [refinement, setRefinement] = useState('');
     const [refiningVideoIndex, setRefiningVideoIndex] = useState(null);
     const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); // General loading state for the wizard
+    // **FIX**: New state for keyword generation specific loading
+    const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false); 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -108,7 +110,9 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
 
     const handleGenerateKeywords = useCallback(async () => {
         if (keywordIdeas.length > 0) { setStep(3); return; }
-        setIsLoading(true); setError('');
+        // **FIX**: Use isGeneratingKeywords for this specific loading
+        setIsGeneratingKeywords(true); 
+        setError('');
         try {
             const keywords = await window.aiUtils.generateKeywordsAI({
                 title: inputs.location, concept: inputs.theme, locationsFeatured: locations.slice(1).map(l => l.name),
@@ -116,7 +120,10 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             });
             setKeywordIdeas(keywords);
             setStep(3);
-        } catch (e) { setError(`Failed to generate keywords: ${e.message}`); } finally { setIsLoading(false); }
+        } catch (e) { setError(`Failed to generate keywords: ${e.message}`); } finally { 
+            // **FIX**: Set isGeneratingKeywords to false here
+            setIsGeneratingKeywords(false); 
+        }
     }, [inputs, locations, settings, keywordIdeas]);
     
     const handleGenerateInitialOutline = useCallback(async () => {
@@ -221,9 +228,9 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
     const renderWizardStep = () => {
         switch (step) {
             case 1: return <window.WizardStep1_Foundation inputs={inputs} locations={locations} coverImageUrl={coverImageUrl} settings={settings} googleMapsLoaded={googleMapsLoaded} onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} onLocationsUpdate={handleLocationsUpdate} onCoverImageUrlChange={setCoverImageUrl} />;
+            // **FIX**: Pass isGeneratingKeywords as the isLoading prop
             case 2: return <window.WizardStep2_Inventory locations={locations} footageInventory={footageInventory} onInventoryChange={handleInventoryChange} onSelectAllFootage={handleSelectAllFootage} />;
-            // **FIX**: Pass the correct handler function down to the component
-            case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isLoading} error={error} />;
+            case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
             case 5: return <window.WizardStep5_Description description={editableOutline?.playlistDescription} refinement={refinement} isLoading={isLoading} error={error} onDescriptionChange={(val) => setEditableOutline(p => ({...p, playlistDescription: val}))} onRefinementChange={setRefinement} onRefine={handleRefineDescription} />;
             case 6: return <window.WizardStep6_Review videos={editableOutline?.videos || []} refiningVideoIndex={refiningVideoIndex} refinement={refinement} isLoading={isLoading} error={error} onRefinementChange={setRefinement} onSetRefiningVideoIndex={setRefiningVideoIndex} onRefineVideo={handleRefineVideo} onAcceptVideo={handleAcceptVideo} onDeleteVideo={handleDeleteVideoSuggestion} />;
@@ -242,7 +249,8 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
                 <div className="flex items-center gap-4">
                      {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
                      {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500">Next</button>}
-                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isLoading || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
+                     {/* **FIX**: Use isGeneratingKeywords for the button loading state as well */}
+                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isGeneratingKeywords || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isGeneratingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
                      {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
                      {step === 4 && <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
                      {step === 5 && <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
