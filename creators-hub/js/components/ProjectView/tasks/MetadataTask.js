@@ -49,12 +49,14 @@ window.MetadataTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const handleGenerateMetadata = async () => {
         setGenerating('metadata');
         setError('');
+        // **FIX**: Added the specific video descriptions knowledge base to the prompt.
         const prompt = `Act as a YouTube SEO expert. Based on the video script and existing title, generate an optimized metadata package.
 Video Script:
 ---
 ${video.script}
 ---
 Existing Video Title: "${video.chosenTitle || video.title}"
+YouTube Video Description Guidelines: "${settings.knowledgeBases?.youtube?.videoDescriptions || 'Write a compelling and SEO-friendly description.'}"
 
 Your response MUST be a valid JSON object with these exact keys: "description" (a detailed description with a {{CHAPTERS}} placeholder), "tags" (string of comma-separated tags), and "chapters" (array of objects: {"timestamp": "0:00", "title": "..."}). Do NOT suggest new titles.`;
         
@@ -78,11 +80,13 @@ Your response MUST be a valid JSON object with these exact keys: "description" (
     const handleGenerateTitleSuggestions = async () => {
         setGenerating('titles');
         setError('');
+        // **FIX**: Added the specific video titles knowledge base to the prompt.
         const prompt = `Act as a YouTube title expert. Based on the script, generate 3 new, distinct title suggestions. Avoid titles similar to "${editableTitle}".
 Script:
 ---
 ${video.script}
 ---
+YouTube Video Title Guidelines: "${settings.knowledgeBases?.youtube?.videoTitles || 'Create catchy and relevant titles.'}"
 Return a JSON object: {"suggestions": ["title1", "title2", "title3"]}`;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -97,9 +101,11 @@ Return a JSON object: {"suggestions": ["title1", "title2", "title3"]}`;
     const handleRefineTitle = async () => {
         setGenerating('titles');
         setError('');
-        const prompt = `Rewrite the following YouTube title based on the user's feedback.
+        // **FIX**: Added the specific video titles knowledge base to the prompt.
+        const prompt = `Rewrite the following YouTube title based on the user's feedback, adhering to the provided guidelines.
 Original Title: "${editableTitle}"
 User Feedback: "${titleRefinement}"
+YouTube Video Title Guidelines: "${settings.knowledgeBases?.youtube?.videoTitles || 'Create catchy and relevant titles.'}"
 Return a JSON object: {"newTitle": "..."}`;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -124,9 +130,11 @@ Return a JSON object: {"newTitle": "..."}`;
     const handleRefineDescription = async () => {
         setGenerating('description');
         setError('');
-        const prompt = `Rewrite the following YouTube video description based on the user's feedback.
+        // **FIX**: Added the specific video descriptions knowledge base to the prompt.
+        const prompt = `Rewrite the following YouTube video description based on the user's feedback, adhering to the provided guidelines.
 Original Description:\n---\n${editableDescription}\n---\n
 User Feedback: "${descriptionRefinement}"
+YouTube Video Description Guidelines: "${settings.knowledgeBases?.youtube?.videoDescriptions || 'Write a compelling and SEO-friendly description.'}"
 Return a JSON object with one key: {"newDescription": "..."}`;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -198,11 +206,10 @@ Return a JSON object with one key: {"newDescription": "..."}`;
     };
 
     const applyTimestampsAndComplete = () => {
-        // **FIX**: Logic to determine if timestamps need padding
         const requiresPadding = chapters.some(chap => {
             const parts = chap.timestamp.split(':');
             if (parts.length === 2) return parseInt(parts[0], 10) >= 10;
-            if (parts.length === 3) return true; // HH:MM:SS format always gets padding
+            if (parts.length === 3) return true;
             return false;
         });
 
