@@ -337,7 +337,8 @@ Based on these changes, how should the video concept be updated? Provide only th
      * @param {string} params.whoAmI - User's persona.
      * @param {string} params.styleGuideText - User's style guide.
      * @param {string} params.apiKey - The Gemini API key.
-     * @returns {Promise<Array<string>>} - A promise that resolves to an array of suggested shorts ideas (strings).
+     * @param {Array<object>} [params.previouslyCreatedShorts=[]] - Array of previously created shorts data for this video.
+     * @returns {Promise<Array<object>>} - A promise that resolves to an array of suggested shorts ideas (objects with title, description, and footageToUse).
      * @throws {Error} If the API call fails or returns an invalid format.
      */
     generateShortsIdeasAI: async ({
@@ -349,7 +350,8 @@ Based on these changes, how should the video concept be updated? Provide only th
         shortsIdeaGenerationKb,
         whoAmI,
         styleGuideText,
-        apiKey
+        apiKey,
+        previouslyCreatedShorts = []
     }) => {
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
@@ -368,6 +370,11 @@ Based on these changes, how should the video concept be updated? Provide only th
             }).join('\n')
             : 'No specific locations featured in this video.';
 
+        const previouslyCreatedShortsSummary = previouslyCreatedShorts.length > 0
+            ? previouslyCreatedShorts.map(short => `- "${short.title}" (Status: ${short.status || 'unknown'})`).join('\n')
+            : 'No shorts created from this video yet.';
+
+
         const prompt = `You are a YouTube Shorts content strategist. Your goal is to generate compelling, short-form video ideas for YouTube Shorts based on the provided long-form video and project context.
 
 Current Long-Form Video:
@@ -383,18 +390,22 @@ Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content c
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 YouTube Shorts Ideas Knowledge Base: "${shortsIdeaGenerationKb || 'Focus on quick hooks, trending sounds, and challenges. Keep it concise.'}"
 
+Previously created shorts from this video (consider these to avoid overlap or suggest variations):
+${previouslyCreatedShortsSummary}
+
 Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
 -   A concise, catchy title for the Short.
--   A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts, including how it leverages available footage or themes.
+-   A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts.
+-   A suggestion for specific footage to use, leveraging the available footage and featured locations (e.g., "Drone shots of [Location X] combined with B-roll of [activity]").
 
-Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string) and "description" (string) properties.
+Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string), "description" (string), and "footageToUse" (string) properties.
 
 Example JSON response:
 {
     "shortsIdeas": [
-        {"title": "Epic Drone Shots of [Location]", "description": "Quick montage of the most breathtaking drone footage, set to trending audio, showcasing the beauty of the location."},
-        {"title": "Hidden Gem Foodie Spot in [City]", "description": "Fast-paced reveal of a unique local eatery featured in the long-form, highlighting a signature dish and quirky atmosphere."},
-        {"title": "Reacting to [Specific Moment/Challenge]", "description": "Short clip of me reacting to a funny or unexpected moment from the long-form video, with text overlays and trending sound."}
+        {"title": "Epic Drone Shots of [Location]", "description": "Quick montage of the most breathtaking drone footage, set to trending audio, showcasing the beauty of the location.", "footageToUse": "Drone shots of the cliffside, wide B-roll of the beach, time-lapse of sunset."},
+        {"title": "Hidden Gem Foodie Spot in [City]", "description": "Fast-paced reveal of a unique local eatery featured in the long-form, highlighting a signature dish and quirky atmosphere.", "footageToUse": "On-camera close-ups of food preparation, B-roll of the restaurant interior, quick cuts of taste tests."},
+        {"title": "Reacting to [Specific Moment/Challenge]", "description": "Short clip of me reacting to a funny or unexpected moment from the long-form video, with text overlays and trending sound.", "footageToUse": "On-camera reaction footage, relevant B-roll of the challenging activity, fast-paced cuts to emphasize humor."}
     ]
 }`;
 
@@ -410,4 +421,66 @@ Example JSON response:
             throw new Error(`AI failed to generate shorts ideas: ${error.message || error}`);
         }
     },
+
+    /**
+     * Generates YouTube Shorts metadata (on-screen text, caption, description, tags) for an accepted idea.
+     *
+     * @param {object} params - Parameters for metadata generation.
+     * @param {string} params.videoTitle - The title of the long-form video.
+     * @param {object} params.shortsIdea - The accepted shorts idea object ({ title, description, footageToUse }).
+     * @param {string} params.whoAmI - User's persona.
+     * @param {string} params.styleGuideText - User's style guide.
+     * @param {string} params.apiKey - The Gemini API key.
+     * @returns {Promise<object>} - A promise that resolves to an object with generated metadata.
+     * @throws {Error} If the API call fails or returns an invalid format.
+     */
+    generateShortsMetadataAI: async ({
+        videoTitle,
+        shortsIdea,
+        whoAmI,
+        styleGuideText,
+        apiKey
+    }) => {
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+
+        const prompt = `You are a YouTube Shorts expert. Based on the long-form video context and a specific Shorts idea, generate optimized metadata for YouTube Studio.
+
+Long-Form Video Title: "${videoTitle}"
+
+Shorts Idea:
+- Title: "${shortsIdea.title}"
+- Concept: "${shortsIdea.description}"
+- Footage Suggestion: "${shortsIdea.footageToUse}"
+
+Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+
+Your task is to generate:
+1.  **On-Screen Text:** 1-3 short, punchy phrases suitable for on-screen overlays (e.g., for key moments, hooks, or calls to action).
+2.  **Short Caption:** A concise (under 100 characters), engaging caption including 2-3 relevant hashtags.
+3.  **Short Description:** A more detailed (100-200 words) description for YouTube Studio, expanding on the Shorts concept and encouraging engagement. Include relevant keywords naturally.
+4.  **Tags:** 5-10 relevant, comma-separated tags for SEO.
+
+Your response MUST be a valid JSON object with the following structure:
+{
+    "onScreenText": ["Phrase 1", "Phrase 2"],
+    "caption": "Your concise caption #hashtag1 #hashtag2",
+    "description": "Your detailed short description here...",
+    "tags": "tag1, tag2, tag3"
+}`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            if (parsedJson && Array.isArray(parsedJson.onScreenText) && typeof parsedJson.caption === 'string' && typeof parsedJson.description === 'string' && typeof parsedJson.tags === 'string') {
+                return parsedJson;
+            } else {
+                throw new Error("AI returned an invalid format for shorts metadata.");
+            }
+        } catch (error) {
+            console.error("Error generating shorts metadata:", error);
+            throw new Error(`AI failed to generate shorts metadata: ${error.message || error}`);
+        }
+    }
 };
