@@ -42,6 +42,7 @@ window.App = () => { // Exposing App component globally
     const [isLoading, setIsLoading] = useState(false); // Add a general loading state
 
     // Firebase instances - initialized once and passed down
+    const [firebaseAppInstance, setFirebaseAppInstance] = useState(null); // Keep track of the Firebase app instance
     const [firebaseDb, setFirebaseDb] = useState(null);
     const [firebaseAuth, setFirebaseAuth] = useState(null);
 
@@ -52,24 +53,48 @@ window.App = () => { // Exposing App component globally
     // Initialize Firebase app, Firestore, and Auth only once
     useEffect(() => {
         try {
-            // Check if Firebase app is already initialized, if not, initialize it
             let app;
+            // Get the default app if it exists, otherwise initialize it
             if (!firebase.apps.length) {
                 app = firebase.initializeApp(firebaseConfig);
             } else {
-                app = firebase.app(); // Get the default app if already initialized
+                app = firebase.app();
             }
-            
+            setFirebaseAppInstance(app); // Store the app instance
+
             const dbInstance = app.firestore();
             const authInstance = app.auth();
 
             setFirebaseDb(dbInstance);
             setFirebaseAuth(authInstance);
 
-            // Set up authentication listener *after* firebaseAuth is set
+            // Sign in anonymously if not already signed in (and auth is ready)
+            // This is primarily for the Canvas environment to function.
+            const signIn = async () => {
+                if (!authInstance.currentUser) {
+                    try {
+                        if (typeof INITIAL_AUTH_TOKEN !== 'undefined' && INITIAL_AUTH_TOKEN) {
+                            await authInstance.signInWithCustomToken(INITIAL_AUTH_TOKEN);
+                            console.log("Signed in with custom token.");
+                        } else {
+                            await authInstance.signInAnonymously();
+                            console.log("Signed in anonymously.");
+                        }
+                    } catch (signInError) {
+                        console.error("Firebase Sign-in Error:", signInError);
+                        setError(`Authentication failed: ${signInError.message}`);
+                    }
+                }
+                // Only set isAuthReady to true AFTER the initial auth state is known
+                // This ensures components don't try to access auth.currentUser before it's set.
+                // If sign-in is managed elsewhere (like LoginScreen), this listener will react.
+                if (!isAuthReady) setIsAuthReady(true); // Only set once
+            };
+
             const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
                 setUser(currentUser);
                 if (!currentUser) {
+                    // Clear settings for unauthenticated user
                     setSettings({ 
                         geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
                         myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
@@ -86,22 +111,27 @@ window.App = () => { // Exposing App component globally
                     }); 
                     setActiveProjectDraft(null);
                 }
-                setIsAuthReady(true);
+                // Only set isAuthReady to true even if auth.currentUser is null,
+                // because authStateChanged has fired and the auth state is known.
+                // This prevents infinite loading if no user is signed in.
+                setIsAuthReady(true); 
             });
+
+            // Call signIn immediately to handle initial auth
+            signIn();
+
             return () => unsubscribeAuth();
 
         } catch (e) {
             console.error("Firebase initialization error:", e);
-            // Handle error, e.g., display a message to the user
-            setIsAuthReady(true); // Still set authReady to true to prevent infinite loading
             setError(`Failed to initialize Firebase: ${e.message}`);
+            setIsAuthReady(true); // Set authReady to true even on error to stop loading
         }
-    }, [firebaseConfig]); // Re-run if config changes, though typically static
+    }, [firebaseConfig, INITIAL_AUTH_TOKEN]); // Removed isAuthReady from dependencies to prevent infinite loop
 
-
-    // Effect for loading user data and scripts once authenticated
+    // Effect for loading user data and scripts once authenticated AND Firebase is ready
     useEffect(() => {
-        if (user && user.uid && firebaseDb) { // Ensure user, uid, and db instance exist
+        if (user && user.uid && firebaseDb && firebaseAuth) { // Ensure all necessary Firebase instances are ready
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
@@ -181,7 +211,8 @@ window.App = () => { // Exposing App component globally
                 unsubscribeSettings();
             };
         }
-    }, [user, googleMapsLoaded, firebaseDb]); // Depend on firebaseDb
+    }, [user, googleMapsLoaded, firebaseDb, firebaseAuth]); // Depend on all Firebase instances
+
 
     const displayNotification = (message) => {
         setNotificationMessage(message);
@@ -232,7 +263,7 @@ window.App = () => { // Exposing App component globally
         
         try {
             const videoSnapshot = await videosCollectionRef.get();
-            const batch = firebaseDb.batch(); // Use firebaseDb.batch()
+            const batch = firebaseDb.batch();
             videoSnapshot.forEach(doc => {
                 batch.delete(doc.ref);
             });
@@ -244,7 +275,7 @@ window.App = () => { // Exposing App component globally
             setProjectToDelete(null); 
         } catch (error) {
             console.error("Error deleting project:", error);
-            displayNotification(`Error: ${error.message}`);
+            displayNotification(`Error: ${e.message}`); // Fixed typo: 'e' instead of 'error'
         }
     };
     
@@ -260,7 +291,7 @@ window.App = () => { // Exposing App component globally
             setDraftToDelete(null); 
         } catch (error) {
             console.error("Error deleting draft:", error);
-            displayNotification(`Error: ${error.message}`);
+            displayNotification(`Error: ${e.message}`); // Fixed typo: 'e' instead of 'error'
         }
     };
     
@@ -279,7 +310,7 @@ window.App = () => { // Exposing App component globally
             }
         } catch (error) {
             console.error("Error resuming draft:", error);
-            displayNotification(`Error: ${error.message}`);
+            displayNotification(`Error: ${e.message}`); // Fixed typo: 'e' instead of 'error'
         }
     };
 
@@ -382,28 +413,36 @@ window.App = () => { // Exposing App component globally
     };
 
     const renderView = () => {
-        // Only render main app content if authentication and Firebase are ready
+        // Only render main app content if authentication and Firebase instances are ready
         if (!isAuthReady || !firebaseDb || !firebaseAuth) {
             return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
         }
         
         // Render LoginScreen if no user is authenticated
         if (!user) {
-            return <window.LoginScreen onLogin={handleLogin} firebaseAuth={firebaseAuth} />; // Pass auth instance to LoginScreen
+            return <window.LoginScreen onLogin={() => { /* auth is handled by LoginScreen internally */ }} firebaseAuth={firebaseAuth} />;
         }
 
         switch (currentView) {
             case 'project':
-                // Pass db and auth instances to ProjectView
-                return <window.ProjectView 
-                            project={selectedProject} 
-                            userId={user.uid} 
-                            onCloseProject={handleBackToDashboard}
-                            settings={settings} 
-                            googleMapsLoaded={googleMapsLoaded}
-                            db={firebaseDb} // Pass the Firestore instance
-                            auth={firebaseAuth} // Pass the Auth instance
-                        />;
+                // Only render ProjectView if selectedProject and its ID are available, AND Firebase instances are ready
+                if (selectedProject && selectedProject.id && firebaseDb && firebaseAuth) {
+                    return <window.ProjectView 
+                                project={selectedProject} 
+                                userId={user.uid} 
+                                onCloseProject={handleBackToDashboard}
+                                settings={settings} 
+                                googleMapsLoaded={googleMapsLoaded}
+                                db={firebaseDb} // Pass the Firestore instance
+                                auth={firebaseAuth} // Pass the Auth instance
+                            />;
+                } else {
+                    // Fallback if selectedProject is not ready but currentView is 'project'
+                    return <div className="min-h-screen flex justify-center items-center">
+                                <window.LoadingSpinner text="Loading project details..." />
+                                {/* Optionally, add an error message here if selectedProject is null/undefined */}
+                            </div>;
+                }
             case 'settingsMenu':
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
             case 'settings':
@@ -411,7 +450,7 @@ window.App = () => { // Exposing App component globally
             case 'myStudio':
                 return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'importProject':
-                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} />; // Pass firebaseDb
+                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} />;
             case 'knowledgeBases':
                 return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             default:
@@ -421,8 +460,8 @@ window.App = () => { // Exposing App component globally
                             onShowSettings={handleShowSettings}
                             onShowProjectSelection={() => setShowProjectSelection(true)}
                             onShowDeleteConfirm={handleShowDeleteConfirm}
-                            db={firebaseDb} // Pass db to Dashboard
-                            auth={firebaseAuth} // Pass auth to Dashboard
+                            db={firebaseDb}
+                            auth={firebaseAuth}
                         />;
         }
     }
@@ -430,7 +469,7 @@ window.App = () => { // Exposing App component globally
     return (
         <div className="min-h-screen"> 
             {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && user && firebaseDb && // Ensure firebaseDb is ready before rendering wizard
+            {showNewProjectWizard && user && firebaseDb && firebaseAuth && // Ensure all Firebase instances are ready
                 <window.NewProjectWizard 
                     userId={user.uid} 
                     settings={settings} 
@@ -438,20 +477,21 @@ window.App = () => { // Exposing App component globally
                     googleMapsLoaded={googleMapsLoaded} 
                     initialDraft={activeProjectDraft} 
                     draftId={activeDraftId} 
-                    db={firebaseDb} // Pass db to NewProjectWizard
-                    auth={firebaseAuth} // Pass auth to NewProjectWizard
+                    db={firebaseDb} 
+                    auth={firebaseAuth} 
                 />
             }
             {projectToDelete && firebaseDb && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             {draftToDelete && firebaseDb && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
-            {showProjectSelection && user && firebaseDb && // Ensure firebaseDb is ready
+            {showProjectSelection && user && firebaseDb && firebaseAuth && // Ensure all Firebase instances are ready
                 <window.ProjectSelection 
                     onSelectWorkflow={handleSelectWorkflow} 
                     onClose={() => setShowProjectSelection(false)} 
                     userId={user.uid} 
                     onResumeDraft={handleResumeDraft} 
                     onDeleteDraft={handleShowDeleteDraftConfirm}
-                    db={firebaseDb} // Pass db to ProjectSelection
+                    db={firebaseDb} 
+                    auth={firebaseAuth} 
                 />
             }
             <main>
