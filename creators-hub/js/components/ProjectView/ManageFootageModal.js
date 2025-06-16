@@ -301,11 +301,11 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                                         <table className="w-full text-left table-fixed"> {/* Added table-fixed */}
                                             <thead className="bg-gray-800/50 sticky top-0 backdrop-blur-sm">
                                                 <tr>
-                                                    <th className="p-3 text-sm font-semibold w-2/5">Location</th> {/* Adjusted width */}
-                                                    <th className="p-3 text-sm font-semibold text-center w-1/10">B-Roll</th> {/* Adjusted width */}
-                                                    <th className="p-3 text-sm font-semibold text-center w-1/10">On-Cam</th> {/* Adjusted width */}
-                                                    <th className="p-3 text-sm font-semibold text-center w-1/10">Drone</th> {/* Adjusted width */}
-                                                    <th className="p-3 text-sm font-semibold w-2/5">Importance</th> {/* Adjusted width */}
+                                                    <th className="p-3 text-sm font-semibold w-[40%]">Location</th> {/* Adjusted width: 40% */}
+                                                    <th className="p-3 text-sm font-semibold text-center w-[10%]">B-Roll</th> {/* Adjusted width: 10% */}
+                                                    <th className="p-3 text-sm font-semibold text-center w-[10%]">On-Cam</th> {/* Adjusted width: 10% */}
+                                                    <th className="p-3 text-sm font-semibold text-center w-[10%]">Drone</th> {/* Adjusted width: 10% */}
+                                                    <th className="p-3 text-sm font-semibold w-[30%]">Importance</th> {/* Adjusted width: 30% */}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -319,7 +319,7 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                                                                     type="checkbox" 
                                                                     checked={inventory.bRoll || false} 
                                                                     onChange={(e) => handleInventoryChange(loc.place_id, 'bRoll', e.target.checked)} 
-                                                                    className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent appearance-none checked:bg-primary-accent checked:border-transparent" // Added appearance-none and checked styles
+                                                                    className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent appearance-none checked:bg-primary-accent checked:border-transparent cursor-pointer" // Added cursor-pointer
                                                                 />
                                                             </td>
                                                             <td className="p-3 text-center">
@@ -327,7 +327,7 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                                                                     type="checkbox" 
                                                                     checked={inventory.onCamera || false} 
                                                                     onChange={(e) => handleInventoryChange(loc.place_id, 'onCamera', e.target.checked)} 
-                                                                    className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent appearance-none checked:bg-primary-accent checked:border-transparent" // Added appearance-none and checked styles
+                                                                    className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent appearance-none checked:bg-primary-accent checked:border-transparent cursor-pointer" // Added cursor-pointer
                                                                 />
                                                             </td>
                                                             <td className="p-3 text-center">
@@ -335,21 +335,23 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                                                                     type="checkbox" 
                                                                     checked={inventory.drone || false} 
                                                                     onChange={(e) => handleInventoryChange(loc.place_id, 'drone', e.target.checked)} 
-                                                                    className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent appearance-none checked:bg-primary-accent checked:border-transparent" // Added appearance-none and checked styles
+                                                                    className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent appearance-none checked:bg-primary-accent checked:border-transparent cursor-pointer" // Added cursor-pointer
                                                                 />
                                                             </td>
                                                             <td className="p-3">
                                                                 {/* Replaced radio buttons with toggle buttons */}
-                                                                <div className="flex gap-1">
+                                                                <div className="flex gap-1 justify-center"> {/* Added justify-center for centering */}
                                                                     <button 
                                                                         onClick={() => handleInventoryChange(loc.place_id, 'importance', 'major')} 
-                                                                        className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'major' ? 'bg-primary-accent text-gray-900' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
+                                                                        className={`flex-1 text-xs px-2 py-1 rounded-md transition-colors font-semibold 
+                                                                                    ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
                                                                     >
                                                                         Major
                                                                     </button>
                                                                     <button 
                                                                         onClick={() => handleInventoryChange(loc.place_id, 'importance', 'quick')} 
-                                                                        className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
+                                                                        className={`flex-1 text-xs px-2 py-1 rounded-md transition-colors font-semibold 
+                                                                                    ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
                                                                     >
                                                                         Quick Stop
                                                                     </button>
