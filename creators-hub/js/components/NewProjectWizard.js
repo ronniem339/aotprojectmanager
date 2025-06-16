@@ -32,7 +32,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [refiningVideoIndex, setRefiningVideoIndex] = useState(null);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false); // General loading state for the wizard
-    // **FIX**: New state for keyword generation specific loading
     const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false); 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     
@@ -97,7 +96,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [locations, footageInventory]);
 
-    // **FIX**: Correctly handle toggling keywords in the array
     const handleKeywordSelection = (keyword) => {
         setSelectedKeywords(prevSelected => {
             if (prevSelected.includes(keyword)) {
@@ -110,7 +108,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
 
     const handleGenerateKeywords = useCallback(async () => {
         if (keywordIdeas.length > 0) { setStep(3); return; }
-        // **FIX**: Use isGeneratingKeywords for this specific loading
         setIsGeneratingKeywords(true); 
         setError('');
         try {
@@ -121,7 +118,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             setKeywordIdeas(keywords);
             setStep(3);
         } catch (e) { setError(`Failed to generate keywords: ${e.message}`); } finally { 
-            // **FIX**: Set isGeneratingKeywords to false here
             setIsGeneratingKeywords(false); 
         }
     }, [inputs, locations, settings, keywordIdeas]);
@@ -144,7 +140,7 @@ Context:
 - User's Targeted Keywords: ${selectedKeywords.join(', ')}
 
 Your Task:
-Generate a complete project plan as a JSON object with keys: "playlistTitleSuggestions" (array of 3 strings), "playlistDescription" (string), and "videos" (array of objects, each with title, concept, estimatedLengthMinutes, locations_featured, targeted_keywords).`;
+Generate a complete project plan as a JSON object with keys: "playlistTitleSuggestions" (array of 3 strings), "playlistDescription" (string - an initial, comprehensive description for the entire playlist, designed to be immediately usable but fully editable later), and "videos" (array of objects, each with title, concept, estimatedLengthMinutes, locations_featured, targeted_keywords).`;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
@@ -228,7 +224,6 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
     const renderWizardStep = () => {
         switch (step) {
             case 1: return <window.WizardStep1_Foundation inputs={inputs} locations={locations} coverImageUrl={coverImageUrl} settings={settings} googleMapsLoaded={googleMapsLoaded} onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} onLocationsUpdate={handleLocationsUpdate} onCoverImageUrlChange={setCoverImageUrl} />;
-            // **FIX**: Pass isGeneratingKeywords as the isLoading prop
             case 2: return <window.WizardStep2_Inventory locations={locations} footageInventory={footageInventory} onInventoryChange={handleInventoryChange} onSelectAllFootage={handleSelectAllFootage} />;
             case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
@@ -249,7 +244,6 @@ Generate a complete project plan as a JSON object with keys: "playlistTitleSugge
                 <div className="flex items-center gap-4">
                      {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
                      {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500">Next</button>}
-                     {/* **FIX**: Use isGeneratingKeywords for the button loading state as well */}
                      {step === 2 && <button onClick={handleGenerateKeywords} disabled={isGeneratingKeywords || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isGeneratingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
                      {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
                      {step === 4 && <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
