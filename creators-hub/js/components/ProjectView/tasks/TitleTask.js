@@ -79,17 +79,18 @@ Return a JSON object: {"newTitle": "..."}`;
             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-2">
                 <label className="block text-sm font-medium text-gray-300">Refine or Replace Title</label>
                  <textarea value={titleRefinement} onChange={(e) => setTitleRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make it catchier' or 'Focus on the history aspect'"/>
-                <div className="flex gap-2">
-                    <button onClick={handleRefineTitle} disabled={generating || !titleRefinement} className="px-3 py-1 text-xs bg-secondary-accent hover:bg-secondary-accent-darker rounded-md font-semibold disabled:opacity-50">Refine Current</button>
-                    <button onClick={handleGenerateSuggestions} disabled={generating} className="px-3 py-1 text-xs bg-secondary-accent hover:bg-secondary-accent-darker rounded-md font-semibold disabled:opacity-50">Get New Suggestions</button>
+                <div className="flex gap-4">
+                    {/* **FIX**: Updated button styles for consistency */}
+                    <button onClick={handleRefineTitle} disabled={generating || !titleRefinement} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Refine Current</button>
+                    <button onClick={handleGenerateSuggestions} disabled={generating} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">Get New Suggestions</button>
                 </div>
             </div>
 
             {titleSuggestions.length > 0 && (
                 <div className="space-y-2">
                     {titleSuggestions.map((title, i) => (
-                         <div key={i} onClick={() => setEditableTitle(title)} className="p-2 bg-gray-800/60 rounded-md cursor-pointer hover:bg-gray-700/60 text-center">
-                            <p className="text-white">{title}</p>
+                         <div key={i} onClick={() => setEditableTitle(title)} className="p-3 bg-gray-800/60 rounded-lg cursor-pointer hover:bg-gray-700/60 text-center">
+                            <p className="text-white font-medium">{title}</p>
                         </div>
                     ))}
                 </div>
