@@ -1,6 +1,6 @@
 // js/components/ProjectView/VideoWorkspace.js
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) => { // Added db to props
     const { useState, useEffect, useCallback } = React;
     const [openTask, setOpenTask] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -14,10 +14,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
     }, [video.id]);
 
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
+        if (!db) { // Added defensive check
+            console.error("Firestore DB not available for updateTask.");
+            return;
+        }
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         const payload = { [`tasks.${taskName}`]: status, ...extraData };
         await videoDocRef.update(payload);
-    }, [userId, project.id, video.id, appId]);
+    }, [userId, project.id, video.id, appId, db]); // Added db to dependencies
 
     const handleRevisit = (taskId) => {
         let dataToReset = {};
@@ -82,7 +86,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'thumbnailsGenerated':
                 return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
-            // **FIX**: Render the new UploadToYouTubeTask component.
+            // Render the new UploadToYouTubeTask component.
             case 'videoUploaded':
                 return <window.UploadToYouTubeTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'firstCommentGenerated':
@@ -91,6 +95,45 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                 return <p>Task component for '{task.id}' not found.</p>;
         }
     };
+
+    // NEW: Handle saving shorts ideas to Firestore
+    const handleSaveShortsIdea = useCallback(async (newIdea) => {
+        if (!db) { // Added defensive check
+            console.error("Firestore DB not available for handleSaveShortsIdea.");
+            return;
+        }
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        const currentShorts = video.shortsIdeas || [];
+        const updatedShorts = [...currentShorts, newIdea];
+        await videoDocRef.update({ shortsIdeas: updatedShorts });
+    }, [userId, project.id, video.id, appId, db, video.shortsIdeas]);
+
+    // NEW: Handle deleting shorts ideas from Firestore
+    const handleDeleteShortsIdea = useCallback(async (ideaId) => {
+        if (!db) { // Added defensive check
+            console.error("Firestore DB not available for handleDeleteShortsIdea.");
+            return;
+        }
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        const currentShorts = video.shortsIdeas || [];
+        const updatedShorts = currentShorts.filter(idea => idea.id !== ideaId);
+        await videoDocRef.update({ shortsIdeas: updatedShorts });
+    }, [userId, project.id, video.id, appId, db, video.shortsIdeas]);
+
+    // NEW: Handle generating and saving metadata for a shorts idea
+    const handleGenerateShortsMetadata = useCallback(async (ideaId, metadata) => {
+        if (!db) { // Added defensive check
+            console.error("Firestore DB not available for handleGenerateShortsMetadata.");
+            return;
+        }
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        const currentShorts = video.shortsIdeas || [];
+        const updatedShorts = currentShorts.map(idea => 
+            idea.id === ideaId ? { ...idea, metadata: metadata } : idea
+        );
+        await videoDocRef.update({ shortsIdeas: updatedShorts });
+    }, [userId, project.id, video.id, appId, db, video.shortsIdeas]);
+
 
     return (
         <main className="flex-grow">
@@ -127,13 +170,16 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
                     );
                 })}
             </div>
-            {/* NEW: Render ShortsIdeasToolModal */}
-            {showShortsIdeasModal && (
+            {/* NEW: Render ShortsIdeasToolModal ONLY if db is available */}
+            {showShortsIdeasModal && db && (
                 <window.ShortsIdeasToolModal
                     video={video}
                     project={project}
                     settings={settings}
                     onClose={() => setShowShortsIdeasModal(false)}
+                    onSaveShortsIdea={handleSaveShortsIdea} 
+                    onDeleteShortsIdea={handleDeleteShortsIdea} 
+                    onGenerateShortsMetadata={handleGenerateShortsMetadata} 
                 />
             )}
         </main>
