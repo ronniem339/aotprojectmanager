@@ -33,10 +33,15 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const handleGenerate = async () => {
         setGenerating(true);
         setError('');
+
+        const thumbnailIdeasKb = settings.knowledgeBases?.youtube?.thumbnailIdeas || 'Create high-contrast, clear, and emotionally compelling thumbnails with bold, minimal text and bright colors to draw the eye. It must visually represent the title\'s promise.';
+
         const prompt = `Act as a YouTube thumbnail expert. Based on the video script, title, and previously rejected concepts, generate 5 new, distinct thumbnail concepts.
 Video Title: "${video.chosenTitle}"
 Video Script Summary: "${video.concept}"
 Rejected Concepts to Avoid: ${rejected.map(c => `"${c.textOverlay}"`).join(', ')}
+YouTube Thumbnail Guidelines: "${thumbnailIdeasKb}"
+
 Your response MUST be a valid JSON object with one key "thumbnailConcepts" containing an array of 5 structured objects: {"imageSuggestion": "string", "textOverlay": "string"}.`;
         
         try {
