@@ -37,9 +37,7 @@ window.aiUtils = {
         const result = await response.json();
         // Ensure the response is parsed as JSON. If the API returns raw text unexpectedly, this might fail.
         try {
-            // The API response for JSON might be returned as a string that needs to be parsed.
-            const responseText = result.candidates[0].content.parts[0].text;
-            return JSON.parse(responseText);
+            return JSON.parse(result.candidates[0].content.parts[0].text);
         } catch (e) {
             console.error("Failed to parse AI response as JSON:", result.candidates[0].content.parts[0].text, e);
             throw new Error("AI response was not valid JSON.");
@@ -64,12 +62,13 @@ window.aiUtils = {
             ? currentLocations.map(loc => `- ${loc.name}`).join('\n')
             : 'No specific locations added yet.';
 
-        const prompt = `You are a creative travel planner and content idea generator. Your task is to suggest new, relevant points of interest for a video project focusing on "${mainLocationName}".
+        // Updated prompt to request "up to 50" points of interest and emphasize providing as many as possible
+        const prompt = `You are a creative travel planner and content idea generator. Your task is to suggest as many relevant *new and distinct* points of interest as possible, up to 50, for a video project focusing on "${mainLocationName}".
 
 Consider the following existing locations already planned for the project:
 ${currentLocationsList}
 
-Please suggest 3-5 *new and distinct* points of interest that would be excellent additions to a video about "${mainLocationName}". For each suggestion, provide:
+For each suggestion, provide:
 -   A concise name for the location.
 -   A brief, engaging description (1-2 sentences) explaining why it's a good filming location or a key point of interest for content.
 
@@ -135,7 +134,7 @@ Example JSON response:
 Video Title: "${videoTitle}"
 Video Concept/Summary: "${videoConcept}"
 
-Creator Persona (Who AmI): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 
 Featured Locations (and their available footage from project inventory):
