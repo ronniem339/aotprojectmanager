@@ -1,11 +1,12 @@
 // js/components/KnowledgeBaseView.js
 
 window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
+    const { useState, useEffect } = React;
     const [activeCategory, setActiveCategory] = useState('youtube'); // 'youtube' or 'blog'
     // Local state for all knowledge bases, reflecting the nested structure
     const [localKnowledgeBases, setLocalKnowledgeBases] = useState(settings.knowledgeBases || {
         youtube: {
-            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
+            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
             firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: ''
         },
         blog: {
@@ -15,14 +16,21 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
 
     // Sync local state with props when settings change
     useEffect(() => {
-        setLocalKnowledgeBases(settings.knowledgeBases || {
-            youtube: {
-                whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
-                firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: ''
-            },
-            blog: {
-                postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: ''
-            }
+        // Ensure the full structure exists when syncing from settings
+        const currentSettings = settings.knowledgeBases || {};
+        const fullYoutubeKbs = {
+            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
+            firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: '',
+            ...currentSettings.youtube
+        };
+        const fullBlogKbs = {
+            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+            ...currentSettings.blog
+        };
+
+        setLocalKnowledgeBases({
+            youtube: fullYoutubeKbs,
+            blog: fullBlogKbs
         });
     }, [settings.knowledgeBases]);
 
@@ -47,6 +55,8 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         { id: 'whoAmI', title: 'Who Am I', description: 'Describe your persona, brand voice, and unique perspective.', placeholder: 'e.g., "I am an adventurous travel vlogger focusing on hidden gems and authentic experiences, with a friendly and informative tone."'},
         { id: 'videoTitles', title: 'YouTube Video Titles', description: 'Best practices and specific rules for crafting engaging video titles.', placeholder: 'e.g., "Titles should be under 70 characters. Use strong verbs. Include numbers where applicable."'},
         { id: 'videoDescriptions', title: 'YouTube Video Descriptions', description: 'Guidelines for writing SEO-rich descriptions.', placeholder: 'e.g., "Always include a strong hook in the first 3 lines. Utilize keywords naturally throughout the description."'},
+        // **NEW**: Added YouTube Tags knowledge base
+        { id: 'videoTags', title: 'YouTube Tags', description: 'Best practices for creating a comprehensive list of SEO tags.', placeholder: 'e.g., "Include a mix of broad and specific long-tail keywords. The first tag should be the main target keyword."'},
         { id: 'thumbnailIdeas', title: 'YouTube Thumbnail Ideas', description: 'Principles for creating high-CTR thumbnails.', placeholder: 'e.g., "High contrast colors, clear subject, minimal text, strong emotions."'},
         { id: 'firstPinnedCommentExpert', title: 'First Pinned Comment Expert', description: 'Advice for crafting engaging first comments to boost interaction.', placeholder: 'e.g., "Ask an open-ended question. Include a call to action to subscribe."'},
         { id: 'shortsIdeaGeneration', title: 'YouTube Shorts Ideas', description: 'Strategies for viral short-form video concepts.', placeholder: 'e.g., "Focus on quick hooks. Use trending sounds and challenges."'},
@@ -94,7 +104,7 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
                         <p className="text-gray-400 text-sm mb-4">{kb.description}</p>
                         <textarea
                             name={kb.id}
-                            value={localKnowledgeBases[activeCategory][kb.id] || ''}
+                            value={localKnowledgeBases[activeCategory]?.[kb.id] || ''}
                             onChange={(e) => handleChange(activeCategory, kb.id, e.target.value)}
                             rows="8"
                             className="w-full form-textarea leading-relaxed"
