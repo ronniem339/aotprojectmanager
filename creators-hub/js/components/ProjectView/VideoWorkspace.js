@@ -20,7 +20,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
         let dataToReset = {};
         switch (taskId) {
             case 'scripting':
-                dataToReset = { script: '' };
+                // Resetting scripting task now also resets the stage and related data
+                dataToReset = { script: '', 'tasks.scriptingStage': 'pending', 'tasks.scriptPlan': '', 'tasks.locationQuestions': [], 'tasks.userExperiences': {}, 'tasks.generalFeedback': '' };
                 break;
             case 'videoEdited':
                 dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
@@ -64,7 +65,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
 
         switch (task.id) {
             case 'scripting':
-                return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                // Pass userId and project to ScriptingTask
+                return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} />;
             case 'videoEdited':
                 return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'titleGenerated':
@@ -93,7 +95,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId }) => {
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
                     let status = video.tasks?.[task.id] || 'pending';
-                    if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
+                    // The scripting task might have its own 'in-progress' logic from stages, not just 'pending'
+                    if (task.id === 'scripting' && video.tasks?.scriptingStage && video.tasks.scriptingStage !== 'pending' && video.tasks.scriptingStage !== 'complete') {
+                        status = 'in-progress';
+                    } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
                         status = 'in-progress';
                     }
                     const locked = isTaskLocked(index);
