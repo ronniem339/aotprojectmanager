@@ -34,8 +34,6 @@
     
     <!-- 
       Our Application Logic (Split into modules)
-      The 'type="text/babel"' attribute is crucial.
-      The order is very important! 
     -->
     <script src="js/config.js" type="text/babel"></script>
     <script src="js/auth.js" type="text/babel"></script>
@@ -62,9 +60,11 @@
     <!-- REFACTORED TASK COMPONENTS -->
     <script src="js/components/ProjectView/tasks/SimpleConfirmationTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/ScriptingTask.js" type="text/babel"></script>
-    <!-- **FIX**: Removed LogChangesTask.js -->
-    <script src="js/components/ProjectView/tasks/EditVideoTask.js" type="text/babel"></script> <!-- **FIX**: Added new EditVideoTask.js -->
-    <script src="js/components/ProjectView/tasks/MetadataTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/EditVideoTask.js" type="text/babel"></script>
+    <!-- **FIX**: Replaced MetadataTask with the new granular components -->
+    <script src="js/components/ProjectView/tasks/TitleTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/DescriptionTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/ChaptersTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/ThumbnailTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/FirstCommentTask.js" type="text/babel"></script>
     
