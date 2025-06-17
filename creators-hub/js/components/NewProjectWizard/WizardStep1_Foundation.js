@@ -8,12 +8,15 @@ window.WizardStep1_Foundation = ({
     googleMapsLoaded,
     onInputChange,
     onLocationsUpdate,
-    onCoverImageUrlChange
+    onCoverImageUrlChange,
+    onCoverImageFileChange // New prop for file handling
 }) => {
-    const { useState } = React;
+    const { useState, useRef } = React;
     const [aiLocationSuggestions, setAiLocationSuggestions] = useState([]);
     const [isFindingPois, setIsFindingPois] = useState(false);
     const [poiError, setPoiError] = useState('');
+    const [imagePreview, setImagePreview] = useState(null); // State for local image preview
+    const fileInputRef = useRef(null);
 
     /**
      * Helper function to determine if a location
@@ -21,11 +24,9 @@ window.WizardStep1_Foundation = ({
      */
     const determineDefaultImportance = (types) => {
         const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
-        // If the location's types include any of the major types, it's a 'major' feature.
         if (types.some(type => majorTypes.includes(type))) {
             return 'major';
         }
-        // Otherwise, it's a smaller point of interest and should default to 'quick'.
         return 'quick';
     };
 
@@ -38,16 +39,14 @@ window.WizardStep1_Foundation = ({
         setIsFindingPois(true);
         setPoiError('');
         try {
-            // FIX: Pass arguments as a single object as expected by aiUtils.findPointsOfInterestAI
             const points = await window.aiUtils.findPointsOfInterestAI({
                 mainLocationName: mainLocation.name,
-                currentLocations: locations, // Pass all current locations for better AI context
-                apiKey: settings.geminiApiKey // Ensure API key is correctly passed
+                currentLocations: locations,
+                apiKey: settings.geminiApiKey
             });
             
-            // Filter out suggestions that are already in the locations list
             const existingNames = locations.map(l => l.name.toLowerCase());
-            const newSuggestions = points.filter(p => !existingNames.includes(p.name.toLowerCase())); // Note: p.name now as it's an object
+            const newSuggestions = points.filter(p => !existingNames.includes(p.name.toLowerCase()));
             setAiLocationSuggestions(newSuggestions);
         } catch (e) {
             setPoiError(`AI failed to find locations: ${e.message}`);
@@ -56,18 +55,17 @@ window.WizardStep1_Foundation = ({
         }
     };
 
-    const handleSelectAiLocation = (suggestedLocation) => { // Now receives an object
+    const handleSelectAiLocation = (suggestedLocation) => {
         if (!window.google?.maps?.Geocoder) {
             setPoiError("Google Maps service is not available.");
             return;
         }
         const geocoder = new window.google.maps.Geocoder();
-        // Use the suggestedLocation.name for geocoding
         geocoder.geocode({ 'address': `${suggestedLocation.name}, ${locations[0].name}` }, (results, status) => {
             if (status === 'OK' && results[0]) {
                 const place = results[0];
                 const newLocation = {
-                    name: suggestedLocation.name, // Use the suggested name
+                    name: suggestedLocation.name,
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
@@ -76,13 +74,31 @@ window.WizardStep1_Foundation = ({
                 };
                 if (!locations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsUpdate([...locations, newLocation]);
-                    setAiLocationSuggestions(prev => prev.filter(sug => sug.name !== suggestedLocation.name)); // Filter by object.name
+                    setAiLocationSuggestions(prev => prev.filter(sug => sug.name !== suggestedLocation.name));
                 }
             } else {
                 setPoiError(`Could not find details for "${suggestedLocation.name}". Please add it manually.`);
             }
         });
     };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            onCoverImageFileChange(file); // Pass file to parent
+            setImagePreview(URL.createObjectURL(file)); // Create local preview
+            onCoverImageUrlChange(''); // Clear the URL input if a file is chosen
+        }
+    };
+    
+    const handleUrlChange = (e) => {
+        onCoverImageUrlChange(e.target.value);
+        if (e.target.value) {
+            onCoverImageFileChange(null); // Clear file if URL is entered
+            setImagePreview(null);
+        }
+    };
+
 
     return (
         <div className="max-h-[70vh] overflow-y-auto pr-4">
@@ -106,11 +122,11 @@ window.WizardStep1_Foundation = ({
                             <div className="mt-4 pt-4 border-t border-gray-700/50">
                                 <h4 className="text-sm font-semibold text-gray-300 mb-2">AI Suggestions:</h4>
                                 <div className="flex flex-wrap gap-2">
-                                    {aiLocationSuggestions.map(suggestion => ( // Loop over objects, not just names
+                                    {aiLocationSuggestions.map(suggestion => (
                                         <button
-                                            key={suggestion.name} // Use name for key
+                                            key={suggestion.name}
                                             onClick={() => handleSelectAiLocation(suggestion)}
-                                            title={suggestion.description} // Show description on hover
+                                            title={suggestion.description}
                                             className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded-full font-medium"
                                         >
                                             + {suggestion.name}
@@ -127,8 +143,27 @@ window.WizardStep1_Foundation = ({
                     <textarea name="theme" value={inputs.theme} onChange={(e) => onInputChange('theme', e.target.value)} placeholder="e.g., 'Exploring ancient castles and misty lochs'" rows="3" className="w-full form-textarea"></textarea>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Cover Image URL (Optional)</label>
-                    <input type="url" value={coverImageUrl} onChange={(e) => onCoverImageUrlChange(e.target.value)} className="w-full form-input" placeholder="Paste image URL here (e.g., from Unsplash)" />
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Cover Image (Optional)</label>
+                    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
+                        <input type="url" value={coverImageUrl} onChange={handleUrlChange} className="w-full form-input" placeholder="Paste image URL here (e.g., from Unsplash)" />
+                        
+                        <div className="flex items-center justify-center text-gray-400">
+                            <span className="flex-grow border-t border-gray-700"></span>
+                            <span className="px-4">OR</span>
+                            <span className="flex-grow border-t border-gray-700"></span>
+                        </div>
+
+                        <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" ref={fileInputRef} />
+                        <button onClick={() => fileInputRef.current.click()} className="w-full px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
+                            Upload Image
+                        </button>
+                        
+                        {(imagePreview || coverImageUrl) && (
+                            <div className="mt-2 text-center">
+                                <window.ImageComponent src={imagePreview || coverImageUrl} alt="Project Cover Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: '150px', objectFit: 'cover' }} />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
