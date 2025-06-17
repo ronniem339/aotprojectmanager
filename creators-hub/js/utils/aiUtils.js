@@ -43,6 +43,61 @@ window.aiUtils = {
             throw new Error("AI response was not valid JSON.");
         }
     },
+    
+    // NEW: Function to generate blog post ideas
+    generateBlogPostIdeasAI: async ({ destination, coreSeoEngine, ideaGenerationKb, apiKey }) => {
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+
+        const prompt = `You are an expert SEO and content strategist for a travel blog. Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".
+
+You MUST adhere to the following foundational knowledge bases for all generated content:
+---
+**Core SEO & Content Engine:**
+${coreSeoEngine || "Focus on user intent and long-tail keywords."}
+---
+**Blog Post Idea Generation Framework:**
+${ideaGenerationKb || "Generate ideas for different content types like guides, listicles, and comparison posts."}
+---
+
+For each idea, provide the following in a valid JSON object:
+- "title": (string) A catchy, SEO-friendly headline.
+- "description": (string) A brief (1-2 sentence) summary of the post's content and target audience.
+- "primaryKeyword": (string) The main search term this post should rank for.
+- "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
+
+Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.
+Example:
+{
+  "ideas": [
+    {
+      "title": "The Ultimate 3-Day Itinerary for First-Timers in ${destination}",
+      "description": "A comprehensive guide detailing the perfect long weekend in ${destination}, covering top attractions, food, and logistics. Ideal for travelers planning their first visit.",
+      "primaryKeyword": "3 days in ${destination}",
+      "postType": "Destination Guide"
+    },
+    {
+      "title": "10 Hidden Gems in ${destination} The Locals Don't Want You to Know About",
+      "description": "An exciting listicle that reveals unique, off-the-beaten-path spots, perfect for experienced travelers looking for authentic experiences.",
+      "primaryKeyword": "hidden gems ${destination}",
+      "postType": "Listicle Post"
+    }
+  ]
+}`;
+        
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            if (parsedJson && Array.isArray(parsedJson.ideas)) {
+                return parsedJson.ideas;
+            } else {
+                throw new Error("AI returned an invalid format for blog post ideas.");
+            }
+        } catch (error) {
+            console.error("Error generating blog post ideas:", error);
+            throw new Error(`AI failed to generate ideas: ${error.message || error}`);
+        }
+    },
 
     /**
      * Finds points of interest using AI based on a main location and current locations.
