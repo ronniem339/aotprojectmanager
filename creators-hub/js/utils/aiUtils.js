@@ -202,7 +202,7 @@ Draft Outline / Concept:
 ${videoConcept}
 ---
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Persona (Who AmI): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 Featured Locations & Available Footage:
 ${locationsDetail || 'No specific featured locations listed.'}
@@ -287,7 +287,7 @@ Current Script:
 ${currentScript}
 ---
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Persona (Who AmI): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 
 User's Refinement Instructions:
@@ -296,6 +296,48 @@ ${refinementInstructions}
 ---
 
 Please apply the user's instructions to the script. The output should be **only the revised spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions, or any text that isn't part of the dialogue. If the instructions are unclear or unfeasible, make your best judgment to improve the script.
+`;
+
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "text/plain" }
+        };
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err?.error?.message || 'API Error');
+        }
+        const result = await response.json();
+        return result.candidates[0].content.parts[0].text;
+    },
+
+    refineScriptPlanAI: async ({ currentScriptPlan, refinementInstructions, whoAmI, styleGuideText, apiKey }) => {
+        // This new function refines an existing script plan based on user's natural language instructions.
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+
+        const prompt = `You are a professional YouTube video script planner and editor. Your task is to refine the provided video script outline (plan) based on the user's instructions.
+
+Current Script Outline:
+---
+${currentScriptPlan}
+---
+
+Creator Persona (Who AmI): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+
+User's Refinement Instructions:
+---
+${refinementInstructions}
+---
+
+Please apply the user's instructions to the script outline. The output should be **only the revised script outline text**. Maintain the outline format (e.g., Introduction, Main Segments, Conclusion with bullet points). If the instructions are unclear or unfeasible, make your best judgment to improve the outline.
 `;
 
         const payload = {
@@ -462,8 +504,8 @@ Based on these changes, how should the video concept be updated? Provide only th
             const err = await response.json();
             throw new Error(err?.error?.message || 'API Error');
         }
-        const result = await response.json();
-        return result.candidates[0].content.parts[0].text;
+        const result = await response.candidates[0].content.parts[0].text;
+        return result;
     },
 
     generateShortsIdeasAI: async ({
@@ -510,7 +552,7 @@ ${featuredLocationsDetail || 'No specific locations featured in this video.'}
 Overall Project Context:
 - Project/Series Title: "${projectTitle}"
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Persona (Who AmI): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 YouTube Shorts Ideas Knowledge Base: "${shortsIdeaGenerationKb || 'Focus on quick hooks, trending sounds, and challenges. Keep it concise.'}"
 
@@ -567,7 +609,7 @@ Shorts Idea:
 - Concept: "${shortsIdea.description}"
 - Footage Suggestion: "${shortsIdea.footageToUse}"
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Persona (Who AmI): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
 Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 
 Your task is to generate:
