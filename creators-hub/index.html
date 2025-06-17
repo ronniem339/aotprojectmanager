@@ -3,90 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AOT-PM</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#00bfff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="CreatorsHub">
-    <link rel="apple-touch-icon" href="icons/AOT-lg.png">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Creator's Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
 <body>
     <div id="root"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-storage-compat.js"></script>
+
+    <!-- App Config and Auth -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
     
-    <script src="js/config.js" type="text/babel"></script>
-    <script src="js/auth.js" type="text/babel"></script>
+    <!-- AI Utility Scripts -->
+    <script src="js/utils/ai/core.js" type="text/babel"></script>
+    <script src="js/utils/ai/projectWizard.js" type="text/babel"></script>
+    <script src="js/utils/ai/youtube.js" type="text/babel"></script>
+    <script src="js/utils/ai/blog.js" type="text/babel"></script>
+    <script src="js/utils/ai/import.js" type="text/babel"></script>
+
+    <!-- Common Components -->
     <script src="js/components/common.js" type="text/babel"></script>
-    <script src="js/utils/aiUtils.js" type="text/babel"></script> 
-    
-    <script src="js/components/NewProjectWizard/WizardStep_AIParse.js" type="text/babel"></script>
+
+    <!-- Main App Components -->
+    <script src="js/components/SettingsMenu.js" type="text/babel"></script>
+    <script src="js/components/Dashboard.js" type="text/babel"></script>
+    <script src="js/components/ProjectSelection.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep1_Foundation.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep2_Inventory.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep3_Keywords.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep4_Title.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep5_Description.js" type="text/babel"></script>
+    <script src="js/components/NewProjectWizard/WizardStep_AIParse.js" type="text/babel"></script>
     <script src="js/components/NewProjectWizard/WizardStep6_Review.js" type="text/babel"></script>
-    
     <script src="js/components/NewProjectWizard.js" type="text/babel"></script>
-    
-    <script src="js/components/Dashboard.js" type="text/babel"></script>
-    <script src="js/components/SettingsMenu.js" type="text/babel"></script> 
-    <script src="js/components/WordpressSettings.js" type="text/babel"></script>
-    <script src="js/components/TechnicalSettingsView.js" type="text/babel"></script> 
-    <script src="js/components/MyStudioView.js" type="text/babel"></script>
-    <script src="js/components/ProjectSelection.js" type="text/babel"></script>
-    <script src="js/components/ImportProjectView.js" type="text/babel"></script>
-    <script src="js/components/KnowledgeBaseView.js" type="text/babel"></script> 
-
-    <script src="js/components/ToolsView.js" type="text/babel"></script>
-    <script src="js/components/BlogIdeasDashboard.js" type="text/babel"></script>
-    <script src="js/components/BlogTool.js" type="text/babel"></script>
-    <script src="js/components/ShortsTool.js" type="text/babel"></script>
-    <script src="js/components/ContentLibrary.js" type="text/babel"></script>
-
     <script src="js/components/ProjectView/ProjectHeader.js" type="text/babel"></script>
     <script src="js/components/ProjectView/VideoList.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/EditProjectModal.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/VideoModal.js" type="text/babel"></script> 
-    <script src="js/components/ProjectView/FullScreenScriptView.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/VideoDetailsSidebar.js" type="text/babel"></script> 
     <script src="js/components/ProjectView/tasks/SimpleConfirmationTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/ScriptingTask.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/tasks/EditVideoTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/TitleTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/DescriptionTask.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/tasks/ChaptersTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/TagsTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/ChaptersTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/ThumbnailTask.js" type="text/babel"></script>
-    <script src="js/components/ProjectView/tasks/UploadToYouTubeTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/tasks/FirstCommentTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/EditVideoTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/LogChangesTask.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/tasks/UploadToYouTubeTask.js" type="text/babel"></script>
     <script src="js/components/ProjectView/VideoWorkspace.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/VideoDetailsSidebar.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/EditProjectModal.js" type="text/babel"></script>
+    <script src="js/components/ProjectView/EditVideoModal.js" type="text/babel"></script>
     <script src="js/components/ProjectView/ManageFootageModal.js" type="text/babel"></script>
-    <script src="js/components/ProjectView.js" type="text/babel"></script>
-
     <script src="js/components/ProjectView/ShortsIdeasToolModal.js" type="text/babel"></script>
+    <script src="js/components/ProjectView.js" type="text/babel"></script>
+    <script src="js/components/TechnicalSettingsView.js" type="text/babel"></script>
+    <script src="js/components/WordpressSettings.js" type="text/babel"></script>
+    <script src="js/components/KnowledgeBaseView.js" type="text/babel"></script>
+    <script src="js/components/ContentLibrary.js" type="text/babel"></script>
+    <script src="js/components/ImportProjectView.js" type="text/babel"></script>
+    <script src="js/components/MyStudioView.js" type="text/babel"></script>
+    <script src="js/components/ToolsView.js" type="text/babel"></script>
+    <script src="js/components/BlogTool.js" type="text/babel"></script>
+    <script src="js/components/ShortsTool.js" type="text/babel"></script>
+    <script src="js/components/BlogIdeasDashboard.js" type="text/babel"></script>
+    <script src="js/components/NewVideoWizard/WizardStep_AIParse.js" type="text/babel"></script>
     <script src="js/components/NewVideoWizardModal.js" type="text/babel"></script>
-
-
+    <script src="js/components/ProjectView/FullScreenScriptView.js" type="text/babel"></script>
+    <script src="js/components/ScriptPlanModal.js" type="text/babel"></script>
+    
+    <!-- Main App -->
     <script src="js/app.js" type="text/babel"></script>
+
 </body>
 </html>
