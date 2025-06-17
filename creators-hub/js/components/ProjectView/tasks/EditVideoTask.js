@@ -1,195 +1,121 @@
-// js/components/ProjectView/tasks/EditVideoTask.js
-
-window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings }) => {
+window.EditVideoTask = ({ video, onUpdate, onCompletion, settings }) => {
     const { useState, useEffect } = React;
-
-    const [musicTrack, setMusicTrack] = useState('');
+    const [editedScript, setEditedScript] = useState('');
     const [changeLog, setChangeLog] = useState('');
-    const [showLogChanges, setShowLogChanges] = useState(false);
-    const [generatingScript, setGeneratingScript] = useState(false);
-    const [updatedScript, setUpdatedScript] = useState(null); // To hold the AI-rewritten script
-    const [error, setError] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // Sync local state with data from Firestore
     useEffect(() => {
-        setMusicTrack(video.tasks?.musicTrack || '');
-        setChangeLog(video.tasks?.feedbackText || '');
-        setUpdatedScript(null); // Reset updated script when video changes
-        setError('');
-        // If the task is already in progress but logging isn't shown, reset the flag
-        if (video.tasks?.videoEdited === 'in-progress') {
-            setShowLogChanges(false);
-        }
-    }, [video.id, video.tasks]);
-
-    const handleStartEditing = () => {
-        onUpdateTask('videoEdited', 'in-progress');
-    };
-    
-    const handleSaveMusic = () => {
-        // This just saves the text, doesn't complete the task
-        onUpdateTask('videoEdited', 'in-progress', { 'tasks.musicTrack': musicTrack });
-    };
-
-    const handleConfirmAndLog = () => {
-        setShowLogChanges(true);
-    };
+        // We track the edited script separately from the main video script
+        // until the user explicitly saves it.
+        setEditedScript(video.script || '');
+    }, [video.script]);
 
     const handleGenerateUpdatedScript = async () => {
-        if (!changeLog) return;
-        setGeneratingScript(true);
-        setError('');
+        if (!changeLog.trim()) {
+            alert("Please describe the changes you want to make.");
+            return;
+        }
+        setIsGenerating(true);
+        const apiKey = settings.geminiApiKey;
 
-        const prompt = `You are a script editor. A user has provided an original video script and a description of changes they made during the video editing process.
-Your task is to rewrite the original script to reflect these changes.
+        let model = settings.geminiFlashModelName || 'gemini-1.5-flash-latest';
+        const taskType = 'generateUpdatedScript';
+        if (settings.useProModel && window.CREATOR_HUB_CONFIG.PRO_MODEL_TASKS.includes(taskType)) {
+            model = settings.geminiProModelName || 'gemini-1.5-pro-latest';
+        }
 
-Original Script:
----
-${video.script}
----
+        const prompt = `
+        Original Script:
+        ---
+        ${video.script}
+        ---
+        Requested Changes: "${changeLog}"
 
-Changes Described by User: "${changeLog}"
+        Please rewrite the original script to incorporate the requested changes. Maintain the original tone and style unless specified otherwise in the request.
+        Return ONLY the full, rewritten script as plain text. Do not include any other commentary or JSON formatting.
+        `;
 
-IMPORTANT: Please provide only the complete, rewritten, raw text script as your response. Do not include any extra commentary, titles, or explanations. The output should be only the spoken dialogue, without visual cues, ready to be used as the new official script.`;
-        
         try {
             const payload = {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig: { responseMimeType: "text/plain" }
             };
-            const apiKey = settings.geminiApiKey;
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err?.error?.message || 'API Error');
+                 const errorBody = await response.text();
+                 throw new Error(`API Error: ${errorBody}`);
             }
+
             const result = await response.json();
-            setUpdatedScript(result.candidates[0].content.parts[0].text);
+            const newScript = result.candidates[0].content.parts[0].text;
+            setEditedScript(newScript);
+
         } catch (err) {
-            console.error("Error generating updated script:", err);
-            setError(`Failed to update script: ${err.message}`);
+            console.error(err);
+            alert("Failed to generate updated script. Check console for details.");
         } finally {
-            setGeneratingScript(false);
+            setIsGenerating(false);
         }
     };
     
-    const handleSaveUpdatedScriptAndComplete = () => {
-        if (!updatedScript) return;
-        onUpdateTask('videoEdited', 'complete', { 
-            'script': updatedScript, // Overwrite the old script
-            'tasks.feedbackText': changeLog // Save the log for reference
+    const handleSave = () => {
+         onUpdate({
+            ...video,
+            script: editedScript,
+            // Log the change request for history
+            editHistory: [
+                ...(video.editHistory || []),
+                { request: changeLog, timestamp: new Date().toISOString() }
+            ]
         });
+        alert("Script updated!");
     };
 
-    const handleNoChanges = () => {
-        onUpdateTask('videoEdited', 'complete', { 'tasks.feedbackText': 'No changes made from the original plan.' });
+    const handleComplete = () => {
+        handleSave();
+        onCompletion(video.id, 'edit', { script: editedScript });
     };
 
-    const status = video.tasks?.videoEdited || 'pending';
-
-    // -- RENDER LOGIC --
-
-    if (isLocked) {
-        return <p className="text-gray-400 text-center py-2 text-sm">Please complete previous steps to begin editing.</p>;
-    }
-
-    if (status === 'complete') {
-        return (
+    return (
+        <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+            <h3 className="text-lg font-bold">Edit Video Script</h3>
+            <div className="p-4 bg-gray-900 rounded-md">
+                <h4 className="font-semibold text-gray-300">Current Script (for reference)</h4>
+                <pre className="text-xs text-gray-400 whitespace-pre-wrap max-h-40 overflow-y-auto font-mono mt-2 p-2 bg-black rounded">
+                    {video.script || "No script available."}
+                </pre>
+            </div>
             <div>
-                <p className="text-gray-400 text-center py-2 text-sm">This task is marked as complete.</p>
-                <div className="mt-2 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                    <h4 className="font-semibold text-gray-300 mb-1">Selected Music:</h4>
-                    <p className="text-gray-400 text-sm italic">{video.tasks?.musicTrack || 'Not specified.'}</p>
-                    <h4 className="font-semibold text-gray-300 mt-3 mb-1">Change Log:</h4>
-                    <p className="text-gray-400 text-sm whitespace-pre-wrap">{video.tasks?.feedbackText || 'No changes were logged.'}</p>
-                </div>
+                <label className="block text-sm font-medium mb-1">Describe Changes</label>
+                <textarea
+                    value={changeLog}
+                    onChange={(e) => setChangeLog(e.target.value)}
+                    rows="3"
+                    className="form-textarea w-full bg-gray-700"
+                    placeholder="e.g., 'Cut the intro in half', 'Add a joke about alpacas in the second paragraph', 'Rewrite the conclusion to be more energetic.'"
+                />
             </div>
-        );
-    }
-    
-    if (status === 'pending') {
-        return (
-            <button onClick={handleStartEditing} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold">
-                Start Editing
+            <button onClick={handleGenerateUpdatedScript} disabled={isGenerating || !changeLog.trim()} className="btn-secondary w-full">
+                {isGenerating ? 'Generating New Script...' : 'Generate New Script with AI'}
             </button>
-        );
-    }
-    
-    if (status === 'in-progress' && !showLogChanges) {
-        return (
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Background Music (Placeholder)</label>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            value={musicTrack}
-                            onChange={(e) => setMusicTrack(e.target.value)}
-                            className="w-full form-input" 
-                            placeholder="e.g., Suno AI - 'Cinematic Travel Vlog'"
-                        />
-                        <button onClick={handleSaveMusic} className="px-4 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">Save</button>
-                    </div>
-                     <p className="text-xs text-gray-500 mt-1">Note the name or link of your chosen audio track here.</p>
-                </div>
-                <div className="pt-4 border-t border-gray-700 text-center">
-                    <button onClick={handleConfirmAndLog} className="w-full max-w-sm mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">
-                        Confirm Edit is Complete & Log Changes
-                    </button>
-                </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">Proposed New Script</label>
+                <textarea
+                    value={editedScript}
+                    onChange={(e) => setEditedScript(e.target.value)}
+                    rows="10"
+                    className="form-textarea w-full bg-gray-700 font-mono text-sm"
+                    placeholder="The AI-generated script will appear here."
+                />
             </div>
-        );
-    }
-
-    if (status === 'in-progress' && showLogChanges) {
-        return (
-            <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-amber-400">Log any changes from the original plan</h3>
-                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                     <h4 className="font-semibold text-gray-300 mb-1">Original Script:</h4>
-                     <textarea readOnly value={video.script} rows="8" className="w-full form-textarea bg-gray-800/80 cursor-not-allowed" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Describe Changes Made During Editing</label>
-                    <textarea 
-                        value={changeLog}
-                        onChange={(e) => setChangeLog(e.target.value)}
-                        rows="4" 
-                        className="w-full form-textarea" 
-                        placeholder="e.g., 'Removed the intro section and started directly with the hook. Combined the two final locations into one segment.'"
-                    />
-                </div>
-
-                {/* --- AI Script Update UI --- */}
-                {updatedScript ? (
-                    <div className="p-4 bg-green-900/20 rounded-lg border border-green-500">
-                        <h4 className="font-semibold text-green-400 mb-2">Proposed Updated Script:</h4>
-                        <textarea readOnly value={updatedScript} rows="8" className="w-full form-textarea bg-gray-800/80" />
-                        <div className="mt-4 text-right">
-                            <button onClick={handleSaveUpdatedScriptAndComplete} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">
-                                Save Updated Script & Complete Task
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                     <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-700">
-                        <button onClick={handleNoChanges} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
-                            No Changes Were Made
-                        </button>
-                        <button onClick={handleGenerateUpdatedScript} disabled={!changeLog || generatingScript} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                            {generatingScript ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Updated Script'}
-                        </button>
-                    </div>
-                )}
-                 {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
-            </div>
-        );
-    }
-
-    return null; // Fallback
+            <button onClick={handleSave} className="btn-primary w-full">Save Updated Script</button>
+             <button onClick={handleComplete} className="btn-primary w-full bg-green-700 hover:bg-green-800">Mark as Complete</button>
+        </div>
+    );
 };
