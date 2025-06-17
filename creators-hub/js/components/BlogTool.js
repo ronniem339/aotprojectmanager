@@ -123,14 +123,14 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
         return (
              <div className="p-8">
                 <header className="flex justify-between items-center mb-8">
-                    <h1 className="text-4xl font-bold text-white">統 Blog Content Tool</h1>
+                    <h1 className="text-4xl font-bold text-white">✍️ Blog Content Tool</h1>
                     <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         Back to Tools
                     </button>
                 </header>
                 <div className="glass-card p-12 rounded-lg text-center flex flex-col items-center">
-                    <span className="text-5xl mb-4">伯</span>
+                    <span className="text-5xl mb-4">🔌</span>
                     <h2 className="text-2xl font-bold text-amber-400">WordPress Not Connected</h2>
                     <p className="text-gray-300 mt-2 max-w-md">To use the Blog Tool, you first need to connect your WordPress site in the settings.</p>
                     <button onClick={onNavigateToSettings} className="mt-6 px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold transition-colors">Go to Technical Settings</button>
@@ -170,7 +170,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
     return (
         <div className="p-8">
             <header className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold text-white">統 Blog Content Tool</h1>
+                <h1 className="text-4xl font-bold text-white">✍️ Blog Content Tool</h1>
                 <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     Back to Tools
@@ -191,7 +191,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
                         <div className="md:col-span-2">{renderGenerationSourceInput()}</div>
                         <div>
                             <button onClick={handleGenerateIdeas} disabled={isLoading} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 flex items-center justify-center gap-2">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '庁 Generate Blog Ideas'}
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Blog Ideas'}
                             </button>
                         </div>
                     </div>
