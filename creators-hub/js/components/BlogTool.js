@@ -51,6 +51,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
         let generationParams = {
             coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
             ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration,
+            monetizationGoals: settings.knowledgeBases.blog.monetizationGoals, // Pass monetization goals
             apiKey: settings.geminiApiKey,
         };
         
