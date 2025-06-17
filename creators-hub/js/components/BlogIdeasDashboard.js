@@ -4,34 +4,33 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
     const { useState, useEffect } = React;
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [expandedRow, setExpandedRow] = useState(null); // State to track which row is expanded
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
-        // If the database connection or user ID isn't ready, we can't fetch.
-        // Set loading to false to prevent the spinner from sticking.
         if (!userId || !db) {
             setIsLoading(false);
             return;
         }
 
-        // Set loading to true whenever we start a new fetch.
         setIsLoading(true);
         const ideasCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).orderBy("createdAt", "desc");
         
         const unsubscribe = ideasCollectionRef.onSnapshot(snapshot => {
             const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setIdeas(fetchedIdeas);
-            // Crucially, set loading to false after the data has been fetched.
             setIsLoading(false);
         }, error => {
             console.error("Error fetching blog ideas:", error);
-            // Also set loading to false if there's an error.
             setIsLoading(false);
         });
 
-        // Cleanup the listener when the component unmounts.
         return () => unsubscribe();
     }, [userId, db, appId]);
+
+    const handleRowClick = (id) => {
+        setExpandedRow(expandedRow === id ? null : id);
+    };
 
     if (isLoading) {
         return <window.LoadingSpinner text="Loading blog ideas..." />;
@@ -41,30 +40,53 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
         return (
             <div className="text-center text-gray-400 py-8">
                 <p>No blog ideas have been approved yet.</p>
-                <p className="text-sm mt-2">Use the tool above to generate and approve some ideas.</p>
+                <p className="text-sm mt-2">Approve some suggestions to see them here.</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-4">
-            {ideas.map(idea => (
-                <div key={idea.id} className="glass-card p-4 rounded-lg border-l-4 border-primary-accent">
-                    <h3 className="font-bold text-lg text-white">{idea.title}</h3>
-                    <p className="text-sm text-gray-300 mt-1">{idea.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-2 items-center text-xs">
-                        <span className="font-semibold text-gray-400">Keyword:</span>
-                        <span className="px-2 py-1 bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">{idea.primaryKeyword}</span>
-                        <span className="font-semibold text-gray-400 ml-4">Type:</span>
-                        <span className="px-2 py-1 bg-teal-800 text-teal-200 rounded-full">{idea.postType}</span>
-                        <span className="font-semibold text-gray-400 ml-4">Status:</span>
-                        <span className="px-2 py-1 bg-green-900/50 text-green-400 rounded-full capitalize">{idea.status}</span>
-                    </div>
-                    <div className="mt-4 text-right">
-                        <button className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold">Write Post</button>
-                    </div>
-                </div>
-            ))}
+        <div className="overflow-x-auto">
+            <table className="w-full text-left table-auto">
+                <thead className="bg-gray-800/50">
+                    <tr>
+                        <th className="p-3 text-sm font-semibold w-2/5">Title</th>
+                        <th className="p-3 text-sm font-semibold">Post Type</th>
+                        <th className="p-3 text-sm font-semibold">Status</th>
+                        <th className="p-3 text-sm font-semibold text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                    {ideas.map(idea => (
+                        <React.Fragment key={idea.id}>
+                            <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
+                                <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
+                                <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType}</span></td>
+                                <td className="p-3"><span className="px-2 py-1 text-xs bg-green-900/50 text-green-400 rounded-full capitalize">{idea.status}</span></td>
+                                <td className="p-3 text-right">
+                                    <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold">Write Post</button>
+                                </td>
+                            </tr>
+                            {expandedRow === idea.id && (
+                                <tr className="bg-gray-800/30">
+                                    <td colSpan="4" className="p-4">
+                                        <div className="space-y-2">
+                                            <div>
+                                                <h4 className="font-semibold text-gray-400 text-xs">Description</h4>
+                                                <p className="text-sm text-gray-300">{idea.description}</p>
+                                            </div>
+                                            <div>
+                                                <h4 className="font-semibold text-gray-400 text-xs">Primary Keyword</h4>
+                                                <p className="px-2 py-1 text-sm bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full inline-block">{idea.primaryKeyword}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </React.Fragment>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
 };
