@@ -6,8 +6,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
 
-    const [showShortsIdeasModal, setShowShortsIdeasModal] = useState(false);
-
     useEffect(() => {
         setOpenTask(null); 
     }, [video.id]);
@@ -22,13 +20,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
         await videoDocRef.update(payload);
     }, [userId, project.id, video.id, appId, db]);
 
-    // Renamed from handleRevisit to handleResetTask as it's now used for restarting too
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
-        // Define the data fields to clear for each task
         switch (taskId) {
             case 'scripting':
-                // Reset all scripting-related fields in Firestore
                 dataToReset = { 
                     script: '', 
                     'tasks.scriptingStage': 'pending', 
@@ -82,7 +77,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
 
         switch (task.id) {
             case 'scripting':
-                // FIX: Pass the 'db' prop down to the ScriptingTask component
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} db={db} />;
             case 'videoEdited':
                 return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
@@ -105,50 +99,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
         }
     };
 
-    const handleSaveShortsIdea = useCallback(async (newIdea) => {
-        if (!db) {
-            console.error("Firestore DB not available for handleSaveShortsIdea.");
-            return;
-        }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        const currentShorts = video.shortsIdeas || [];
-        const updatedShorts = [...currentShorts, newIdea];
-        await videoDocRef.update({ shortsIdeas: updatedShorts });
-    }, [userId, project.id, video.id, appId, db, video.shortsIdeas]);
-
-    const handleDeleteShortsIdea = useCallback(async (ideaId) => {
-        if (!db) {
-            console.error("Firestore DB not available for handleDeleteShortsIdea.");
-            return;
-        }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        const currentShorts = video.shortsIdeas || [];
-        const updatedShorts = currentShorts.filter(idea => idea.id !== ideaId);
-        await videoDocRef.update({ shortsIdeas: updatedShorts });
-    }, [userId, project.id, video.id, appId, db, video.shortsIdeas]);
-
-    const handleGenerateShortsMetadata = useCallback(async (ideaId, metadata) => {
-        if (!db) {
-            console.error("Firestore DB not available for handleGenerateShortsMetadata.");
-            return;
-        }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        const currentShorts = video.shortsIdeas || [];
-        const updatedShorts = currentShorts.map(idea => 
-            idea.id === ideaId ? { ...idea, metadata: metadata } : idea
-        );
-        await videoDocRef.update({ shortsIdeas: updatedShorts });
-    }, [userId, project.id, video.id, appId, db, video.shortsIdeas]);
-
-
     return (
         <main className="flex-grow">
             <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
-            <div className="mb-6">
-                <button onClick={() => setShowShortsIdeasModal(true)} className="w-full px-5 py-2.5 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2">
-                    💡 Generate Shorts Ideas
-                </button>
-            </div>
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
                     let status = video.tasks?.[task.id] || 'pending';
@@ -175,17 +128,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
                     );
                 })}
             </div>
-            {showShortsIdeasModal && db && (
-                <window.ShortsIdeasToolModal
-                    video={video}
-                    project={project}
-                    settings={settings}
-                    onClose={() => setShowShortsIdeasModal(false)}
-                    onSaveShortsIdea={handleSaveShortsIdea} 
-                    onDeleteShortsIdea={handleDeleteShortsIdea} 
-                    onGenerateShortsMetadata={handleGenerateShortsMetadata} 
-                />
-            )}
         </main>
     );
 });
