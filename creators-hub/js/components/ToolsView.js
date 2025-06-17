@@ -37,13 +37,6 @@ window.ToolsView = ({ onBack, onSelectTool }) => {
             description: 'Create engaging short-form video ideas, scripts, and captions for YouTube Shorts, TikTok, and Instagram Reels.',
             icon: '📱',
             enabled: true,
-        },
-        {
-            id: 'research',
-            title: 'Pre-Trip Research (Coming Soon)',
-            description: "Plan your next content trip, discover locations, and build an itinerary.",
-            icon: '🗺️',
-            enabled: false,
         }
     ];
 
@@ -54,7 +47,7 @@ window.ToolsView = ({ onBack, onSelectTool }) => {
                 <button onClick={onBack} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold mb-2 text-center">🛠️ Content Creation Tools</h2>
                 <p className="text-gray-400 mb-8 text-center">Select a tool to start creating.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {tools.map(tool => (
                         <button
                             key={tool.id}
