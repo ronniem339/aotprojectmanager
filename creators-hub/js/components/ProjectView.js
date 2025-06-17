@@ -1,6 +1,6 @@
 // js/components/ProjectView.js
 
-window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoaded, db, auth }) => {
+window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoaded, db, auth, firebaseAppInstance }) => {
     const { useState, useEffect, useCallback } = React;
     const [localProject, setLocalProject] = useState(null);
     const [videos, setVideos] = useState([]);
@@ -390,6 +390,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     userId={userId}
                     settings={settings}
                     googleMapsLoaded={googleMapsLoaded}
+                    firebaseAppInstance={firebaseAppInstance}
                 />
             )}
 
