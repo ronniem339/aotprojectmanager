@@ -12,6 +12,10 @@ window.App = () => { // Exposing App component globally
         youtubeApiKey: '', 
         styleGuideText: '', 
         myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+        // NEW: Add AI model settings with defaults
+        useProModelForComplexTasks: false,
+        flashModelName: 'gemini-1.5-flash-latest',
+        proModelName: 'gemini-1.5-pro-latest',
         knowledgeBases: {
             youtube: {
                 whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
@@ -66,6 +70,10 @@ window.App = () => { // Exposing App component globally
                         setSettings({ 
                             geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
                             myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+                            // NEW: Reset AI model settings on logout
+                            useProModelForComplexTasks: false,
+                            flashModelName: 'gemini-1.5-flash-latest',
+                            proModelName: 'gemini-1.5-pro-latest',
                             knowledgeBases: {
                                 youtube: {
                                     whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
@@ -102,6 +110,10 @@ window.App = () => { // Exposing App component globally
                 const defaultSettings = {
                     geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '',
                     myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+                    // NEW: Include AI model settings in defaults
+                    useProModelForComplexTasks: false,
+                    flashModelName: 'gemini-1.5-flash-latest',
+                    proModelName: 'gemini-1.5-pro-latest',
                     knowledgeBases: { 
                         youtube: {
                             whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
