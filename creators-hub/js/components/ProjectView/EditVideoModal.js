@@ -1,236 +1,132 @@
-// js/components/ProjectView/EditVideoModal.js
+window.EditVideoModal = ({ video, onSave, onClose, settings, onGenerateKeywords }) => {
+    const { useState, useEffect } = React;
+    const [localVideo, setLocalVideo] = useState(null);
+    const [generating, setGenerating] = useState(null); // 'title', 'concept', or 'keywords'
 
-const { useState, useCallback } = React; // Add React import for useState and useCallback
-
-window.EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsLoaded }) => {
-    // Basic Details
-    const [title, setTitle] = useState(video.chosenTitle || video.title);
-    const [concept, setConcept] = useState(video.concept);
-    
-    // Locations & Keywords
-    const [locationsFeatured, setLocationsFeatured] = useState(video.locations_featured ? video.locations_featured.map(name => project.locations.find(l => l.name === name) || { name, place_id: name }).filter(l => l.place_id !== name) : []);
-    const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
-    const [keywordInput, setKeywordInput] = useState('');
-
-    // AI & UI State for keyword generation
-    const [keywordIdeas, setKeywordIdeas] = useState([]);
-    const [isLoadingKeywords, setIsLoadingKeywords] = useState(false);
-    const [keywordError, setKeywordError] = useState('');
-
-    const [refinement, setRefinement] = useState('');
-    const [generating, setGenerating] = useState(false);
-    const [showConfirmComplete, setShowConfirmComplete] = useState(false);
-    
-    const appId = window.CREATOR_HUB_CONFIG.APP_ID;
-    const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-
-    const handleLocationsUpdate = useCallback((newLocations) => {
-        setLocationsFeatured(newLocations);
-    }, []);
-
-    const handleKeywordAdd = (e) => {
-        if (e.key === 'Enter' && keywordInput.trim() !== '') {
-            e.preventDefault();
-            const newKeyword = keywordInput.trim();
-            if (!targetedKeywords.includes(newKeyword)) {
-                setTargetedKeywords([...targetedKeywords, newKeyword]);
-            }
-            setKeywordInput('');
+    useEffect(() => {
+        // Deep copy to avoid direct mutation
+        if (video) {
+            setLocalVideo(JSON.parse(JSON.stringify(video)));
         }
-    };
+    }, [video]);
 
-    const handleKeywordRemove = (keywordToRemove) => {
-        setTargetedKeywords(targetedKeywords.filter(kw => kw !== keywordToRemove));
-    };
-
-    // New function to generate keyword ideas using the shared utility
-    const handleGenerateKeywords = async () => {
-        setIsLoadingKeywords(true);
-        setKeywordError('');
-
-        try {
-            const keywords = await window.aiUtils.generateKeywordsAI({
-                title: title,
-                concept: concept,
-                locationsFeatured: locationsFeatured.map(l => l.name),
-                projectTitle: project.playlistTitle,
-                projectDescription: project.playlistDescription,
-                settings: settings
-            });
-            setKeywordIdeas(keywords);
-        } catch (e) {
-            setKeywordError(`Failed to generate keywords: ${e.message}`);
-            console.error("Error generating keywords:", e);
-        } finally {
-            setIsLoadingKeywords(false);
-        }
-    };
-
-    const handleKeywordSelection = (keyword) => {
-        setTargetedKeywords(prev => 
-            prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
-        );
-    };
-
-    const handleSave = async () => {
-        const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
-        const existingProjectLocations = project.locations || [];
-        const newLocationsForProject = [...existingProjectLocations];
-        
-        locationsFeatured.forEach(featuredLoc => {
-            if (!existingProjectLocations.some(projLoc => projLoc.place_id === featuredLoc.place_id)) {
-                newLocationsForProject.push(featuredLoc);
-            }
-        });
-
-        if (newLocationsForProject.length > existingProjectLocations.length) {
-            await projectDocRef.update({ locations: newLocationsForProject });
-        }
-        
-        await videoDocRef.update({
-            chosenTitle: title,
-            concept: concept,
-            locations_featured: locationsFeatured.map(l => l.name),
-            targeted_keywords: targetedKeywords
-        });
-        onClose();
-    };
-
-    const handleMarkAllComplete = async () => {
-        const completedTasks = {};
-        window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => { 
-            completedTasks[task.id] = 'complete';
-        });
-        await videoDocRef.update({ tasks: completedTasks });
-        onClose();
+    const handleChange = (field, value) => {
+        setLocalVideo(prev => ({ ...prev, [field]: value }));
     };
     
+    const handleKeywordChange = (newKeywords) => {
+        setLocalVideo(prev => ({...prev, keywords: newKeywords}));
+    };
+
+    const handleSave = () => {
+        onSave(localVideo);
+    };
+
     const handleRefine = async (type) => {
         setGenerating(type);
         const apiKey = settings.geminiApiKey || "";
+        if (!apiKey) {
+            alert("Please set your Gemini API key in Technical Settings.");
+            setGenerating(null);
+            return;
+        }
+
+        let model = settings.geminiFlashModelName || 'gemini-1.5-flash-latest';
+        const taskType = type === 'title' ? 'refineVideoTitle' : 'refineVideoConcept';
+        if (settings.useProModel && window.CREATOR_HUB_CONFIG.PRO_MODEL_TASKS.includes(taskType)) {
+            model = settings.geminiProModelName || 'gemini-1.5-pro-latest';
+        }
+
         let prompt = '';
         if (type === 'title') {
-            prompt = `The user is creating a YouTube video. The current title is "${title}" and the concept is "${concept}". Their refinement instruction is: "${refinement}". Generate 3 NEW, creative title suggestions. Return as a JSON object like: {"suggestions": ["title1", "title2", "title3"]}`;
+            prompt = `You are a YouTube expert. Refine the following video title to be more catchy, SEO-friendly, and intriguing. The video concept is: "${localVideo.concept}". The current title is: "${localVideo.title}". Return a JSON object with a single key "refinedText".`;
         } else {
-            prompt = `The user is creating a YouTube video. The current title is "${title}" and the concept is "${concept}". Their refinement instruction is: "${refinement}". Rewrite the video concept to incorporate the feedback. Return as a JSON object like: {"suggestion": "new concept..."}`;
+            prompt = `You are a YouTube expert. Refine the following video concept to be clearer and more exciting. The video title is: "${localVideo.title}". The current concept is: "${localVideo.concept}". Return a JSON object with a single key "refinedText".`;
         }
 
         try {
             const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) throw new Error(await response.text());
+
+            if (!response.ok) throw new Error(`API Error: ${await response.text()}`);
+
             const result = await response.json();
-            const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
-            if (type === 'title' && parsedJson.suggestions) {
-                setTitle(parsedJson.suggestions[0]);
-            } else if (type === 'concept' && parsedJson.suggestion) {
-                setConcept(parsedJson.suggestion);
+            const refinedText = JSON.parse(result.candidates[0].content.parts[0].text).refinedText;
+            
+            if (refinedText) {
+                handleChange(type, refinedText);
             }
         } catch (error) {
             console.error(`Error refining ${type}:`, error);
+            alert(`Failed to refine ${type}.`);
         } finally {
-            setGenerating(false);
-            setRefinement('');
+            setGenerating(null);
         }
     };
 
+    const handleGenerateKeywords = async () => {
+        setGenerating('keywords');
+        try {
+            const result = await window.aiUtils.generateKeywordsAI({
+                videoTitle: localVideo.title,
+                videoConcept: localVideo.concept,
+                locations: localVideo.locations,
+                apiKey: settings.geminiApiKey,
+                useProModelSetting: settings.useProModel, // Pass the setting
+                flashModelName: settings.geminiFlashModelName, // Pass the setting
+                proModelName: settings.geminiProModelName // Pass the setting
+            });
+            if (result.keywords) {
+                const combined = [...new Set([...(localVideo.keywords || []), ...result.keywords])];
+                handleChange('keywords', combined);
+            }
+        } catch (e) {
+            console.error("Error generating keywords:", e);
+            alert("Failed to generate keywords.");
+        } finally {
+            setGenerating(null);
+        }
+    };
+
+    if (!localVideo) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <h2 className="text-2xl font-bold mb-6">Edit Video Details</h2>
-                
-                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+                <div className="p-6 border-b border-gray-700">
+                    <h2 className="text-xl font-bold">Edit Video Details</h2>
+                </div>
+                <div className="p-6 space-y-4 overflow-y-auto">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Video Title</label>
-                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full form-input" />
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+                        <div className="flex items-center space-x-2">
+                            <input type="text" value={localVideo.title} onChange={(e) => handleChange('title', e.target.value)} className="form-input w-full bg-gray-700"/>
+                            <button onClick={() => handleRefine('title')} disabled={generating === 'title'} className="btn-secondary whitespace-nowrap">{generating === 'title' ? 'Refining...' : 'Refine AI'}</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Concept</label>
+                        <div className="flex items-center space-x-2">
+                            <textarea value={localVideo.concept} onChange={(e) => handleChange('concept', e.target.value)} rows="3" className="form-textarea w-full bg-gray-700"></textarea>
+                            <button onClick={() => handleRefine('concept')} disabled={generating === 'concept'} className="btn-secondary whitespace-nowrap self-start">{generating === 'concept' ? 'Refining...' : 'Refine AI'}</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Keywords</label>
+                        <div className="flex items-center space-x-2">
+                           <window.common.EditableTagList tags={localVideo.keywords || []} onTagsChange={(newTags) => handleChange('keywords', newTags)} />
+                           <button onClick={handleGenerateKeywords} disabled={generating === 'keywords'} className="btn-secondary whitespace-nowrap self-start">{generating === 'keywords' ? 'Generating...' : 'Generate AI'}</button>
+                        </div>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Video Concept</label>
-                        <textarea value={concept} onChange={(e) => setConcept(e.target.value)} rows="4" className="w-full form-textarea" />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Locations Featured</label>
-                         <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
-                             {googleMapsLoaded 
-                                ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdate} existingLocations={locationsFeatured} /> 
-                                : <window.MockLocationSearchInput />
-                            }
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Targeted Keywords</label>
-                        <div className="p-2 bg-gray-900/50 rounded-lg border border-gray-700">
-                            <div className="flex flex-wrap gap-2 mb-2">
-                                {targetedKeywords.map(kw => (
-                                    <div key={kw} className="flex items-center gap-2 px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">
-                                        <span>{kw}</span>
-                                        <button onClick={() => handleKeywordRemove(kw)} className="text-secondary-accent-lighter-text hover:text-white font-bold leading-none">&times;</button>
-                                    </div>
-                                ))}
-                            </div>
-                            <input
-                                type="text"
-                                value={keywordInput}
-                                onChange={(e) => setKeywordInput(e.target.value)}
-                                onKeyDown={handleKeywordAdd}
-                                className="w-full form-input bg-gray-800 border-gray-600"
-                                placeholder="Type a keyword and press Enter..."
-                            />
-                            <button onClick={handleGenerateKeywords} disabled={isLoadingKeywords || !title || !concept} className="mt-3 px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">
-                                {isLoadingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Keyword Ideas'}
-                            </button>
-                            {keywordError && <p className="text-red-400 mt-2 text-sm">{keywordError}</p>}
-                            {keywordIdeas.length > 0 && (
-                                <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                                    <h4 className="text-sm font-medium text-gray-300 mb-2">AI-Suggested Keywords:</h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {keywordIdeas.map((kw) => (
-                                            <button
-                                                key={kw}
-                                                onClick={() => handleKeywordSelection(kw)}
-                                                className={`px-3 py-1.5 text-xs rounded-full transition-colors ${targetedKeywords.includes(kw) ? 'bg-primary-accent text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
-                                            >
-                                                {kw}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
-                        <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title catchier' or 'Focus the concept on the hiking aspect'"/>
-                        <div className="flex gap-4 mt-2">
-                             <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <window.LoadingSpinner isButton={true} /> : 'Refine Title'}</button>
-                             <button onClick={() => handleRefine('concept')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'concept' ? <window.LoadingSpinner isButton={true} /> : 'Refine Concept'}</button>
-                        </div>
-                    </div>
-                    
-                    <div className="p-4 bg-amber-900/30 rounded-lg border border-amber-700">
-                        <label className="block text-sm font-medium text-amber-300 mb-2">Fast-Forward</label>
-                         <p className="text-xs text-amber-300/80 mb-3">If this video is already published, you can mark all production tasks as complete.</p>
-                        {showConfirmComplete ? (
-                            <div className="flex items-center gap-4">
-                                <p className="text-sm font-semibold text-white">Are you sure?</p>
-                                <button onClick={handleMarkAllComplete} className="px-4 py-1 text-sm bg-red-600 hover:bg-red-700 rounded-lg">Yes, Confirm</button>
-                                <button onClick={() => setShowConfirmComplete(false)} className="px-4 py-1 text-sm bg-gray-600 hover:bg-gray-500 rounded-lg">Cancel</button>
-                            </div>
-                        ) : (
-                             <button onClick={() => setShowConfirmComplete(true)} className="px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 rounded-lg font-semibold">Mark All Tasks Complete</button>
-                        )}
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Script</label>
+                        <textarea value={localVideo.script || ''} onChange={(e) => handleChange('script', e.target.value)} rows="10" className="form-textarea w-full bg-gray-700 font-mono text-sm"></textarea>
                     </div>
                 </div>
-
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-700">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
-                    <button onClick={handleSave} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Save Changes</button>
+                <div className="p-6 bg-gray-900 flex justify-end space-x-4 rounded-b-lg">
+                    <button onClick={onClose} className="btn-secondary">Cancel</button>
+                    <button onClick={handleSave} className="btn-primary">Save Changes</button>
                 </div>
             </div>
         </div>
