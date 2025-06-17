@@ -1,87 +1,78 @@
-// js/components/ProjectView/tasks/TagsTask.js
-
-window.TagsTask = ({ video, settings, onUpdateTask, isLocked }) => {
-    const { useState, useEffect, useMemo } = React;
-    const [generating, setGenerating] = useState(false);
-    const [error, setError] = useState('');
-    const [editableTags, setEditableTags] = useState('');
-
-    const metadata = useMemo(() => {
-        try {
-            return video.metadata ? JSON.parse(video.metadata) : {};
-        } catch { return {}; }
-    }, [video.metadata]);
+window.TagsTask = ({ video, onUpdate, onCompletion, settings }) => {
+    const { useState, useEffect } = React;
+    const [tags, setTags] = useState([]);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
-        setEditableTags(metadata.tags || '');
-        setError('');
-    }, [video.id, metadata]);
+        setTags(video.tags || []);
+    }, [video]);
 
+    const handleTagsChange = (newTags) => {
+        setTags(newTags);
+        onUpdate({ ...video, tags: newTags });
+    };
+    
     const handleGenerateTags = async () => {
-        setGenerating(true);
-        setError('');
-        const prompt = `Act as a YouTube SEO expert. Based on the video script, title, and description, generate a comma-separated list of 20-30 SEO tags.
-Video Title: "${video.chosenTitle}"
-Video Description:
----
-${metadata.description || video.concept}
----
-YouTube Tagging Guidelines: "${settings.knowledgeBases?.youtube?.videoTags || 'Use a mix of broad and specific long-tail keywords.'}"
+        setIsGenerating(true);
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            alert("Please set Gemini API key in settings.");
+            setIsGenerating(false);
+            return;
+        }
 
-Return a JSON object with one key: "tags" (a single string of comma-separated tags).`;
+        const prompt = `
+        Video Title: "${video.title}"
+        Video Description:
+        ---
+        ${video.description}
+        ---
+        Existing Tags: ${tags.join(', ')}
 
+        Analyze the video title and description. Generate a list of 20-30 relevant YouTube tags (keywords). Include a mix of broad, specific, and long-tail keywords. Do not repeat the existing tags.
+
+        Return a single JSON object with one key: "tags", which is an array of strings.
+        Example:
+        {
+          "tags": ["new tag 1", "new tag 2", "another relevant keyword"]
+        }
+        `;
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
+            const parsedJson = await window.aiUtils.callGeminiAPI(
+                prompt,
+                settings.geminiApiKey,
+                {},
+                'generateTags', // Task type
+                settings.useProModel, // Pass the setting
+                settings.geminiFlashModelName, // Pass the setting
+                settings.geminiProModelName // Pass the setting
+            );
             if (parsedJson.tags) {
-                setEditableTags(parsedJson.tags);
+                const combinedTags = [...new Set([...tags, ...parsedJson.tags])];
+                handleTagsChange(combinedTags);
             }
         } catch (err) {
-            setError(`Failed to generate tags: ${err.message}`);
+            console.error(err);
+            alert("Failed to generate tags. Check console for details.");
         } finally {
-            setGenerating(false);
+            setIsGenerating(false);
         }
     };
 
-    const handleConfirmTags = () => {
-        const newMetadata = { ...metadata, tags: editableTags };
-        onUpdateTask('tagsGenerated', 'complete', { 
-            metadata: JSON.stringify(newMetadata) 
-        });
+
+    const handleComplete = () => {
+        onUpdate({ ...video, tags }); // Ensure latest state is saved
+        onCompletion(video.id, 'tags', { tags });
     };
 
-    if (isLocked) {
-        return <p className="text-gray-400 text-center py-2 text-sm">Please complete previous steps first.</p>;
-    }
-    
-    if (video.tasks?.tagsGenerated === 'complete') {
-        return (
-            <div>
-                 <textarea readOnly value={editableTags} rows="5" className="w-full form-textarea bg-gray-800/50 resize-y"/>
-                 <div className="text-right mt-2">
-                    <window.CopyButton textToCopy={editableTags} />
-                 </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="space-y-4">
-            <textarea 
-                value={editableTags} 
-                onChange={(e) => setEditableTags(e.target.value)} 
-                rows="5" 
-                className="w-full form-textarea bg-gray-800/50 resize-y"
-                placeholder="Click generate, or manually enter your comma-separated tags here..."
-            />
-            <div className="flex justify-between items-center">
-                <button onClick={handleGenerateTags} disabled={generating} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75">
-                    {generating ? <window.LoadingSpinner isButton={true} /> : '✨ Generate Tags'}
-                </button>
-                <button onClick={handleConfirmTags} disabled={!editableTags} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75">
-                    Confirm Tags
-                </button>
-            </div>
-            {error && <p className="text-red-400 mt-2 text-sm text-right">{error}</p>}
+        <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+            <h3 className="text-lg font-bold">Tags / Keywords</h3>
+            <button onClick={handleGenerateTags} disabled={isGenerating} className="btn-secondary w-full">
+                 {isGenerating ? 'Generating...' : 'Generate with AI'}
+            </button>
+            <window.common.EditableTagList tags={tags} onTagsChange={handleTagsChange} />
+            <button onClick={handleComplete} className="btn-primary w-full">Mark as Complete</button>
         </div>
     );
 };
