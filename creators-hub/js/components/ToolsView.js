@@ -41,7 +41,6 @@ window.ToolsView = ({ onBack, onSelectTool }) => {
     ];
 
     return (
-        // Corrected opacity to bg-opacity-80 to match the preferred style
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
             <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative">
                 <button onClick={onBack} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
@@ -62,6 +61,10 @@ window.ToolsView = ({ onBack, onSelectTool }) => {
                             </div>
                         </button>
                     ))}
+                </div>
+                {/* NEW: Footer with a visible close button for better mobile accessibility */}
+                <div className="mt-8 pt-6 border-t border-gray-700/50 flex justify-end">
+                    <button onClick={onBack} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Close</button>
                 </div>
             </div>
         </div>
