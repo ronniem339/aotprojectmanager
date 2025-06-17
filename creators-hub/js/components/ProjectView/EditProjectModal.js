@@ -18,7 +18,7 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
     /**
-     * Downloads an image from a URL and uploads it to Firebase Storage.
+     * Downloads an image from a URL via a Netlify proxy function and uploads it to Firebase Storage.
      * @param {string} imageUrl - The URL of the image to download.
      * @param {string} uploadPath - The desired path in Firebase Storage (e.g., 'project_thumbnails/my_image.jpg').
      * @returns {Promise<string>} - A promise that resolves to the Firebase Storage download URL, or an empty string on error.
@@ -29,11 +29,14 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
             return '';
         }
 
+        // Use the Netlify function as a proxy to bypass CORS issues.
+        const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
+
         try {
-            const response = await fetch(imageUrl);
+            const response = await fetch(fetchUrl);
             if (!response.ok) {
-                console.warn(`Failed to fetch image from ${imageUrl}. Status: ${response.status}`);
-                return '';
+                 const errText = await response.text();
+                throw new Error(errText || 'Failed to fetch image via Netlify Function');
             }
             const blob = await response.blob(); // Get image as Blob
 
@@ -58,8 +61,9 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
         // Check if the URL is a new external URL (not already a Firebase Storage URL)
         if (coverImageUrl && !coverImageUrl.includes('firebasestorage.googleapis.com')) {
             try {
-                const fileExtension = coverImageUrl.split('.').pop().split('?')[0]; // Get extension, remove query params
-                const path = `project_thumbnails/${project.id}_${Date.now()}.${fileExtension}`;
+                const fileExtensionMatch = coverImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
+                const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
+                const path = `project_thumbnails/${project.id}_${Date.now()}${fileExtension}`;
                 finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
             } catch (error) {
                 console.error("Failed to upload new cover image to Firebase Storage:", error);
