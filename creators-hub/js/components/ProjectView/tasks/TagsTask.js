@@ -1,87 +1,72 @@
 // js/components/ProjectView/tasks/TagsTask.js
 
-window.TagsTask = ({ video, settings, onUpdateTask, isLocked }) => {
-    const { useState, useEffect, useMemo } = React;
+window.TagsTask = ({ video, onUpdate, onCompletion, project, settings }) => {
+    const { useState } = React;
     const [generating, setGenerating] = useState(false);
+    const [tags, setTags] = useState(video.metadata?.tags || '');
     const [error, setError] = useState('');
-    const [editableTags, setEditableTags] = useState('');
-
-    const metadata = useMemo(() => {
-        try {
-            return video.metadata ? JSON.parse(video.metadata) : {};
-        } catch { return {}; }
-    }, [video.metadata]);
-
-    useEffect(() => {
-        setEditableTags(metadata.tags || '');
-        setError('');
-    }, [video.id, metadata]);
 
     const handleGenerateTags = async () => {
         setGenerating(true);
         setError('');
-        const prompt = `Act as a YouTube SEO expert. Based on the video script, title, and description, generate a comma-separated list of 20-30 SEO tags.
-Video Title: "${video.chosenTitle}"
-Video Description:
----
-${metadata.description || video.concept}
----
-YouTube Tagging Guidelines: "${settings.knowledgeBases?.youtube?.videoTags || 'Use a mix of broad and specific long-tail keywords.'}"
-
-Return a JSON object with one key: "tags" (a single string of comma-separated tags).`;
-
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
-            if (parsedJson.tags) {
-                setEditableTags(parsedJson.tags);
-            }
+            // FIXED: Pass the entire 'settings' object instead of just the apiKey.
+            const result = await window.aiUtils.generateKeywordsAI({
+                title: video.title,
+                concept: video.concept,
+                locationsFeatured: video.locations_featured,
+                projectTitle: project.playlistTitle,
+                projectDescription: project.playlistDescription,
+                settings: settings, // This is the corrected part
+            });
+
+            const uniqueTags = [...new Set(result)].join(', ');
+            setTags(uniqueTags);
+
         } catch (err) {
+            console.error("Error generating tags:", err);
             setError(`Failed to generate tags: ${err.message}`);
         } finally {
             setGenerating(false);
         }
     };
 
-    const handleConfirmTags = () => {
-        const newMetadata = { ...metadata, tags: editableTags };
-        onUpdateTask('tagsGenerated', 'complete', { 
-            metadata: JSON.stringify(newMetadata) 
-        });
+    const handleSave = () => {
+        const updatedVideo = { 
+            ...video, 
+            metadata: { ...video.metadata, tags: tags }
+        };
+        onUpdate(updatedVideo);
+        if (tags && tags.trim().length > 0) {
+            onCompletion(true);
+        }
     };
 
-    if (isLocked) {
-        return <p className="text-gray-400 text-center py-2 text-sm">Please complete previous steps first.</p>;
-    }
-    
-    if (video.tasks?.tagsGenerated === 'complete') {
-        return (
-            <div>
-                 <textarea readOnly value={editableTags} rows="5" className="w-full form-textarea bg-gray-800/50 resize-y"/>
-                 <div className="text-right mt-2">
-                    <window.CopyButton textToCopy={editableTags} />
-                 </div>
-            </div>
-        );
-    }
+    const isComplete = video.tasks.tagsGenerated === 'complete';
 
     return (
-        <div className="space-y-4">
-            <textarea 
-                value={editableTags} 
-                onChange={(e) => setEditableTags(e.target.value)} 
-                rows="5" 
-                className="w-full form-textarea bg-gray-800/50 resize-y"
-                placeholder="Click generate, or manually enter your comma-separated tags here..."
-            />
-            <div className="flex justify-between items-center">
-                <button onClick={handleGenerateTags} disabled={generating} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75">
-                    {generating ? <window.LoadingSpinner isButton={true} /> : '✨ Generate Tags'}
+        <div className="task-container">
+            <h3 className="task-title">Generate Tags</h3>
+            {isComplete && <span className="task-badge-complete">✓ Completed</span>}
+            <div className="task-content">
+                <p className="task-description">Generate a list of SEO-optimized tags based on the video's content, title, and description.</p>
+                <button onClick={handleGenerateTags} disabled={generating} className="button-primary-small w-full justify-center">
+                    {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Tag Suggestions'}
                 </button>
-                <button onClick={handleConfirmTags} disabled={!editableTags} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75">
-                    Confirm Tags
+                {error && <p className="error-message">{error}</p>}
+                <textarea
+                    className="form-textarea mt-4 h-32"
+                    value={tags}
+                    onChange={(e) => {
+                        setTags(e.target.value);
+                        onCompletion(false); // Mark as incomplete if user edits
+                    }}
+                    placeholder="e.g., travel vlog, cyprus travel, what to do in limassol..."
+                />
+                <button onClick={handleSave} className="button-secondary-small mt-4 w-full justify-center">
+                    {isComplete ? 'Save Changes' : 'Save and Mark Complete'}
                 </button>
             </div>
-            {error && <p className="text-red-400 mt-2 text-sm text-right">{error}</p>}
         </div>
     );
 };
