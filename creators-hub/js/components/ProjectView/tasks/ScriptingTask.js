@@ -39,13 +39,14 @@ const ScriptingWorkspaceModal = ({
     onGenerateDraftOutline,
     onGenerateRefinementPlan,
     onGenerateFullScript,
-    onRefineScript, // New function for script refinement
-    settings
+    onRefineScript, // New function for script refinement (for full script)
+    onRefineScriptPlan, // New function for script plan refinement
+    settings // Pass settings to the modal for API key access
 }) => {
     const [localTaskData, setLocalTaskData] = useState(taskData);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [refinementInstructions, setRefinementInstructions] = useState(''); // State for refinement input
+    const [refinementInstructions, setRefinementInstructions] = useState(''); // State for refinement input (used for both script and script plan)
 
     // Debounce localTaskData for auto-saving
     const debouncedTaskData = window.useDebounce(localTaskData, 1500); // Save every 1.5 seconds of inactivity
@@ -81,6 +82,10 @@ const ScriptingWorkspaceModal = ({
         setLocalTaskData(prev => ({ ...prev, script: e.target.value }));
     };
 
+    const handleScriptPlanChange = (e) => {
+        setLocalTaskData(prev => ({ ...prev, scriptPlan: e.target.value }));
+    };
+
     const handleRefinementInstructionsChange = (e) => {
         setRefinementInstructions(e.target.value);
     };
@@ -102,8 +107,12 @@ const ScriptingWorkspaceModal = ({
         onSave(localTaskData.script, localTaskData);
     };
 
-    const handleRefineScriptClick = async () => {
-        await handleAction(onRefineScript, localTaskData.script, refinementInstructions, settings);
+    const handleRefineButtonClick = async () => {
+        if (localTaskData.scriptingStage === 'full_script_review') {
+            await handleAction(onRefineScript, localTaskData.script, refinementInstructions, settings);
+        } else if (localTaskData.scriptingStage === 'draft_outline_review') {
+            await handleAction(onRefineScriptPlan, localTaskData.scriptPlan, refinementInstructions, settings);
+        }
         setRefinementInstructions(''); // Clear instructions after refining
     };
 
@@ -136,13 +145,31 @@ const ScriptingWorkspaceModal = ({
                  return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Draft Outline Review</h3>
-                        <p className="text-gray-400 mb-4">Here is a draft outline based on your notes. Review it, then we'll generate specific questions to flesh it out.</p>
+                        <p className="text-gray-400 mb-4">Here is a draft outline based on your notes. Review it, edit directly, or provide instructions below to have the AI refine it further.</p>
                         <textarea
                             value={localTaskData.scriptPlan}
-                            onChange={e => setLocalTaskData(prev => ({...prev, scriptPlan: e.target.value}))}
+                            onChange={handleScriptPlanChange} // Use handleScriptPlanChange here
                             rows="15"
-                            className="w-full form-textarea whitespace-pre-wrap leading-relaxed"
+                            className="w-full form-textarea whitespace-pre-wrap leading-relaxed mb-4"
+                            placeholder="Your draft outline will appear here."
                         />
+                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 mb-6">
+                            <label className="block text-gray-200 text-md font-medium mb-2">
+                                Refinement Instructions (Optional):
+                            </label>
+                            <textarea
+                                value={refinementInstructions}
+                                onChange={handleRefinementInstructionsChange}
+                                placeholder="e.g., 'Make this segment more detailed', 'Simplify the intro', 'Add a section about X'"
+                                rows="3"
+                                className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                            ></textarea>
+                            <div className="text-center mt-4">
+                                <button onClick={handleRefineButtonClick} disabled={isLoading || !refinementInstructions.trim()} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg disabled:opacity-50">
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Refine Outline with AI'}
+                                </button>
+                            </div>
+                        </div>
                         <div className="text-center mt-8">
                             <button onClick={() => handleAction(onGenerateRefinementPlan)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
@@ -205,7 +232,7 @@ const ScriptingWorkspaceModal = ({
                                 className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
                             ></textarea>
                             <div className="text-center mt-4">
-                                <button onClick={handleRefineScriptClick} disabled={isLoading || !refinementInstructions.trim()} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg disabled:opacity-50">
+                                <button onClick={handleRefineButtonClick} disabled={isLoading || !refinementInstructions.trim()} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg disabled:opacity-50">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Refine Script with AI'}
                                 </button>
                             </div>
@@ -321,7 +348,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleRefineScript = async (currentScript, refinementInstructions) => {
+    const handleRefineScript = async (currentScript, refinementInstructions, settings) => {
         const refinedScript = await window.aiUtils.refineScriptAI({
             currentScript: currentScript,
             refinementInstructions: refinementInstructions,
@@ -333,6 +360,21 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         // Update the script in the task data and re-save
         await onUpdateTask('scripting', 'in-progress', {
             'script': refinedScript
+        });
+    };
+
+    const handleRefineScriptPlan = async (currentScriptPlan, refinementInstructions, settings) => {
+        const refinedScriptPlan = await window.aiUtils.refineScriptPlanAI({
+            currentScriptPlan: currentScriptPlan,
+            refinementInstructions: refinementInstructions,
+            whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
+            styleGuideText: settings.styleGuideText,
+            apiKey: settings.geminiApiKey
+        });
+
+        // Update the script plan in the task data and re-save
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptPlan': refinedScriptPlan
         });
     };
 
@@ -348,7 +390,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'script': updatedTaskData.script, // Ensure script changes are also saved
         });
-        setShowWorkspace(false);
+        // We do not close the workspace here, the user needs to explicitly click the close button
+        // setShowWorkspace(false); 
     };
 
     const handleSaveAndComplete = (finalScript, finalTaskData) => {
@@ -403,7 +446,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onGenerateRefinementPlan={handleGenerateRefinementPlan}
                     onGenerateFullScript={handleGenerateFullScript}
-                    onRefineScript={handleRefineScript} // Pass the new refine function
+                    onRefineScript={handleRefineScript} // Pass the new refine function for full script
+                    onRefineScriptPlan={handleRefineScriptPlan} // Pass the new refine function for script plan
                     settings={settings} // Pass settings for API key
                 />,
                 document.body
