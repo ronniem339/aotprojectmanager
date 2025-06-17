@@ -154,6 +154,7 @@ window.App = () => { // Exposing App component globally
     const handleSelectTool = (toolId) => {
         if (toolId === 'blog') setCurrentView('blogTool');
         if (toolId === 'shorts') setCurrentView('shortsTool');
+        if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
     };
     const handleShowTechnicalSettings = () => setCurrentView('settings');
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
@@ -334,6 +335,8 @@ window.App = () => { // Exposing App component globally
                 return <window.BlogTool settings={settings} onSaveSettings={handleSaveSettings} onBack={() => setCurrentView('tools')} />;
             case 'shortsTool':
                  return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
+            case 'contentLibrary':
+                 return <window.ContentLibrary onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             default:
                 return <window.Dashboard userId={user.uid} onSelectProject={handleSelectProject} onShowSettings={handleShowSettings} onShowProjectSelection={() => setShowProjectSelection(true)} onShowDeleteConfirm={handleShowDeleteConfirm} onShowTools={handleShowTools} db={firebaseDb} auth={firebaseAuth} />;
         }
