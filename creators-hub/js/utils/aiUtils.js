@@ -44,7 +44,7 @@ window.aiUtils = {
         }
     },
     
-    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, apiKey }) => {
+    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, apiKey }) => {
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
@@ -79,6 +79,9 @@ You MUST adhere to the following foundational knowledge bases for all generated 
 ---
 **Core SEO & Content Engine:**
 ${coreSeoEngine || "Focus on user intent and long-tail keywords."}
+---
+**Monetization & Content Goals:**
+${monetizationGoals || "The goal is to generate affiliate revenue from links."}
 ---
 **Blog Post Idea Generation Framework:**
 ${ideaGenerationKb || "Generate ideas for different content types like guides, listicles, and comparison posts."}
