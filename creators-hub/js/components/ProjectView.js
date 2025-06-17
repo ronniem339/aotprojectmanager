@@ -284,6 +284,17 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
     const isSingleVideoProject = localProject.videoCount === 1;
     const activeVideo = isSingleVideoProject ? videos[0] : videos.find(v => v.id === activeVideoId);
+    
+    const handleEditClick = () => {
+        if (isSingleVideoProject) {
+            if (videos.length > 0) {
+                setActiveVideoId(videos[0].id);
+                setShowVideoModal(true);
+            }
+        } else {
+            setShowEditProjectModal(true);
+        }
+    };
 
 
     return (
@@ -291,7 +302,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
-                onEdit={() => setShowEditProjectModal(true)}
+                onEdit={handleEditClick}
                 onManageFootage={() => setShowManageFootageModal(true)}
                 overallProgress={overallProgress}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
