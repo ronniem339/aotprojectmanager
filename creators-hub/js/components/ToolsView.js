@@ -3,6 +3,13 @@
 window.ToolsView = ({ onBack, onSelectTool }) => {
     const tools = [
         {
+            id: 'contentLibrary',
+            title: 'Content Library',
+            description: 'View, edit, and manage all your videos from all projects in one place.',
+            icon: '📚',
+            enabled: true,
+        },
+        {
             id: 'blog',
             title: 'Blog Content Tool',
             description: 'Generate blog post ideas, write full articles, and post directly to your WordPress blog.',
