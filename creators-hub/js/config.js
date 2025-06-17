@@ -18,6 +18,10 @@ window.CREATOR_HUB_CONFIG = {
   APP_ID: typeof __app_id !== 'undefined' ? __app_id : 'creators-hub-deploy',
   INITIAL_AUTH_TOKEN: typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null,
 
+  // NEW: Add a timestamp that gets updated with each deployment.
+  // This will be used to show the user how recently the app was updated.
+  BUILD_TIMESTAMP: new Date().toISOString(),
+
   // --- YouTube SEO Knowledge Base ---
   YOUTUBE_SEO_KNOWLEDGE_BASE: `
       **YouTube SEO Best Practices:**
