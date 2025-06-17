@@ -28,7 +28,7 @@ window.ToolsView = ({ onBack, onSelectTool }) => {
             id: 'blog',
             title: 'Blog Content Tool',
             description: 'Generate blog post ideas, write full articles, and post directly to your WordPress blog.',
-            icon: '📝',
+            icon: '✍️',
             enabled: true,
         },
         {
