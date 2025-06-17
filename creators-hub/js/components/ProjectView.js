@@ -386,6 +386,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             {showEditProjectModal && (
                 <window.EditProjectModal
                     project={localProject}
+                    videos={videos}
                     onClose={() => setShowEditProjectModal(false)}
                     userId={userId}
                     settings={settings}
