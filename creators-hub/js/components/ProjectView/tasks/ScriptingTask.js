@@ -1,458 +1,223 @@
-// js/components/ProjectView/tasks/ScriptingTask.js
-
-const { useState, useEffect, useRef } = React;
-
-/**
- * Custom hook for debouncing a value.
- * Useful for delaying updates, e.g., for auto-saving.
- * @param {*} value - The value to debounce.
- * @param {number} delay - The delay in milliseconds.
- * @returns {*} The debounced value.
- */
-window.useDebounce = (value, delay) => {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [value, delay]);
-
-    return debouncedValue;
-};
-
-
-/**
- * A full-screen modal for the entire multi-step scripting process.
- * This component contains the UI for each stage of the new workflow.
- */
-const ScriptingWorkspaceModal = ({
-    video,
-    taskData,
-    onClose,
-    onSave, // For final completion
-    onUpdate, // For intermediate saves
-    onGenerateDraftOutline,
-    onGenerateRefinementPlan,
-    onGenerateFullScript,
-    onRefineScript, // New function for script refinement (for full script)
-    onRefineScriptPlan, // New function for script plan refinement
-    settings // Pass settings to the modal for API key access
-}) => {
-    const [localTaskData, setLocalTaskData] = useState(taskData);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [refinementInstructions, setRefinementInstructions] = useState(''); // State for refinement input (used for both script and script plan)
-
-    // Debounce localTaskData for auto-saving
-    const debouncedTaskData = window.useDebounce(localTaskData, 1500); // Save every 1.5 seconds of inactivity
-
-    // Effect to trigger auto-save when debouncedTaskData changes
-    useEffect(() => {
-        // Only save if the data has actually changed from the initial load
-        // and if it's not the very first render or an immediate update from parent
-        if (debouncedTaskData && JSON.stringify(debouncedTaskData) !== JSON.stringify(taskData)) {
-            // Check if the current stage is one that should be auto-saved
-            if (['initial_thoughts', 'draft_outline_review', 'refinement_qa', 'full_script_review'].includes(debouncedTaskData.scriptingStage)) {
-                onUpdate(debouncedTaskData);
-                console.log("Auto-saving scripting task progress...");
-            }
-        }
-    }, [debouncedTaskData]); // Depend on the debounced value
-
-    useEffect(() => {
-        // Update local state if parent taskData changes (e.g., after an AI generation)
-        setLocalTaskData(taskData);
-    }, [taskData]);
-
-    const handleInitialThoughtsChange = (value) => {
-        setLocalTaskData(prev => ({ ...prev, initialThoughts: value }));
-    };
-
-    const handleExperienceChange = (locationName, value) => {
-        const newExperiences = { ...(localTaskData.userExperiences || {}), [locationName]: value };
-        setLocalTaskData(prev => ({ ...prev, userExperiences: newExperiences }));
-    };
-
-    const handleScriptChange = (e) => {
-        setLocalTaskData(prev => ({ ...prev, script: e.target.value }));
-    };
-
-    const handleScriptPlanChange = (e) => {
-        setLocalTaskData(prev => ({ ...prev, scriptPlan: e.target.value }));
-    };
-
-    const handleRefinementInstructionsChange = (e) => {
-        setRefinementInstructions(e.target.value);
-    };
-
-    const handleAction = async (action, ...args) => {
-        setIsLoading(true);
-        setError('');
-        try {
-            await action(...args);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+window.ScriptingTask = ({ video, onUpdate, onCompletion, settings }) => {
+    const { useState, useEffect } = React;
+    const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+    const [script, setScript] = useState('');
     
-    const handleSaveAndClose = () => {
-        // Save final data and close
-        onSave(localTaskData.script, localTaskData);
+    useEffect(() => {
+        setScript(video.script || '');
+    }, [video.script]);
+    
+    const handleSaveScript = (newScript, newPlan) => {
+        setScript(newScript);
+        onUpdate({ ...video, script: newScript, scriptPlan: newPlan });
     };
 
-    const handleRefineButtonClick = async () => {
-        if (localTaskData.scriptingStage === 'full_script_review') {
-            await handleAction(onRefineScript, localTaskData.script, refinementInstructions, settings);
-        } else if (localTaskData.scriptingStage === 'draft_outline_review') {
-            await handleAction(onRefineScriptPlan, localTaskData.scriptPlan, refinementInstructions, settings);
-        }
-        setRefinementInstructions(''); // Clear instructions after refining
+    const handleComplete = () => {
+        onCompletion(video.id, 'scripting', { script });
     };
 
-    const renderContent = () => {
-        const stage = localTaskData.scriptingStage || 'pending';
-
-        switch (stage) {
-            case 'pending': // Fallback for initial state
-            case 'initial_thoughts': // New first step
-                return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Your Raw Experience & Ideas</h3>
-                        <p className="text-gray-400 mb-6">This is your creative space. Paste or write down everything you can remember or want to include—key moments, specific shots, feelings, funny anecdotes, important facts. The more you add, the better the AI's first draft will be.</p>
-                        <textarea
-                            value={localTaskData.initialThoughts || ''}
-                            onChange={(e) => handleInitialThoughtsChange(e.target.value)}
-                            rows="15"
-                            className="w-full form-textarea"
-                            placeholder="Paste your script notes, brain dump, or describe your experience here..."
-                        />
-                         <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
-                            </button>
-                        </div>
-                    </div>
-                );
-
-            case 'draft_outline_review':
-                 return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Draft Outline Review</h3>
-                        <p className="text-gray-400 mb-4">Here is a draft outline based on your notes. Review it, edit directly, or provide instructions below to have the AI refine it further.</p>
-                        <textarea
-                            value={localTaskData.scriptPlan}
-                            onChange={handleScriptPlanChange} // Use handleScriptPlanChange here
-                            rows="15"
-                            className="w-full form-textarea whitespace-pre-wrap leading-relaxed mb-4"
-                            placeholder="Your draft outline will appear here."
-                        />
-                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 mb-6">
-                            <label className="block text-gray-200 text-md font-medium mb-2">
-                                Refinement Instructions (Optional):
-                            </label>
-                            <textarea
-                                value={refinementInstructions}
-                                onChange={handleRefinementInstructionsChange}
-                                placeholder="e.g., 'Make this segment more detailed', 'Simplify the intro', 'Add a section about X'"
-                                rows="3"
-                                className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                            ></textarea>
-                            <div className="text-center mt-4">
-                                <button onClick={handleRefineButtonClick} disabled={isLoading || !refinementInstructions.trim()} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg disabled:opacity-50">
-                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Refine Outline with AI'}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateRefinementPlan)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
-                            </button>
-                        </div>
-                    </div>
-                );
-
-            case 'refinement_qa':
-                return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Refinement Details</h3>
-                        <p className="text-gray-400 mb-6">Now, let's get specific. Answer these questions based on the outline to provide the AI with details for the full script.</p>
-                        <div className="space-y-6">
-                            {(localTaskData.locationQuestions || []).map((item, index) => (
-                                <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-gray-200 text-md font-medium mb-2">
-                                        {item.locationName && <span className="font-semibold text-primary-accent mr-1">{item.locationName}:</span>}
-                                        {item.question}
-                                    </label>
-                                    <textarea
-                                        value={(localTaskData.userExperiences || {})[item.locationName || `general_${index}`] || ''}
-                                        onChange={(e) => handleExperienceChange(item.locationName || `general_${index}`, e.target.value)}
-                                        placeholder="Be specific about what you did, saw, or captured... (e.g., 'At the market, I filmed a lady making fresh pasta and bought some local cheese.')"
-                                        rows="4"
-                                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                                    ></textarea>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-center mt-8">
-                             <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
-                            </button>
-                        </div>
-                    </div>
-                );
-
-            case 'full_script_review':
-                 return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Final Script Review</h3>
-                        <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or provide instructions below to have the AI refine it further.</p>
-                        <textarea
-                            value={localTaskData.script}
-                            onChange={handleScriptChange}
-                            rows="20"
-                            className="w-full form-textarea leading-relaxed mb-4"
-                            placeholder="Your final script will appear here."
-                        />
-                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 mb-6">
-                            <label className="block text-gray-200 text-md font-medium mb-2">
-                                Refinement Instructions (Optional):
-                            </label>
-                            <textarea
-                                value={refinementInstructions}
-                                onChange={handleRefinementInstructionsChange}
-                                placeholder="e.g., 'Make the intro more energetic', 'Shorten the segment about the museum', 'Add a call to action at the end.'"
-                                rows="3"
-                                className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                            ></textarea>
-                            <div className="text-center mt-4">
-                                <button onClick={handleRefineButtonClick} disabled={isLoading || !refinementInstructions.trim()} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg disabled:opacity-50">
-                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Refine Script with AI'}
-                                </button>
-                            </div>
-                        </div>
-                         <div className="text-center mt-8">
-                             <button onClick={handleSaveAndClose} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                Save and Complete Task
-                            </button>
-                        </div>
-                    </div>
-                );
-
-            default:
-                return <p>Invalid scripting stage.</p>;
-        }
-    };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
-            <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
-                {/* When closing, ensure to save the current local task data */}
-                <button onClick={() => onUpdate(localTaskData)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <h2 className="text-3xl font-bold text-white mb-6 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
-                
-                <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
-                    {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                    {renderContent()}
-                </div>
+        <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold">Scripting</h3>
+                <button onClick={() => setIsWorkspaceOpen(true)} className="btn-secondary btn-sm">Open Workspace</button>
             </div>
-        </div>
-    );
-};
-
-
-window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
-    const [showWorkspace, setShowWorkspace] = useState(false);
-    
-    // Initialize taskData from video prop, ensuring all necessary fields are present
-    const taskData = {
-        scriptingStage: video.tasks?.scriptingStage || 'pending',
-        initialThoughts: video.tasks?.initialThoughts || '',
-        scriptPlan: video.tasks?.scriptPlan || '',
-        locationQuestions: video.tasks?.locationQuestions || [],
-        userExperiences: video.tasks?.userExperiences || {},
-        script: video.script || '' // Use video.script as the source for the current script
-    };
-
-    const handleOpenWorkspace = () => {
-        // When opening, if the task is pending, immediately move to the first step.
-        if (taskData.scriptingStage === 'pending') {
-            onUpdateTask('scripting', 'in-progress', { 
-                'tasks.scriptingStage': 'initial_thoughts'
-            });
-        }
-        setShowWorkspace(true);
-    };
-
-    const handleGenerateDraftOutline = async (thoughtsText) => {
-        // First, save the user's thoughts to Firestore (this will be debounced by the modal's internal state now)
-        // onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText }); // Removed, as useDebounce in modal handles it
-
-        // Then, call the AI
-        const { draftOutline } = await window.aiUtils.generateDraftOutlineAI({
-            videoTitle: video.chosenTitle || video.title,
-            videoConcept: video.concept,
-            initialThoughts: thoughtsText,
-            apiKey: settings.geminiApiKey
-        });
-        
-        // Finally, update the state with the new outline and move to the next stage
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'draft_outline_review',
-            'tasks.scriptPlan': draftOutline
-        });
-    };
-
-    const handleGenerateRefinementPlan = async () => {
-        const projectDocRef = db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects`).doc(project.id);
-        const projectSnap = await projectDocRef.get();
-        const projectData = projectSnap.data();
-
-        const planData = await window.aiUtils.generateScriptPlanAI({
-            videoTitle: video.chosenTitle || video.title,
-            videoConcept: taskData.scriptPlan, // Use the current scriptPlan for refinement
-            videoLocationsFeatured: video.locations_featured || [],
-            projectFootageInventory: projectData.footageInventory || {},
-            whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
-            styleGuideText: settings.styleGuideText,
-            apiKey: settings.geminiApiKey
-        });
-        
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'refinement_qa',
-            'tasks.scriptPlan': planData.scriptPlan, // Update with refined plan from AI
-            'tasks.locationQuestions': planData.locationQuestions,
-            'tasks.userExperiences': {} // Reset user experiences for new questions
-        });
-    };
-    
-    const handleGenerateFullScript = async () => {
-        const fullScript = await window.aiUtils.generateFullScriptAI({
-            scriptPlan: taskData.scriptPlan,
-            generalFeedback: '', // No direct general feedback field in UI, can be extended if needed
-            locationExperiences: taskData.userExperiences,
-            videoTitle: video.chosenTitle || video.title,
-            whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
-            styleGuideText: settings.styleGuideText,
-            apiKey: settings.geminiApiKey
-        });
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'full_script_review',
-            'script': fullScript // Update the main video script field
-        });
-    };
-
-    const handleRefineScript = async (currentScript, refinementInstructions, settings) => {
-        const refinedScript = await window.aiUtils.refineScriptAI({
-            currentScript: currentScript,
-            refinementInstructions: refinementInstructions,
-            whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
-            styleGuideText: settings.styleGuideText,
-            apiKey: settings.geminiApiKey
-        });
-
-        // Update the script in the task data and re-save
-        await onUpdateTask('scripting', 'in-progress', {
-            'script': refinedScript
-        });
-    };
-
-    const handleRefineScriptPlan = async (currentScriptPlan, refinementInstructions, settings) => {
-        const refinedScriptPlan = await window.aiUtils.refineScriptPlanAI({
-            currentScriptPlan: currentScriptPlan,
-            refinementInstructions: refinementInstructions,
-            whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
-            styleGuideText: settings.styleGuideText,
-            apiKey: settings.geminiApiKey
-        });
-
-        // Update the script plan in the task data and re-save
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptPlan': refinedScriptPlan
-        });
-    };
-
-
-    const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
-        // This function is called by the modal to update data back to the parent and close.
-        // It's effectively the "auto-save" trigger from the modal.
-        onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': updatedTaskData.scriptingStage,
-            'tasks.initialThoughts': updatedTaskData.initialThoughts,
-            'tasks.scriptPlan': updatedTaskData.scriptPlan,
-            'tasks.locationQuestions': updatedTaskData.locationQuestions,
-            'tasks.userExperiences': updatedTaskData.userExperiences,
-            'script': updatedTaskData.script, // Ensure script changes are also saved
-        });
-        // We do not close the workspace here, the user needs to explicitly click the close button
-        // setShowWorkspace(false); 
-    };
-
-    const handleSaveAndComplete = (finalScript, finalTaskData) => {
-        // This function is for the final completion of the task.
-        onUpdateTask('scripting', 'complete', {
-             'tasks.scriptingStage': 'complete',
-             'tasks.initialThoughts': finalTaskData.initialThoughts,
-             'tasks.scriptPlan': finalTaskData.scriptPlan,
-             'tasks.locationQuestions': finalTaskData.locationQuestions,
-             'tasks.userExperiences': finalTaskData.userExperiences,
-             'script': finalScript, // Ensure the final script is saved under video.script
-        });
-        setShowWorkspace(false);
-    };
-
-    // The content inside the accordion
-    const renderAccordionContent = () => {
-        if (isLocked) {
-            return <p className="text-gray-400 text-center py-2 text-sm">Please complete previous steps to begin scripting.</p>;
-        }
-
-        if (video.tasks?.scripting === 'complete') {
-            return (
-                <div className="text-center">
-                    <p className="text-gray-400 py-2 text-sm">Scripting is complete.</p>
-                    <button onClick={handleOpenWorkspace} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
-                        View/Edit Script
-                    </button>
-                </div>
-            );
-        }
-        
-        return (
-            <div className="text-center py-4">
-                <button onClick={handleOpenWorkspace} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold">
-                    Open Scripting Workspace
-                </button>
+            <div>
+                <label className="block text-sm font-medium mb-1">Current Script</label>
+                <pre className="text-sm bg-gray-900 p-2 rounded-md whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+                    {script || "No script yet. Open the workspace to get started."}
+                </pre>
             </div>
-        );
-    };
-
-    return (
-        <div>
-            {renderAccordionContent()}
-            {showWorkspace && ReactDOM.createPortal(
-                <ScriptingWorkspaceModal
+            <button onClick={handleComplete} className="btn-primary w-full">Mark as Complete</button>
+            
+            {isWorkspaceOpen && (
+                <window.ScriptingWorkspaceModal
                     video={video}
-                    taskData={taskData}
-                    onClose={() => setShowWorkspace(false)} // This simple close doesn't save
-                    onUpdate={handleUpdateAndCloseWorkspace} // This handles auto-saving and closing
-                    onSave={handleSaveAndComplete}
-                    onGenerateDraftOutline={handleGenerateDraftOutline}
-                    onGenerateRefinementPlan={handleGenerateRefinementPlan}
-                    onGenerateFullScript={handleGenerateFullScript}
-                    onRefineScript={handleRefineScript} // Pass the new refine function for full script
-                    onRefineScriptPlan={handleRefineScriptPlan} // Pass the new refine function for script plan
-                    settings={settings} // Pass settings for API key
-                />,
-                document.body
+                    settings={settings}
+                    onClose={() => setIsWorkspaceOpen(false)}
+                    onSave={handleSaveScript}
+                />
             )}
         </div>
     );
 };
 
+
+window.ScriptingWorkspaceModal = ({ video, settings, onClose, onSave }) => {
+    const { useState, useEffect } = React;
+    const [activeTab, setActiveTab] = useState('script'); // script, outline, plan
+    const [localScript, setLocalScript] = useState('');
+    const [draftOutline, setDraftOutline] = useState(null);
+    const [refinementPlan, setRefinementPlan] = useState([]);
+    const [isLoading, setIsLoading] = useState(null); // 'outline', 'plan', 'full-script', 'refine-script', 'refine-plan'
+    const [thoughts, setThoughts] = useState('');
+    const [refinementRequest, setRefinementRequest] = useState('');
+
+
+    useEffect(() => {
+        setLocalScript(video.script || '');
+        setRefinementPlan(video.scriptPlan || []);
+        setDraftOutline(video.draftOutline || null);
+    }, [video]);
+    
+     const knowledgeBases = settings.knowledgeBases || {};
+
+
+    const handleGenerateDraftOutline = async () => {
+        setIsLoading('outline');
+        try {
+            const result = await window.aiUtils.generateDraftOutlineAI({
+                videoTitle: video.title,
+                videoConcept: video.concept,
+                initialThoughts: thoughts,
+                apiKey: settings.geminiApiKey,
+                useProModelSetting: settings.useProModel,
+                flashModelName: settings.geminiFlashModelName,
+                proModelName: settings.geminiProModelName
+            });
+            setDraftOutline(result.draftOutline);
+        } catch(e) { console.error(e); alert("Failed to generate outline."); }
+        finally { setIsLoading(null); }
+    };
+
+    const handleGenerateRefinementPlan = async () => {
+        setIsLoading('plan');
+        try {
+             const result = await window.aiUtils.generateScriptPlanAI({
+                video,
+                scriptPlanKb: knowledgeBases.scriptPlan,
+                apiKey: settings.geminiApiKey,
+                useProModelSetting: settings.useProModel,
+                flashModelName: settings.geminiFlashModelName,
+                proModelName: settings.geminiProModelName
+            });
+            setRefinementPlan(result.refinementPlan);
+        } catch(e) { console.error(e); alert("Failed to generate plan."); }
+        finally { setIsLoading(null); }
+    };
+    
+    const handleGenerateFullScript = async () => {
+        setIsLoading('full-script');
+        try {
+            const result = await window.aiUtils.generateFullScriptAI({
+                video,
+                draftOutline,
+                fullScriptKb: knowledgeBases.fullScript,
+                apiKey: settings.geminiApiKey,
+                useProModelSetting: settings.useProModel,
+                flashModelName: settings.geminiFlashModelName,
+                proModelName: settings.geminiProModelName
+            });
+            setLocalScript(result.fullScript);
+            setActiveTab('script');
+        } catch(e) { console.error(e); alert("Failed to generate script."); }
+        finally { setIsLoading(null); }
+    };
+
+    const handleRefineScript = async () => {
+        setIsLoading('refine-script');
+        try {
+            const result = await window.aiUtils.refineScriptAI({
+                script: localScript,
+                refinementRequests: refinementRequest,
+                apiKey: settings.geminiApiKey,
+                useProModelSetting: settings.useProModel,
+                flashModelName: settings.geminiFlashModelName,
+                proModelName: settings.geminiProModelName
+            });
+            setLocalScript(result.refinedScript);
+            setRefinementRequest('');
+        } catch(e) { console.error(e); alert("Failed to refine script."); }
+        finally { setIsLoading(null); }
+    };
+    
+    const handleRefineScriptPlan = async () => {
+        setIsLoading('refine-plan');
+        try {
+             const result = await window.aiUtils.refineScriptPlanAI({
+                scriptPlan: refinementPlan,
+                refinementRequests: refinementRequest,
+                apiKey: settings.geminiApiKey,
+                useProModelSetting: settings.useProModel,
+                flashModelName: settings.geminiFlashModelName,
+                proModelName: settings.geminiProModelName
+            });
+            setRefinementPlan(result.refinedScriptPlan);
+            setRefinementRequest('');
+        } catch(e) { console.error(e); alert("Failed to refine plan."); }
+        finally { setIsLoading(null); }
+    };
+
+
+    const handleSaveAndClose = () => {
+        onSave(localScript, refinementPlan);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl h-full max-h-[90vh] flex flex-col">
+                <div className="p-4 border-b border-gray-700">
+                    <h2 className="text-xl font-bold">Scripting Workspace: {video.title}</h2>
+                </div>
+                <div className="flex-grow flex">
+                    {/* Left Panel for AI tools */}
+                    <div className="w-1/3 bg-gray-900 p-4 space-y-4 overflow-y-auto">
+                        <div>
+                            <h4 className="font-bold mb-2">1. Generate Outline</h4>
+                            <textarea value={thoughts} onChange={e => setThoughts(e.target.value)} rows="4" className="form-textarea w-full" placeholder="Your initial ideas, research, keywords..."></textarea>
+                            <button onClick={handleGenerateDraftOutline} disabled={isLoading} className="btn-secondary w-full mt-2">
+                                {isLoading === 'outline' ? 'Generating...' : 'Generate Outline'}
+                            </button>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-2">2. Generate Refinement Plan</h4>
+                             <button onClick={handleGenerateRefinementPlan} disabled={isLoading} className="btn-secondary w-full">
+                                {isLoading === 'plan' ? 'Generating...' : 'Generate Plan'}
+                            </button>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-2">3. Generate Full Script</h4>
+                            <button onClick={handleGenerateFullScript} disabled={!draftOutline || isLoading} className="btn-secondary w-full">
+                                {isLoading === 'full-script' ? 'Generating...' : 'Generate Script from Outline'}
+                            </button>
+                        </div>
+                         <div className="pt-4 border-t border-gray-700">
+                            <h4 className="font-bold mb-2">Refine Existing Content</h4>
+                            <textarea value={refinementRequest} onChange={e => setRefinementRequest(e.target.value)} rows="3" className="form-textarea w-full" placeholder="e.g., 'Make the hook shorter', 'Change the CTA'"></textarea>
+                            <div className="flex space-x-2 mt-2">
+                                <button onClick={handleRefineScript} disabled={isLoading || !localScript} className="btn-secondary w-full text-sm">
+                                    {isLoading === 'refine-script' ? '...' : 'Refine Script'}
+                                </button>
+                                <button onClick={handleRefineScriptPlan} disabled={isLoading || !refinementPlan?.length} className="btn-secondary w-full text-sm">
+                                    {isLoading === 'refine-plan' ? '...' : 'Refine Plan'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Right Panel for Content */}
+                    <div className="w-2/3 p-4 flex flex-col">
+                        <div className="border-b border-gray-700 mb-2">
+                            <nav className="flex space-x-4">
+                                <button onClick={() => setActiveTab('script')} className={`py-2 px-4 ${activeTab === 'script' ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400'}`}>Script</button>
+                                <button onClick={() => setActiveTab('outline')} className={`py-2 px-4 ${activeTab === 'outline' ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400'}`}>Outline</button>
+                                <button onClick={() => setActiveTab('plan')} className={`py-2 px-4 ${activeTab === 'plan' ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400'}`}>Plan</button>
+                            </nav>
+                        </div>
+                        <div className="flex-grow overflow-y-auto">
+                            {activeTab === 'script' && <textarea value={localScript} onChange={e => setLocalScript(e.target.value)} className="w-full h-full form-textarea bg-gray-800 border-none font-mono text-sm focus:ring-0"></textarea>}
+                            {activeTab === 'outline' && <pre className="whitespace-pre-wrap text-sm">{draftOutline ? JSON.stringify(draftOutline, null, 2) : "No outline generated yet."}</pre>}
+                            {activeTab === 'plan' && <pre className="whitespace-pre-wrap text-sm">{refinementPlan?.length ? JSON.stringify(refinementPlan, null, 2) : "No plan generated yet."}</pre>}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-gray-900 flex justify-end space-x-4 rounded-b-lg">
+                    <button onClick={onClose} className="btn-secondary">Cancel</button>
+                    <button onClick={handleSaveAndClose} className="btn-primary">Save & Close</button>
+                </div>
+            </div>
+        </div>
+    );
+}
