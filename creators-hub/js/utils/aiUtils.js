@@ -92,6 +92,7 @@ For each idea, provide the following in a valid JSON object:
 - "description": (string) A brief (1-2 sentence) summary of the post's content and target audience.
 - "primaryKeyword": (string) The main search term this post should rank for.
 - "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
+- "monetizationOpportunities": (string) A brief (1-2 sentence) explanation of the specific monetization opportunities (e.g., affiliate links for hotels, tours, gear) and how it aligns with the user's content goals.
 
 Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
         
