@@ -6,34 +6,90 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
     const isConnected = settings?.wordpress?.url && settings?.wordpress?.username && settings?.wordpress?.applicationPassword;
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    const [destination, setDestination] = useState('');
+    // State for idea generation
+    const [generationSource, setGenerationSource] = useState('topic'); // 'topic', 'project', or 'video'
+    const [topic, setTopic] = useState('');
+    const [projects, setProjects] = useState([]);
+    const [selectedProjectId, setSelectedProjectId] = useState('');
+    const [videos, setVideos] = useState([]);
+    const [selectedVideoId, setSelectedVideoId] = useState('');
+    
     const [generatedIdeas, setGeneratedIdeas] = useState([]);
-    const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleGenerateIdeas = async () => {
-        if (!destination.trim()) {
-            setError("Please enter a destination.");
+    // Fetch all projects for the dropdown
+    useEffect(() => {
+        if (!userId || !db) return;
+        const projectsRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("createdAt", "desc");
+        const unsubscribe = projectsRef.onSnapshot(snapshot => {
+            setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        return () => unsubscribe();
+    }, [userId, db, appId]);
+
+    // Fetch videos for the selected project
+    useEffect(() => {
+        if (!selectedProjectId) {
+            setVideos([]);
+            setSelectedVideoId('');
             return;
         }
-        setIsLoadingIdeas(true);
+        const videosRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProjectId}/videos`).orderBy("order");
+        const unsubscribe = videosRef.onSnapshot(snapshot => {
+            setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        return () => unsubscribe();
+    }, [selectedProjectId, userId, db, appId]);
+
+
+    const handleGenerateIdeas = async () => {
+        setIsLoading(true);
         setError('');
         setGeneratedIdeas([]);
 
+        let generationParams = {
+            coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
+            ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration,
+            apiKey: settings.geminiApiKey,
+        };
+        
+        if (generationSource === 'topic') {
+            if (!topic.trim()) {
+                setError("Please enter a destination or topic.");
+                setIsLoading(false);
+                return;
+            }
+            generationParams.destination = topic;
+        } else if (generationSource === 'project') {
+             if (!selectedProjectId) {
+                setError("Please select a project.");
+                setIsLoading(false);
+                return;
+            }
+            const project = projects.find(p => p.id === selectedProjectId);
+            generationParams.project = project;
+        } else if (generationSource === 'video') {
+             if (!selectedVideoId) {
+                setError("Please select a video.");
+                setIsLoading(false);
+                return;
+            }
+            const project = projects.find(p => p.id === selectedProjectId);
+            const video = videos.find(v => v.id === selectedVideoId);
+            generationParams.project = project;
+            generationParams.video = video;
+        }
+
         try {
-            const ideas = await window.aiUtils.generateBlogPostIdeasAI({
-                destination,
-                coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-                ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration,
-                apiKey: settings.geminiApiKey,
-            });
+            const ideas = await window.aiUtils.generateBlogPostIdeasAI(generationParams);
             const ideasWithIds = ideas.map(idea => ({ ...idea, localId: Math.random().toString(36).substr(2, 9) }));
             setGeneratedIdeas(ideasWithIds);
         } catch (err) {
             console.error("Error generating blog ideas:", err);
             setError(`Failed to generate ideas: ${err.message}`);
         } finally {
-            setIsLoadingIdeas(false);
+            setIsLoading(false);
         }
     };
 
@@ -82,6 +138,34 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
         );
     }
 
+    const renderGenerationSourceInput = () => {
+        switch(generationSource) {
+            case 'project':
+                return (
+                    <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full form-input">
+                        <option value="" disabled>Select a project</option>
+                        {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle}</option>)}
+                    </select>
+                );
+            case 'video':
+                 return (
+                    <div className="flex gap-4">
+                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-1/2 form-input">
+                            <option value="" disabled>Select a project</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle}</option>)}
+                        </select>
+                        <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} className="w-1/2 form-input" disabled={!selectedProjectId || videos.length === 0}>
+                             <option value="" disabled>{!selectedProjectId ? 'First select a project' : (videos.length === 0 ? 'No videos in project' : 'Select a video')}</option>
+                             {videos.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
+                        </select>
+                    </div>
+                );
+            case 'topic':
+            default:
+                 return <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} className="w-full form-input" placeholder="e.g., Cyprus, Tokyo, Scottish Highlands"/>;
+        }
+    }
+
     return (
         <div className="p-8">
             <header className="flex justify-between items-center mb-8">
@@ -93,29 +177,30 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
             </header>
 
             <div className="space-y-8">
-                {/* Top Section for Idea Generation */}
                 <div className="glass-card p-6 rounded-lg">
                     <h2 className="text-2xl font-semibold mb-4">1. Generate Ideas</h2>
+                    <div className="mb-4 border-b border-gray-700">
+                        <nav className="flex space-x-4">
+                            <button onClick={() => setGenerationSource('topic')} className={`py-2 px-1 text-sm font-medium transition-colors ${generationSource === 'topic' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}>From Topic</button>
+                            <button onClick={() => setGenerationSource('project')} className={`py-2 px-1 text-sm font-medium transition-colors ${generationSource === 'project' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}>From Project</button>
+                            <button onClick={() => setGenerationSource('video')} className={`py-2 px-1 text-sm font-medium transition-colors ${generationSource === 'video' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}>From Video</button>
+                        </nav>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="md:col-span-2">
-                             <label className="block text-sm font-medium text-gray-300 mb-2">Destination or Topic</label>
-                            <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full form-input" placeholder="e.g., Cyprus, Tokyo, Scottish Highlands"/>
-                        </div>
+                        <div className="md:col-span-2">{renderGenerationSourceInput()}</div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">&nbsp;</label> {/* Spacer */}
-                            <button onClick={handleGenerateIdeas} disabled={isLoadingIdeas} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 flex items-center justify-center gap-2">
-                                {isLoadingIdeas ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Blog Ideas'}
+                            <button onClick={handleGenerateIdeas} disabled={isLoading} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 flex items-center justify-center gap-2">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Blog Ideas'}
                             </button>
                         </div>
                     </div>
                     {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
                 </div>
                 
-                {/* Section for New Suggestions */}
                 {generatedIdeas.length > 0 && (
                     <div className="glass-card p-6 rounded-lg">
                         <h2 className="text-2xl font-semibold mb-4">2. Review New Suggestions</h2>
-                        <div className="space-y-3">
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                             {generatedIdeas.map(idea => (
                                 <div key={idea.localId} className="p-3 bg-gray-800/60 rounded-lg">
                                     <p className="font-semibold">{idea.title}</p>
@@ -130,7 +215,6 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
                     </div>
                 )}
                 
-                {/* Section for Approved Ideas Dashboard */}
                 <div className="glass-card p-6 rounded-lg">
                     <h2 className="text-2xl font-semibold mb-4">3. Approved Ideas Pipeline</h2>
                     <window.BlogIdeasDashboard userId={userId} db={db} />
