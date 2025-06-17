@@ -1,365 +1,168 @@
-// js/app.js
+// creators-hub/js/app.js
 
-window.App = () => { // Exposing App component globally
-    const { useState, useEffect, useCallback } = React;
-    const [user, setUser] = useState(null);
-    const [isAuthReady, setIsAuthReady] = useState(false);
-    const [currentView, setCurrentView] = useState('dashboard');
-    const [selectedProject, setSelectedProject] = useState(null);
-    const [settings, setSettings] = useState({ 
-        geminiApiKey: '', 
-        googleMapsApiKey: '', 
-        youtubeApiKey: '', 
-        styleGuideText: '', 
-        myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-        knowledgeBases: {
-            youtube: {
-                whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
-                firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
-            },
-            blog: {
-                coreSeoEngine: '',
-                ideaGeneration: '',
-                destinationGuideBlueprint: '',
-                listiclePostFramework: '',
-            }
-        },
-        wordpress: { url: '', username: '', applicationPassword: '' }
-    });
-    const [activeProjectDraft, setActiveProjectDraft] = useState(null);
-    const [activeDraftId, setActiveDraftId] = useState(null);
-    const [showNotification, setShowNotification] = useState(false);
-    const [notificationMessage, setNotificationMessage] = useState('');
-    const [showNewProjectWizard, setShowNewProjectWizard] = useState(false);
-    const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-    const [projectToDelete, setProjectToDelete] = useState(null);
-    const [draftToDelete, setDraftToDelete] = useState(null);
-    const [showProjectSelection, setShowProjectSelection] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [appError, setAppError] = useState(null);
+const App = () => {
+    const [user, setUser] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
+    const [currentView, setCurrentView] = React.useState('dashboard'); // e.g., 'dashboard', 'project', 'settings'
+    const [selectedProject, setSelectedProject] = React.useState(null);
+    const [projects, setProjects] = React.useState([]);
+    const [settings, setSettings] = React.useState({});
+     const [isNewProjectWizardOpen, setNewProjectWizardOpen] = React.useState(false);
 
-    const [firebaseAppInstance, setFirebaseAppInstance] = useState(null);
-    const [firebaseDb, setFirebaseDb] = useState(null);
-    const [firebaseAuth, setFirebaseAuth] = useState(null);
-
-    const { APP_ID } = window.CREATOR_HUB_CONFIG;
-
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-
-    useEffect(() => {
-        const initFirebase = async () => {
-            try {
-                let app;
-                if (!firebase.apps.length) {
-                    app = firebase.initializeApp(firebaseConfig);
-                } else {
-                    app = firebase.app();
-                }
-                setFirebaseAppInstance(app);
-                setFirebaseDb(app.firestore());
-                setFirebaseAuth(app.auth());
-
-                const unsubscribeAuth = app.auth().onAuthStateChanged(currentUser => {
-                    setUser(currentUser);
-                    setIsAuthReady(true); 
-                    if (!currentUser) {
-                        setSettings({ 
-                            geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
-                            myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-                            knowledgeBases: {
-                                youtube: {
-                                    whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
-                                    firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
-                                    youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
-                                },
-                                blog: {
-                                    coreSeoEngine: '', ideaGeneration: '',
-                                    destinationGuideBlueprint: '', listiclePostFramework: '',
-                                }
-                            },
-                            wordpress: { url: '', username: '', applicationPassword: '' }
-                        }); 
-                        setActiveProjectDraft(null);
-                    }
-                });
-
-                return () => unsubscribeAuth();
-
-            } catch (e) {
-                console.error("Firebase initialization error:", e);
-                setAppError(`Failed to initialize Firebase: ${e.message}`);
-                setIsAuthReady(true);
-            }
-        };
-        initFirebase();
-    }, [firebaseConfig]);
-
-
-    useEffect(() => {
-        if (user && user.uid && firebaseDb) { 
-            const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
-            const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
-                const defaultSettings = {
-                    geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '',
-                    myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-                    knowledgeBases: { 
-                        youtube: {
-                            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
-                            firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
-                            youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
-                        },
-                        blog: {
-                            coreSeoEngine: '', ideaGeneration: '',
-                            destinationGuideBlueprint: '', listiclePostFramework: '',
-                        }
-                    },
-                    wordpress: { url: '', username: '', applicationPassword: '' }
-                };
-                const data = docSnap.exists ? docSnap.data() : {};
+    // Initial listener for auth state changes
+    React.useEffect(() => {
+        const unsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
+                setUser(user);
+                // Load user-specific data (projects, settings) from Firestore
+                const userDocRef = firebase.firestore().collection('users').doc(user.uid);
                 
-                const mergedKnowledgeBases = {
-                    ...defaultSettings.knowledgeBases, 
-                    ...data.knowledgeBases, 
-                    youtube: { ...defaultSettings.knowledgeBases.youtube, ...data.knowledgeBases?.youtube },
-                    blog: { ...defaultSettings.knowledgeBases.blog, ...data.knowledgeBases?.blog }
-                };
+                // Load Projects
+                const projectsRef = userDocRef.collection('projects');
+                const projectsSnapshot = await projectsRef.get();
+                const projectsData = projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setProjects(projectsData);
 
-                const newSettings = { ...defaultSettings, ...data, knowledgeBases: mergedKnowledgeBases };
-                setSettings(newSettings);
-
-                if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
-                    window.loadGoogleMapsScript(newSettings.googleMapsApiKey, () => {
-                        setGoogleMapsLoaded(true);
-                    });
+                // Load Settings
+                const settingsDoc = await userDocRef.get();
+                if (settingsDoc.exists) {
+                    setSettings(settingsDoc.data().settings || {});
                 }
-            });
-            return () => unsubscribeSettings();
+
+            } else {
+                setUser(null);
+                setProjects([]);
+                setSettings({});
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const handleSignOut = () => {
+        firebase.auth().signOut().then(() => {
+            setUser(null);
+            setCurrentView('dashboard');
+            setSelectedProject(null);
+        });
+    };
+    
+    const handleSaveSettings = async (newSettings) => {
+        if (user) {
+            const userDocRef = firebase.firestore().collection('users').doc(user.uid);
+            await userDocRef.set({ settings: newSettings }, { merge: true });
+            setSettings(newSettings);
+            alert('Settings saved!');
         }
-    }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
-
-
-    const displayNotification = (message) => {
-        setNotificationMessage(message);
-        setShowNotification(true);
-        setTimeout(() => setShowNotification(false), 3000);
     };
 
-    const handleSelectProject = (project) => {
+    const handleSelectProject = (projectId) => {
+        const project = projects.find(p => p.id === projectId);
         setSelectedProject(project);
         setCurrentView('project');
     };
-
-    const handleBackToDashboard = () => {
-        setSelectedProject(null);
-        setCurrentView('dashboard');
-    };
-
-    const handleShowSettings = () => setCurrentView('settingsMenu');
-    const handleShowTools = () => setCurrentView('tools');
-    const handleSelectTool = (toolId) => {
-        if (toolId === 'blog') setCurrentView('blogTool');
-        if (toolId === 'shorts') setCurrentView('shortsTool');
-        if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
-    };
-    const handleShowTechnicalSettings = () => setCurrentView('technicalSettings');
-    const handleShowStyleAndTone = () => setCurrentView('myStudio');
-    const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
-
-    const handleSaveSettings = async (newSettings) => {
-        if (!user || !firebaseDb) return;
-        const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
-        try {
-            await settingsDocRef.set(newSettings, { merge: true });
-            displayNotification('Settings saved successfully!');
-            if (['technicalSettings', 'myStudio', 'knowledgeBases'].includes(currentView)) {
-                 setCurrentView('settingsMenu');
-            }
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            displayNotification(`Error: ${error.message}`);
+    
+    const handleCreateProject = async (projectData) => {
+        if (user) {
+            const projectsRef = firebase.firestore().collection('users').doc(user.uid).collection('projects');
+            const newProjectRef = await projectsRef.add(projectData);
+            const newProject = { id: newProjectRef.id, ...projectData };
+            setProjects([...projects, newProject]);
+            handleSelectProject(newProject.id); // Select the new project
+            setNewProjectWizardOpen(false); // Close the wizard
         }
     };
     
-    const handleShowDeleteConfirm = (project) => setProjectToDelete(project);
-    
-    const handleConfirmDelete = async (projectId) => {
-        if (!user || !firebaseDb) return;
-        const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
-        const videosCollectionRef = projectRef.collection('videos');
-        try {
-            const videoSnapshot = await videosCollectionRef.get();
-            const batch = firebaseDb.batch();
-            videoSnapshot.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            await projectRef.delete();
-            displayNotification('Project deleted successfully.');
-            setProjectToDelete(null); 
-        } catch (error) {
-            console.error("Error deleting project:", error);
-            displayNotification(`Error: ${error.message}`); 
-        }
-    };
-    
-    const handleShowDeleteDraftConfirm = (draftId) => setDraftToDelete(draftId);
-    
-    const handleConfirmDeleteDraft = async (draftId) => {
-        if (!user || !firebaseDb) return;
-        try {
-            await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId).delete();
-            displayNotification('Draft deleted successfully.');
-            setDraftToDelete(null); 
-        } catch (error) {
-            console.error("Error deleting draft:", error);
-            displayNotification(`Error: ${error.message}`); 
-        }
-    };
-    
-    const handleResumeDraft = async (draftId) => {
-        if (!user || !firebaseDb) return;
-        const draftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId);
-        try {
-            const docSnap = await draftRef.get();
-            if (docSnap.exists) {
-                setActiveDraftId(draftId);
-                setActiveProjectDraft({ id: docSnap.id, ...docSnap.data() });
-                setShowProjectSelection(false);
-                setShowNewProjectWizard(true);
-            } else {
-                displayNotification("Error: Draft not found.");
-            }
-        } catch (error) {
-            console.error("Error resuming draft:", error);
-            displayNotification(`Error: ${error.message}`); 
+    const handleUpdateProject = (updatedProject) => {
+        if (user && selectedProject) {
+            const projectRef = firebase.firestore().collection('users').doc(user.uid).collection('projects').doc(selectedProject.id);
+            projectRef.update(updatedProject);
+            
+            const updatedProjects = projects.map(p => p.id === selectedProject.id ? {...p, ...updatedProject} : p);
+            setProjects(updatedProjects);
+            setSelectedProject({...selectedProject, ...updatedProject});
         }
     };
 
-    const handleSelectWorkflow = async (type) => {
-        if (!user || !firebaseDb) return;
-        setShowProjectSelection(false);
-        if (type === 'post-trip') {
-            const newDraftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
-            const newDraftData = {
-                step: 1, inputs: { location: '', theme: '' }, locations: [], footageInventory: {},
-                keywordIdeas: [], selectedKeywords: [], editableOutline: null, finalizedTitle: null,
-                finalizedDescription: null, selectedTitle: '', coverImageUrl: '',
-                createdAt: new Date(), updatedAt: new Date(),
-            };
-            await newDraftRef.set(newDraftData);
-            setActiveDraftId(newDraftRef.id);
-            setActiveProjectDraft(newDraftData);
-            setShowNewProjectWizard(true);
-        } else if (type === 'import') {
-            setCurrentView('importProject');
-        }
-    };
 
-    const handleAnalyzeImportedProject = async (projectData) => {
-        setIsLoading(true);
-        if (!projectData.videos || projectData.videos.length === 0) {
-            setIsLoading(false);
-            displayNotification("No videos found to import. Please check the YouTube URL/ID.");
-            return;
-        }
-        if (!user || !firebaseDb) {
-            setIsLoading(false);
-            displayNotification("Authentication not ready. Please try again.");
-            return;
-        }
+    if (loading) {
+        return React.createElement('div', null, 'Loading...');
+    }
     
-        try {
-            const batch = firebaseDb.batch();
-            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc();
-            batch.set(projectRef, {
-                playlistTitle: projectData.playlistTitle,
-                playlistDescription: projectData.playlistDescription,
-                locations: [], footageInventory: {}, coverImageUrl: projectData.coverImageUrl || '',
-                createdAt: new Date().toISOString(), videoCount: projectData.videos.length
-            });
-
-            projectData.videos.forEach((video, index) => {
-                const videoRef = projectRef.collection('videos').doc();
-                batch.set(videoRef, {
-                    title: video.title, concept: video.concept || '', script: video.script || '',
-                    locations_featured: video.locations_featured || [], targeted_keywords: video.targeted_keywords || [],
-                    estimatedLengthMinutes: video.estimatedLengthMinutes || '', thumbnailUrl: video.thumbnailUrl || '',
-                    isManual: video.isManual || false, chapters: video.chapters || [],
-                    tasks: video.tasks || {
-                        scripting: video.script ? 'complete' : 'pending', videoEdited: 'complete',
-                        feedbackProvided: 'complete', metadataGenerated: 'complete', thumbnailsGenerated: 'complete',
-                        videoUploaded: 'complete', firstCommentGenerated: 'complete', tagsGenerated: 'complete'
-                    },
-                    publishDate: video.publishDate || '', metadata: video.metadata || '',
-                    generatedThumbnails: video.generatedThumbnails || [], chosenTitle: video.chosenTitle || video.title,
-                    order: index, createdAt: new Date().toISOString()
-                });
-            });
-
-            await batch.commit();
-            displayNotification('Project imported and created successfully!');
-            setSelectedProject({ id: projectRef.id, playlistTitle: projectData.playlistTitle, playlistDescription: projectData.playlistDescription, coverImageUrl: projectData.coverImageUrl, videoCount: projectData.videos.length });
-            setCurrentView('project');
-        } catch (error) {
-            console.error("Error importing project:", error);
-            displayNotification(`Error importing project: ${error.message}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    const handleCloseWizard = () => {
-        setShowNewProjectWizard(false);
-        setActiveProjectDraft(null);
-        setActiveDraftId(null);
-    };
-
     const renderView = () => {
-        if (!isAuthReady || !firebaseDb || !firebaseAuth) {
-            return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
-        }
-        
         if (!user) {
-            return <window.LoginScreen onLogin={() => {}} firebaseAuth={firebaseAuth} />;
+            // Simple sign-in UI
+            return React.createElement('div', { className: 'auth-container' },
+                React.createElement('h1', null, 'Creator\'s Hub'),
+                React.createElement('p', null, 'Please sign in to continue.'),
+                React.createElement('div', { id: 'firebaseui-auth-container' })
+            );
         }
 
         switch (currentView) {
             case 'project':
-                return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} />;
-            case 'settingsMenu':
-                return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
-            case 'technicalSettings':
-                return <window.TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
-            case 'myStudio':
-                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
-            case 'importProject':
-                return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
-            case 'knowledgeBases':
-                return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+                return React.createElement(ProjectView, { 
+                    project: selectedProject, 
+                    onBack: () => setCurrentView('dashboard'),
+                    onUpdateProject: handleUpdateProject,
+                    settings: settings,
+                });
+            case 'settings':
+                return React.createElement(SettingsMenu, { 
+                    onSave: handleSaveSettings,
+                    initialSettings: settings,
+                    onBack: () => setCurrentView('dashboard') 
+                });
             case 'tools':
-                return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
-            case 'blogTool':
-                return <window.BlogTool settings={settings} onBack={() => setCurrentView('tools')} onNavigateToSettings={() => setCurrentView('technicalSettings')} userId={user.uid} db={firebaseDb} />;
-            case 'shortsTool':
-                 return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
-            case 'contentLibrary':
-                 return <window.ContentLibrary onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
+                return React.createElement(ToolsView, {
+                    onNavigate: setCurrentView
+                });
+            case 'my-studio':
+                 return React.createElement(MyStudioView, { projects: projects, onSelectProject: handleSelectProject, onNewProject: () => setNewProjectWizardOpen(true) });
+            case 'content-library':
+                return React.createElement(ContentLibrary, {});
+            case 'import-project':
+                return React.createElement(ImportProjectView, { onProjectCreated: handleCreateProject });
+            case 'knowledge-base':
+                return React.createElement(KnowledgeBaseView, { settings: settings });
+            case 'dashboard':
             default:
-                return <window.Dashboard userId={user.uid} onSelectProject={handleSelectProject} onShowSettings={handleShowSettings} onShowProjectSelection={() => setShowProjectSelection(true)} onShowDeleteConfirm={handleShowDeleteConfirm} onShowTools={handleShowTools} db={firebaseDb} auth={firebaseAuth} />;
+                return React.createElement(Dashboard, {
+                    onNavigate: setCurrentView,
+                    projects: projects,
+                    onSelectProject: handleSelectProject,
+                    onNewProject: () => setNewProjectWizardOpen(true)
+                });
         }
-    }
+    };
 
-    return (
-        <div className="min-h-screen"> 
-            {appError && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">{appError}</div>}
-            {showNotification && <div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>}
-            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance}/>}
-            {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
-            {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} db={firebaseDb} auth={firebaseAuth} />}
-            <main>{renderView()}</main>
-        </div>
+    return React.createElement('div', { className: 'app-container' },
+        user && React.createElement('header', { className: 'app-header' },
+            React.createElement('h1', { onClick: () => setCurrentView('dashboard'), style: { cursor: 'pointer'} }, 'Creator\'s Hub'),
+            React.createElement('nav', null,
+                React.createElement('button', { onClick: () => setCurrentView('dashboard') }, 'Dashboard'),
+                React.createElement('button', { onClick: () => setCurrentView('my-studio') }, 'My Studio'),
+                React.createElement('button', { onClick: () => setCurrentView('tools') }, 'Tools'),
+                React.createElement('button', { onClick: () => setCurrentView('content-library') }, 'Library'),
+                React.createElement('button', { onClick: () => setCurrentView('knowledge-base') }, 'Knowledge Base'),
+                React.createElement('button', { onClick: () => setCurrentView('settings') }, React.createElement('i', { className: 'fas fa-cog' })),
+                React.createElement('button', { onClick: handleSignOut }, 'Sign Out')
+            )
+        ),
+        React.createElement('main', null, renderView()),
+        isNewProjectWizardOpen && React.createElement(NewProjectWizard, {
+            onClose: () => setNewProjectWizardOpen(false),
+            onCreateProject: handleCreateProject,
+            settings: settings
+        })
     );
-}
+};
 
+
+// Use the legacy `ReactDOM.render` method for React 17
 const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(<App />);
+ReactDOM.render(
+    React.createElement(React.StrictMode, null, React.createElement(App)),
+    container
+);
