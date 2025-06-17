@@ -7,18 +7,29 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
-        if (!userId || !db) return;
+        // If the database connection or user ID isn't ready, we can't fetch.
+        // Set loading to false to prevent the spinner from sticking.
+        if (!userId || !db) {
+            setIsLoading(false);
+            return;
+        }
+
+        // Set loading to true whenever we start a new fetch.
+        setIsLoading(true);
         const ideasCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).orderBy("createdAt", "desc");
         
         const unsubscribe = ideasCollectionRef.onSnapshot(snapshot => {
             const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setIdeas(fetchedIdeas);
+            // Crucially, set loading to false after the data has been fetched.
             setIsLoading(false);
         }, error => {
             console.error("Error fetching blog ideas:", error);
+            // Also set loading to false if there's an error.
             setIsLoading(false);
         });
 
+        // Cleanup the listener when the component unmounts.
         return () => unsubscribe();
     }, [userId, db, appId]);
 
