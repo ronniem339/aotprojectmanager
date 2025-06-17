@@ -1,75 +1,85 @@
-// js/components/ProjectView/tasks/FirstCommentTask.js
-
-window.FirstCommentTask = ({ video, settings, onUpdateTask, isLocked }) => {
+window.FirstCommentTask = ({ video, onUpdate, onCompletion, settings }) => {
     const { useState, useEffect } = React;
-    const [comment, setComment] = useState('');
-    const [generating, setGenerating] = useState(false);
-    
-    const taskStatus = video.tasks?.firstCommentGenerated || 'pending';
-    const savedComment = video.tasks?.firstComment || '';
-    
+    const [firstComment, setFirstComment] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
     useEffect(() => {
-        setComment(savedComment);
-    }, [savedComment]);
+        setFirstComment(video.firstComment || '');
+    }, [video]);
+
+    const handleSave = () => {
+        onUpdate({ ...video, firstComment });
+    };
 
     const handleGenerate = async () => {
-        setGenerating(true);
-        const firstCommentKb = settings.knowledgeBases?.youtube?.firstPinnedCommentExpert || '';
-        
-        const prompt = `Act as a YouTube creator writing the first pinned comment for your video. The goal is to spark conversation.
-Video Title: "${video.chosenTitle}"
-Video Description: "${video.concept}"
-My Persona: "${settings.knowledgeBases?.youtube?.whoAmI || ''}"
-First Comment Guidelines: "${firstCommentKb}"
+        setIsGenerating(true);
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            alert("Please set Gemini API key in settings.");
+            setIsGenerating(false);
+            return;
+        }
 
-Write a compelling first comment. Return as a JSON object: {"comment": "your comment here..."}`;
+        const prompt = `
+        Video Title: "${video.title}"
+        Video Description:
+        ---
+        ${video.description}
+        ---
+        Creator Persona: "${settings.creatorPersona}"
 
+        Based on the video details, write an engaging "first comment" to post on the video. The comment should spark conversation, ask a question related to the video content, and match the creator's persona.
+
+        Return a single JSON object with one key: "firstComment".
+        Example:
+        {
+          "firstComment": "Your generated comment here..."
+        }
+        `;
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
-            if (parsedJson && parsedJson.comment) {
-                setComment(parsedJson.comment);
+            const parsedJson = await window.aiUtils.callGeminiAPI(
+                prompt,
+                settings.geminiApiKey,
+                {},
+                'generateFirstComment', // Task type
+                settings.useProModel, // Pass the setting
+                settings.geminiFlashModelName, // Pass the setting
+                settings.geminiProModelName // Pass the setting
+            );
+            if (parsedJson.firstComment) {
+                setFirstComment(parsedJson.firstComment);
             }
         } catch (error) {
-            console.error("Error generating first comment:", error);
+            console.error(error);
+            alert("Failed to generate first comment. Check console for details.");
         } finally {
-            setGenerating(false);
+            setIsGenerating(false);
         }
     };
-    
-    const handleSave = () => {
-        onUpdateTask('firstCommentGenerated', 'complete', { 'tasks.firstComment': comment });
+
+    const handleComplete = () => {
+        handleSave();
+        onCompletion(video.id, 'firstComment', { firstComment });
     };
 
-    if (taskStatus === 'complete') {
-        return (
-             <div>
-                <textarea readOnly value={comment} rows="4" className="w-full form-textarea bg-gray-800/50"/>
-                <div className="flex justify-end gap-2 mt-2">
-                    <window.CopyButton textToCopy={comment} />
-                    <p className="text-gray-400 text-sm">Comment is saved.</p>
-                </div>
-            </div>
-        );
-    }
-    
     return (
-        <div>
-            <textarea 
-                value={comment} 
-                onChange={(e) => setComment(e.target.value)}
-                rows="4"
-                className="w-full form-textarea"
-                placeholder="The AI-generated comment will appear here..."
-                disabled={isLocked}
-            />
-            <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                <button onClick={handleGenerate} disabled={generating || isLocked} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    {generating ? <window.LoadingSpinner isButton={true} /> : '💬 Generate Comment'}
-                </button>
-                 <button onClick={handleSave} disabled={!comment || isLocked} className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed">
-                    Save Comment
-                </button>
+        <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+            <h3 className="text-lg font-bold">First Comment</h3>
+            <button onClick={handleGenerate} disabled={isGenerating} className="btn-secondary w-full">
+                {isGenerating ? 'Generating...' : 'Generate with AI'}
+            </button>
+            <div>
+                <label className="block text-sm font-medium mb-1">Comment Text</label>
+                <textarea
+                    value={firstComment}
+                    onChange={(e) => setFirstComment(e.target.value)}
+                    onBlur={handleSave}
+                    rows="4"
+                    className="form-textarea w-full bg-gray-700"
+                    placeholder="The first comment to pin on your video..."
+                />
             </div>
+            <button onClick={handleComplete} className="btn-primary w-full">Mark as Complete</button>
         </div>
     );
 };
