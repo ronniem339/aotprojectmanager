@@ -44,13 +44,36 @@ window.aiUtils = {
         }
     },
     
-    // NEW: Function to generate blog post ideas
-    generateBlogPostIdeasAI: async ({ destination, coreSeoEngine, ideaGenerationKb, apiKey }) => {
+    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, apiKey }) => {
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
 
-        const prompt = `You are an expert SEO and content strategist for a travel blog. Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".
+        let context = '';
+        if (destination) {
+            context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
+        } else if (project && video) {
+            context = `A user wants blog post ideas based on a specific video from their travels.
+Project Title: "${project.playlistTitle}"
+Video Title: "${video.title}"
+Video Concept: "${video.concept}"
+Video Locations: "${(video.locations_featured || []).join(', ')}"
+Video Keywords: "${(video.targeted_keywords || []).join(', ')}"
+
+Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
+        } else if (project) {
+            context = `A user wants blog post ideas for an entire travel project.
+Project Title: "${project.playlistTitle}"
+Project Description: "${project.playlistDescription}"
+Project Locations: "${(project.locations || []).map(l => l.name).join(', ')}"
+
+Based on the overall project, generate 10 diverse blog post ideas.`;
+        } else {
+            throw new Error("No valid context provided for idea generation (topic, project, or video).");
+        }
+
+        const prompt = `You are an expert SEO and content strategist for a travel blog.
+${context}
 
 You MUST adhere to the following foundational knowledge bases for all generated content:
 ---
@@ -67,24 +90,7 @@ For each idea, provide the following in a valid JSON object:
 - "primaryKeyword": (string) The main search term this post should rank for.
 - "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
 
-Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.
-Example:
-{
-  "ideas": [
-    {
-      "title": "The Ultimate 3-Day Itinerary for First-Timers in ${destination}",
-      "description": "A comprehensive guide detailing the perfect long weekend in ${destination}, covering top attractions, food, and logistics. Ideal for travelers planning their first visit.",
-      "primaryKeyword": "3 days in ${destination}",
-      "postType": "Destination Guide"
-    },
-    {
-      "title": "10 Hidden Gems in ${destination} The Locals Don't Want You to Know About",
-      "description": "An exciting listicle that reveals unique, off-the-beaten-path spots, perfect for experienced travelers looking for authentic experiences.",
-      "primaryKeyword": "hidden gems ${destination}",
-      "postType": "Listicle Post"
-    }
-  ]
-}`;
+Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
         
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
@@ -99,9 +105,6 @@ Example:
         }
     },
 
-    /**
-     * Finds points of interest using AI based on a main location and current locations.
-     */
     findPointsOfInterestAI: async ({ mainLocationName, currentLocations, apiKey }) => {
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
@@ -144,9 +147,6 @@ Example JSON response:
         }
     },
 
-    /**
-     * Generates a draft script outline based on the user's raw text input.
-     */
     generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, apiKey }) => {
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
@@ -169,9 +169,6 @@ Example:
         return await window.aiUtils.callGeminiAPI(prompt, apiKey);
     },
 
-    /**
-     * Generates a high-level script plan and specific refinement questions based on a draft outline.
-     */
     generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, whoAmI, styleGuideText, apiKey }) => {
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
@@ -226,9 +223,6 @@ Your response MUST be a valid JSON object with the following structure:
         }
     },
     
-    /**
-     * Generates a full, clean script from a refined outline and user details.
-     */
     generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, apiKey }) => {
         const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
         
@@ -271,9 +265,6 @@ Based on all the above information, write the final, complete video script. The 
         return result.candidates[0].content.parts[0].text;
     },
 
-    /**
-     * Generates keyword ideas using the Gemini AI.
-     */
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
         const videoLocations = (locationsFeatured || []).join(', ');
@@ -310,9 +301,6 @@ Based on all the above information, write the final, complete video script. The 
         }
     },
 
-    /**
-     * Extracts and infers video metadata (locations and keywords/tags) using Gemini AI.
-     */
     extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
@@ -351,9 +339,6 @@ Based on all the above information, write the final, complete video script. The 
         }
     },
     
-    /**
-     * Parses a natural language text input to extract structured video data.
-     */
     parseVideoFromTextAI: async ({ textInput, projectLocation, settings }) => {
         const apiKey = settings.geminiApiKey;
         if (!apiKey) {
@@ -388,9 +373,6 @@ Your response MUST be only the valid JSON object, with no other text or explanat
         return parsedJson;
     },
 
-    /**
-     * Refines a video concept/plan based on updated footage inventory.
-     */
     refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings }) => {
         const apiKey = settings.geminiApiKey;
 
@@ -429,9 +411,6 @@ Based on these changes, how should the video concept be updated? Provide only th
         return result.candidates[0].content.parts[0].text;
     },
 
-    /**
-     * Generates YouTube Shorts ideas based on video and project context.
-     */
     generateShortsIdeasAI: async ({
         videoTitle,
         videoConcept,
@@ -511,9 +490,6 @@ Example JSON response:
         }
     },
 
-    /**
-     * Generates YouTube Shorts metadata (on-screen text, caption, description, tags) for an accepted idea.
-     */
     generateShortsMetadataAI: async ({
         videoTitle,
         shortsIdea,
