@@ -4,7 +4,7 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
     const { useState, useEffect } = React;
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [expandedRow, setExpandedRow] = useState(null); // State to track which row is expanded
+    const [expandedRow, setExpandedRow] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
@@ -31,6 +31,20 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
     const handleRowClick = (id) => {
         setExpandedRow(expandedRow === id ? null : id);
     };
+    
+    const handleDeleteIdea = async (e, ideaId) => {
+        e.stopPropagation(); // Prevent the row from expanding when clicking delete
+        if (window.confirm("Are you sure you want to permanently delete this blog idea?")) {
+            try {
+                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaId).delete();
+                // The onSnapshot listener will automatically update the UI
+            } catch (error) {
+                console.error("Error deleting blog idea:", error);
+                // Optionally show an error notification to the user
+            }
+        }
+    };
+
 
     if (isLoading) {
         return <window.LoadingSpinner text="Loading blog ideas..." />;
@@ -64,7 +78,8 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
                                 <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType}</span></td>
                                 <td className="p-3"><span className="px-2 py-1 text-xs bg-green-900/50 text-green-400 rounded-full capitalize">{idea.status}</span></td>
                                 <td className="p-3 text-right">
-                                    <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold">Write Post</button>
+                                     <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2">Write Post</button>
+                                     <button onClick={(e) => handleDeleteIdea(e, idea.id)} className="px-3 py-1 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold">Delete</button>
                                 </td>
                             </tr>
                             {expandedRow === idea.id && (
