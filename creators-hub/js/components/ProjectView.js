@@ -13,8 +13,9 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const [scriptPlanData, setScriptPlanData] = useState(null);
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [showManageFootageModal, setShowManageFootageModal] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State for mobile sidebar
-    const [showNewVideoWizard, setShowNewVideoWizard] = useState(false); // NEW: State for new video wizard
+    // CHANGE: Default sidebar state is now 'false' so the main content is visible on mobile first.
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -35,7 +36,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     useEffect(() => {
         const fetchProjectAndVideos = async () => {
             const projectId = project?.id;
-            // console.log("ProjectView: projectId received:", projectId);
 
             if (!db || !auth || !userId || !projectId) {
                 setLoading(false);
@@ -53,10 +53,9 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId);
                 const videoCollectionRef = projectRef.collection('videos');
 
-                // NEW: Update lastAccessed timestamp when project is opened
                 await projectRef.update({
                     lastAccessed: firebase.firestore.FieldValue.serverTimestamp()
-                }).catch(err => console.error("Error updating lastAccessed:", err)); // Catch error but don't block loading
+                }).catch(err => console.error("Error updating lastAccessed:", err));
 
 
                 const unsubscribeProject = projectRef.onSnapshot(docSnap => {
@@ -137,8 +136,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         setLoading(true);
         setError(null);
         try {
-            // CURRENT_USER_SETTINGS is not a reliable global.
-            // Pass the settings prop which comes from App.js state.
             const aiResponse = await window.aiUtils.generateScriptPlanAI({
                 videoTitle: videoTitle,
                 videoConcept: videoConcept,
@@ -163,7 +160,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         } finally {
             setLoading(false);
         }
-    }, [settings]); // Added settings to dependency array
+    }, [settings]);
 
     const handleSaveLocationExperiences = useCallback(async (videoId, experiences) => {
         setLoading(true);
@@ -312,13 +309,16 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
             <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
 
-                {/* Left Sidebar - Video List (conditionally rendered) */}
+                {/* Left Sidebar - Video List (conditionally rendered for playlists) */}
                 {!isSingleVideoProject && (
-                    <div className={`lg:w-1/4 ${isSidebarOpen ? 'w-full' : 'hidden'} lg:block bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg`}>
+                    <div className={`lg:w-1/4 flex-shrink-0 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg ${isSidebarOpen ? 'block' : 'hidden'} lg:block`}>
                         <window.VideoList
                             videos={videos}
                             activeVideoId={activeVideoId}
-                            onSelectVideo={(id) => setActiveVideoId(id)}
+                            onSelectVideo={(id) => {
+                                setActiveVideoId(id);
+                                setIsSidebarOpen(false); // Close sidebar on selection in mobile
+                            }}
                             onEditVideo={(videoToEdit) => {
                                 setActiveVideoId(videoToEdit.id);
                                 setShowVideoModal(true);
@@ -340,12 +340,10 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                                 if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
                                     try {
                                         await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
-                                        // Decrement videoCount on the parent project
                                         const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
                                         await projectRef.update({
                                             videoCount: firebase.firestore.FieldValue.increment(-1)
                                         });
-
                                         if (activeVideoId === videoToDelete.id) {
                                             setActiveVideoId(null);
                                         }
@@ -359,23 +357,20 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     </div>
                 )}
 
-                {/* Main Content Area (VideoWorkspace) and RHS Sidebar (VideoDetailsSidebar) */}
-                <div className={`${isSingleVideoProject ? 'flex-1' : `flex-1 flex flex-col lg:flex-row`} gap-4 ${isSidebarOpen ? 'hidden lg:flex' : 'flex'}`}>
+                {/* Main Content Area & RHS Sidebar */}
+                <div className={`flex-1 flex flex-col lg:flex-row gap-4 ${isSidebarOpen && !isSingleVideoProject ? 'hidden' : 'flex'} lg:flex`}>
                     {activeVideo ? (
                         <>
-                            {/* Central Task Viewer (VideoWorkspace) */}
                             <main className={`flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-2/3' : ''}`}>
                                 <window.VideoWorkspace
                                     video={activeVideo}
                                     settings={settings}
                                     project={localProject}
                                     userId={userId}
-                                    db={db} // Pass db to VideoWorkspace
+                                    db={db}
                                 />
                             </main>
-
-                            {/* RHS Sidebar (VideoDetailsSidebar) - Always present when activeVideo is selected */}
-                            <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : ''}`}>
+                            <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : 'hidden lg:block'}`}>
                                 <window.VideoDetailsSidebar
                                     video={activeVideo}
                                     projectLocations={localProject?.locations}
@@ -385,7 +380,9 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                         </>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center h-full glass-card rounded-lg">
-                            <p className="text-gray-500 text-xl">Select a video from the left to start working!</p>
+                            <p className="text-gray-500 text-xl">
+                                { !isSingleVideoProject ? "Select a video from the left to start working!" : "Loading video..."}
+                            </p>
                             {videos.length === 0 && (
                                 <p className="text-gray-500 mt-2">No videos in this project yet. Click "Add Video" above to create one.</p>
                             )}
@@ -445,8 +442,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                                 batch.update(videoRef, updatePayload);
                             });
                             await batch.commit();
-
-                            console.log('Footage inventory and video concepts updated!');
                         } catch (e) {
                             console.error("Error saving footage and concepts:", e);
                             setError(`Failed to save changes: ${e.message}`);
@@ -465,7 +460,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 />
             )}
 
-            {/* Render NewVideoWizardModal */}
             {showNewVideoWizard && (
                 <window.NewVideoWizardModal
                     onClose={() => setShowNewVideoWizard(false)}
