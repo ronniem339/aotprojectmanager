@@ -18,10 +18,13 @@ window.App = () => { // Exposing App component globally
                 firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
             },
             blog: {
-                postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                coreSeoEngine: '',
+                ideaGeneration: '',
+                destinationGuideBlueprint: '',
+                listiclePostFramework: '',
             }
         },
-        wordpress: { url: '', username: '', applicationPassword: '' } // Add wordpress settings
+        wordpress: { url: '', username: '', applicationPassword: '' }
     });
     const [activeProjectDraft, setActiveProjectDraft] = useState(null);
     const [activeDraftId, setActiveDraftId] = useState(null);
@@ -70,7 +73,8 @@ window.App = () => { // Exposing App component globally
                                     youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
                                 },
                                 blog: {
-                                    postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                                    coreSeoEngine: '', ideaGeneration: '',
+                                    destinationGuideBlueprint: '', listiclePostFramework: '',
                                 }
                             },
                             wordpress: { url: '', username: '', applicationPassword: '' }
@@ -105,7 +109,8 @@ window.App = () => { // Exposing App component globally
                             youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
                         },
                         blog: {
-                            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
+                            coreSeoEngine: '', ideaGeneration: '',
+                            destinationGuideBlueprint: '', listiclePostFramework: '',
                         }
                     },
                     wordpress: { url: '', username: '', applicationPassword: '' }
@@ -332,7 +337,7 @@ window.App = () => { // Exposing App component globally
             case 'tools':
                 return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
             case 'blogTool':
-                return <window.BlogTool settings={settings} onBack={() => setCurrentView('tools')} onNavigateToSettings={() => setCurrentView('technicalSettings')} />;
+                return <window.BlogTool settings={settings} onBack={() => setCurrentView('tools')} onNavigateToSettings={() => setCurrentView('technicalSettings')} userId={user.uid} db={firebaseDb} />;
             case 'shortsTool':
                  return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             case 'contentLibrary':
