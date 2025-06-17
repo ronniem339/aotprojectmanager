@@ -8,12 +8,16 @@ window.SettingsMenu = ({ onBack, onShowTechnicalSettings, onShowStyleAndTone, on
 
     useEffect(() => {
         const handleClickOutside = (event) => {
+            // If the click is outside the modal content, call onBack
             if (modalRef.current && !modalRef.current.contains(event.target)) {
-                onBack(); // Close the modal if clicked outside
+                onBack(); 
             }
         };
 
+        // Add event listener when the component mounts
         document.addEventListener('mousedown', handleClickOutside);
+        
+        // Remove event listener on cleanup
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
@@ -47,8 +51,9 @@ window.SettingsMenu = ({ onBack, onShowTechnicalSettings, onShowStyleAndTone, on
     ];
 
     return (
+        // Use the same container classes as ProjectSelection for consistency
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative"> {/* Attach ref here */}
+            <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative">
                 <button onClick={onBack} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold mb-2 text-center">⚙️ Settings</h2>
                 <p className="text-gray-400 mb-8 text-center">Choose a settings category to manage.</p>
