@@ -97,8 +97,8 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
             // Helper for secondary/tertiary sorts
             const secondarySort = (projA, projB) => {
                 // Sort by Last Accessed (descending - most recent first)
-                const lastAccessedA = projA.lastAccessed ? new Date(projA.lastAccessed).getTime() : 0;
-                const lastAccessedB = projB.lastAccessed ? new Date(projB.lastAccessed).getTime() : 0;
+                const lastAccessedA = projA.lastAccessed?.toDate ? projA.lastAccessed.toDate().getTime() : 0;
+                const lastAccessedB = projB.lastAccessed?.toDate ? projB.lastAccessed.toDate().getTime() : 0;
                 if (lastAccessedA !== lastAccessedB) return lastAccessedB - lastAccessedA;
 
                 // Then by % Completed (ascending - lowest first)
@@ -134,6 +134,10 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
 
         return currentProjects;
     }, [projects, searchTerm, sortBy]); // Re-run memoization when these dependencies change
+
+    const activeProjects = useMemo(() => sortedAndFilteredProjects.filter(p => p.progress < 100), [sortedAndFilteredProjects]);
+    const completedProjects = useMemo(() => sortedAndFilteredProjects.filter(p => p.progress >= 100), [sortedAndFilteredProjects]);
+
 
     const handleDeleteClick = (e, project) => {
         e.stopPropagation();
@@ -219,67 +223,89 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
             </header>
 
             {loading ? <window.LoadingSpinner text="Loading Projects..." /> : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={projectCardsRef}>
-                    {sortedAndFilteredProjects.length === 0 ? (
-                        <p className="text-gray-400 text-center col-span-full py-8">No projects found matching your criteria.</p>
-                    ) : (
-                        sortedAndFilteredProjects.map(project => {
-                            const imageUrl = project.coverImageUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
-                            const borderColorClass = getColorForString(project.id);
-                            const isSingleVideo = project.videoCount === 1;
-                            
-                            return (
-                                <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
-                                    <div className="relative pt-[56.25%] overflow-hidden">
-                                        <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" />
-                                        {/* Removed project type icon from thumbnail as requested */}
-                                        <button 
-                                            onClick={(e) => handleDeleteClick(e, project)} 
-                                            className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
-                                            aria-label="Delete project"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <div className="p-4 flex-grow flex flex-col">
-                                        <div className="flex-grow">
-                                            <h3 className="text-xl font-bold text-primary-accent truncate">{project.playlistTitle || project.title}</h3>
-                                            <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
+                <>
+                    {/* Active Projects Section */}
+                    <h2 className="text-2xl font-bold text-white mb-4">Active Projects</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12" ref={projectCardsRef}>
+                        {activeProjects.length === 0 ? (
+                            <p className="text-gray-400 text-center col-span-full py-8">No active projects found.</p>
+                        ) : (
+                            activeProjects.map(project => {
+                                const imageUrl = project.coverImageUrl || `https://source.unsplash.com/600x400/?${encodeURIComponent(generateImageSearchTerm(project.playlistTitle))}`;
+                                const borderColorClass = getColorForString(project.id);
+                                const isSingleVideo = project.videoCount === 1;
+                                
+                                return (
+                                    <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-primary-accent/[.20] hover:-translate-y-1 transition-all overflow-hidden group border-l-4 ${borderColorClass}`}>
+                                        <div className="relative pt-[56.25%] overflow-hidden">
+                                            <window.ImageComponent src={imageUrl} alt={project.playlistTitle || project.title} className="absolute inset-0 w-full h-full object-cover" />
+                                            <button 
+                                                onClick={(e) => handleDeleteClick(e, project)} 
+                                                className="absolute top-2 right-2 p-1.5 bg-red-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-opacity"
+                                                aria-label="Delete project"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
                                         </div>
-                                        
-                                        {/* Project Progress Bar */}
-                                        <div className="mt-4">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="text-xs font-semibold text-gray-400">Progress</span>
-                                                <span className="text-xs font-bold text-green-400">{`${project.progress.toFixed(0)}%`}</span>
+                                        <div className="p-4 flex-grow flex flex-col">
+                                            <div className="flex-grow">
+                                                <h3 className="text-xl font-bold text-primary-accent truncate">{project.playlistTitle || project.title}</h3>
+                                                <p className="text-gray-400 italic mt-1 text-sm h-10 overflow-hidden">"{project.playlistDescription || ''}"</p>
                                             </div>
-                                            <div className="w-full bg-gray-700 rounded-full h-1.5">
-                                                <div 
-                                                    className="bg-green-500 h-1.5 rounded-full" 
-                                                    style={{width: `${project.progress}%`}}>
+                                            
+                                            <div className="mt-4">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-xs font-semibold text-gray-400">Progress</span>
+                                                    <span className="text-xs font-bold text-green-400">{`${project.progress.toFixed(0)}%`}</span>
+                                                </div>
+                                                <div className="w-full bg-gray-700 rounded-full h-1.5">
+                                                    <div 
+                                                        className="bg-green-500 h-1.5 rounded-full" 
+                                                        style={{width: `${project.progress}%`}}>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-700/50">
+                                                <div className="flex justify-between items-center">
+                                                    <span>
+                                                        {project.videoCount} {project.videoCount === 1 ? 'Video' : 'Videos'}
+                                                        {' • '}
+                                                        {isSingleVideo ? 'Single Video Project' : 'Playlist'}
+                                                    </span>
+                                                    <span>Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</span>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Updated: Video Count, Project Type, and Date Created */}
-                                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-700/50">
-                                            <div className="flex justify-between items-center">
-                                                <span>
-                                                    {project.videoCount} {project.videoCount === 1 ? 'Video' : 'Videos'}
-                                                    {' • '}
-                                                    {isSingleVideo ? 'Single Video Project' : 'Playlist'}
-                                                </span>
-                                                <span>Created: {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</span>
-                                            </div>
-                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+                                );
+                            })
+                        )}
+                    </div>
+                    
+                    {/* Completed Projects Section */}
+                    <h2 className="text-2xl font-bold text-white mb-4">Completed Projects</h2>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {completedProjects.length === 0 ? (
+                            <p className="text-gray-400 text-center col-span-full py-8">No completed projects yet.</p>
+                        ) : (
+                            completedProjects.map(project => {
+                                const borderColorClass = getColorForString(project.id);
+                                return (
+                                    <div key={project.id} onClick={() => onSelectProject(project)} className={`glass-card rounded-lg flex items-center p-3 gap-3 cursor-pointer hover:bg-gray-700/50 transition-colors group border-l-4 ${borderColorClass}`}>
+                                        <div className="flex-grow min-w-0">
+                                            <h4 className="font-semibold text-primary-accent truncate">{project.playlistTitle}</h4>
+                                            <p className="text-xs text-gray-400 truncate">{project.videoCount} {project.videoCount === 1 ? 'Video' : 'Videos'}</p>
+                                        </div>
+                                        <span className="flex-shrink-0 text-green-400 text-2xl" title="Completed">✓</span>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </>
             )}
         </div>
     );
