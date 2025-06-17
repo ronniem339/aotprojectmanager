@@ -1,6 +1,6 @@
 // js/components/Dashboard.js
 
-window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm }) => {
+window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm, onShowTools }) => {
     const { useState, useEffect, useRef, useMemo } = React;
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,7 +12,6 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [timeSinceDeploy, setTimeSinceDeploy] = useState('');
 
-    // Effect to calculate and update the time since the last deployment.
     useEffect(() => {
         const calculateTimeSince = () => {
             if (!window.CREATOR_HUB_CONFIG.BUILD_TIMESTAMP) return '';
@@ -37,7 +36,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
         setTimeSinceDeploy(calculateTimeSince());
         const timer = setInterval(() => {
             setTimeSinceDeploy(calculateTimeSince());
-        }, 60000); // Update every minute
+        }, 60000);
 
         return () => clearInterval(timer);
     }, []);
@@ -204,6 +203,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                     </div>
                     
                     <button onClick={onShowProjectSelection} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex-shrink-0">✨ New Project</button>
+                    <button onClick={onShowTools} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex-shrink-0">🛠️ Tools</button>
                     <button onClick={onShowSettings} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex-shrink-0">⚙️ Settings</button>
                     <button onClick={handleLogout} className="flex items-center justify-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-red-800 transition-colors text-red-400 hover:text-white flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -285,7 +285,6 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
                 </>
             )}
             
-            {/* Last Deployed Timestamp */}
             <div className="text-center mt-12 text-xs text-gray-500">
                 Last updated: {timeSinceDeploy}
             </div>
