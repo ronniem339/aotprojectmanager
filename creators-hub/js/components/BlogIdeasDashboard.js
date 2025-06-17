@@ -85,7 +85,7 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
                             {expandedRow === idea.id && (
                                 <tr className="bg-gray-800/30">
                                     <td colSpan="4" className="p-4">
-                                        <div className="space-y-2">
+                                        <div className="space-y-3">
                                             <div>
                                                 <h4 className="font-semibold text-gray-400 text-xs">Description</h4>
                                                 <p className="text-sm text-gray-300">{idea.description}</p>
@@ -94,6 +94,12 @@ window.BlogIdeasDashboard = ({ userId, db }) => {
                                                 <h4 className="font-semibold text-gray-400 text-xs">Primary Keyword</h4>
                                                 <p className="px-2 py-1 text-sm bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full inline-block">{idea.primaryKeyword}</p>
                                             </div>
+                                            {idea.monetizationOpportunities && (
+                                                <div className="p-2 bg-green-900/20 border-l-2 border-green-500">
+                                                    <h4 className="font-semibold text-green-400 text-xs">Monetization Angle</h4>
+                                                    <p className="text-sm text-green-300/90 italic">{idea.monetizationOpportunities}</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
