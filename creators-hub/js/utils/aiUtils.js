@@ -23,7 +23,8 @@ window.aiUtils = {
             }
         };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        // Use gemini-2.0-flash by default for text generation unless specified otherwise
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -152,6 +153,7 @@ Example JSON response:
     },
 
     generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, apiKey }) => {
+        // This function generates an initial draft outline based on user's raw thoughts.
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
 Video Concept: "${videoConcept}"
@@ -170,10 +172,12 @@ Example:
 {
     "draftOutline": "Introduction:\\n- Start with the user's surprising moment to create a hook.\\n- Briefly introduce the main goal of the video.\\n\\nMain Segment 1: The Journey Begins\\n- Cover the initial part of the experience, focusing on the key footage mentioned.\\n\\nMain Segment 2: The Core Discovery\\n- Build up to the main message the user wants to convey.\\n\\nConclusion:\\n- Summarize the key takeaway and end with a powerful concluding thought."
 }`;
+        // Call Gemini API and return the parsed JSON.
         return await window.aiUtils.callGeminiAPI(prompt, apiKey);
     },
 
     generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, whoAmI, styleGuideText, apiKey }) => {
+        // This function refines the draft outline and generates specific questions for the user.
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
@@ -190,7 +194,7 @@ Example:
             return ` - ${locName}${importance}: ${footageTypes ? footageTypes + ' available' : 'No specific footage type recorded'}.`;
         }).join('\n');
 
-        const prompt = `You are a highly experienced YouTube video script planner. You have a draft outline, and your goal is now to refine it by asking for more specific details.
+        const prompt = `You are a highly experienced YouTube video script planner. You have a draft outline, and your goal is now to refine it by asking for more specific details from the user in a down-to-earth, conversational, and relatable style. Avoid grandiose or overly formal language.
 
 Video Title: "${videoTitle}"
 Draft Outline / Concept:
@@ -204,14 +208,14 @@ Featured Locations & Available Footage:
 ${locationsDetail || 'No specific featured locations listed.'}
 
 Your task is to:
-1.  **Refine the Script Plan Outline:** Slightly improve upon the provided draft outline based on the locations and footage available. Make it a bit more detailed.
-2.  **Generate Specific User Questions:** Based on your refined outline, formulate *one* direct, open-ended question for each major segment or featured location to gather the user's *unique experience, personal anecdotes, or specific footage details*. These questions should prompt the user about what they *did, saw, felt*, or *captured*.
+1.  **Refine the Script Plan Outline:** Slightly improve upon the provided draft outline based on the locations and footage available. Make it a bit more detailed, keeping in mind a down-to-earth tone.
+2.  **Generate Specific User Questions:** Based on your refined outline, formulate *one* direct, open-ended question for each major segment or featured location to gather the user's *unique experience, personal anecdotes, or specific footage details*. These questions should prompt the user about what they *did, saw, felt*, or *captured*. Ensure the questions are friendly and approachable, like you're chatting with a friend.
 
 Your response MUST be a valid JSON object with the following structure:
 {
     "scriptPlan": "A refined, more detailed text outline for the video script...",
     "locationQuestions": [
-        {"locationName": "Optional Location Name (if question is location-specific)", "question": "A question asking for specific details about the user's experience or available footage."}
+        {"locationName": "Optional Location Name (if question is location-specific)", "question": "A friendly, down-to-earth question asking for specific details about the user's experience or available footage."}
     ]
 }`;
 
@@ -228,6 +232,7 @@ Your response MUST be a valid JSON object with the following structure:
     },
     
     generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, apiKey }) => {
+        // This function generates the full video script.
         const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
         
         const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script.
@@ -255,7 +260,49 @@ Based on all the above information, write the final, complete video script. The 
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "text/plain" }
         };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err?.error?.message || 'API Error');
+        }
+        const result = await response.json();
+        return result.candidates[0].content.parts[0].text;
+    },
+
+    refineScriptAI: async ({ currentScript, refinementInstructions, whoAmI, styleGuideText, apiKey }) => {
+        // This new function refines an existing script based on user's natural language instructions.
+        if (!apiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+
+        const prompt = `You are a professional YouTube video script editor. Your task is to refine the provided video script based on the user's instructions.
+
+Current Script:
+---
+${currentScript}
+---
+
+Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
+Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+
+User's Refinement Instructions:
+---
+${refinementInstructions}
+---
+
+Please apply the user's instructions to the script. The output should be **only the revised spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions, or any text that isn't part of the dialogue. If the instructions are unclear or unfeasible, make your best judgment to improve the script.
+`;
+
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "text/plain" }
+        };
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -270,6 +317,7 @@ Based on all the above information, write the final, complete video script. The 
     },
 
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
+        // This function generates keywords for YouTube videos.
         const apiKey = settings.geminiApiKey;
         const videoLocations = (locationsFeatured || []).join(', ');
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
@@ -306,6 +354,7 @@ Based on all the above information, write the final, complete video script. The 
     },
 
     extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
+        // This function extracts video metadata (locations, keywords) from title and description.
         const apiKey = settings.geminiApiKey;
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
 
@@ -344,6 +393,7 @@ Based on all the above information, write the final, complete video script. The 
     },
     
     parseVideoFromTextAI: async ({ textInput, projectLocation, settings }) => {
+        // This function parses video information from raw text input.
         const apiKey = settings.geminiApiKey;
         if (!apiKey) {
             throw new Error("Gemini API Key is not set in settings.");
@@ -378,6 +428,7 @@ Your response MUST be only the valid JSON object, with no other text or explanat
     },
 
     refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings }) => {
+        // This function refines the video concept based on changes in footage inventory.
         const apiKey = settings.geminiApiKey;
 
         if (!apiKey) {
@@ -400,7 +451,7 @@ Based on these changes, how should the video concept be updated? Provide only th
             generationConfig: { responseMimeType: "text/plain" }
         };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -427,6 +478,7 @@ Based on these changes, how should the video concept be updated? Provide only th
         apiKey,
         previouslyCreatedShorts = []
     }) => {
+        // This function generates YouTube Shorts ideas based on the main video and project context.
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
@@ -501,6 +553,7 @@ Example JSON response:
         styleGuideText,
         apiKey
     }) => {
+        // This function generates metadata for YouTube Shorts.
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
@@ -544,3 +597,4 @@ Your response MUST be a valid JSON object with the following structure:
         }
     }
 };
+
