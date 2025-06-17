@@ -156,7 +156,7 @@ window.App = () => { // Exposing App component globally
         if (toolId === 'shorts') setCurrentView('shortsTool');
         if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
     };
-    const handleShowTechnicalSettings = () => setCurrentView('settings');
+    const handleShowTechnicalSettings = () => setCurrentView('technicalSettings');
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
 
@@ -166,8 +166,8 @@ window.App = () => { // Exposing App component globally
         try {
             await settingsDocRef.set(newSettings, { merge: true });
             displayNotification('Settings saved successfully!');
-            if (['settings', 'myStudio', 'knowledgeBases', 'blogTool'].includes(currentView)) {
-                 setCurrentView(currentView === 'blogTool' ? 'tools' : 'settingsMenu');
+            if (['technicalSettings', 'myStudio', 'knowledgeBases'].includes(currentView)) {
+                 setCurrentView('settingsMenu');
             }
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -321,8 +321,8 @@ window.App = () => { // Exposing App component globally
                 return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} />;
             case 'settingsMenu':
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
-            case 'settings':
-                return <window.SettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+            case 'technicalSettings':
+                return <window.TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'myStudio':
                 return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'importProject':
@@ -332,7 +332,7 @@ window.App = () => { // Exposing App component globally
             case 'tools':
                 return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
             case 'blogTool':
-                return <window.BlogTool settings={settings} onSaveSettings={handleSaveSettings} onBack={() => setCurrentView('tools')} />;
+                return <window.BlogTool settings={settings} onBack={() => setCurrentView('tools')} onNavigateToSettings={() => setCurrentView('technicalSettings')} />;
             case 'shortsTool':
                  return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             case 'contentLibrary':
