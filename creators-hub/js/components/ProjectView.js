@@ -13,7 +13,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const [scriptPlanData, setScriptPlanData] = useState(null);
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [showManageFootageModal, setShowManageFootageModal] = useState(false);
-    // CHANGE: Default sidebar state is now 'false' so the main content is visible on mobile first.
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
 
@@ -295,7 +294,8 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
 
     return (
-        <div className="p-8 flex flex-col h-screen bg-gray-900 text-white">
+        // Changed p-8 to p-4 for less padding on mobile, and sm:p-8 to bring it back on larger screens
+        <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white">
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
