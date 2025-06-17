@@ -14,26 +14,36 @@ const App = () => {
         const unsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
             if (user) {
                 setUser(user);
-                // Load user-specific data (projects, settings) from Firestore
-                const userDocRef = firebase.firestore().collection('users').doc(user.uid);
-                
-                // Load Projects
-                const projectsRef = userDocRef.collection('projects');
-                const projectsSnapshot = await projectsRef.get();
-                const projectsData = projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setProjects(projectsData);
+                try {
+                    // Load user-specific data (projects, settings) from Firestore
+                    const userDocRef = firebase.firestore().collection('users').doc(user.uid);
+                    
+                    // Load Projects
+                    const projectsRef = userDocRef.collection('projects');
+                    const projectsSnapshot = await projectsRef.get();
+                    const projectsData = projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setProjects(projectsData);
 
-                // Load Settings
-                const settingsDoc = await userDocRef.get();
-                if (settingsDoc.exists) {
-                    setSettings(settingsDoc.data().settings || {});
+                    // Load Settings
+                    const settingsDoc = await userDocRef.get();
+                    if (settingsDoc.exists) {
+                        setSettings(settingsDoc.data().settings || {});
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data from Firestore:", error);
+                    console.error("This is likely a Firestore security rules issue. Please ensure the rules allow authenticated users to read from their own documents in the 'users' collection.");
+                    // Clear any potentially stale data
+                    setProjects([]);
+                    setSettings({});
                 }
 
             } else {
+                // No user is signed in
                 setUser(null);
                 setProjects([]);
                 setSettings({});
             }
+            // This is critical: ensure we always stop loading, even if there's an error.
             setLoading(false);
         });
 
