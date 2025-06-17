@@ -1,48 +1,37 @@
 // js/components/ProjectView/EditProjectModal.js
 
-const { useState, useCallback } = React; // Add React import for useState and useCallback
+const { useState, useCallback } = React;
 
-window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance }) => { // Added firebaseAppInstance
+window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance }) => {
     const [title, setTitle] = useState(project.playlistTitle);
     const [description, setDescription] = useState(project.playlistDescription);
     const [locations, setLocations] = useState(project.locations || []);
+    const [targetedKeywords, setTargetedKeywords] = useState(project.targeted_keywords || []);
+    const [keywordInput, setKeywordInput] = useState('');
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(null);
-    // Add state for cover image URL
-    const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || ''); 
-    const [isSaving, setIsSaving] = useState(false); // New state for saving loading indicator
+    const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || '');
+    const [isSaving, setIsSaving] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
-
-    // Initialize Firebase Storage
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
-    /**
-     * Downloads an image from a URL via a Netlify proxy function and uploads it to Firebase Storage.
-     * @param {string} imageUrl - The URL of the image to download.
-     * @param {string} uploadPath - The desired path in Firebase Storage (e.g., 'project_thumbnails/my_image.jpg').
-     * @returns {Promise<string>} - A promise that resolves to the Firebase Storage download URL, or an empty string on error.
-     */
     const downloadAndUploadImage = async (imageUrl, uploadPath) => {
         if (!imageUrl || !storage) {
             console.warn("No image URL or Firebase Storage instance available for upload.");
             return '';
         }
-
-        // Use the Netlify function as a proxy to bypass CORS issues.
         const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
-
         try {
             const response = await fetch(fetchUrl);
             if (!response.ok) {
-                 const errText = await response.text();
+                const errText = await response.text();
                 throw new Error(errText || 'Failed to fetch image via Netlify Function');
             }
-            const blob = await response.blob(); // Get image as Blob
-
+            const blob = await response.blob();
             const storageRef = storage.ref(uploadPath);
-            await storageRef.put(blob); // Upload the Blob
-            const downloadUrl = await storageRef.getDownloadURL(); // Get the permanent URL
+            await storageRef.put(blob);
+            const downloadUrl = await storageRef.getDownloadURL();
             return downloadUrl;
         } catch (error) {
             console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
@@ -54,11 +43,52 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
         setLocations(newLocations);
     }, []);
 
-    const handleSave = async () => {
-        setIsSaving(true); // Start loading
+    const handleKeywordAdd = (e) => {
+        if (e.key === 'Enter' && keywordInput.trim() !== '') {
+            e.preventDefault();
+            const newKeyword = keywordInput.trim();
+            if (!targetedKeywords.includes(newKeyword)) {
+                setTargetedKeywords([...targetedKeywords, newKeyword]);
+            }
+            setKeywordInput('');
+        }
+    };
 
+    const handleKeywordRemove = (keywordToRemove) => {
+        setTargetedKeywords(targetedKeywords.filter(kw => kw !== keywordToRemove));
+    };
+
+    const handleRegenerateFromVideos = () => {
+        const allVideoLocationNames = new Set();
+        const allVideoKeywords = new Set();
+
+        videos.forEach(video => {
+            if (video.locations_featured) {
+                video.locations_featured.forEach(locName => allVideoLocationNames.add(locName));
+            }
+            if (video.targeted_keywords) {
+                video.targeted_keywords.forEach(keyword => allVideoKeywords.add(keyword));
+            }
+        });
+
+        const uniqueLocationNames = Array.from(allVideoLocationNames);
+        const aggregatedLocations = (project.locations || []).filter(locObject => uniqueLocationNames.includes(locObject.name));
+        
+        uniqueLocationNames.forEach(name => {
+            if (!aggregatedLocations.some(l => l.name === name)) {
+                aggregatedLocations.push({ name: name, place_id: name, lat: null, lng: null, types: [] });
+            }
+        });
+
+        const aggregatedKeywords = Array.from(allVideoKeywords);
+
+        setLocations(aggregatedLocations);
+        setTargetedKeywords(aggregatedKeywords);
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
         let finalCoverImageUrl = coverImageUrl;
-        // Check if the URL is a new external URL (not already a Firebase Storage URL)
         if (coverImageUrl && !coverImageUrl.includes('firebasestorage.googleapis.com')) {
             try {
                 const fileExtensionMatch = coverImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
@@ -67,8 +97,7 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                 finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
             } catch (error) {
                 console.error("Failed to upload new cover image to Firebase Storage:", error);
-                // Optionally, revert to old image or keep current external URL if upload fails
-                finalCoverImageUrl = project.coverImageUrl || ''; 
+                finalCoverImageUrl = project.coverImageUrl || '';
             }
         }
 
@@ -77,14 +106,14 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                 playlistTitle: title,
                 playlistDescription: description,
                 locations: locations,
-                coverImageUrl: finalCoverImageUrl // Save the new cover image URL (Firebase or original if failed)
+                coverImageUrl: finalCoverImageUrl,
+                targeted_keywords: targetedKeywords
             });
             onClose();
         } catch (error) {
             console.error("Error saving project details:", error);
-            // Handle error (e.g., show a message to the user)
         } finally {
-            setIsSaving(false); // Stop loading
+            setIsSaving(false);
         }
     };
 
@@ -140,7 +169,29 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                             : <window.MockLocationSearchInput />
                         }
                     </div>
-                    {/* New field for Cover Image URL */}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Project Keywords</label>
+                        <div className="p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {targetedKeywords.map(kw => (
+                                    <div key={kw} className="flex items-center gap-2 px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">
+                                        <span>{kw}</span>
+                                        <button onClick={() => handleKeywordRemove(kw)} className="text-secondary-accent-lighter-text hover:text-white font-bold leading-none">&times;</button>
+                                    </div>
+                                ))}
+                            </div>
+                            <input
+                                type="text"
+                                value={keywordInput}
+                                onChange={(e) => setKeywordInput(e.target.value)}
+                                onKeyDown={handleKeywordAdd}
+                                className="w-full form-input bg-gray-800 border-gray-600"
+                                placeholder="Type a keyword and press Enter..."
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Cover Image URL (e.g., from Unsplash)</label>
                         <input 
@@ -156,7 +207,6 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                             </div>
                         )}
                     </div>
-                     {/* New section for creating project thumbnail on Canva */}
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Thumbnail</label>
                         <p className="text-xs text-gray-400 mb-3">Use Canva to create the main thumbnail for your YouTube playlist.</p>
@@ -171,6 +221,11 @@ window.EditProjectModal = ({ project, userId, settings, onClose, googleMapsLoade
                     </div>
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
+                        
+                        <button onClick={handleRegenerateFromVideos} className="w-full mb-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2">
+                            🔄 Regenerate Locations & Keywords from Videos
+                        </button>
+                        
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title more mysterious' or 'Add more about the history in the description'"/>
                         <div className="flex gap-4 mt-2">
                              <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <window.LoadingSpinner/> : 'Refine Title'}</button>
