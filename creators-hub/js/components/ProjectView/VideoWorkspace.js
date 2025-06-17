@@ -47,7 +47,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
                  dataToReset = { 'tasks.chaptersFinalized': false };
                  break;
             case 'tagsGenerated':
-                 dataToReset = { metadata: JSON.stringify({ ...(JSON.parse(video.metadata || '{}')), tags: '' }) };
+                 // When resetting tags, just clear the tags part of the metadata
+                 const currentMeta = JSON.parse(video.metadata || '{}');
+                 delete currentMeta.tags;
+                 dataToReset = { metadata: JSON.stringify(currentMeta) };
                  break;
             case 'thumbnailsGenerated':
                 dataToReset = {
@@ -75,21 +78,23 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
         const status = video.tasks?.[task.id] || 'pending';
         const locked = isTaskLocked(index);
 
+        // ** THIS IS THE FIX **
+        // The 'project={project}' prop is now correctly passed down to all task components that need it for context.
         switch (task.id) {
             case 'scripting':
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} db={db} />;
             case 'videoEdited':
                 return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'titleGenerated':
-                return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'descriptionGenerated':
                 return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'chaptersGenerated':
                 return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'tagsGenerated':
-                return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'thumbnailsGenerated':
-                return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'videoUploaded':
                 return <window.UploadToYouTubeTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'firstCommentGenerated':
