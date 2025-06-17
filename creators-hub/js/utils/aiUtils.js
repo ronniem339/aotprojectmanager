@@ -4,17 +4,25 @@
  * Calls the Gemini API with a given prompt and optional generation configuration.
  *
  * @param {string} prompt - The text prompt for the API.
- * @param {string} apiKey - The Gemini API key.
+ * @param {object} settings - The application's settings object.
  * @param {object} [generationConfig={}] - Optional generation configuration for the API.
+ * @param {boolean} [isComplex=false] - Flag to indicate if the task is complex and should use the Pro model if enabled.
  * @returns {Promise<object>} - A promise that resolves to the parsed JSON response from the API.
  * @throws {Error} If the API key is not set or if the API response is not OK.
  */
 window.aiUtils = {
-    callGeminiAPI: async (prompt, apiKey, generationConfig = {}) => {
+    callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
+        const apiKey = settings.geminiApiKey;
         if (!apiKey) {
             throw new Error("Gemini API Key is not set. Please set it in the settings.");
         }
 
+        // Determine which model to use
+        const usePro = isComplex && settings.useProModelForComplexTasks;
+        const modelName = usePro 
+            ? (settings.proModelName || 'gemini-1.5-pro-latest') 
+            : (settings.flashModelName || 'gemini-1.5-flash-latest');
+        
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
@@ -23,7 +31,8 @@ window.aiUtils = {
             }
         };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -32,10 +41,16 @@ window.aiUtils = {
 
         if (!response.ok) {
             const err = await response.json();
-            throw new Error(err?.error?.message || 'API Error');
+            throw new Error(err?.error?.message || `API Error (${response.status})`);
         }
+        
         const result = await response.json();
-        // Ensure the response is parsed as JSON. If the API returns raw text unexpectedly, this might fail.
+        
+        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
+            console.error("Unexpected AI response structure:", result);
+            throw new Error("AI returned an unexpected or empty response.");
+        }
+
         try {
             return JSON.parse(result.candidates[0].content.parts[0].text);
         } catch (e) {
@@ -44,11 +59,9 @@ window.aiUtils = {
         }
     },
     
-    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, apiKey }) => {
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-
+    // MODIFIED: Added 'settings' to params and 'isComplex: true' to the call
+    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+        const apiKey = settings.geminiApiKey;
         let context = '';
         if (destination) {
             context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
@@ -97,7 +110,8 @@ For each idea, provide the following in a valid JSON object:
 Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
         
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            // MODIFIED: Pass settings and isComplex flag
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
             if (parsedJson && Array.isArray(parsedJson.ideas)) {
                 return parsedJson.ideas;
             } else {
@@ -109,11 +123,9 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
         }
     },
 
-    findPointsOfInterestAI: async ({ mainLocationName, currentLocations, apiKey }) => {
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-
+    // MODIFIED: Added 'settings' to params
+    findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
+        const apiKey = settings.geminiApiKey;
         const currentLocationsList = currentLocations.length > 0
             ? currentLocations.map(loc => `- ${loc.name}`).join('\n')
             : 'No specific locations added yet.';
@@ -127,19 +139,19 @@ For each suggestion, provide:
 -   A concise name for the location.
 -   A brief, engaging description (1-2 sentences) explaining why it's a good filming location or a key point of interest for content.
 
-Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string), "description" (string) and "place_id" (string - a unique identifier if possible, otherwise use the name) properties. If you use Google Places, use their place_id.
+Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string) and "description" (string) properties.
 
 Example JSON response:
 {
     "suggestedLocations": [
-        {"name": "Local Street Art Scene", "description": "Vibrant murals and graffiti offer unique visual backdrops for dynamic B-roll and on-camera commentary.", "place_id": "ChIJT2_nCg_Yl_R_M2..."},
-        {"name": "Hidden Waterfall Hike", "description": "A picturesque natural escape, perfect for drone shots and showcasing the region's untouched beauty.", "place_id": "ChIJT2_nCg_Yl_R_M2..."},
-        {"name": "Artisanal Cheese Shop", "description": "Highlight local culinary delights and traditional craftsmanship with engaging close-ups and interviews.", "place_id": "ChIJT2_nCg_Yl_R_M2..."}
+        {"name": "Local Street Art Scene", "description": "Vibrant murals and graffiti offer unique visual backdrops for dynamic B-roll and on-camera commentary."},
+        {"name": "Hidden Waterfall Hike", "description": "A picturesque natural escape, perfect for drone shots and showcasing the region's untouched beauty."}
     ]
 }`;
 
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            // MODIFIED: Pass settings. isComplex defaults to false.
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (parsedJson && Array.isArray(parsedJson.suggestedLocations)) {
                 return parsedJson.suggestedLocations;
             } else {
@@ -151,7 +163,8 @@ Example JSON response:
         }
     },
 
-    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, apiKey }) => {
+    // MODIFIED: Added 'settings' to params and 'isComplex: true' to the call
+    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, settings }) => {
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
 Video Concept: "${videoConcept}"
@@ -165,19 +178,14 @@ Based *only* on the user's notes above, create a logical draft script outline.
 This outline should have a clear Introduction, 2-4 Main Segments, and a Conclusion.
 For each part, briefly describe the narrative focus. The goal is to turn their raw experiences into a coherent story flow.
 
-Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the formatted outline.
-Example:
-{
-    "draftOutline": "Introduction:\\n- Start with the user's surprising moment to create a hook.\\n- Briefly introduce the main goal of the video.\\n\\nMain Segment 1: The Journey Begins\\n- Cover the initial part of the experience, focusing on the key footage mentioned.\\n\\nMain Segment 2: The Core Discovery\\n- Build up to the main message the user wants to convey.\\n\\nConclusion:\\n- Summarize the key takeaway and end with a powerful concluding thought."
-}`;
-        return await window.aiUtils.callGeminiAPI(prompt, apiKey);
+Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the formatted outline.`;
+        // MODIFIED: Pass settings and isComplex flag
+        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
     },
 
-    generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, whoAmI, styleGuideText, apiKey }) => {
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-
+    // MODIFIED: Added 'settings' to params and 'isComplex: true' to the call
+    generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, whoAmI, styleGuideText, settings }) => {
+        const apiKey = settings.geminiApiKey;
         const locationsDetail = (videoLocationsFeatured || []).map(locName => {
             const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
             const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
@@ -215,7 +223,8 @@ Your response MUST be a valid JSON object with the following structure:
     ]
 }`;
 
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+        // MODIFIED: Pass settings and isComplex flag
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
         
         if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
             return {
@@ -227,7 +236,8 @@ Your response MUST be a valid JSON object with the following structure:
         }
     },
     
-    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, apiKey }) => {
+    // This is a long-form generation task, a prime candidate for the Pro model.
+    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, settings }) => {
         const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
         
         const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script.
@@ -250,12 +260,17 @@ User's General Feedback on the Plan: "${generalFeedback || 'None provided.'}"
 
 Based on all the above information, write the final, complete video script. The output should be **only the spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), or any text that isn't part of the dialogue.
 `;
-
+        // Determine which model to use
+        const usePro = settings.useProModelForComplexTasks;
+        const modelName = usePro 
+            ? (settings.proModelName || 'gemini-1.5-pro-latest') 
+            : (settings.flashModelName || 'gemini-1.5-flash-latest');
+        
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "text/plain" }
         };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${settings.geminiApiKey}`;
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -269,6 +284,7 @@ Based on all the above information, write the final, complete video script. The 
         return result.candidates[0].content.parts[0].text;
     },
 
+    // MODIFIED: Added settings to params
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
         const videoLocations = (locationsFeatured || []).join(', ');
@@ -296,7 +312,8 @@ Based on all the above information, write the final, complete video script. The 
         
         Return the list as a JSON object like: {"keywords": ["keyword one", "keyword two", "keyword three", ...]}.`;
 
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+        // MODIFIED: Pass settings
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
         
         if (parsedJson && Array.isArray(parsedJson.keywords)) {
             return parsedJson.keywords;
@@ -305,6 +322,7 @@ Based on all the above information, write the final, complete video script. The 
         }
     },
 
+    // MODIFIED: Added settings to params
     extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
         const apiKey = settings.geminiApiKey;
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
@@ -330,8 +348,9 @@ Based on all the above information, write the final, complete video script. The 
           "locations_featured": ["New York City", "Statue of Liberty"],
           "targeted_keywords": ["NYC travel", "New York guide", "Statue of Liberty tour", "city break", "USA vlog"]
         }`;
-
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+        
+        // MODIFIED: Pass settings
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
 
         if (parsedJson && Array.isArray(parsedJson.locations_featured) && Array.isArray(parsedJson.targeted_keywords)) {
             return {
@@ -343,12 +362,9 @@ Based on all the above information, write the final, complete video script. The 
         }
     },
     
+    // MODIFIED: Added 'settings' to params and 'isComplex: true' to the call
     parseVideoFromTextAI: async ({ textInput, projectLocation, settings }) => {
         const apiKey = settings.geminiApiKey;
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set in settings.");
-        }
-
         const prompt = `You are an expert video project manager. Analyze the following text provided by a user who is planning a new video. The video is part of a larger project about "${projectLocation}". The text may contain a mix of ideas, a full script, title suggestions, location notes, etc.
 
 Your task is to meticulously extract and structure this information into a single, valid JSON object.
@@ -367,8 +383,9 @@ Based on the text, identify and populate the following fields in the JSON object
 - "estimatedLengthMinutes": (number) An estimated length in minutes if mentioned. If not mentioned, infer a reasonable length based on the script's word count (assume ~150 words per minute), or return null if no script is present.
 
 Your response MUST be only the valid JSON object, with no other text or explanations before or after it.`;
-
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+        
+        // MODIFIED: Pass settings and isComplex flag
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
 
         if (!parsedJson || typeof parsedJson.title === 'undefined' || typeof parsedJson.concept === 'undefined') {
             throw new Error("AI returned an invalid or incomplete data structure.");
@@ -377,12 +394,11 @@ Your response MUST be only the valid JSON object, with no other text or explanat
         return parsedJson;
     },
 
+    // MODIFIED: Added settings to params. This is a text-generation task, so it uses the text/plain method.
     refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings }) => {
         const apiKey = settings.geminiApiKey;
-
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set. Cannot refine video concept.");
-        }
+        const usePro = settings.useProModelForComplexTasks;
+        const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
 
         const prompt = `You are a YouTube video concept reviser. A user has changed their footage inventory for locations featured in a video.
 Please review the original video concept and the changes to the footage inventory, then provide a revised, brief outline or high-level plan for the video's content. Focus on key segments and main takeaways, NOT a full script.
@@ -400,7 +416,7 @@ Based on these changes, how should the video concept be updated? Provide only th
             generationConfig: { responseMimeType: "text/plain" }
         };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -414,7 +430,8 @@ Based on these changes, how should the video concept be updated? Provide only th
         const result = await response.json();
         return result.candidates[0].content.parts[0].text;
     },
-
+    
+    // MODIFIED: Added settings to params
     generateShortsIdeasAI: async ({
         videoTitle,
         videoConcept,
@@ -425,13 +442,10 @@ Based on these changes, how should the video concept be updated? Provide only th
         whoAmI,
         styleGuideText,
         apiKey,
-        previouslyCreatedShorts = []
+        previouslyCreatedShorts = [],
+        settings // Added settings
     }) => {
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-
-        const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
+         const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
                 const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
                 const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
                     if (type === 'bRoll') return 'B-Roll';
@@ -470,19 +484,11 @@ Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
 -   A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts.
 -   A suggestion for specific footage to use, leveraging the available footage and featured locations (e.g., "Drone shots of [Location X] combined with B-roll of [activity]").
 
-Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string), "description" (string), and "footageToUse" (string) properties.
-
-Example JSON response:
-{
-    "shortsIdeas": [
-        {"title": "Epic Drone Shots of [Location]", "description": "Quick montage of the most breathtaking drone footage, set to trending audio, showcasing the beauty of the location.", "footageToUse": "Drone shots of the cliffside, wide B-roll of the beach, time-lapse of sunset."},
-        {"title": "Hidden Gem Foodie Spot in [City]", "description": "Fast-paced reveal of a unique local eatery featured in the long-form, highlighting a signature dish and quirky atmosphere.", "footageToUse": "On-camera close-ups of food preparation, B-roll of the restaurant interior, quick cuts of taste tests."},
-        {"title": "Reacting to [Specific Moment/Challenge]", "description": "Short clip of me reacting to a funny or unexpected moment from the long-form video, with text overlays and trending sound.", "footageToUse": "On-camera reaction footage, relevant B-roll of the challenging activity, fast-paced cuts to emphasize humor."}
-    ]
-}`;
+Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string), "description" (string), and "footageToUse" (string) properties.`;
 
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            // MODIFIED: Pass settings
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (parsedJson && Array.isArray(parsedJson.shortsIdeas)) {
                 return parsedJson.shortsIdeas;
             } else {
@@ -494,17 +500,15 @@ Example JSON response:
         }
     },
 
+    // MODIFIED: Added settings to params
     generateShortsMetadataAI: async ({
         videoTitle,
         shortsIdea,
         whoAmI,
         styleGuideText,
-        apiKey
+        apiKey,
+        settings // Added settings
     }) => {
-        if (!apiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-
         const prompt = `You are a YouTube Shorts expert. Based on the long-form video context and a specific Shorts idea, generate optimized metadata for YouTube Studio.
 
 Long-Form Video Title: "${videoTitle}"
@@ -532,7 +536,8 @@ Your response MUST be a valid JSON object with the following structure:
 }`;
 
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, apiKey);
+            // MODIFIED: Pass settings
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (parsedJson && Array.isArray(parsedJson.onScreenText) && typeof parsedJson.caption === 'string' && typeof parsedJson.description === 'string' && typeof parsedJson.tags === 'string') {
                 return parsedJson;
             } else {
