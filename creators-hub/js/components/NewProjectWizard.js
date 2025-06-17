@@ -28,6 +28,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [finalizedDescription, setFinalizedDescription] = useState(initialDraft?.finalizedDescription || null);
     const [selectedTitle, setSelectedTitle] = useState(initialDraft?.selectedTitle || '');
     const [coverImageUrl, setCoverImageUrl] = useState(initialDraft?.coverImageUrl || '');
+    const [coverImageFile, setCoverImageFile] = useState(null); // New state for the uploaded file
     const [refinement, setRefinement] = useState('');
     const [refiningVideoIndex, setRefiningVideoIndex] = useState(null);
     const [error, setError] = useState('');
@@ -41,32 +42,39 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     // Initialize Firebase Storage
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
-    /**
-     * Downloads an image from a URL and uploads it to Firebase Storage.
-     * @param {string} imageUrl - The URL of the image to download.
-     * @param {string} uploadPath - The desired path in Firebase Storage (e.g., 'project_thumbnails/my_image.jpg').
-     * @returns {Promise<string>} - A promise that resolves to the Firebase Storage download URL, or an empty string on error.
-     */
     const downloadAndUploadImage = async (imageUrl, uploadPath) => {
         if (!imageUrl || !storage) {
             console.warn("No image URL or Firebase Storage instance available for upload.");
             return '';
         }
-
+        const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
         try {
-            const response = await fetch(imageUrl);
+            const response = await fetch(fetchUrl);
             if (!response.ok) {
-                console.warn(`Failed to fetch image from ${imageUrl}. Status: ${response.status}`);
-                return '';
+                throw new Error(await response.text());
             }
-            const blob = await response.blob(); // Get image as Blob
-
+            const blob = await response.blob();
             const storageRef = storage.ref(uploadPath);
-            await storageRef.put(blob); // Upload the Blob
-            const downloadUrl = await storageRef.getDownloadURL(); // Get the permanent URL
-            return downloadUrl;
+            await storageRef.put(blob);
+            return await storageRef.getDownloadURL();
         } catch (error) {
             console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
+            return '';
+        }
+    };
+    
+    // New function to upload a file directly
+    const uploadFile = async (file, uploadPath) => {
+        if (!file || !storage) {
+            console.warn("No file or Firebase Storage instance available for upload.");
+            return '';
+        }
+        try {
+            const storageRef = storage.ref(uploadPath);
+            await storageRef.put(file);
+            return await storageRef.getDownloadURL();
+        } catch (error) {
+            console.error(`Error uploading file to ${uploadPath}:`, error);
             return '';
         }
     };
@@ -78,7 +86,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
             const draftRef = db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId);
             draftRef.set({ ...debouncedState, updatedAt: new Date() }, { merge: true });
         }
-    }, [debouncedState, userId, draftId, appId, db]); // Added db to dependencies
+    }, [debouncedState, userId, draftId, appId, db]);
 
     // Initialize selectedTitle when suggestions load
     useEffect(() => {
@@ -133,9 +141,9 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const handleKeywordSelection = (keyword) => {
         setSelectedKeywords(prevSelected => {
             if (prevSelected.includes(keyword)) {
-                return prevSelected.filter(k => k !== keyword); // Remove if exists
+                return prevSelected.filter(k => k !== keyword);
             } else {
-                return [...prevSelected, keyword]; // Add if it doesn't exist
+                return [...prevSelected, keyword];
             }
         });
     };
@@ -248,14 +256,18 @@ Generate a complete project plan as a JSON object with keys:
         if (!finalizedTitle || !finalizedDescription || acceptedVideos.length === 0) return;
         setIsLoading(true); setError('');
 
-        let finalCoverImageUrl = coverImageUrl;
-        if (coverImageUrl && storage) {
-            // Upload the cover image to Firebase Storage
-            const fileExtension = coverImageUrl.split('.').pop().split('?')[0]; // Get extension, remove query params
+        let finalCoverImageUrl = '';
+
+        if (coverImageFile) {
+            // If a file was uploaded, prioritize it
+            const path = `project_thumbnails/${Date.now()}_${userId}_${coverImageFile.name}`;
+            finalCoverImageUrl = await uploadFile(coverImageFile, path);
+        } else if (coverImageUrl) {
+            // If a URL was provided, use the existing download/upload logic
+            const fileExtension = coverImageUrl.split('.').pop().split('?')[0];
             const path = `project_thumbnails/${Date.now()}_${userId}.${fileExtension}`;
             finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
         }
-
 
         try {
             const batch = db.batch();
@@ -264,7 +276,7 @@ Generate a complete project plan as a JSON object with keys:
                 playlistTitle: finalizedTitle,
                 playlistDescription: finalizedDescription,
                 locations,
-                coverImageUrl: finalCoverImageUrl, // Save the Firebase Storage URL
+                coverImageUrl: finalCoverImageUrl,
                 createdAt: new Date().toISOString()
             });
             acceptedVideos.forEach((video, index) => {
@@ -273,13 +285,23 @@ Generate a complete project plan as a JSON object with keys:
             });
             await batch.commit();
             if (draftId) await db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId).delete();
-            onClose(); // Close the wizard and return to dashboard
+            onClose();
         } catch(e) { setError(`Failed to save project. ${e.message}`); } finally { setIsLoading(false); }
     };
     
     const renderWizardStep = () => {
         switch (step) {
-            case 1: return <window.WizardStep1_Foundation inputs={inputs} locations={locations} coverImageUrl={coverImageUrl} settings={settings} googleMapsLoaded={googleMapsLoaded} onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} onLocationsUpdate={handleLocationsUpdate} onCoverImageUrlChange={setCoverImageUrl} />;
+            case 1: return <window.WizardStep1_Foundation 
+                                inputs={inputs} 
+                                locations={locations} 
+                                coverImageUrl={coverImageUrl} 
+                                settings={settings} 
+                                googleMapsLoaded={googleMapsLoaded} 
+                                onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} 
+                                onLocationsUpdate={handleLocationsUpdate} 
+                                onCoverImageUrlChange={setCoverImageUrl}
+                                onCoverImageFileChange={setCoverImageFile}
+                            />;
             case 2: return <window.WizardStep2_Inventory locations={locations} footageInventory={footageInventory} onInventoryChange={handleInventoryChange} onSelectAllFootage={handleSelectAllFootage} />;
             case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
@@ -316,12 +338,10 @@ Generate a complete project plan as a JSON object with keys:
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4"> {/* Added p-4 for some padding */}
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
             {showConfirmModal && <ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
-            {/* Modified classes for full screen and proper height management */}
             <div className="glass-card rounded-lg p-8 w-full h-full flex flex-col" onClick={e => e.stopPropagation()}> 
                 <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                {/* Changed max-h-[70vh] to flex-grow to take available space */}
                 <div className="flex-grow overflow-y-auto pr-2"> 
                     {renderWizardStep()}
                 </div>
