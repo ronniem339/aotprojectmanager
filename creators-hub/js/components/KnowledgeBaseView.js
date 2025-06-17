@@ -4,21 +4,20 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     const { useState, useEffect } = React;
     const [activeCategory, setActiveCategory] = useState('youtube'); // 'youtube' or 'blog'
     
-    // Default structure for all knowledge bases
     const defaultKnowledgeBases = {
         youtube: {
             whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
             firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
         },
         blog: {
-            coreSeoEngine: '', // NEW
-            ideaGeneration: '', // Renamed
-            destinationGuideBlueprint: '', // NEW
-            listiclePostFramework: '', // NEW
+            coreSeoEngine: '',
+            ideaGeneration: '',
+            destinationGuideBlueprint: '',
+            listiclePostFramework: '',
+            monetizationGoals: '', // NEW
         }
     };
 
-    // Initialize local state by merging saved settings into the default structure
     const [localKnowledgeBases, setLocalKnowledgeBases] = useState(() => {
         const savedKbs = settings.knowledgeBases || {};
         return {
@@ -27,7 +26,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         };
     });
 
-    // Sync local state with props when settings change
     useEffect(() => {
         const savedKbs = settings.knowledgeBases || {};
         setLocalKnowledgeBases({
@@ -36,7 +34,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         });
     }, [settings.knowledgeBases]);
 
-    // Handles changes for any nested knowledge base field
     const handleChange = (category, key, value) => {
         setLocalKnowledgeBases(prev => ({
             ...prev,
@@ -53,7 +50,7 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
 
     const youtubeKbs = [
         { id: 'whoAmI', title: 'Who Am I', description: 'Describe your persona, brand voice, and unique perspective.', placeholder: 'e.g., "I am an adventurous travel vlogger focusing on hidden gems and authentic experiences, with a friendly and informative tone."'},
-        { id: 'videoTitles', title: 'YouTube Video Titles', description: 'Best practices and specific rules for crafting engaging video titles.', placeholder: 'e.g., "Titles should be under 70 characters. Use strong verbs. Include numbers where applicable."'},
+        { id: 'videoTitles', title: 'YouTube Video Titles', description: 'Best practices for crafting engaging video titles.', placeholder: 'e.g., "Titles should be under 70 characters. Use strong verbs. Include numbers where applicable."'},
         { id: 'videoDescriptions', title: 'YouTube Video Descriptions', description: 'Guidelines for writing SEO-rich descriptions.', placeholder: 'e.g., "Always include a strong hook in the first 3 lines. Utilize keywords naturally throughout the description."'},
         { id: 'videoTags', title: 'YouTube Tags', description: 'Best practices for creating a comprehensive list of SEO tags.', placeholder: 'e.g., "Include a mix of broad and specific long-tail keywords. The first tag should be the main target keyword."'},
         { id: 'thumbnailIdeas', title: 'YouTube Thumbnail Ideas', description: 'Principles for creating high-CTR thumbnails.', placeholder: 'e.g., "High contrast colors, clear subject, minimal text, strong emotions."'},
@@ -61,9 +58,9 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         { id: 'shortsIdeaGeneration', title: 'YouTube Shorts Ideas', description: 'Strategies for viral short-form video concepts.', placeholder: 'e.g., "Focus on quick hooks. Use trending sounds and challenges."'},
     ];
     
-    // NEW: Updated structure for Blog Knowledge Bases
     const blogKbs = [
         { id: 'coreSeoEngine', title: 'Core SEO & Content Engine', description: 'Foundational principles for all blog content to ensure high performance in organic search.', placeholder: 'e.g., "Always target a primary keyword. Use LSI keywords. Ensure content answers user intent. Internal link to relevant posts..."'},
+        { id: 'monetizationGoals', title: 'Monetization & Content Goals', description: 'Define the primary business goals for your blog content.', placeholder: 'e.g., "Primary Goal: Drive traffic to my YouTube channel. Secondary Goal: Generate revenue through affiliate links for hotels, tours, and car rentals. All relevant posts should include these types of links."'},
         { id: 'ideaGeneration', title: 'Blog Post Idea Generation', description: 'How to generate a diverse list of SEO-friendly blog post ideas for a given travel destination.', placeholder: 'e.g., "Generate ideas based on question keywords, comparisons (X vs Y), seasonal topics, and different user intents (informational, commercial)..."'},
         { id: 'destinationGuideBlueprint', title: 'Destination Guide Blueprint (Pillar Page)', description: 'The structure for comprehensive, long-form destination guides that act as pillar pages.', placeholder: 'e.g., "Structure: Intro, Why Visit, Top Attractions, Getting Around, Where to Stay, Best Time to Visit, Sample Itinerary, Conclusion..."'},
         { id: 'listiclePostFramework', title: 'Listicle Post Framework', description: 'The framework for shorter, list-based articles (e.g., "Top 10s"), often for commercial investigation topics.', placeholder: 'e.g., "Structure: Engaging intro, each list item with a clear heading (H3), detailed description, pros/cons, and a clear call-to-action..."'},
