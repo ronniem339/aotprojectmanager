@@ -50,6 +50,41 @@ const App = () => {
         return () => unsubscribe();
     }, []);
 
+    // Effect to handle FirebaseUI rendering
+    React.useEffect(() => {
+        // Don't do anything while the initial user state is being determined.
+        if (loading) {
+            return;
+        }
+
+        if (!user) {
+            // Ensure FirebaseUI is available (loaded from index.html)
+            if (window.firebaseui) {
+                // Get the existing UI instance or create a new one.
+                const ui = firebaseui.auth.AuthUI.getInstance() || new firebaseui.auth.AuthUI(firebase.auth());
+                const uiConfig = {
+                    // We handle the state change, so redirect is not strictly needed.
+                    signInSuccessUrl: window.location.href, 
+                    signInOptions: [
+                        firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+                        firebase.auth.EmailAuthProvider.PROVIDER_ID,
+                    ],
+                    callbacks: {
+                        // Avoid page reload on sign-in. The onAuthStateChanged listener will handle the UI update.
+                        signInSuccessWithAuthResult: function(authResult, redirectUrl) {
+                            return false; 
+                        }
+                    }
+                };
+                
+                // Start the FirebaseUI widget. It will only render if the container is present.
+                ui.start('#firebaseui-auth-container', uiConfig);
+            } else {
+                console.error("FirebaseUI is not loaded. Please check that it's included in index.html.");
+            }
+        }
+    }, [user, loading]); // Rerun this effect when user or loading state changes
+
     const handleSignOut = () => {
         firebase.auth().signOut().then(() => {
             setUser(null);
@@ -106,6 +141,7 @@ const App = () => {
             return React.createElement('div', { className: 'auth-container' },
                 React.createElement('h1', null, 'Creator\'s Hub'),
                 React.createElement('p', null, 'Please sign in to continue.'),
+                // The FirebaseUI widget will be rendered here by the useEffect hook.
                 React.createElement('div', { id: 'firebaseui-auth-container' })
             );
         }
