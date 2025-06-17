@@ -201,7 +201,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
                 {generatedIdeas.length > 0 && (
                     <div className="glass-card p-6 rounded-lg">
                         <h2 className="text-2xl font-semibold mb-4">2. Review New Suggestions</h2>
-                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                        <div className="space-y-3">
                             {generatedIdeas.map(idea => (
                                 <div key={idea.localId} className="p-3 bg-gray-800/60 rounded-lg border border-gray-700">
                                     <p className="font-semibold text-white">{idea.title}</p>
