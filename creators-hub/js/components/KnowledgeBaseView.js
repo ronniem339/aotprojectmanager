@@ -3,34 +3,36 @@
 window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     const { useState, useEffect } = React;
     const [activeCategory, setActiveCategory] = useState('youtube'); // 'youtube' or 'blog'
-    // Local state for all knowledge bases, reflecting the nested structure
-    const [localKnowledgeBases, setLocalKnowledgeBases] = useState(settings.knowledgeBases || {
+    
+    // Default structure for all knowledge bases
+    const defaultKnowledgeBases = {
         youtube: {
             whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
-            firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: ''
+            firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
         },
         blog: {
-            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: ''
+            coreSeoEngine: '', // NEW
+            ideaGeneration: '', // Renamed
+            destinationGuideBlueprint: '', // NEW
+            listiclePostFramework: '', // NEW
         }
+    };
+
+    // Initialize local state by merging saved settings into the default structure
+    const [localKnowledgeBases, setLocalKnowledgeBases] = useState(() => {
+        const savedKbs = settings.knowledgeBases || {};
+        return {
+            youtube: { ...defaultKnowledgeBases.youtube, ...savedKbs.youtube },
+            blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog }
+        };
     });
 
     // Sync local state with props when settings change
     useEffect(() => {
-        // Ensure the full structure exists when syncing from settings
-        const currentSettings = settings.knowledgeBases || {};
-        const fullYoutubeKbs = {
-            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
-            firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: '',
-            ...currentSettings.youtube
-        };
-        const fullBlogKbs = {
-            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
-            ...currentSettings.blog
-        };
-
+        const savedKbs = settings.knowledgeBases || {};
         setLocalKnowledgeBases({
-            youtube: fullYoutubeKbs,
-            blog: fullBlogKbs
+            youtube: { ...defaultKnowledgeBases.youtube, ...savedKbs.youtube },
+            blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog }
         });
     }, [settings.knowledgeBases]);
 
@@ -39,35 +41,32 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         setLocalKnowledgeBases(prev => ({
             ...prev,
             [category]: {
-                ...prev[category],
+                ...(prev[category] || {}),
                 [key]: value
             }
         }));
     };
 
     const handleSave = () => {
-        // Pass the updated nested knowledgeBases object back to the parent (App.js)
         onSave({ ...settings, knowledgeBases: localKnowledgeBases });
     };
 
-    // Define the structure and display for each knowledge base
     const youtubeKbs = [
         { id: 'whoAmI', title: 'Who Am I', description: 'Describe your persona, brand voice, and unique perspective.', placeholder: 'e.g., "I am an adventurous travel vlogger focusing on hidden gems and authentic experiences, with a friendly and informative tone."'},
         { id: 'videoTitles', title: 'YouTube Video Titles', description: 'Best practices and specific rules for crafting engaging video titles.', placeholder: 'e.g., "Titles should be under 70 characters. Use strong verbs. Include numbers where applicable."'},
         { id: 'videoDescriptions', title: 'YouTube Video Descriptions', description: 'Guidelines for writing SEO-rich descriptions.', placeholder: 'e.g., "Always include a strong hook in the first 3 lines. Utilize keywords naturally throughout the description."'},
-        // **NEW**: Added YouTube Tags knowledge base
         { id: 'videoTags', title: 'YouTube Tags', description: 'Best practices for creating a comprehensive list of SEO tags.', placeholder: 'e.g., "Include a mix of broad and specific long-tail keywords. The first tag should be the main target keyword."'},
         { id: 'thumbnailIdeas', title: 'YouTube Thumbnail Ideas', description: 'Principles for creating high-CTR thumbnails.', placeholder: 'e.g., "High contrast colors, clear subject, minimal text, strong emotions."'},
         { id: 'firstPinnedCommentExpert', title: 'First Pinned Comment Expert', description: 'Advice for crafting engaging first comments to boost interaction.', placeholder: 'e.g., "Ask an open-ended question. Include a call to action to subscribe."'},
         { id: 'shortsIdeaGeneration', title: 'YouTube Shorts Ideas', description: 'Strategies for viral short-form video concepts.', placeholder: 'e.g., "Focus on quick hooks. Use trending sounds and challenges."'},
-        { id: 'youtubeSeoKnowledgeBase', title: 'General YouTube SEO', description: 'Overall YouTube SEO best practices.', placeholder: 'e.g., "Always use relevant tags. Optimize for watch time. Engage with comments."'},
     ];
-
+    
+    // NEW: Updated structure for Blog Knowledge Bases
     const blogKbs = [
-        { id: 'postIdeaGeneration', title: 'Blog Post Idea Generation', description: 'Strategies for coming up with engaging blog post concepts from video content.', placeholder: 'e.g., "Transform video chapters into distinct blog topics. Brainstorm related keywords."'},
-        { id: 'postDetailedWriter', title: 'Blog Post Detailed Writer', description: 'Guidelines for converting video scripts into long-form blog posts (2000+ words).', placeholder: 'e.g., "Expand on script points with additional research. Ensure smooth transitions between sections."'},
-        { id: 'postSeoWriter', title: 'Blog Post SEO Writer', description: 'Tips for crafting SEO-friendly shorter blog content like listicles.', placeholder: 'e.g., "Focus on clear headings (H1, H2, H3). Use bullet points for readability."'},
-        { id: 'postAffiliateWriter', title: 'Blog Post Affiliate Writer', description: 'Best practices for writing blog posts recommending hotels/experiences with affiliate links.', placeholder: 'e.g., "Provide honest reviews. Clearly disclose affiliate partnerships. Integrate links naturally."'},
+        { id: 'coreSeoEngine', title: 'Core SEO & Content Engine', description: 'Foundational principles for all blog content to ensure high performance in organic search.', placeholder: 'e.g., "Always target a primary keyword. Use LSI keywords. Ensure content answers user intent. Internal link to relevant posts..."'},
+        { id: 'ideaGeneration', title: 'Blog Post Idea Generation', description: 'How to generate a diverse list of SEO-friendly blog post ideas for a given travel destination.', placeholder: 'e.g., "Generate ideas based on question keywords, comparisons (X vs Y), seasonal topics, and different user intents (informational, commercial)..."'},
+        { id: 'destinationGuideBlueprint', title: 'Destination Guide Blueprint (Pillar Page)', description: 'The structure for comprehensive, long-form destination guides that act as pillar pages.', placeholder: 'e.g., "Structure: Intro, Why Visit, Top Attractions, Getting Around, Where to Stay, Best Time to Visit, Sample Itinerary, Conclusion..."'},
+        { id: 'listiclePostFramework', title: 'Listicle Post Framework', description: 'The framework for shorter, list-based articles (e.g., "Top 10s"), often for commercial investigation topics.', placeholder: 'e.g., "Structure: Engaging intro, each list item with a clear heading (H3), detailed description, pros/cons, and a clear call-to-action..."'},
     ];
 
     const currentKbs = activeCategory === 'youtube' ? youtubeKbs : blogKbs;
