@@ -41,8 +41,8 @@ window.ToolsView = ({ onBack, onSelectTool }) => {
     ];
 
     return (
-        // Adjusted opacity from 80 to 70 for a more transparent overlay
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+        // Corrected opacity to bg-opacity-80 to match the preferred style
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
             <div ref={modalRef} className="glass-card rounded-lg p-8 w-full max-w-4xl relative">
                 <button onClick={onBack} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold mb-2 text-center">🛠️ Content Creation Tools</h2>
