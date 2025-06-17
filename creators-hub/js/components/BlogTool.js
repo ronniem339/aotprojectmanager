@@ -48,11 +48,12 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
         setError('');
         setGeneratedIdeas([]);
 
+        // FIXED: Pass the entire settings object
         let generationParams = {
             coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
             ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration,
-            monetizationGoals: settings.knowledgeBases.blog.monetizationGoals, // Pass monetization goals
-            apiKey: settings.geminiApiKey,
+            monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
+            settings: settings, // Pass the whole settings object
         };
         
         if (generationSource === 'topic') {
