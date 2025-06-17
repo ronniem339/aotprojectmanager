@@ -1,112 +1,157 @@
-// js/components/ProjectView/tasks/DescriptionTask.js
+window.DescriptionTask = ({ video, onUpdate, onCompletion, settings }) => {
+    const { useState, useEffect } = React;
+    const [description, setDescription] = useState('');
+    const [chapters, setChapters] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [refinement, setRefinement] = useState('');
 
-window.DescriptionTask = ({ video, settings, onUpdateTask, isLocked }) => {
-    const { useState, useEffect, useMemo } = React;
-    const [generating, setGenerating] = useState(false);
-    const [error, setError] = useState('');
-    const [editableDescription, setEditableDescription] = useState('');
-    const [descriptionRefinement, setDescriptionRefinement] = useState('');
-
-    const metadata = useMemo(() => {
-        try {
-            return video.metadata ? JSON.parse(video.metadata) : null;
-        } catch { return null; }
-    }, [video.metadata]);
-    
     useEffect(() => {
-        setEditableDescription(metadata?.description || '');
-        setError('');
-        setDescriptionRefinement('');
-    }, [video.id, metadata]);
+        setDescription(video.description || '');
+        setChapters(video.chapters?.join('\n') || '');
+    }, [video]);
+
+    const handleSave = () => {
+        const updatedVideo = {
+            ...video,
+            description,
+            chapters: chapters.split('\n').filter(Boolean)
+        };
+        onUpdate(updatedVideo);
+    };
 
     const handleGenerateDescription = async () => {
-        setGenerating(true);
-        setError('');
-        // **FIX**: Removed 'tags' from the prompt. It now only generates description and chapters.
-        const prompt = `Act as a YouTube SEO expert. Based on the video script and title, generate a metadata package.
-Video Script:
----
-${video.script}
----
-Video Title: "${video.chosenTitle}"
-YouTube Video Description Guidelines: "${settings.knowledgeBases?.youtube?.videoDescriptions || 'Write a compelling and SEO-friendly description.'}"
+        setIsGenerating(true);
+        const apiKey = settings.geminiApiKey;
+        if (!apiKey) {
+            alert("Please set Gemini API key in settings.");
+            setIsGenerating(false);
+            return;
+        }
 
-Your response MUST be a valid JSON object with these exact keys: "description" (a detailed description with a {{CHAPTERS}} placeholder for later) and "chapters" (array of objects: {"timestamp": "0:00", "title": "..."}).`;
-        
+        const prompt = `
+        Video Title: "${video.title}"
+        Video Concept: "${video.concept}"
+        Video Script:
+        ---
+        ${video.script || 'No script provided.'}
+        ---
+        Creator Persona: "${settings.creatorPersona}"
+        Creator Style Guide: "${settings.creatorStyleGuide}"
+
+        Based on the provided information, generate an engaging YouTube video description and a list of timestamps (chapters).
+        The description should be SEO-friendly, include a strong hook, and a call to action.
+        The chapters should identify the main sections of the video from the script.
+
+        Return a single JSON object with two keys: "description" (a string) and "chapters" (an array of strings in "HH:MM:SS - Chapter Title" format).
+        Example:
+        {
+          "description": "Your generated description here...",
+          "chapters": ["00:00 - Intro", "01:23 - Main Topic", "05:10 - Conclusion"]
+        }
+        `;
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
-            await onUpdateTask('descriptionGenerated', 'pending', { 
-                metadata: JSON.stringify(parsedJson),
-                chapters: parsedJson.chapters,
-            });
+            const parsedJson = await window.aiUtils.callGeminiAPI(
+                prompt,
+                settings.geminiApiKey,
+                {},
+                'generateDescription', // Task type
+                settings.useProModel, // Pass the setting
+                settings.geminiFlashModelName, // Pass the setting
+                settings.geminiProModelName // Pass the setting
+            );
+            if (parsedJson.description) setDescription(parsedJson.description);
+            if (parsedJson.chapters) setChapters(parsedJson.chapters.join('\n'));
         } catch (err) {
-            setError(`Failed to generate description: ${err.message}`);
+            console.error(err);
+            alert("Failed to generate description. Check console for details.");
         } finally {
-            setGenerating(false);
+            setIsGenerating(false);
         }
     };
     
     const handleRefineDescription = async () => {
-        setGenerating(true);
-        setError('');
-        const prompt = `Rewrite the following YouTube video description based on the user's feedback, adhering to the provided guidelines.
-Original Description:\n---\n${editableDescription}\n---\n
-User Feedback: "${descriptionRefinement}"
-YouTube Video Description Guidelines: "${settings.knowledgeBases?.youtube?.videoDescriptions || 'Write a compelling and SEO-friendly description.'}"
-Return a JSON object with one key: {"newDescription": "..."}`;
+        if (!refinement.trim()) return;
+        setIsGenerating(true);
+        const apiKey = settings.geminiApiKey;
+        
+        const prompt = `
+        Original Description: "${description}"
+        Original Chapters: "${chapters}"
+        Refinement Request: "${refinement}"
+
+        Refine the description and chapters based on the user's request.
+
+        Return a single JSON object with two keys: "description" and "chapters" (an array of strings).
+        `;
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings.geminiApiKey);
-            if (parsedJson?.newDescription) {
-                setEditableDescription(parsedJson.newDescription);
-                setDescriptionRefinement('');
-            }
-        } catch (err) {
-            setError(`Failed to refine description: ${err.message}`);
+             const parsedJson = await window.aiUtils.callGeminiAPI(
+                prompt,
+                settings.geminiApiKey,
+                {},
+                'refineDescription', // Task type
+                settings.useProModel, // Pass the setting
+                settings.geminiFlashModelName, // Pass the setting
+                settings.geminiProModelName // Pass the setting
+            );
+            if (parsedJson.description) setDescription(parsedJson.description);
+            if (parsedJson.chapters) setChapters(parsedJson.chapters.join('\n'));
+            setRefinement('');
+        } catch(err) {
+            console.error(err);
+            alert("Failed to refine description.");
         } finally {
-            setGenerating(false);
+            setIsGenerating(false);
         }
     };
 
-    const handleAcceptDescription = () => {
-        const newMetadata = { ...(metadata || {}), description: editableDescription };
-        onUpdateTask('descriptionGenerated', 'complete', { 
-            metadata: JSON.stringify(newMetadata) 
-        });
+
+    const handleComplete = () => {
+        handleSave();
+        onCompletion(video.id, 'description', { description, chapters: chapters.split('\n').filter(Boolean) });
     };
 
-    if (isLocked) {
-        return <p className="text-gray-400 text-center py-2 text-sm">Please finalize the title first.</p>;
-    }
-    
-    if (video.tasks?.descriptionGenerated === 'complete') {
-        return <p className="text-gray-400 text-center py-2 text-sm">Description has been finalized.</p>;
-    }
-
-    if (!metadata || !metadata.description) {
-        return (
-            <div className="text-center py-4">
-                <button onClick={handleGenerateDescription} disabled={generating} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75">
-                    {generating ? <window.LoadingSpinner isButton={true} /> : '✨ Generate Description'}
-                </button>
-                {error && <p className="text-red-400 mt-4 text-sm bg-red-900/50 p-3 rounded-lg">{error}</p>}
-            </div>
-        );
-    }
-
     return (
-        <div className="space-y-4">
-            <textarea value={editableDescription} onChange={(e) => setEditableDescription(e.target.value)} rows="10" className="w-full form-textarea bg-gray-800/50 resize-y"/>
-            <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                <label className="block text-sm font-medium text-gray-300 mb-1">Refinement Instructions</label>
-                <textarea value={descriptionRefinement} onChange={(e) => setDescriptionRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make it more personal'"/>
-                <div className="flex justify-between items-center mt-2">
-                    <button onClick={handleRefineDescription} disabled={generating || !descriptionRefinement} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold disabled:opacity-75">
-                        {generating ? <window.LoadingSpinner isButton={true} /> : 'Refine Description'}
-                    </button>
-                     <button onClick={handleAcceptDescription} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg font-semibold">Accept Description</button>
-                </div>
+        <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+            <h3 className="text-lg font-bold">Description & Chapters</h3>
+            <button onClick={handleGenerateDescription} disabled={isGenerating} className="btn-secondary w-full">
+                {isGenerating ? 'Generating...' : 'Generate with AI'}
+            </button>
+            <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onBlur={handleSave}
+                    rows="8"
+                    className="form-textarea w-full bg-gray-700"
+                    placeholder="YouTube video description..."
+                />
             </div>
-            {error && <p className="text-red-400 mt-2 text-sm text-right">{error}</p>}
+            <div>
+                <label className="block text-sm font-medium mb-1">Chapters (one per line)</label>
+                <textarea
+                    value={chapters}
+                    onChange={(e) => setChapters(e.target.value)}
+                    onBlur={handleSave}
+                    rows="5"
+                    className="form-textarea w-full bg-gray-700"
+                    placeholder="00:00 - Intro..."
+                />
+            </div>
+             <div className="space-y-2 pt-2 border-t border-gray-700">
+                <label className="block text-sm font-medium">Refine with AI</label>
+                <textarea
+                    value={refinement}
+                    onChange={(e) => setRefinement(e.target.value)}
+                    rows="2"
+                    className="form-textarea w-full bg-gray-700"
+                    placeholder="e.g., 'Make it shorter and funnier', 'add more emojis'"
+                />
+                <button onClick={handleRefineDescription} disabled={isGenerating || !refinement.trim()} className="btn-secondary w-full">
+                    {isGenerating ? 'Refining...' : 'Refine'}
+                </button>
+            </div>
+            <button onClick={handleComplete} className="btn-primary w-full">Mark as Complete</button>
         </div>
     );
 };
