@@ -10,25 +10,18 @@ window.App = () => { // Exposing App component globally
         geminiApiKey: '', 
         googleMapsApiKey: '', 
         youtubeApiKey: '', 
-        styleGuideText: '', // This will remain for the combined style guide
-        myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '', // For Style & Tone
-        knowledgeBases: { // New nested structure for knowledge bases
+        styleGuideText: '', 
+        myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
+        knowledgeBases: {
             youtube: {
-                whoAmI: '', // User description for authentic tone
-                videoTitles: '', // YouTube video titles KB
-                videoDescriptions: '', // YouTube video descriptions KB
-                thumbnailIdeas: '', // YouTube thumbnail ideas KB
-                firstPinnedCommentExpert: '', // YouTube first pinned comment KB
-                shortsIdeaGeneration: '', // YouTube Shorts ideas KB
-                youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE, // Keep the general SEO KB for broad context/fallback
+                whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
+                firstPinnedCommentExpert: '', shortsIdeaGeneration: '', youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
             },
             blog: {
-                postIdeaGeneration: '', // Blog post idea generation KB
-                postDetailedWriter: '', // Blog post detailed writer KB
-                postSeoWriter: '', // Blog post SEO writer KB (listicles, etc.)
-                postAffiliateWriter: '', // Blog post affiliate writer KB
+                postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
             }
-        }
+        },
+        wordpress: { url: '', username: '', applicationPassword: '' } // Add wordpress settings
     });
     const [activeProjectDraft, setActiveProjectDraft] = useState(null);
     const [activeDraftId, setActiveDraftId] = useState(null);
@@ -39,19 +32,17 @@ window.App = () => { // Exposing App component globally
     const [projectToDelete, setProjectToDelete] = useState(null);
     const [draftToDelete, setDraftToDelete] = useState(null);
     const [showProjectSelection, setShowProjectSelection] = useState(false);
-    const [isLoading, setIsLoading] = useState(false); // Add a general loading state
-    const [appError, setAppError] = useState(null); // New state for application-wide errors
+    const [isLoading, setIsLoading] = useState(false);
+    const [appError, setAppError] = useState(null);
 
-    // Firebase instances - initialized once and passed down
-    const [firebaseAppInstance, setFirebaseAppInstance] = useState(null); // Keep track of the Firebase app instance
+    const [firebaseAppInstance, setFirebaseAppInstance] = useState(null);
     const [firebaseDb, setFirebaseDb] = useState(null);
     const [firebaseAuth, setFirebaseAuth] = useState(null);
 
-    const { APP_ID } = window.CREATOR_HUB_CONFIG; // Removed INITIAL_AUTH_TOKEN as it's no longer used here
+    const { APP_ID } = window.CREATOR_HUB_CONFIG;
 
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
-    // Initialize Firebase app, Firestore, and Auth only once
     useEffect(() => {
         const initFirebase = async () => {
             try {
@@ -62,33 +53,27 @@ window.App = () => { // Exposing App component globally
                     app = firebase.app();
                 }
                 setFirebaseAppInstance(app);
+                setFirebaseDb(app.firestore());
+                setFirebaseAuth(app.auth());
 
-                const dbInstance = app.firestore();
-                const authInstance = app.auth();
-
-                setFirebaseDb(dbInstance);
-                setFirebaseAuth(authInstance);
-
-                // Set up the authentication state listener
-                const unsubscribeAuth = authInstance.onAuthStateChanged(currentUser => {
+                const unsubscribeAuth = app.auth().onAuthStateChanged(currentUser => {
                     setUser(currentUser);
-                    // Mark auth as ready once the initial state is known
                     setIsAuthReady(true); 
                     if (!currentUser) {
-                        // Clear settings for unauthenticated user
                         setSettings({ 
                             geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
                             myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
                             knowledgeBases: {
                                 youtube: {
-                                    whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '',
+                                    whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
                                     firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
                                     youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
                                 },
                                 blog: {
                                     postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
                                 }
-                            }
+                            },
+                            wordpress: { url: '', username: '', applicationPassword: '' }
                         }); 
                         setActiveProjectDraft(null);
                     }
@@ -99,78 +84,42 @@ window.App = () => { // Exposing App component globally
             } catch (e) {
                 console.error("Firebase initialization error:", e);
                 setAppError(`Failed to initialize Firebase: ${e.message}`);
-                setIsAuthReady(true); // Still set authReady to true even on error to prevent infinite loading
+                setIsAuthReady(true);
             }
         };
-
         initFirebase();
-    }, [firebaseConfig]); // Only re-run if firebaseConfig changes
+    }, [firebaseConfig]);
 
 
-    // Effect for loading user data and settings once authenticated AND Firebase is ready
     useEffect(() => {
-        if (user && user.uid && firebaseDb && firebaseAuth) { 
+        if (user && user.uid && firebaseDb) { 
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
-                    geminiApiKey: '',
-                    googleMapsApiKey: '',
-                    youtubeApiKey: '', 
-                    styleGuideText: '',
-                    myWriting: '',
-                    admiredWriting: '',
-                    keywords: '',
-                    dosAndDonts: '',
-                    excludedPhrases: '',
+                    geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '',
+                    myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
                     knowledgeBases: { 
                         youtube: {
-                            whoAmI: '',
-                            videoTitles: '',
-                            videoDescriptions: '',
-                            thumbnailIdeas: '',
-                            firstPinnedCommentExpert: '',
-                            shortsIdeaGeneration: '',
+                            whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
+                            firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
                             youtubeSeoKnowledgeBase: window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE,
                         },
                         blog: {
-                            postIdeaGeneration: '',
-                            postDetailedWriter: '',
-                            postSeoWriter: '',
-                            postAffiliateWriter: '',
+                            postIdeaGeneration: '', postDetailedWriter: '', postSeoWriter: '', postAffiliateWriter: '',
                         }
-                    }
+                    },
+                    wordpress: { url: '', username: '', applicationPassword: '' }
                 };
                 const data = docSnap.exists ? docSnap.data() : {};
                 
                 const mergedKnowledgeBases = {
                     ...defaultSettings.knowledgeBases, 
                     ...data.knowledgeBases, 
-                    youtube: { 
-                        ...defaultSettings.knowledgeBases.youtube,
-                        ...data.knowledgeBases?.youtube, 
-                        youtubeSeoKnowledgeBase: data.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase !== undefined ? 
-                                                 data.knowledgeBases.youtube.youtubeSeoKnowledgeBase : 
-                                                 (data.youtubeSeoKnowledgeBase !== undefined ? data.youtubeSeoKnowledgeBase : window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE)
-                    },
-                    blog: { 
-                        ...defaultSettings.knowledgeBases.blog,
-                        ...data.knowledgeBases?.blog, 
-                    }
+                    youtube: { ...defaultSettings.knowledgeBases.youtube, ...data.knowledgeBases?.youtube },
+                    blog: { ...defaultSettings.knowledgeBases.blog, ...data.knowledgeBases?.blog }
                 };
 
-                const newSettings = { 
-                    ...defaultSettings, 
-                    ...data, 
-                    knowledgeBases: mergedKnowledgeBases 
-                };
-
-                if (newSettings.youtubeSeoKnowledgeBase !== undefined && 
-                    newSettings.youtubeSeoKnowledgeBase !== window.CREATOR_HUB_CONFIG.YOUTUBE_SEO_KNOWLEDGE_BASE &&
-                    newSettings.youtubeSeoKnowledgeBase === mergedKnowledgeBases.youtube.youtubeSeoKnowledgeBase 
-                ) {
-                    delete newSettings.youtubeSeoKnowledgeBase; 
-                }
-
+                const newSettings = { ...defaultSettings, ...data, knowledgeBases: mergedKnowledgeBases };
                 setSettings(newSettings);
 
                 if (newSettings.googleMapsApiKey && !googleMapsLoaded) {
@@ -179,12 +128,9 @@ window.App = () => { // Exposing App component globally
                     });
                 }
             });
-
-            return () => {
-                unsubscribeSettings();
-            };
+            return () => unsubscribeSettings();
         }
-    }, [user, googleMapsLoaded, firebaseDb, firebaseAuth, APP_ID]);
+    }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
 
 
     const displayNotification = (message) => {
@@ -204,6 +150,11 @@ window.App = () => { // Exposing App component globally
     };
 
     const handleShowSettings = () => setCurrentView('settingsMenu');
+    const handleShowTools = () => setCurrentView('tools');
+    const handleSelectTool = (toolId) => {
+        if (toolId === 'blog') setCurrentView('blogTool');
+        if (toolId === 'shorts') setCurrentView('shortsTool');
+    };
     const handleShowTechnicalSettings = () => setCurrentView('settings');
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
@@ -214,8 +165,8 @@ window.App = () => { // Exposing App component globally
         try {
             await settingsDocRef.set(newSettings, { merge: true });
             displayNotification('Settings saved successfully!');
-            if (currentView === 'settings' || currentView === 'myStudio' || currentView === 'knowledgeBases') {
-                setCurrentView('settingsMenu');
+            if (['settings', 'myStudio', 'knowledgeBases', 'blogTool'].includes(currentView)) {
+                 setCurrentView(currentView === 'blogTool' ? 'tools' : 'settingsMenu');
             }
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -223,26 +174,18 @@ window.App = () => { // Exposing App component globally
         }
     };
     
-    const handleShowDeleteConfirm = (project) => {
-        setProjectToDelete(project);
-    };
+    const handleShowDeleteConfirm = (project) => setProjectToDelete(project);
     
     const handleConfirmDelete = async (projectId) => {
         if (!user || !firebaseDb) return;
-
         const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
         const videosCollectionRef = projectRef.collection('videos');
-        
         try {
             const videoSnapshot = await videosCollectionRef.get();
             const batch = firebaseDb.batch();
-            videoSnapshot.forEach(doc => {
-                batch.delete(doc.ref);
-            });
+            videoSnapshot.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
-
             await projectRef.delete();
-            
             displayNotification('Project deleted successfully.');
             setProjectToDelete(null); 
         } catch (error) {
@@ -251,9 +194,7 @@ window.App = () => { // Exposing App component globally
         }
     };
     
-    const handleShowDeleteDraftConfirm = (draftId) => {
-        setDraftToDelete(draftId);
-    };
+    const handleShowDeleteDraftConfirm = (draftId) => setDraftToDelete(draftId);
     
     const handleConfirmDeleteDraft = async (draftId) => {
         if (!user || !firebaseDb) return;
@@ -290,22 +231,12 @@ window.App = () => { // Exposing App component globally
         if (!user || !firebaseDb) return;
         setShowProjectSelection(false);
         if (type === 'post-trip') {
-             // Create a new draft document in Firestore
             const newDraftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc();
             const newDraftData = {
-                step: 1,
-                inputs: { location: '', theme: '' },
-                locations: [],
-                footageInventory: {},
-                keywordIdeas: [],
-                selectedKeywords: [],
-                editableOutline: null,
-                finalizedTitle: null,
-                finalizedDescription: null,
-                selectedTitle: '',
-                coverImageUrl: '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                step: 1, inputs: { location: '', theme: '' }, locations: [], footageInventory: {},
+                keywordIdeas: [], selectedKeywords: [], editableOutline: null, finalizedTitle: null,
+                finalizedDescription: null, selectedTitle: '', coverImageUrl: '',
+                createdAt: new Date(), updatedAt: new Date(),
             };
             await newDraftRef.set(newDraftData);
             setActiveDraftId(newDraftRef.id);
@@ -331,56 +262,36 @@ window.App = () => { // Exposing App component globally
     
         try {
             const batch = firebaseDb.batch();
-            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(); // Create new project doc
+            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc();
             batch.set(projectRef, {
                 playlistTitle: projectData.playlistTitle,
                 playlistDescription: projectData.playlistDescription,
-                locations: [], // Imported projects don't initially have locations defined in this way
-                footageInventory: {}, // Not applicable initially
-                coverImageUrl: projectData.coverImageUrl || '',
-                createdAt: new Date().toISOString(),
-                videoCount: projectData.videos.length // Store video count for imported projects
+                locations: [], footageInventory: {}, coverImageUrl: projectData.coverImageUrl || '',
+                createdAt: new Date().toISOString(), videoCount: projectData.videos.length
             });
 
-            // Add videos to the new project
             projectData.videos.forEach((video, index) => {
                 const videoRef = projectRef.collection('videos').doc();
-                // Ensure all fields are present for imported videos.
-                // The `id` from the import process (`v.id`) is just a temporary key, Firestore creates a new one.
                 batch.set(videoRef, {
-                    title: video.title,
-                    concept: video.concept || '',
-                    script: video.script || '',
-                    locations_featured: video.locations_featured || [],
-                    targeted_keywords: video.targeted_keywords || [],
-                    estimatedLengthMinutes: video.estimatedLengthMinutes || '',
-                    thumbnailUrl: video.thumbnailUrl || '',
-                    isManual: video.isManual || false,
-                    chapters: video.chapters || [],
+                    title: video.title, concept: video.concept || '', script: video.script || '',
+                    locations_featured: video.locations_featured || [], targeted_keywords: video.targeted_keywords || [],
+                    estimatedLengthMinutes: video.estimatedLengthMinutes || '', thumbnailUrl: video.thumbnailUrl || '',
+                    isManual: video.isManual || false, chapters: video.chapters || [],
                     tasks: video.tasks || {
-                        scripting: video.script ? 'complete' : 'pending',
-                        videoEdited: 'complete',
-                        feedbackProvided: 'complete',
-                        metadataGenerated: 'complete', // Assuming extracted metadata is "generated"
-                        thumbnailsGenerated: 'complete', // Assuming YT thumbnails suffice
-                        videoUploaded: 'complete',
-                        firstCommentGenerated: 'complete',
-                        tagsGenerated: 'complete' // Assuming AI extraction covers tags
+                        scripting: video.script ? 'complete' : 'pending', videoEdited: 'complete',
+                        feedbackProvided: 'complete', metadataGenerated: 'complete', thumbnailsGenerated: 'complete',
+                        videoUploaded: 'complete', firstCommentGenerated: 'complete', tagsGenerated: 'complete'
                     },
-                    publishDate: video.publishDate || '',
-                    metadata: video.metadata || '',
-                    generatedThumbnails: video.generatedThumbnails || [],
-                    chosenTitle: video.chosenTitle || video.title,
-                    order: index, // Set initial order
-                    createdAt: new Date().toISOString()
+                    publishDate: video.publishDate || '', metadata: video.metadata || '',
+                    generatedThumbnails: video.generatedThumbnails || [], chosenTitle: video.chosenTitle || video.title,
+                    order: index, createdAt: new Date().toISOString()
                 });
             });
 
             await batch.commit();
             displayNotification('Project imported and created successfully!');
-            setCurrentView('dashboard'); // Go back to dashboard to see new project
-            setSelectedProject({ id: projectRef.id, playlistTitle: projectData.playlistTitle, playlistDescription: projectData.playlistDescription, coverImageUrl: projectData.coverImageUrl, videoCount: projectData.videos.length }); // Select the newly created project with videoCount
-            setCurrentView('project'); // Immediately open the new project
+            setSelectedProject({ id: projectRef.id, playlistTitle: projectData.playlistTitle, playlistDescription: projectData.playlistDescription, coverImageUrl: projectData.coverImageUrl, videoCount: projectData.videos.length });
+            setCurrentView('project');
         } catch (error) {
             console.error("Error importing project:", error);
             displayNotification(`Error importing project: ${error.message}`);
@@ -396,35 +307,17 @@ window.App = () => { // Exposing App component globally
     };
 
     const renderView = () => {
-        // Render loading state if Firebase instances or auth state are not yet ready
         if (!isAuthReady || !firebaseDb || !firebaseAuth) {
             return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
         }
         
-        // Render LoginScreen if no user is authenticated after auth is ready
         if (!user) {
-            // Pass firebaseAuth to LoginScreen for email/password auth
-            return <window.LoginScreen onLogin={() => { /* auth is handled by LoginScreen internally */ }} firebaseAuth={firebaseAuth} />;
+            return <window.LoginScreen onLogin={() => {}} firebaseAuth={firebaseAuth} />;
         }
 
         switch (currentView) {
             case 'project':
-                if (selectedProject && selectedProject.id) {
-                    return <window.ProjectView 
-                                project={selectedProject} // Pass the full selectedProject object
-                                userId={user.uid} 
-                                onCloseProject={handleBackToDashboard}
-                                settings={settings} 
-                                googleMapsLoaded={googleMapsLoaded}
-                                db={firebaseDb} 
-                                auth={firebaseAuth}
-                                firebaseAppInstance={firebaseAppInstance}
-                            />;
-                } else {
-                    return <div className="min-h-screen flex justify-center items-center">
-                                <window.LoadingSpinner text="Loading project details..." />
-                            </div>;
-                }
+                return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} />;
             case 'settingsMenu':
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
             case 'settings':
@@ -435,55 +328,26 @@ window.App = () => { // Exposing App component globally
                 return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
             case 'knowledgeBases':
                 return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+            case 'tools':
+                return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
+            case 'blogTool':
+                return <window.BlogTool settings={settings} onSaveSettings={handleSaveSettings} onBack={() => setCurrentView('tools')} />;
+            case 'shortsTool':
+                 return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             default:
-                return <window.Dashboard 
-                            userId={user.uid} 
-                            onSelectProject={handleSelectProject} 
-                            onShowSettings={handleShowSettings}
-                            onShowProjectSelection={() => setShowProjectSelection(true)}
-                            onShowDeleteConfirm={handleShowDeleteConfirm}
-                            db={firebaseDb}
-                            auth={firebaseAuth}
-                        />;
+                return <window.Dashboard userId={user.uid} onSelectProject={handleSelectProject} onShowSettings={handleShowSettings} onShowProjectSelection={() => setShowProjectSelection(true)} onShowDeleteConfirm={handleShowDeleteConfirm} onShowTools={handleShowTools} db={firebaseDb} auth={firebaseAuth} />;
         }
     }
 
     return (
         <div className="min-h-screen"> 
-            {appError && (
-                <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-                    {appError}
-                </div>
-            )}
-            {showNotification && (<div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>)}
-            {showNewProjectWizard && user && firebaseDb && firebaseAuth && 
-                <window.NewProjectWizard 
-                    userId={user.uid} 
-                    settings={settings} 
-                    onClose={handleCloseWizard} 
-                    googleMapsLoaded={googleMapsLoaded} 
-                    initialDraft={activeProjectDraft} 
-                    draftId={activeDraftId} 
-                    db={firebaseDb} 
-                    auth={firebaseAuth} 
-                />
-            }
-            {projectToDelete && firebaseDb && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {draftToDelete && firebaseDb && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
-            {showProjectSelection && user && firebaseDb && firebaseAuth && 
-                <window.ProjectSelection 
-                    onSelectWorkflow={handleSelectWorkflow} 
-                    onClose={() => setShowProjectSelection(false)} 
-                    userId={user.uid} 
-                    onResumeDraft={handleResumeDraft} 
-                    onDeleteDraft={handleShowDeleteDraftConfirm}
-                    db={firebaseDb} 
-                    auth={firebaseAuth} 
-                />
-            }
-            <main>
-                {renderView()}
-            </main>
+            {appError && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">{appError}</div>}
+            {showNotification && <div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>}
+            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance}/>}
+            {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
+            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
+            {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} db={firebaseDb} auth={firebaseAuth} />}
+            <main>{renderView()}</main>
         </div>
     );
 }
