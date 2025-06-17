@@ -417,7 +417,8 @@ window.App = () => { // Exposing App component globally
                                 settings={settings} 
                                 googleMapsLoaded={googleMapsLoaded}
                                 db={firebaseDb} 
-                                auth={firebaseAuth} 
+                                auth={firebaseAuth}
+                                firebaseAppInstance={firebaseAppInstance}
                             />;
                 } else {
                     return <div className="min-h-screen flex justify-center items-center">
