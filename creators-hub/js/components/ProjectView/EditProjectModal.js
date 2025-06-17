@@ -124,29 +124,44 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         // Create a summary of the videos in the project for context
         const videoSummary = videos.map(v => `- Video Title: "${v.title}", Concept: "${v.concept}"`).join('\n');
         
+        // Get the user's style guide from settings
+        const styleGuide = settings.styleGuideText || 'The user has not provided a style guide.';
+        
         let prompt = '';
         if (type === 'title') {
-            prompt = `A user is creating a YouTube series. Based on the individual video concepts below, refine the overall series title.
+            prompt = `A user is creating a YouTube series. Based on the individual video concepts and the user's style guide below, refine the overall series title.
+
 Current Series Title: "${title}"
 User's Refinement Instruction: "${refinement}"
 
+Creator's Style Guide:
+---
+${styleGuide}
+---
+
 Video Concepts in this Series:
 ---
 ${videoSummary}
 ---
 
-Generate 3 NEW, creative, and SEO-friendly title suggestions for the series that reflect the content of the videos. Return as a JSON object like: {"suggestions": ["title1", "title2", "title3"]}`;
+Generate 3 NEW, creative, and SEO-friendly title suggestions for the series that reflect the video content AND the creator's style guide. Return as a JSON object like: {"suggestions": ["title1", "title2", "title3"]}`;
         } else {
-            prompt = `A user is creating a YouTube series. Based on the individual video concepts below, rewrite the overall series description.
+            prompt = `A user is creating a YouTube series. Based on the individual video concepts and the user's style guide below, rewrite the overall series description.
+
 Current Series Description: "${description}"
 User's Refinement Instruction: "${refinement}"
 
+Creator's Style Guide:
+---
+${styleGuide}
+---
+
 Video Concepts in this Series:
 ---
 ${videoSummary}
 ---
 
-Rewrite the playlist description to incorporate the user's feedback and accurately summarize the videos in the series. Keep it SEO-optimized. Return as a JSON object like: {"suggestion": "new description..."}`;
+Rewrite the playlist description to incorporate the user's feedback, accurately summarize the videos, and match the creator's style guide. Keep it SEO-optimized. Return as a JSON object like: {"suggestion": "new description..."}`;
         }
 
         try {
