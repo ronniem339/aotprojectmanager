@@ -30,6 +30,8 @@ window.loadGoogleMapsScript = (apiKey, callback) => {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.id = 'googleMaps';
+    script.async = true; // Add this line
+    script.defer = true; // Also good practice to add defer
     document.body.appendChild(script);
     script.onload = () => { if (callback) callback() };
     script.onerror = () => console.error("Google Maps script failed to load.");
