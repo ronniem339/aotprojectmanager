@@ -55,13 +55,18 @@ export const ScriptPlanModal = (options) => {
         }
     };
 
+    /**
+     * Handles the refinement of the draft outline based on user input.
+     * Calls generateDraftOutlineAI with the current outline and refinement text.
+     */
     const handleOutlineRefinement = async () => {
         setState({ isLoading: true, errorMessage: '' });
         try {
             const result = await generateDraftOutlineAI({
                 videoTitle: video.title,
                 videoConcept: video.concept,
-                initialThoughts: state.initialThoughts,
+                initialThoughts: state.initialThoughts, // Keep initial thoughts as context
+                currentOutline: state.draftOutline, // Pass the current draft outline for refinement
                 settings,
                 refinementText: state.outlineRefinementText // Pass refinement text
             });
@@ -115,6 +120,10 @@ export const ScriptPlanModal = (options) => {
         }
     };
     
+    /**
+     * Handles the refinement of the final script based on user input.
+     * Calls generateFinalScriptAI with the current script and refinement text.
+     */
     const handleScriptRefinement = async () => {
         const answersText = state.locationQuestions.map((q, index) =>
             `Q: ${q.question}\nA: ${state.questionAnswers[index] || 'No answer.'}`
@@ -126,6 +135,7 @@ export const ScriptPlanModal = (options) => {
                 videoTitle: video.title,
                 scriptPlan: state.scriptPlan,
                 userAnswers: answersText,
+                currentScript: state.finalScript, // Pass the current final script for refinement
                 settings,
                 refinementText: state.scriptRefinementText // Pass refinement text
             });
@@ -216,8 +226,8 @@ export const ScriptPlanModal = (options) => {
                     </div>
                     
                     <div class="flex justify-between items-center mt-6">
-                         <button id="teleprompter-btn" class="button-secondary">🎬 Go to Teleprompter</button>
-                         <button id="save-close" class="button-primary">Save and Close</button>
+                        <button id="teleprompter-btn" class="button-secondary">🎬 Go to Teleprompter</button>
+                        <button id="save-close" class="button-primary">Save and Close</button>
                     </div>
                 `;
                 break;
