@@ -30,7 +30,7 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
      * @param {object} settings - The application's complete settings object, containing API keys and model preferences.
      * @param {object} [generationConfig={}] - Optional generation configuration for the API.
      * @param {boolean} [isComplex=false] - A flag to determine if the Pro model should be used for this specific task.
-     * @returns {Promise<object>} - A promise that resolves to the parsed JSON response from the API.
+     * @returns {Promise<object|string>} - A promise that resolves to the parsed JSON response or plain text from the API.
      * @throws {Error} If the API key is not set or if the API response is not OK.
      */
     callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
@@ -39,27 +39,25 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
         }
         const apiKey = settings.geminiApiKey;
 
-        // ** NEW LOGIC: Dynamically select the model **
-        // Check if the task is complex and if the user has enabled the Pro model toggle.
+        // Dynamically select the model based on complexity and user settings
         const usePro = isComplex && settings.useProModelForComplexTasks;
-
-        // Select the model name from settings, with fallbacks to the latest versions.
         const modelName = usePro
             ? (settings.proModelName || 'gemini-1.5-pro-latest')
             : (settings.flashModelName || 'gemini-1.5-flash-latest');
 
-        // This is the line for testing which model is being used.
         console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+
+        // Default to application/json, but allow overriding for plain text
+        const finalGenerationConfig = {
+            responseMimeType: "application/json",
+            ...generationConfig
+        };
 
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                ...generationConfig
-            }
+            generationConfig: finalGenerationConfig
         };
 
-        // The API URL is now built dynamically with the selected model name.
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
@@ -80,21 +78,36 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
             throw new Error("AI returned an unexpected or empty response.");
         }
 
-        // If the generationConfig specified 'application/json', the content is already parsed JSON.
-        // Otherwise, it's plain text and needs parsing.
-        if (generationConfig.responseMimeType === "application/json") {
-            // If the model is explicitly told to return JSON, it means the 'text' property
-            // of the part *is* the JSON string itself, which needs parsing.
+        const responseText = result.candidates[0].content.parts[0].text;
+        
+        // FIX: Check the final config to decide whether to parse or return text
+        if (finalGenerationConfig.responseMimeType === "application/json") {
             try {
-                return JSON.parse(result.candidates[0].content.parts[0].text);
+                return JSON.parse(responseText);
             } catch (e) {
-                console.error("Failed to parse AI response as JSON (expected JSON):", result.candidates[0].content.parts[0].text, e);
+                console.error("Failed to parse AI response as JSON:", responseText, e);
                 throw new Error("AI response was expected to be valid JSON but wasn't.");
             }
         } else {
             // For other mime types (like text/plain), return the raw text.
-            return result.candidates[0].content.parts[0].text;
+            return responseText;
         }
+    },
+
+    /**
+     * Helper function to gather and format the creator's style guide information.
+     * @param {object} settings - The application's complete settings object.
+     * @param {string} [videoTone] - The specific tone of the current video, if available.
+     * @returns {string} - A formatted string containing the style guide prompt.
+     */
+    getStyleGuidePrompt: (settings, videoTone) => {
+        const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
+        const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
+        const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
+
+        return `**Creator Style Guide & Context:**
+Creator Persona (Who AmI): "${whoAmI}"
+Creator Style Guide: "${styleGuideText}"${toneText}`;
     },
 
     /**
@@ -175,11 +188,8 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
         const prompt = `You are a creative travel planner and content idea generator. Your task is to suggest as many relevant *new and distinct* points of interest as possible, up to 50, for a video project focusing on "${mainLocationName}".
 
 Consider the following existing locations already planned for the project:
-${currentLocationsList}
-
-For each suggestion, provide:
--   A concise name for the location.
--   A brief, engaging description (1-2 sentences) explaining why it's a good filming location or a key point of interest for content.
+- A concise name for the location.
+- A brief, engaging description (1-2 sentences) explaining why it's a good filming location or a key point of interest for content.
 
 Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string), "description" (string) properties.`;
 
@@ -344,7 +354,6 @@ Your response MUST be a valid JSON object with two keys: "scriptPlan" and "locat
 
     /**
      * Generates a full script. This is a complex task that requires a plain text response.
-     * MODIFIED: Accepts 'settings' and implements the model selection logic directly for the 'text/plain' fetch call.
      */
     generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, settings, refinementText, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
@@ -371,32 +380,8 @@ User's General Feedback on the Plan: "${generalFeedback || 'None provided.'}"
 Based on all the above information, write the final, complete video script. The output should be **only the spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), or any text that isn't part of the dialogue.
 ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new script. Pay close attention to their requests for changes in tone, pacing, or content.` : ''}
 `;
-
-        const usePro = true && settings.useProModelForComplexTasks; // This is a complex task
-        const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
-
-        // Logging for functions that return plain text
-        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: true)`, 'color: #2563eb; font-weight: bold;');
-
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "text/plain" }
-        };
-
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${settings.geminiApiKey}`;
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err?.error?.message || 'API Error');
-        }
-        const result = await response.json();
-        // For text/plain responses, the content is directly available.
-        return result.candidates[0].content.parts[0].text;
+        // This is a complex task requiring a plain text response
+        return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
     },
 
     /**
@@ -510,7 +495,6 @@ Your response MUST be only the valid JSON object, with no other text or explanat
 
     /**
      * Rewrites a script based on changes. This is a complex task requiring a plain text response.
-     * MODIFIED: Accepts 'settings' and implements the model selection logic directly for the 'text/plain' fetch call.
      */
     refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
@@ -528,30 +512,7 @@ ${footageChangesSummary}
 
 Based on these changes, how should the video concept be updated? Provide only the revised concept string.`;
 
-        const usePro = true && settings.useProModelForComplexTasks; // This is a complex task
-        const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
-
-        // Logging for functions that return plain text
-        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: true)`, 'color: #2563eb; font-weight: bold;');
-
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "text/plain" }
-        };
-
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${settings.geminiApiKey}`;
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err?.error?.message || 'API Error');
-        }
-        const result = await response.json();
-        return result.candidates[0].content.parts[0].text;
+        return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
     },
 
     /**
@@ -605,9 +566,9 @@ Previously created shorts from this video (consider these to avoid overlap or su
 ${previouslyCreatedShortsSummary}
 
 Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
--   A concise, catchy title for the Short.
--   A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts.
--   A suggestion for specific footage to use, leveraging the available footage and featured locations (e.g., "Drone shots of [Location X] combined with B-roll of [activity)").
+- A concise, catchy title for the Short.
+- A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts.
+- A suggestion for specific footage to use, leveraging the available footage and featured locations (e.g., "Drone shots of [Location X] combined with B-roll of [activity)").
 
 Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string), "description" (string), and "footageToUse" (string) properties.`;
 
