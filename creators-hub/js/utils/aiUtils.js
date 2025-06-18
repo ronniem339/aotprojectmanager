@@ -17,7 +17,7 @@ window.aiUtils = {
         const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
 
         return `**Creator Style Guide & Context:**
-Creator Persona (Who Am I): "${whoAmI}"
+Creator Persona (Who AmI): "${whoAmI}"
 Creator Style Guide: "${styleGuideText}"${toneText}`;
     },
 
@@ -80,11 +80,18 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
             throw new Error("AI returned an unexpected or empty response.");
         }
 
-        try {
-            return JSON.parse(result.candidates[0].content.parts[0].text);
-        } catch (e) {
-            console.error("Failed to parse AI response as JSON:", result.candidates[0].content.parts[0].text, e);
-            throw new Error("AI response was not valid JSON.");
+        // --- MODIFIED LOGIC HERE ---
+        // If the generationConfig specified 'application/json', the content is already parsed JSON.
+        // Otherwise, it's plain text and needs parsing.
+        if (generationConfig.responseMimeType === "application/json") {
+            return result.candidates[0].content.parts[0].text; // Directly return the object
+        } else {
+            try {
+                return JSON.parse(result.candidates[0].content.parts[0].text);
+            } catch (e) {
+                console.error("Failed to parse AI response as JSON:", result.candidates[0].content.parts[0].text, e);
+                throw new Error("AI response was not valid JSON.");
+            }
         }
     },
 
@@ -315,7 +322,7 @@ Based on all the above information, write the final, complete video script. The 
 ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new script. Pay close attention to their requests for changes in tone, pacing, or content.` : ''}
 `;
 
-        const usePro = true && settings.useProModelForComplexTasks; // This is a complex task.
+        const usePro = true && settings.useProModelForComplexTasks; // This is a complex task
         const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
 
         // Logging for functions that return plain text
@@ -501,8 +508,6 @@ Based on these changes, how should the video concept be updated? Provide only th
         projectFootageInventory,
         projectTitle,
         shortsIdeaGenerationKb,
-        whoAmI, // whoAmI is now passed via settings to getStyleGuidePrompt
-        styleGuideText, // styleGuideText is now passed via settings to getStyleGuidePrompt
         previouslyCreatedShorts = [],
         settings,
         videoTone
@@ -569,8 +574,6 @@ Your response MUST be a valid JSON object with a single key "shortsIdeas" which 
     generateShortsMetadataAI: async ({
         videoTitle,
         shortsIdea,
-        whoAmI, // whoAmI is now passed via settings to getStyleGuidePrompt
-        styleGuideText, // styleGuideText is now passed via settings to getStyleGuidePrompt
         settings,
         videoTone
     }) => {
