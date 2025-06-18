@@ -80,18 +80,20 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
             throw new Error("AI returned an unexpected or empty response.");
         }
 
-        // --- MODIFIED LOGIC HERE ---
         // If the generationConfig specified 'application/json', the content is already parsed JSON.
         // Otherwise, it's plain text and needs parsing.
         if (generationConfig.responseMimeType === "application/json") {
-            return result.candidates[0].content.parts[0].text; // Directly return the object
-        } else {
+            // If the model is explicitly told to return JSON, it means the 'text' property
+            // of the part *is* the JSON string itself, which needs parsing.
             try {
                 return JSON.parse(result.candidates[0].content.parts[0].text);
             } catch (e) {
-                console.error("Failed to parse AI response as JSON:", result.candidates[0].content.parts[0].text, e);
-                throw new Error("AI response was not valid JSON.");
+                console.error("Failed to parse AI response as JSON (expected JSON):", result.candidates[0].content.parts[0].text, e);
+                throw new Error("AI response was expected to be valid JSON but wasn't.");
             }
+        } else {
+            // For other mime types (like text/plain), return the raw text.
+            return result.candidates[0].content.parts[0].text;
         }
     },
 
@@ -196,23 +198,71 @@ Your response MUST be a valid JSON object with a single key "suggestedLocations"
     },
 
     /**
+     * Asks high-level strategic questions based on the user's initial notes.
+     * @param {object} params - The parameters for generating the questions.
+     * @returns {Promise<object>} A promise that resolves to the parsed AI response with questions.
+     */
+    generateInitialQuestionsAI: async (params) => {
+        const { initialThoughts, settings } = params;
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+
+        const prompt = `You are a video strategist and producer. Your goal is to help a creator clarify their vision before scripting.
+        Based on their raw "brain dump" notes and their style guide, generate 3-5 insightful, high-level questions to get to the heart of the video's purpose.
+
+        **Creator's Raw Notes:**
+        \`\`\`
+        ${initialThoughts}
+        \`\`\`
+
+        ${styleGuidePrompt}
+
+        **Your Task:**
+        Your main goal is to ask questions that get to the heart of the video's purpose, phrased in a way that matches the creator's personal style (as defined in their Style Guide).
+
+        Focus your questions on:
+        1.  **The Core Message:** What is the single most important idea the viewer should walk away with?
+        2.  **The Video's Vibe:** What's the general mood or energy of the video (e.g., is it a serious deep-dive, a funny adventure, a relaxing tour)?
+        3.  **The Unique Angle:** What makes the creator's perspective on this topic special or different?
+
+        **Good Question Examples:**
+        - "Beyond just showing the location, what's the main story or point you're really trying to make with this video?"
+        - "What makes your take on this different from other videos on the same topic?"
+        - "When someone finishes watching, what's the one word you'd want them to use to describe the video's vibe (e.g., 'epic', 'hilarious', 'cozy', 'mind-bending')?"
+
+        **Output Format:**
+        Your response MUST be a valid JSON object with a single key "questions".
+        "questions" must be an array of strings.
+        Example: {"questions": ["What is the primary goal of this video?", "Who are you trying to reach with this message?"]}
+        IMPORTANT: All string values must be properly escaped for JSON.
+        `;
+
+        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+    },
+
+    /**
      * Generates a draft outline from raw text. This is a complex task.
      * MODIFIED: Now accepts 'settings' instead of 'apiKey' and marks the task as complex.
      */
-    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, settings, refinementText, videoTone }) => {
-        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    generateDraftOutlineAI: async (params) => {
+        const { videoTitle, videoConcept, initialThoughts, initialAnswers, settings, refinementText, videoTone } = params;
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
+        const initialAnswersPrompt = initialAnswers
+            ? `**Strategic Context (from user's answers):**\n${initialAnswers}\n`
+            : '';
 
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
 Video Concept: "${videoConcept}"
 
-${styleGuide}
-The structure, section titles, and suggestions should reflect the creator's personal style and tone.
-
-User's raw notes, experiences, and brain dump:
----
+**Creator's Raw Notes:**
+\`\`\`
 ${initialThoughts}
----
+\`\`\`
+
+${initialAnswersPrompt}
+${styleGuidePrompt}
+The structure, section titles, and suggestions should reflect the creator's personal style and tone.
 
 **Your Instructions:**
 1.  Analyze all the provided information.
@@ -332,13 +382,20 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "text/plain" }
         };
+
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${settings.geminiApiKey}`;
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err?.error?.message || 'API Error');
         }
         const result = await response.json();
+        // For text/plain responses, the content is directly available.
         return result.candidates[0].content.parts[0].text;
     },
 
