@@ -399,16 +399,18 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             )}
 
             {showVideoModal && activeVideo && (
-                <window.EditVideoModal
-                    video={activeVideo}
-                    onClose={handleCloseVideoModal}
-                    userId={userId}
-                    settings={settings}
-                    project={localProject}
-                    googleMapsLoaded={googleMapsLoaded}
-                    db={db} 
-                />
-            )}
+    <window.EditVideoModal
+        video={activeVideo}
+        onClose={handleCloseVideoModal}
+        onSave={handleCloseVideoModal} // This will close the modal and refresh the data
+        userId={userId}
+        settings={settings}
+        project={localProject}
+        allVideos={videos} // Pass the list of all videos
+        googleMapsLoaded={googleMapsLoaded}
+        db={db}
+    />
+)}
 
             {showManageFootageModal && (
                 <window.ManageFootageModal
