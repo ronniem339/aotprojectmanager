@@ -1,6 +1,6 @@
 // js/components/Dashboard.js
 
-window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm, onShowTools }) => {
+window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSelection, onShowDeleteConfirm, onShowTools, db, auth }) => {
     const { useState, useEffect, useRef, useMemo } = React;
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -64,7 +64,10 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     };
 
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !db) {
+            setLoading(false);
+            return;
+        }
         
         const projectsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("createdAt", "desc");
         
@@ -105,7 +108,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
         });
 
         return () => unsubscribe();
-    }, [userId, appId]);
+    }, [userId, db, appId]);
 
     const sortedAndFilteredProjects = useMemo(() => {
         let currentProjects = [...projects];
@@ -168,7 +171,9 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
 
     const handleLogout = async () => {
         try {
-            await auth.signOut();
+            if (auth) {
+                await auth.signOut();
+            }
         } catch (error) {
             console.error("Error logging out:", error);
         }
