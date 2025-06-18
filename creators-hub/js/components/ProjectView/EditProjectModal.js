@@ -191,8 +191,8 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                         {/* MODIFIED: Using the new LocationSearchInput component */}
                         {googleMapsLoaded 
                             ? <window.LocationSearchInput 
-                                  onLocationsChange={handleLocationsUpdate} 
-                                  existingLocations={locations} /> 
+                                    onLocationsChange={handleLocationsUpdate} 
+                                    existingLocations={locations} /> 
                             : <p className="text-gray-400 text-center">Loading location search...</p>
                         }
                     </div>
