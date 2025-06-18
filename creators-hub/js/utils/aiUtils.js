@@ -32,6 +32,9 @@ window.aiUtils = {
             ? (settings.proModelName || 'gemini-1.5-pro-latest') 
             : (settings.flashModelName || 'gemini-1.5-flash-latest');
         
+        // This is the line for testing which model is being used.
+        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
@@ -276,6 +279,9 @@ Based on all the above information, write the final, complete video script. The 
         const usePro = true && settings.useProModelForComplexTasks; // This is a complex task.
         const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
         
+        // Logging for functions that return plain text
+        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: true)`, 'color: #2563eb; font-weight: bold;');
+
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "text/plain" }
@@ -417,6 +423,9 @@ Based on these changes, how should the video concept be updated? Provide only th
 
         const usePro = true && settings.useProModelForComplexTasks; // This is a complex task
         const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
+
+        // Logging for functions that return plain text
+        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: true)`, 'color: #2563eb; font-weight: bold;');
 
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
