@@ -93,7 +93,7 @@ window.LoginScreen = ({ onLogin }) => {
             }
             // onLogin is likely just setting a state to hide this screen,
             // Firebase's onAuthStateChanged will handle actual user state
-            onLogin(); 
+            onLogin();
         } catch (err) {
             console.error("Authentication error:", err);
             setError(err.message);
@@ -169,7 +169,7 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
     const isConfirmationMatching = confirmText === 'YES';
 
     return (
-        <div 
+        <div
             className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"
             onMouseDown={e => e.stopPropagation()} // Stop mousedown event from bubbling up to document
         >
@@ -178,9 +178,9 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
                 <p className="text-gray-300 mb-2">This action is irreversible and will permanently delete the {project.playlistTitle === 'this draft' ? 'draft' : 'project'}:</p>
                 <p className="font-bold text-lg text-white mb-6">"{project.playlistTitle === 'this draft' ? 'this draft' : project.playlistTitle}"</p>
                 <p className="text-gray-400 mb-4">To confirm, please type <strong className="text-red-300">YES</strong> in the box below.</p>
-                
-                <input 
-                    type="text" 
+
+                <input
+                    type="text"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
                     className="w-full form-input text-center font-bold tracking-widest"
@@ -189,8 +189,8 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
 
                 <div className="flex justify-center gap-4 mt-6">
                     <button onClick={onCancel} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
-                    <button 
-                        onClick={() => onConfirm(project.id)} 
+                    <button
+                        onClick={() => onConfirm(project.id)}
                         disabled={!isConfirmationMatching}
                         className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold disabled:bg-red-900/50 disabled:cursor-not-allowed disabled:text-gray-400"
                     >
@@ -206,97 +206,70 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
 window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     const inputRef = useRef(null);
     const autocompleteRef = useRef(null);
-    const geocoderRef = useRef(null);
-
-    const determineDefaultImportance = (types) => {
-        const majorTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'country'];
-        if (types.some(type => majorTypes.includes(type))) {
-            return 'major';
-        }
-        return 'quick';
-    };
 
     useEffect(() => {
         if (!inputRef.current || !window.google?.maps?.places) return;
-        
-        if (!geocoderRef.current) {
-            geocoderRef.current = new window.google.maps.Geocoder();
-        }
 
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
+        // --- MODIFIED: Location Biasing Logic ---
+        const autocompleteOptions = {
+            // Expanded types for better matching of tourist locations
+            types: ['(regions)', 'locality', 'tourist_attraction', 'point_of_interest', 'establishment'],
+        };
+
+        // Find the first location that has valid coordinates to act as our anchor
+        const anchorLocation = (existingLocations || []).find(loc => loc.lat && loc.lng);
+
+        if (anchorLocation) {
+            const location = new window.google.maps.LatLng(anchorLocation.lat, anchorLocation.lng);
+            // Bias towards a 100km radius around the anchor location.
+            autocompleteOptions.bounds = new window.google.maps.Circle({
+                center: location,
+                radius: 100000
+            }).getBounds();
+            autocompleteOptions.strictBounds = false; // Prefer, but don't restrict to, this area.
+        }
+        // --- End of Modified Logic ---
+
+        // Initialize the Autocomplete service with our options
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, autocompleteOptions);
         autocompleteRef.current.setFields(['place_id', 'name', 'geometry', 'types']);
 
         const placeChangedListener = () => {
             const place = autocompleteRef.current.getPlace();
-            if (place && place.geometry && place.types) {
+
+            if (place && place.geometry) { // Check for geometry to ensure we have lat/lng
                 const newLocation = {
                     name: place.name,
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
-                    importance: determineDefaultImportance(place.types),
                     types: place.types
                 };
-                if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                    onLocationsChange([...existingLocations, newLocation]);
+
+                // Check for duplicates before adding
+                if (!(existingLocations || []).some(loc => loc.place_id === newLocation.place_id)) {
+                    onLocationsChange([...(existingLocations || []), newLocation]);
                 }
+
                 if (inputRef.current) {
                     inputRef.current.value = '';
                 }
             }
         };
-        const placeChangedListenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        const handleKeyDown = (e) => {
-            if (e.key === 'Enter' && !e.defaultPrevented) {
-                e.preventDefault();
-                const firstSuggestion = document.querySelector('.pac-container .pac-item');
-                if (firstSuggestion) {
-                    const mainText = firstSuggestion.querySelector('.pac-item-query')?.innerText || '';
-                    const secondaryText = firstSuggestion.querySelector('span:not(.pac-item-query)')?.innerText || '';
-                    const fullAddress = `${mainText} ${secondaryText}`.trim();
-                    
-                    if (fullAddress && geocoderRef.current) {
-                        geocoderRef.current.geocode({ 'address': fullAddress }, (results, status) => {
-                            if (status === 'OK' && results[0]) {
-                                const place = results[0];
-                                const newLocation = {
-                                    name: mainText || place.formatted_address.split(',')[0],
-                                    place_id: place.place_id,
-                                    lat: place.geometry.location.lat(),
-                                    lng: place.geometry.location.lng(),
-                                    importance: determineDefaultImportance(place.types),
-                                    types: place.types
-                                };
-                                 if (!existingLocations.some(loc => loc.place_id === newLocation.place_id)) {
-                                    onLocationsChange([...existingLocations, newLocation]);
-                                }
-                                if (inputRef.current) {
-                                    inputRef.current.value = '';
-                                }
-                            } else {
-                                console.error('Geocode was not successful for the following reason: ' + status);
-                            }
-                        });
-                    }
-                }
-            }
-        };
+        const listenerHandle = autocompleteRef.current.addListener('place_changed', placeChangedListener);
 
-        const inputElement = inputRef.current;
-        inputElement.addEventListener('keydown', handleKeyDown);
-
+        // Cleanup function to prevent memory leaks
         return () => {
-            if (window.google?.maps?.event && placeChangedListenerHandle) {
-                window.google.maps.event.removeListener(placeChangedListenerHandle);
+            if (window.google?.maps?.event) {
+                window.google.maps.event.removeListener(listenerHandle);
+                // The pac-container is the dropdown. We need to remove it to prevent duplicates on re-render.
+                const pacContainers = document.querySelectorAll('.pac-container');
+                pacContainers.forEach(container => container.remove());
             }
-            if (inputElement) {
-                inputElement.removeEventListener('keydown', handleKeyDown);
-            }
-            const pacContainers = document.querySelectorAll('.pac-container');
-            pacContainers.forEach(container => container.remove());
         };
-    }, [onLocationsChange, existingLocations]);
+
+    }, [onLocationsChange, existingLocations]); // Rerun this effect if the locations change
 
     const removeLocation = (place_id) => {
         onLocationsChange(existingLocations.filter(loc => loc.place_id !== place_id));
@@ -304,15 +277,16 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
 
     return (
         <div>
-            <input 
-                ref={inputRef} 
-                type="text" 
-                placeholder="Search for and add locations..." 
-                className="w-full form-input" 
+            <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search for and add locations..."
+                className="w-full form-input"
+                disabled={!window.google}
             />
             <div className="flex flex-wrap gap-2 mt-3">
-                {existingLocations.map((loc) => (
-                    <div key={loc.place_id} className="bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                {(existingLocations || []).map((loc) => (
+                    <div key={loc.place_id || loc.name} className="bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
                         <span>{loc.name}</span>
                         <button onClick={() => removeLocation(loc.place_id)} className="text-secondary-accent-lighter-text hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
                     </div>
