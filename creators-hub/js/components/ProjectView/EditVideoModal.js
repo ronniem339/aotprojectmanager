@@ -2,6 +2,17 @@
 
 const { useState, useEffect, useCallback } = React;
 
+// NEW: Utility function to prevent adding duplicate locations based on place_id.
+const addLocationsWithoutDuplicates = (existingLocations, newLocations) => {
+    if (!Array.isArray(existingLocations) || !Array.isArray(newLocations)) {
+        return existingLocations || [];
+    }
+    const existingLocationIds = new Set(existingLocations.map(loc => loc.place_id).filter(id => id));
+    const uniqueNewLocations = newLocations.filter(newLoc => newLoc.place_id && !existingLocationIds.has(newLoc.place_id));
+    return [...existingLocations, ...uniqueNewLocations];
+};
+
+
 window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db }) => {
     // --- STATE MANAGEMENT ---
 
@@ -51,20 +62,16 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
 
     // --- HANDLERS ---
 
-    // Handles updates from the LocationSearchInput for this video
-    const handleLocationsUpdateForVideo = useCallback((newLocationsForVideo) => {
-        setVideoLocations(newLocationsForVideo);
-        // Ensure any new location is added to the main project list if it's not already there
+    // MODIFIED: This handler is now simpler and uses the de-duplication utility.
+    const handleLocationsUpdateForVideo = useCallback((updatedVideoLocations) => {
+        setVideoLocations(updatedVideoLocations);
+        
+        // Also update the main project locations list, preventing duplicates
         setProjectLocations(currentProjectLocations => {
-            const newProjectLocations = [...currentProjectLocations];
-            newLocationsForVideo.forEach(videoLoc => {
-                if (!currentProjectLocations.some(projLoc => projLoc.name === videoLoc.name)) {
-                    newProjectLocations.push(videoLoc);
-                }
-            });
-            return newProjectLocations;
+            return addLocationsWithoutDuplicates(currentProjectLocations, updatedVideoLocations);
         });
     }, []);
+
 
     // Handles changes to the footage inventory (checkboxes, toggles)
     const handleInventoryChange = (locationName, field, value) => {
@@ -230,9 +237,12 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Video Locations</label>
                         <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                             {/* MODIFIED: Use the new LocationSearchInput */}
                              {googleMapsLoaded 
-                                ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdateForVideo} existingLocations={videoLocations} /> 
-                                : <window.MockLocationSearchInput />
+                                ? <window.LocationSearchInput 
+                                      onLocationsChange={handleLocationsUpdateForVideo} 
+                                      existingLocations={videoLocations} /> 
+                                : <p className="text-gray-400 text-center">Loading location search...</p>
                             }
                         </div>
                     </div>
