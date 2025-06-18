@@ -213,7 +213,7 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         // --- MODIFIED: Location Biasing Logic ---
         const autocompleteOptions = {
             // Expanded types for better matching of tourist locations
-            types: ['(regions)', 'locality', 'tourist_attraction', 'point_of_interest', 'establishment'],
+            types: ['locality', 'tourist_attraction', 'point_of_interest', 'establishment'],
         };
 
         // Find the first location that has valid coordinates to act as our anchor
