@@ -211,9 +211,7 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         if (!inputRef.current || !window.google?.maps?.places) return;
 
         // --- MODIFIED: Location Biasing Logic ---
-        const autocompleteOptions = {
            const autocompleteOptions = {};
-        };
 
         // Find the first location that has valid coordinates to act as our anchor
         const anchorLocation = (existingLocations || []).find(loc => loc.lat && loc.lng);
