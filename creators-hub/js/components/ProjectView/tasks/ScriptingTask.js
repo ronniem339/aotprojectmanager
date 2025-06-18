@@ -200,7 +200,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
             initialThoughts: thoughtsText,
-            apiKey: settings.geminiApiKey
+            settings: settings
         });
         
         // Finally, update the state with the new outline
@@ -222,7 +222,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             projectFootageInventory: projectData.footageInventory || {},
             whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
             styleGuideText: settings.styleGuideText,
-            apiKey: settings.geminiApiKey
+            settings: settings
         });
         
         await onUpdateTask('scripting', 'in-progress', {
@@ -241,7 +241,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             videoTitle: video.chosenTitle || video.title,
             whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
             styleGuideText: settings.styleGuideText,
-            apiKey: settings.geminiApiKey
+            settings: settings
         });
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'full_script_review',
