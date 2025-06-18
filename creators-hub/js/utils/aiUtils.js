@@ -80,7 +80,6 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
 
         const responseText = result.candidates[0].content.parts[0].text;
         
-        // FIX: Check the final config to decide whether to parse or return text
         if (finalGenerationConfig.responseMimeType === "application/json") {
             try {
                 return JSON.parse(responseText);
@@ -89,30 +88,12 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
                 throw new Error("AI response was expected to be valid JSON but wasn't.");
             }
         } else {
-            // For other mime types (like text/plain), return the raw text.
             return responseText;
         }
     },
 
     /**
-     * Helper function to gather and format the creator's style guide information.
-     * @param {object} settings - The application's complete settings object.
-     * @param {string} [videoTone] - The specific tone of the current video, if available.
-     * @returns {string} - A formatted string containing the style guide prompt.
-     */
-    getStyleGuidePrompt: (settings, videoTone) => {
-        const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
-        const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
-        const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
-
-        return `**Creator Style Guide & Context:**
-Creator Persona (Who AmI): "${whoAmI}"
-Creator Style Guide: "${styleGuideText}"${toneText}`;
-    },
-
-    /**
      * Generates blog post ideas. This is considered a complex task.
-     * MODIFIED: Now accepts the full 'settings' object and calls callGeminiAPI with isComplex=true.
      */
     generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
         let context = '';
@@ -163,7 +144,6 @@ For each idea, provide the following in a valid JSON object:
 Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
 
         try {
-            // Call the central API function, passing the settings object and marking task as complex.
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
             if (parsedJson && Array.isArray(parsedJson.ideas)) {
                 return parsedJson.ideas;
@@ -178,13 +158,8 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
 
     /**
      * Finds points of interest. This is a simple task.
-     * MODIFIED: Now accepts the full 'settings' object instead of 'apiKey'.
      */
     findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
-        const currentLocationsList = currentLocations.length > 0
-            ? currentLocations.map(loc => `- ${loc.name}`).join('\n')
-            : 'No specific locations added yet.';
-
         const prompt = `You are a creative travel planner and content idea generator. Your task is to suggest as many relevant *new and distinct* points of interest as possible, up to 50, for a video project focusing on "${mainLocationName}".
 
 Consider the following existing locations already planned for the project:
@@ -194,7 +169,6 @@ Consider the following existing locations already planned for the project:
 Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string), "description" (string) properties.`;
 
         try {
-            // isComplex defaults to false, so the Flash model will be used.
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (parsedJson && Array.isArray(parsedJson.suggestedLocations)) {
                 return parsedJson.suggestedLocations;
@@ -209,8 +183,6 @@ Your response MUST be a valid JSON object with a single key "suggestedLocations"
 
     /**
      * Asks high-level strategic questions based on the user's initial notes.
-     * @param {object} params - The parameters for generating the questions.
-     * @returns {Promise<object>} A promise that resolves to the parsed AI response with questions.
      */
     generateInitialQuestionsAI: async (params) => {
         const { initialThoughts, settings } = params;
@@ -251,7 +223,6 @@ Your response MUST be a valid JSON object with a single key "suggestedLocations"
 
     /**
      * Generates a draft outline from raw text. This is a complex task.
-     * MODIFIED: Now accepts 'settings' instead of 'apiKey' and marks the task as complex.
      */
     generateDraftOutlineAI: async (params) => {
         const { videoTitle, videoConcept, initialThoughts, initialAnswers, settings, refinementText, videoTone } = params;
@@ -288,79 +259,93 @@ Your response MUST be a valid JSON object with a single key "draftOutline", whic
 
     /**
      * Generates a detailed script plan and follow-up questions. This is a complex task.
-     * MODIFIED: Now accepts 'settings' instead of 'apiKey' and marks the task as complex.
      */
-    generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, settings, videoTone }) => {
+    generateScriptPlanAI: async ({ videoTitle, videoConcept, draftOutline, settings, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+        const outline = draftOutline || videoConcept;
 
-        const locationsDetail = (videoLocationsFeatured || []).map(locName => {
-            const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
-            const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
-                if (type === 'bRoll') return 'B-Roll';
-                if (type === 'onCamera') return 'On-Camera';
-                if (type === 'drone') return 'Drone';
-                return '';
-            }).join(', ');
-            const importance = locInventory.importance ? `(${locInventory.importance} feature)` : '';
-            return ` - ${locName}${importance}: ${footageTypes ? footageTypes + ' available' : 'No specific footage type recorded'}.`;
-        }).join('\n');
-
-        const prompt = `You are a highly experienced YouTube video script planner. You have a draft outline, and your goal is now to refine it by asking for more specific details.
+        const prompt = `You are an experienced YouTube script planner. Your task is to analyze a draft outline and generate specific, easy-to-answer questions to extract the details needed for a full script.
 
 Video Title: "${videoTitle}"
-Draft Outline / Concept:
+Draft Outline:
 ---
-${videoConcept}
+${outline}
 ---
 
 ${styleGuide}
 
-Featured Locations & Available Footage:
-${locationsDetail || 'No specific featured locations listed.'}
-
 **Your Task:**
-1.  **Review the Outline:** Analyze the provided script outline.
-2.  **Generate Specific, Easy-to-Answer Questions:** Your main goal is to pull out the specific details, emotions, and anecdotes needed to write a compelling script. Based on the outline, generate a list of simple, direct questions.
-    The phrasing of these questions should align with the creator's persona and style. For example, a quirky creator might ask a funnier, more lighthearted question, while a serious one might ask a more direct, analytical question.
+1.  **Review the Outline:** Analyze each section of the provided script outline.
+2.  **Generate Specific Questions:** For each section, create 1-3 simple, direct questions designed to pull out specific details, emotions, and anecdotes. The phrasing of these questions should align with the creator's persona and style.
+    
+    *Good Question Examples:*
+    - "What was the most surprising thing you discovered at [Location]?"
+    - "What's the one piece of advice you'd give someone visiting [Place] for the first time?"
+    - "Describe the taste of [Food Item] in three words."
 
-**Good Question Examples (tailored to creator style):**
-- "So, what was the most 'jaw-drop' moment you had at [Location]?" (for a high-energy creator)
-- "Could you elaborate on the practical considerations for a first-time visitor to [Location]?" (for an informative creator)
-- "What's the one thing at [Restaurant] that made your taste buds sing?" (for a foodie creator)
+    *Bad Question Examples (Avoid these):*
+    - "What was your experience?" (Too broad)
+    - "Tell me about the location." (Not specific enough)
 
-**Bad Question Example (Avoid These):**
-- "What was your experience?" (Too broad)
-
-Generate at least 5-10 simple questions covering the different parts of the outline.
+3.  **Return a Refined Plan & Questions:** Your goal is to present the user with their own plan, now enhanced with your clarifying questions.
 
 **Output Format:**
 Your response MUST be a valid JSON object with two keys: "scriptPlan" and "locationQuestions".
-- "scriptPlan": A string containing a slightly refined version of the original outline...
-- "locationQuestions": An array of objects, where each object has a "question" key.
+- "scriptPlan": (String) The original outline that was provided to you.
+- "locationQuestions": (Array of Objects) An array where each object has a "question" key containing the string of the question.
+Example: 
+{
+  "scriptPlan": "Intro: Hook the viewer...",
+  "locationQuestions": [
+    {"question": "What's the hook?"},
+    {"question": "What's the key takeaway for the main segment?"}
+  ]
+}
 `;
 
         const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-
         if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
-            return {
-                scriptPlan: parsedJson.scriptPlan,
-                // Ensure locationQuestions only contains the 'question' key as per the updated instruction
-                locationQuestions: parsedJson.locationQuestions.map(q => ({ question: q.question }))
-            };
+            return parsedJson;
         } else {
-            throw new Error("AI returned an invalid format for script plan.");
+             throw new Error("AI returned an invalid format for script plan.");
         }
     },
-
+    
     /**
-     * Generates a full script. This is a complex task that requires a plain text response.
+     * MODIFIED: Generates a full script, now aware of on-camera segments. This is a complex task.
+     * The function name is changed to align with the calling component (ScriptingTask.js)
      */
-    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, settings, refinementText, videoTone }) => {
+    generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-        const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
+        // Build the prompt section for on-camera descriptions, if they exist
+        let onCameraPromptSection = '';
+        if (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0) {
+            const descriptions = Object.entries(onCameraDescriptions)
+                .filter(([, desc]) => desc && desc.trim() !== '') // Ensure there's a description
+                .map(([loc, desc]) => `- At ${loc}, the creator will be on camera to: "${desc}"`)
+                .join('\n');
+            
+            if (descriptions) { // Only add the section if there are valid descriptions
+                onCameraPromptSection = `**On-Camera Segments:**
+The creator has pre-recorded on-camera segments. You MUST write voiceover that leads INTO and OUT OF these segments. DO NOT write dialogue for the on-camera parts themselves. Your script should complement them, providing context before and reflection after. Here is what the creator has noted about their on-camera footage:
+${descriptions}
+---
+`;
+            }
+        }
+        
+        const answersPromptSection = `**User's Specific Answers to Questions:**
+---
+${userAnswers}
+---
+`;
 
-        const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script.
+        const refinementPromptSection = refinementText 
+            ? `**Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new script.\n---\n` 
+            : '';
+
+        const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script based on an outline and user-provided details.
 
 Video Title: "${videoTitle}"
 ${styleGuide}
@@ -370,23 +355,24 @@ Script Outline:
 ${scriptPlan}
 ---
 
-User's Specific Experiences & Details:
----
-${experienceDetails}
----
+${onCameraPromptSection}${answersPromptSection}${refinementPromptSection}
+**Your Final Instructions:**
+1.  Write the final, complete video script.
+2.  The output must be **ONLY the spoken voiceover dialogue**, ready for the creator to read.
+3.  Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), speaker names, or any text that isn't part of the dialogue.
+4.  **Crucially**, if on-camera segments are described, your voiceover must serve as the bridge. Create smooth transitions. For example, before an on-camera food tasting, you might write a voiceover like: "I'd heard amazing things about this place, but I had to see for myself if it lived up to the hype." Then, after the on-camera part, you could add: "Wow, that was even better than I expected. With a full stomach and a happy heart, my next stop was..."
 
-User's General Feedback on the Plan: "${generalFeedback || 'None provided.'}"
-
-Based on all the above information, write the final, complete video script. The output should be **only the spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), or any text that isn't part of the dialogue.
-${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new script. Pay close attention to their requests for changes in tone, pacing, or content.` : ''}
-`;
-        // This is a complex task requiring a plain text response
-        return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+Now, write the complete voiceover script.`;
+        
+        // This is a complex task requiring a plain text response.
+        const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+        
+        // The calling function expects an object, so we wrap the text response.
+        return { finalScript: responseText };
     },
 
     /**
      * Generates keywords. This is a simple task.
-     * MODIFIED: Accepts 'settings' instead of 'apiKey' and calls the central API function.
      */
     generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const videoLocations = (locationsFeatured || []).join(', ');
@@ -425,7 +411,6 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
 
     /**
      * Extracts metadata from text. This is a simple task.
-     * MODIFIED: Accepts 'settings' instead of 'apiKey' and calls the central API function.
      */
     extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
@@ -462,7 +447,6 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
 
     /**
      * Parses a full video structure from unstructured text. This is a complex task.
-     * MODIFIED: Accepts 'settings' instead of 'apiKey' and calls the central API function as complex.
      */
     parseVideoFromTextAI: async ({ textInput, projectLocation, settings }) => {
         const prompt = `You are an expert video project manager. Analyze the following text provided by a user who is planning a new video. The video is part of a larger project about "${projectLocation}". The text may contain a mix of ideas, a full script, title suggestions, location notes, etc.
@@ -517,7 +501,6 @@ Based on these changes, how should the video concept be updated? Provide only th
 
     /**
      * Generates YouTube Shorts ideas. This is a simple task.
-     * MODIFIED: Accepts 'settings' instead of 'apiKey'.
      */
     generateShortsIdeasAI: async ({
         videoTitle,
@@ -587,7 +570,6 @@ Your response MUST be a valid JSON object with a single key "shortsIdeas" which 
 
     /**
      * Generates metadata for a YouTube Short. This is a simple task.
-     * MODIFIED: Accepts 'settings' instead of 'apiKey'.
      */
     generateShortsMetadataAI: async ({
         videoTitle,
