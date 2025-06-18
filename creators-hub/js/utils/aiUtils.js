@@ -176,7 +176,7 @@ Your response MUST be a valid JSON object with a single key "suggestedLocations"
      * Generates a draft outline from raw text. This is a complex task.
      * MODIFIED: Now accepts 'settings' instead of 'apiKey' and marks the task as complex.
      */
-    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, settings }) => {
+    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, settings, refinementText }) => {
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
 Video Concept: "${videoConcept}"
@@ -186,7 +186,11 @@ User's raw notes, experiences, and brain dump:
 ${initialThoughts}
 ---
 
-Based *only* on the user's notes above, create a logical draft script outline.
+**Your Instructions:**
+1.  Analyze all the provided information.
+2.  When analyzing the user's notes, specifically look for: a potential **hook** (an exciting or intriguing opening), a **call to action** (what the user wants the viewer to do), and key **emotional moments**.
+${refinementText ? `3. **Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new outline.` : ''}
+4.  Based on all available information, create a logical draft script outline.
 This outline should have a clear Introduction, 2-4 Main Segments, and a Conclusion.
 For each part, briefly describe the narrative focus. The goal is to turn their raw experiences into a coherent story flow.
 
@@ -224,24 +228,33 @@ Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
 Featured Locations & Available Footage:
 ${locationsDetail || 'No specific featured locations listed.'}
 
-Your task is to:
-1.  **Refine the Script Plan Outline:** Slightly improve upon the provided draft outline based on the locations and footage available. Make it a bit more detailed.
-2.  **Generate Specific User Questions:** Based on your refined outline, formulate *one* direct, open-ended question for each major segment or featured location to gather the user's *unique experience, personal anecdotes, or specific footage details*.
+**Your Task:**
+1.  **Review the Outline:** Analyze the provided script outline.
+2.  **Generate Specific, Easy-to-Answer Questions:** Your main goal is to pull out the specific details, emotions, and anecdotes needed to write a compelling script. Based on the outline, generate a list of simple, direct questions. 
 
-Your response MUST be a valid JSON object with the following structure:
-{
-    "scriptPlan": "A refined, more detailed text outline for the video script...",
-    "locationQuestions": [
-        {"locationName": "Optional Location Name (if question is location-specific)", "question": "A question asking for specific details about the user's experience or available footage."}
-    ]
-}`;
+**Good Question Examples:**
+- "What was the most surprising thing you saw at [Location]?"
+- "What's one practical tip you'd give someone visiting [Location]?"
+- "Describe the taste of the food you ate at [Restaurant]."
+
+**Bad Question Example (Avoid These):**
+- "What was your experience?" (Too broad)
+
+Generate at least 5-10 simple questions covering the different parts of the outline.
+
+**Output Format:**
+Your response MUST be a valid JSON object with two keys: "scriptPlan" and "locationQuestions".
+- "scriptPlan": A string containing a slightly refined version of the original outline...
+- "locationQuestions": An array of objects, where each object has a "question" key.
+`;
 
         const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
         
         if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
             return {
                 scriptPlan: parsedJson.scriptPlan,
-                locationQuestions: parsedJson.locationQuestions
+                // Ensure locationQuestions only contains the 'question' key as per the updated instruction
+                locationQuestions: parsedJson.locationQuestions.map(q => ({ question: q.question }))
             };
         } else {
             throw new Error("AI returned an invalid format for script plan.");
@@ -252,7 +265,7 @@ Your response MUST be a valid JSON object with the following structure:
      * Generates a full script. This is a complex task that requires a plain text response.
      * MODIFIED: Accepts 'settings' and implements the model selection logic directly for the 'text/plain' fetch call.
      */
-    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, settings }) => {
+    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, settings, refinementText }) => {
         const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
         
         const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script.
@@ -274,6 +287,7 @@ ${experienceDetails}
 User's General Feedback on the Plan: "${generalFeedback || 'None provided.'}"
 
 Based on all the above information, write the final, complete video script. The output should be **only the spoken dialogue**, ready for the creator to read. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), or any text that isn't part of the dialogue.
+${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new script. Pay close attention to their requests for changes in tone, pacing, or content.` : ''}
 `;
 
         const usePro = true && settings.useProModelForComplexTasks; // This is a complex task.
