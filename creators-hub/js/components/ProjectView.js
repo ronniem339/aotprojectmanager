@@ -385,6 +385,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             </div>
 
             {showEditProjectModal && (
+                // MODIFICATION: Pass the 'db' prop down to the modal
                 <window.EditProjectModal
                     project={localProject}
                     videos={videos}
@@ -393,11 +394,11 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     settings={settings}
                     googleMapsLoaded={googleMapsLoaded}
                     firebaseAppInstance={firebaseAppInstance}
+                    db={db}
                 />
             )}
 
             {showVideoModal && activeVideo && (
-                // MODIFICATION: Pass the 'db' prop down to the modal
                 <window.EditVideoModal
                     video={activeVideo}
                     onClose={handleCloseVideoModal}
