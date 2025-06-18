@@ -11,9 +11,7 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
         }
 
         // --- NEW: Location Biasing Logic ---
-        const autocompleteOptions = {
-            types: ['locality', 'tourist_attraction', 'point_of_interest', 'establishment'],
-        };
+        const autocompleteOptions = {};
 
         // If there's an existing location, use it to bias the search.
         if (existingLocations && existingLocations.length > 0) {
