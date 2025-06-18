@@ -1,6 +1,34 @@
-// js/components/ProjectView/tasks/ScriptingTask.js
+// creators-hub/js/components/ProjectView/tasks/ScriptingTask.js
 
 const { useState, useEffect } = React;
+
+// NEW: Stepper component for navigation
+const ScriptingStepper = ({ stages, currentStage, onStageClick, isComplete }) => {
+    return (
+        <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
+            {stages.map((stage, index) => (
+                <React.Fragment key={stage.id}>
+                    <button
+                        onClick={() => isComplete && onStageClick(stage.id)}
+                        disabled={!isComplete}
+                        className={`flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-colors ${
+                            currentStage === stage.id
+                                ? 'bg-primary-accent text-white font-semibold'
+                                : 'bg-gray-800 text-gray-400'
+                        } ${isComplete ? 'hover:bg-primary-accent-darker cursor-pointer' : 'cursor-default'}`}
+                    >
+                        <span className={`flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${currentStage === stage.id ? 'bg-white text-primary-accent' : 'bg-gray-700'}`}>
+                            {index + 1}
+                        </span>
+                        <span className="hidden sm:inline">{stage.name}</span>
+                    </button>
+                    {index < stages.length - 1 && <div className="h-1 w-4 sm:w-8 bg-gray-700 rounded-full"></div>}
+                </React.Fragment>
+            ))}
+        </div>
+    );
+};
+
 
 /**
  * A full-screen modal for the entire multi-step scripting process.
@@ -10,7 +38,7 @@ const ScriptingWorkspaceModal = ({
     taskData,
     onClose,
     onSave,
-    stageOverride, // BUGFIX: New prop to override the initial stage view
+    stageOverride,
     // AI action handlers
     onGenerateInitialQuestions,
     onGenerateDraftOutline,
@@ -20,6 +48,8 @@ const ScriptingWorkspaceModal = ({
     onGenerateFullScript,
     onRefineScript,
 }) => {
+    // MODIFIED: Manage the current stage inside the modal
+    const [currentStage, setCurrentStage] = useState(stageOverride || taskData.scriptingStage || 'initial_thoughts');
     const [localTaskData, setLocalTaskData] = useState(taskData);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -27,6 +57,13 @@ const ScriptingWorkspaceModal = ({
     useEffect(() => {
         setLocalTaskData(taskData);
     }, [taskData]);
+
+    useEffect(() => {
+        // If the underlying stage in the DB changes, update the modal's view
+        if(taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
+            setCurrentStage(taskData.scriptingStage);
+        }
+    }, [taskData.scriptingStage]);
     
     const handleDataChange = (field, value) => {
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
@@ -56,11 +93,20 @@ const ScriptingWorkspaceModal = ({
     const handleClose = () => onClose(localTaskData);
     const handleSaveAndComplete = () => onSave(localTaskData);
 
-    const renderContent = () => {
-        // BUGFIX: Use the stageOverride if provided, otherwise use the stage from the task data
-        const stage = stageOverride || localTaskData.scriptingStage || 'initial_thoughts';
+    // NEW: Define the stages for the stepper
+    const stages = [
+        { id: 'initial_thoughts', name: 'Brain Dump' },
+        { id: 'initial_qa', name: 'Clarify Vision' },
+        { id: 'draft_outline_review', name: 'Review Outline' },
+        { id: 'refinement_qa', name: 'Refinement Q&A' },
+        { id: 'on_camera_qa', name: 'On-Camera Notes' },
+        { id: 'full_script_review', name: 'Final Script' },
+    ];
 
-        switch (stage) {
+
+    const renderContent = () => {
+        // MODIFIED: Use the internal state for the stage
+        switch (currentStage) {
             case 'initial_thoughts':
                 return (
                     <div>
@@ -136,7 +182,7 @@ const ScriptingWorkspaceModal = ({
                             </button>
                         </div>
                         <div className="flex justify-between items-center mt-8">
-                            <button onClick={() => handleDataChange('scriptingStage', 'initial_thoughts')} className="button-secondary">Start Over</button>
+                            <button onClick={() => setCurrentStage('initial_thoughts')} className="button-secondary">Start Over</button>
                             <button onClick={() => handleAction(onGenerateRefinementPlan)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
                             </button>
@@ -234,7 +280,7 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
             default:
-                return <p className="text-red-400 text-center p-4">Invalid scripting stage: {stage}</p>;
+                return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
         }
     };
 
@@ -242,7 +288,16 @@ const ScriptingWorkspaceModal = ({
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
             <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
                 <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <h2 className="text-3xl font-bold text-white mb-6 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
+                <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
+                
+                {/* NEW: Add the stepper */}
+                <ScriptingStepper 
+                    stages={stages}
+                    currentStage={currentStage}
+                    onStageClick={setCurrentStage}
+                    isComplete={video.tasks?.scripting === 'complete'}
+                />
+
                 <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     {renderContent()}
@@ -255,7 +310,6 @@ const ScriptingWorkspaceModal = ({
 
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
-    // BUGFIX: State to override the modal's starting view, separate from the persisted task status
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     
     const taskData = {
@@ -273,24 +327,27 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptRefinementText: '',
     };
     
-    // BUGFIX: Updated logic to handle opening a completed task for viewing
+    // MODIFIED: Simplified this logic. The modal itself will handle stage navigation.
     const handleOpenWorkspace = async (startStage = null) => {
-        setWorkspaceStageOverride(null); // Reset override each time
+        setWorkspaceStageOverride(null); 
         let stageToOpen = startStage;
 
-        if (video.tasks?.scripting === 'complete' && startStage === 'full_script_review') {
-            // If task is done and we just want to view/edit, set the override
-            setWorkspaceStageOverride('full_script_review');
-        } else {
-            // Otherwise, follow the normal workflow
-            if (!stageToOpen) {
-                const currentStage = taskData.scriptingStage;
-                stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
-            }
-            if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-                await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
+        if (!stageToOpen) {
+            const currentStage = taskData.scriptingStage;
+            // If task is complete, open to the last step unless specified otherwise.
+            if (video.tasks?.scripting === 'complete') {
+                 stageToOpen = 'full_script_review';
+            } else {
+                 stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
             }
         }
+        
+        setWorkspaceStageOverride(stageToOpen);
+
+        if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
+            await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
+        }
+        
         setShowWorkspace(true);
     };
 
@@ -494,7 +551,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             return (
                 <div className="text-center py-4">
                      <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
-                    <button onClick={() => handleOpenWorkspace('full_script_review')} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
+                    {/* MODIFIED: This button now opens the workspace and allows free navigation */}
+                    <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
                         View/Edit Script
                     </button>
                 </div>
@@ -523,7 +581,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                 <ScriptingWorkspaceModal
                     video={video}
                     taskData={taskData}
-                    stageOverride={workspaceStageOverride} // BUGFIX: Pass the override prop
+                    stageOverride={workspaceStageOverride}
                     onClose={handleUpdateAndCloseWorkspace}
                     onSave={handleSaveAndComplete}
                     onGenerateInitialQuestions={handleGenerateInitialQuestions}
