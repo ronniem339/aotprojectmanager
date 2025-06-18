@@ -1,16 +1,18 @@
 // js/components/ProjectSelection.js
 
-const { useState, useEffect, useRef } = React; // Import useEffect and useRef
+const { useState, useEffect, useRef } = React;
 
-window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, onDeleteDraft }) => {
-    const modalRef = useRef(null); // Create a ref for the modal content
+// FIX: Add 'db' to the list of props being destructured.
+window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, onDeleteDraft, db }) => {
+    const modalRef = useRef(null);
     const [drafts, setDrafts] = useState([]);
     const [loading, setLoading] = useState(true);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     useEffect(() => {
         // Fetch drafts from Firestore
-        if (!userId) {
+        // FIX: Also check if the db object is available before using it.
+        if (!userId || !db) {
             setLoading(false);
             return;
         };
@@ -27,7 +29,8 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, o
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [userId, appId]);
+    // FIX: Add 'db' to the dependency array for the useEffect hook.
+    }, [userId, appId, db]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -40,7 +43,9 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [onClose]); // Re-run effect if onClose changes
+    }, [onClose]);
+
+    // ... (the rest of the component remains the same)
 
     const workflowOptions = [
         {
@@ -77,11 +82,8 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, o
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            {/* The modal container itself is now a flex column with a max height */}
             <div ref={modalRef} className="glass-card rounded-lg w-full max-w-4xl relative flex flex-col max-h-[90vh]">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none z-10">&times;</button>
-                
-                {/* This inner div becomes the scrollable area */}
                 <div className="overflow-y-auto p-8">
                     <h2 className="text-3xl font-bold mb-2 text-center">Start a New Project</h2>
                     <p className="text-gray-400 mb-8 text-center">How would you like to begin?</p>
