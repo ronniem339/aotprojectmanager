@@ -48,14 +48,12 @@ window.App = () => { // Exposing App component globally
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
 
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-
     useEffect(() => {
         const initFirebase = async () => {
             try {
                 let app;
                 if (!firebase.apps.length) {
-                    app = firebase.initializeApp(firebaseConfig);
+                    app = firebase.initializeApp(window.CREATOR_HUB_CONFIG.FIREBASE_CONFIG);
                 } else {
                     app = firebase.app();
                 }
@@ -100,7 +98,7 @@ window.App = () => { // Exposing App component globally
             }
         };
         initFirebase();
-    }, [firebaseConfig]);
+    }, []);
 
 
     useEffect(() => {
