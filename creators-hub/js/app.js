@@ -1,5 +1,38 @@
 // js/app.js
 
+// NEW: Function to dynamically load the Google Maps script
+/**
+ * Dynamically loads the Google Maps script with the provided API key and executes a callback on completion.
+ * @param {string} apiKey - Your Google Maps API key.
+ * @param {function} callback - The function to call once the script has loaded.
+ */
+window.loadGoogleMapsScript = (apiKey, callback) => {
+    // Check if the script is already on the page
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+        // If the script is already loaded, and google.maps is available, just run the callback
+        if (window.google && window.google.maps) {
+            callback();
+        }
+        // If the script is still loading, the callback will be handled by the initMap function
+        return;
+    }
+
+    // Define the callback function that Google's script will call when it's ready
+    window.initMap = () => {
+        console.log("Google Maps API loaded and initialized.");
+        callback();
+    };
+
+    // Create the script element and append it to the document head
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+};
+
+
 window.App = () => { // Exposing App component globally
     const { useState, useEffect, useCallback } = React;
     const [user, setUser] = useState(null);
@@ -363,7 +396,7 @@ window.App = () => { // Exposing App component globally
             {showNotification && <div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>}
             {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance}/>}
             {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={handleConfirmDeleteDraft} onCancel={() => setDraftToDelete(null)} />}
+            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={() => handleConfirmDeleteDraft(draftToDelete)} onCancel={() => setDraftToDelete(null)} />}
             {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} db={firebaseDb} auth={firebaseAuth} />}
             <main>{renderView()}</main>
         </div>
