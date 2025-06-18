@@ -1,8 +1,7 @@
 // js/components/ProjectView/EditProjectModal.js
 
-const { useState, useCallback } = React;
+const { useState, useEffect, useCallback } = React;
 
-// MODIFICATION: Added 'db' to the props to ensure the component has database access.
 window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance, db }) => {
     const [title, setTitle] = useState(project.playlistTitle);
     const [description, setDescription] = useState(project.playlistDescription);
@@ -13,61 +12,61 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const [generating, setGenerating] = useState(null);
     const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || '');
     const [isSaving, setIsSaving] = useState(false);
-
-    // NEW: State to manage the project's footage inventory.
     const [footageInventory, setFootageInventory] = useState(project.footageInventory || {});
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
+    // This hook keeps the footage inventory synchronized with the locations list.
+    useEffect(() => {
+        setFootageInventory(prevInventory => {
+            const newInventory = {};
+            locations.forEach(loc => {
+                newInventory[loc.name] = prevInventory[loc.name] || { 
+                    name: loc.name, 
+                    bRoll: false, 
+                    onCamera: false, 
+                    drone: false, 
+                    stopType: 'standard' 
+                };
+            });
+            return newInventory;
+        });
+    }, [locations]);
+
     const downloadAndUploadImage = async (imageUrl, uploadPath) => {
-        if (!imageUrl || !storage) {
-            console.warn("No image URL or Firebase Storage instance available for upload.");
-            return '';
-        }
+        if (!imageUrl || !storage) return '';
         const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
         try {
             const response = await fetch(fetchUrl);
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(errText || 'Failed to fetch image via Netlify Function');
-            }
+            if (!response.ok) throw new Error(await response.text());
             const blob = await response.blob();
             const storageRef = storage.ref(uploadPath);
             await storageRef.put(blob);
-            const downloadUrl = await storageRef.getDownloadURL();
-            return downloadUrl;
+            return await storageRef.getDownloadURL();
         } catch (error) {
-            console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
+            console.error(`Error downloading or uploading image:`, error);
             return '';
         }
     };
 
-    // MODIFICATION: Update location handler to ensure new locations get a default inventory entry.
     const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
-        setFootageInventory(prev => {
-            const newInventory = {...prev};
-            newLocations.forEach(loc => {
-                if (!newInventory[loc.name]) {
-                    newInventory[loc.name] = { name: loc.name, bRoll: false, onCamera: false, drone: false, importance: 'secondary' };
-                }
-            });
-            return newInventory;
-        });
     }, []);
 
-    // NEW: Handler to manage changes in the footage inventory checkboxes and dropdowns.
     const handleInventoryChange = (locationName, field, value) => {
-        const isCheckbox = typeof value !== 'string';
-        setFootageInventory(prev => ({
-            ...prev,
-            [locationName]: {
-                ...(prev[locationName] || { name: locationName }),
-                [field]: isCheckbox ? !prev[locationName]?.[field] : value,
-            }
-        }));
+        const isCheckbox = typeof value === 'undefined';
+        setFootageInventory(prev => {
+            const currentLoc = prev[locationName] || { name: locationName };
+            return {
+                ...prev,
+                [locationName]: {
+                    ...currentLoc,
+                    [field]: isCheckbox ? !currentLoc[field] : value,
+                }
+            };
+        });
     };
 
     const handleKeywordAdd = (e) => {
@@ -88,29 +87,19 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const handleRegenerateFromVideos = () => {
         const allVideoLocationNames = new Set();
         const allVideoKeywords = new Set();
-
         videos.forEach(video => {
-            if (video.locations_featured) {
-                video.locations_featured.forEach(locName => allVideoLocationNames.add(locName));
-            }
-            if (video.targeted_keywords) {
-                video.targeted_keywords.forEach(keyword => allVideoKeywords.add(keyword));
-            }
+            (video.locations_featured || []).forEach(locName => allVideoLocationNames.add(locName));
+            (video.targeted_keywords || []).forEach(keyword => allVideoKeywords.add(keyword));
         });
-
         const uniqueLocationNames = Array.from(allVideoLocationNames);
         const aggregatedLocations = (project.locations || []).filter(locObject => uniqueLocationNames.includes(locObject.name));
-        
         uniqueLocationNames.forEach(name => {
             if (!aggregatedLocations.some(l => l.name === name)) {
                 aggregatedLocations.push({ name: name, place_id: name, lat: null, lng: null, types: [] });
             }
         });
-
-        const aggregatedKeywords = Array.from(allVideoKeywords);
-
         setLocations(aggregatedLocations);
-        setTargetedKeywords(aggregatedKeywords);
+        setTargetedKeywords(Array.from(allVideoKeywords));
     };
 
     const handleSave = async () => {
@@ -127,9 +116,7 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                 finalCoverImageUrl = project.coverImageUrl || '';
             }
         }
-
         try {
-            // MODIFICATION: Add the updated footage inventory to the save operation.
             await projectDocRef.update({
                 playlistTitle: title,
                 playlistDescription: description,
@@ -146,6 +133,7 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         }
     };
 
+    // RESTORED: The full AI Refinement logic
     const handleRefine = async (type) => {
         setGenerating(type);
         const apiKey = settings.geminiApiKey || "";
@@ -181,7 +169,6 @@ ${videoSummary}
 ---
 Rewrite the playlist description to incorporate the user's feedback, accurately summarize the videos, and match the creator's style guide. Keep it SEO-optimized. Return as a JSON object like: {"suggestion": "new description..."}`;
         }
-
         try {
             const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
@@ -204,11 +191,11 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-2xl relative">
+            <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-3xl relative">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-2xl font-bold mb-6">Edit Project Details</h2>
                 
-                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-4">
+                <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-4 custom-scrollbar">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Title</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full form-input" />
@@ -225,50 +212,62 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                         }
                     </div>
 
-                    {/* NEW: Footage Inventory Section */}
+                    {/* --- UI OVERHAUL: Footage Inventory Grid --- */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Footage Inventory</label>
-                        <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700 space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
-                            {locations.length > 0 ? (
-                                locations.map(location => {
-                                    const inventory = footageInventory[location.name] || {};
-                                    return (
-                                        <div key={location.place_id || location.name} className="p-3 bg-gray-800 rounded-md">
-                                            <h4 className="font-semibold text-gray-200">{location.name}</h4>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 items-center">
-                                                <label className="flex items-center space-x-2 text-sm">
+                        <div className="bg-gray-900/50 rounded-lg border border-gray-700">
+                            <div className="grid grid-cols-6 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
+                                <div className="col-span-2">Location</div>
+                                <div>Stop Type</div>
+                                <div className="text-center">B-Roll</div>
+                                <div className="text-center">On-Camera</div>
+                                <div className="text-center">Drone</div>
+                            </div>
+                            <div className="max-h-56 overflow-y-auto custom-scrollbar">
+                                {locations.length > 0 ? (
+                                    locations.map(location => {
+                                        const inventory = footageInventory[location.name] || {};
+                                        return (
+                                            <div key={location.place_id || location.name} className="grid grid-cols-6 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
+                                                <div className="col-span-2 pr-2">
+                                                    <p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p>
+                                                </div>
+                                                <div>
+                                                    <select 
+                                                        value={inventory.stopType || 'standard'} 
+                                                        onChange={(e) => handleInventoryChange(location.name, 'stopType', e.target.value)} 
+                                                        className="form-select-small text-xs w-full"
+                                                    >
+                                                        <option value="major">Major Feature</option>
+                                                        <option value="standard">Standard Stop</option>
+                                                        <option value="passing">Passing Mention</option>
+                                                    </select>
+                                                </div>
+                                                <div className="flex justify-center">
                                                     <input type="checkbox" checked={!!inventory.bRoll} onChange={() => handleInventoryChange(location.name, 'bRoll')} className="form-checkbox-small"/>
-                                                    <span>B-Roll</span>
-                                                </label>
-                                                <label className="flex items-center space-x-2 text-sm">
+                                                </div>
+                                                <div className="flex justify-center">
                                                     <input type="checkbox" checked={!!inventory.onCamera} onChange={() => handleInventoryChange(location.name, 'onCamera')} className="form-checkbox-small"/>
-                                                    <span>On-Camera</span>
-                                                </label>
-                                                <label className="flex items-center space-x-2 text-sm">
+                                                </div>
+                                                <div className="flex justify-center">
                                                     <input type="checkbox" checked={!!inventory.drone} onChange={() => handleInventoryChange(location.name, 'drone')} className="form-checkbox-small"/>
-                                                    <span>Drone</span>
-                                                </label>
-                                                <select value={inventory.importance || 'secondary'} onChange={(e) => handleInventoryChange(location.name, 'importance', e.target.value)} className="form-select-small text-xs">
-                                                    <option value="primary">Primary</option>
-                                                    <option value="secondary">Secondary</option>
-                                                    <option value="background">Background</option>
-                                                </select>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )
-                                })
-                            ) : (
-                                <p className="text-gray-500 text-sm p-2">Add locations to the project to manage their footage inventory.</p>
-                            )}
+                                        )
+                                    })
+                                ) : (
+                                    <p className="text-gray-500 text-sm text-center p-4">Add locations to the project to manage their footage inventory.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-
+                    {/* --- END OF UI OVERHAUL --- */}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Keywords</label>
                         <div className="p-2 bg-gray-900/50 rounded-lg border border-gray-700">
                             <div className="flex flex-wrap gap-2 mb-2">
-                                {targetedKeywords.map(kw => (
+                                {(targetedKeywords || []).map(kw => (
                                     <div key={kw} className="flex items-center gap-2 px-2.5 py-1 text-xs bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full">
                                         <span>{kw}</span>
                                         <button onClick={() => handleKeywordRemove(kw)} className="text-secondary-accent-lighter-text hover:text-white font-bold leading-none">&times;</button>
@@ -301,7 +300,7 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                             </div>
                         )}
                     </div>
-                    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Thumbnail</label>
                         <p className="text-xs text-gray-400 mb-3">Use Canva to create the main thumbnail for your YouTube playlist.</p>
                         <a 
@@ -315,11 +314,9 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                     </div>
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Refine with AI</label>
-                        
                         <button onClick={handleRegenerateFromVideos} className="w-full mb-4 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2">
                             🔄 Regenerate Locations & Keywords from Videos
                         </button>
-                        
                         <textarea value={refinement} onChange={(e) => setRefinement(e.target.value)} rows="2" className="w-full form-textarea" placeholder="e.g., 'Make the title more mysterious' or 'Add more about the history in the description'"/>
                         <div className="flex gap-4 mt-2">
                              <button onClick={() => handleRefine('title')} disabled={generating || !refinement} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:bg-gray-500 flex items-center gap-2">{generating === 'title' ? <window.LoadingSpinner/> : 'Refine Title'}</button>
