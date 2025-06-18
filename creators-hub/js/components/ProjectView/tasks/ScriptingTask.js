@@ -15,6 +15,7 @@ const ScriptingWorkspaceModal = ({
     onGenerateDraftOutline,
     onRefineOutline,
     onGenerateRefinementPlan,
+    onProceedToScripting, // New handler to decide next step
     onGenerateFullScript,
     onRefineScript,
 }) => {
@@ -28,6 +29,15 @@ const ScriptingWorkspaceModal = ({
     
     const handleDataChange = (field, value) => {
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
+    };
+
+    // New handler specifically for on-camera descriptions
+    const handleOnCameraDescriptionChange = (locationName, description) => {
+        const newDescriptions = { 
+            ...(localTaskData.onCameraDescriptions || {}), 
+            [locationName]: description 
+        };
+        handleDataChange('onCameraDescriptions', newDescriptions);
     };
 
     const handleAction = async (action, ...args) => {
@@ -155,6 +165,35 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                          <div className="text-center mt-8">
+                            {/* MODIFICATION: This button now triggers the check for on-camera footage */}
+                            <button onClick={() => handleAction(onProceedToScripting)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
+                            </button>
+                        </div>
+                    </div>
+                );
+
+            // NEW STAGE for collecting on-camera segment details
+            case 'on_camera_qa':
+                return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
+                        <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
+                        <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
+                            {(localTaskData.onCameraLocations || []).map((locationName) => (
+                                <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                                    <label className="block text-gray-200 text-md font-medium mb-2">{locationName}</label>
+                                    <textarea
+                                        value={(localTaskData.onCameraDescriptions || {})[locationName] || ''}
+                                        onChange={(e) => handleOnCameraDescriptionChange(locationName, e.target.value)}
+                                        rows="3"
+                                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                                        placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
+                                    ></textarea>
+                                </div>
+                            ))}
+                        </div>
+                         <div className="text-center mt-8">
                                <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
                             </button>
@@ -218,6 +257,7 @@ const ScriptingWorkspaceModal = ({
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     
+    // MODIFICATION: Added fields to hold on-camera footage details
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
@@ -226,6 +266,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptPlan: video.tasks?.scriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
+        onCameraLocations: video.tasks?.onCameraLocations || [],      // new
+        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},// new
         script: video.script || '',
         outlineRefinementText: '',
         scriptRefinementText: '',
@@ -331,16 +373,42 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
     
+    // NEW FUNCTION: Checks for on-camera footage and routes to the new Q&A step or skips it.
+    const handleProceedToScripting = async () => {
+        // First, save the user's answers from the current step
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': taskData.userExperiences });
+
+        const onCameraLocations = (video.locations_featured || [])
+            .filter(locName => {
+                const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+                return inventoryItem && inventoryItem.onCamera;
+            });
+
+        if (onCameraLocations.length > 0) {
+            // If on-camera footage exists, go to the new Q&A step
+            await onUpdateTask('scripting', 'in-progress', {
+                'tasks.scriptingStage': 'on_camera_qa',
+                'tasks.onCameraLocations': onCameraLocations,
+                'tasks.onCameraDescriptions': taskData.onCameraDescriptions || {}
+            });
+        } else {
+            // Otherwise, skip directly to generating the full script
+            await handleGenerateFullScript();
+        }
+    };
+
     const handleGenerateFullScript = async () => {
         const answersText = (taskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
+        // MODIFICATION: Pass the on-camera descriptions to the AI
         const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: taskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
-            settings: settings
+            settings: settings,
+            onCameraDescriptions: taskData.onCameraDescriptions
         });
 
         if (!response || typeof response.finalScript !== 'string') {
@@ -359,12 +427,14 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
+        // MODIFICATION: Pass on-camera descriptions during refinement as well
         const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: taskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            refinementText: refinementText
+            refinementText: refinementText,
+            onCameraDescriptions: taskData.onCameraDescriptions
         });
         
         if (!response || typeof response.finalScript !== 'string') {
@@ -378,6 +448,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
+        // MODIFICATION: Include new on-camera fields when saving progress
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
@@ -386,6 +457,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
+            'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
+            'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
             'script': updatedTaskData.script,
         };
         if(video.tasks?.scripting !== 'complete'){
@@ -395,6 +468,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleSaveAndComplete = (finalTaskData) => {
+        // MODIFICATION: Include new on-camera fields when completing the task
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
@@ -403,6 +477,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'tasks.scriptPlan': finalTaskData.scriptPlan,
             'tasks.locationQuestions': finalTaskData.locationQuestions,
             'tasks.userExperiences': finalTaskData.userExperiences,
+            'tasks.onCameraLocations': finalTaskData.onCameraLocations,
+            'tasks.onCameraDescriptions': finalTaskData.onCameraDescriptions,
             'script': finalTaskData.script,
         });
         setShowWorkspace(false);
@@ -452,6 +528,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
                     onGenerateRefinementPlan={handleGenerateRefinementPlan}
+                    onProceedToScripting={handleProceedToScripting} // Pass new handler
                     onGenerateFullScript={handleGenerateFullScript}
                     onRefineScript={handleRefineScript}
                 />,
