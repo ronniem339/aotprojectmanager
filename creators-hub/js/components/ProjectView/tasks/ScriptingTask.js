@@ -4,14 +4,14 @@ const { useState, useEffect } = React;
 
 /**
  * A full-screen modal for the entire multi-step scripting process.
- * This component contains the UI for each stage of the new workflow.
  */
 const ScriptingWorkspaceModal = ({
     video,
     taskData,
-    onClose, // This function syncs state and closes the modal
-    onSave, // This function saves the final script and completes the task
-    // AI action handlers passed as props
+    onClose,
+    onSave,
+    // AI action handlers
+    onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onRefineOutline,
     onGenerateRefinementPlan,
@@ -23,17 +23,13 @@ const ScriptingWorkspaceModal = ({
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // This effect keeps the modal's local state in sync with the parent's data.
-        // This is crucial for seeing updates after an AI action completes.
         setLocalTaskData(taskData);
     }, [taskData]);
     
-    // Generic handler to update any field in the local task data state
     const handleDataChange = (field, value) => {
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
     };
 
-    // Wrapper to handle loading states and errors for any AI action
     const handleAction = async (action, ...args) => {
         setIsLoading(true);
         setError('');
@@ -47,16 +43,10 @@ const ScriptingWorkspaceModal = ({
         }
     };
     
-    const handleClose = () => {
-        onClose(localTaskData);
-    };
-
-    const handleSaveAndComplete = () => {
-        onSave(localTaskData);
-    };
+    const handleClose = () => onClose(localTaskData);
+    const handleSaveAndComplete = () => onSave(localTaskData);
 
     const renderContent = () => {
-        // The stage is now always read from the synchronized localTaskData
         const stage = localTaskData.scriptingStage || 'initial_thoughts';
 
         switch (stage) {
@@ -64,16 +54,45 @@ const ScriptingWorkspaceModal = ({
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 1: Brain Dump</h3>
-                        <p className="text-gray-400 mb-6">Let's start with your raw ideas. Don't worry about structure. Just jot down everything you're thinking for this video: key points, locations, things to say, emotions to convey, etc.</p>
+                        <p className="text-gray-400 mb-6">Jot down everything you're thinking for this video. The more you add, the better the AI's clarifying questions will be.</p>
                         <textarea
                             value={localTaskData.initialThoughts || ''}
                             onChange={(e) => handleDataChange('initialThoughts', e.target.value)}
                             rows="15"
                             className="w-full form-textarea"
-                            placeholder="Paste your script notes, brain dump, or describe your experience here..."
+                            placeholder="Paste your notes, describe your experience, list key points..."
                         />
                          <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
+                            <button onClick={() => handleAction(onGenerateInitialQuestions, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Clarify My Vision'}
+                            </button>
+                        </div>
+                    </div>
+                );
+            
+            case 'initial_qa':
+                return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Clarify Your Vision</h3>
+                        <p className="text-gray-400 mb-6">Let's refine the core idea. Your answers here will guide the entire script structure.</p>
+                        <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
+                            {(localTaskData.initialQuestions || []).map((question, index) => (
+                                <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                                    <label className="block text-gray-200 text-md font-medium mb-2">{question}</label>
+                                    <textarea
+                                        value={(localTaskData.initialAnswers || {})[index] || ''}
+                                        onChange={(e) => {
+                                            const newAnswers = { ...(localTaskData.initialAnswers || {}), [index]: e.target.value };
+                                            handleDataChange('initialAnswers', newAnswers);
+                                        }}
+                                        rows="3"
+                                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                                    ></textarea>
+                                </div>
+                            ))}
+                        </div>
+                         <div className="text-center mt-8">
+                            <button onClick={() => handleAction(onGenerateDraftOutline)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
                             </button>
                         </div>
@@ -83,25 +102,20 @@ const ScriptingWorkspaceModal = ({
             case 'draft_outline_review':
                 return (
                     <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Review AI-Generated Outline</h3>
-                        <p className="text-gray-400 mb-4">Here's a potential structure based on your notes. Review it, edit it directly, or use the refinement box below to ask the AI for changes.</p>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 3: Review AI-Generated Outline</h3>
+                        <p className="text-gray-400 mb-4">Here's a potential structure based on your notes and goals. Review it, edit it, or use the refinement box to ask for changes.</p>
                         <textarea
                             value={localTaskData.scriptPlan || ''}
                             onChange={e => handleDataChange('scriptPlan', e.target.value)}
                             rows="15"
                             className="w-full form-textarea whitespace-pre-wrap leading-relaxed"
                         />
-
-                        {/* REFINEMENT UI BLOCK */}
                         <div className="mt-6">
                             <h4 className="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
-                            <p className="text-gray-400 text-sm mb-2">Tell the AI what to change. E.g., "Make the intro shorter and more mysterious," or "Add a section about the local food."</p>
                             <textarea
                                 value={localTaskData.outlineRefinementText || ''}
                                 onChange={(e) => handleDataChange('outlineRefinementText', e.target.value)}
-                                className="form-textarea w-full" 
-                                rows="2" 
-                                placeholder="Your refinement instructions..."
+                                className="form-textarea w-full" rows="2" placeholder="E.g., Make the intro shorter..."
                             />
                             <button 
                                 onClick={() => handleAction(onRefineOutline, localTaskData.scriptPlan, localTaskData.outlineRefinementText)} 
@@ -110,7 +124,6 @@ const ScriptingWorkspaceModal = ({
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Outline'}
                             </button>
                         </div>
-                        
                         <div className="flex justify-between items-center mt-8">
                             <button onClick={() => handleDataChange('scriptingStage', 'initial_thoughts')} className="button-secondary">Start Over</button>
                             <button onClick={() => handleAction(onGenerateRefinementPlan)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
@@ -123,21 +136,18 @@ const ScriptingWorkspaceModal = ({
             case 'refinement_qa':
                 return (
                     <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 3: Answer a Few Questions</h3>
-                        <p className="text-gray-400 mb-6">To make your script sound authentic, please answer these specific questions. Your answers will be woven directly into the final script.</p>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4: Answer a Few More Questions</h3>
+                        <p className="text-gray-400 mb-6">Let's get specific. Your answers here will be woven directly into the final script.</p>
                         <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
                             {(localTaskData.locationQuestions || []).map((item, index) => (
                                 <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-gray-200 text-md font-medium mb-2">
-                                        {item.question}
-                                    </label>
+                                    <label className="block text-gray-200 text-md font-medium mb-2">{item.question}</label>
                                     <textarea
                                         value={(localTaskData.userExperiences || {})[index] || ''}
                                         onChange={(e) => {
                                             const newExperiences = { ...(localTaskData.userExperiences || {}), [index]: e.target.value };
                                             handleDataChange('userExperiences', newExperiences);
                                         }}
-                                        placeholder="Be specific about what you did, saw, or captured..."
                                         rows="4"
                                         className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
                                     ></textarea>
@@ -154,8 +164,8 @@ const ScriptingWorkspaceModal = ({
 
             case 'full_script_review':
                  return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4: Final Script Review</h3>
+                     <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
                         <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask the AI for changes.</p>
                         <textarea
                             value={localTaskData.script}
@@ -164,17 +174,12 @@ const ScriptingWorkspaceModal = ({
                             className="w-full form-textarea leading-relaxed h-[50vh]"
                             placeholder="Your final script will appear here."
                         />
-
-                         {/* SCRIPT REFINEMENT UI BLOCK */}
                         <div className="mt-6">
                             <h4 className="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
-                            <p className="text-gray-400 text-sm mb-2">E.g., "Make the conclusion more powerful," or "Rewrite the intro to be funnier."</p>
                             <textarea
                                 value={localTaskData.scriptRefinementText || ''}
                                 onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)}
-                                className="form-textarea w-full" 
-                                rows="2" 
-                                placeholder="Your refinement instructions..."
+                                className="form-textarea w-full" rows="2" placeholder="E.g., Make the conclusion more powerful..."
                             />
                             <button 
                                 onClick={() => handleAction(onRefineScript, localTaskData.scriptRefinementText)} 
@@ -183,7 +188,6 @@ const ScriptingWorkspaceModal = ({
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
                             </button>
                         </div>
-
                          <div className="text-center mt-8">
                               <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                  Save and Complete Task
@@ -201,7 +205,6 @@ const ScriptingWorkspaceModal = ({
             <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
                 <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-6 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
-                
                 <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     {renderContent()}
@@ -215,10 +218,11 @@ const ScriptingWorkspaceModal = ({
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     
-    // Consolidate task data from the video prop. This is the single source of truth.
     const taskData = {
-        scriptingStage: video.tasks?.scriptingStage || 'pending', // Default to 'pending'
+        scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
+        initialQuestions: video.tasks?.initialQuestions || [],
+        initialAnswers: video.tasks?.initialAnswers || {},
         scriptPlan: video.tasks?.scriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
@@ -227,80 +231,103 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptRefinementText: '',
     };
     
-    // **FIX IS HERE** Logic to decide which stage to open the modal at
     const handleOpenWorkspace = async (startStage = null) => {
-        let stageToOpen;
-
-        // 1. Determine the target stage
-        if (startStage) {
-            stageToOpen = startStage;
-        } else {
+        let stageToOpen = startStage;
+        if (!stageToOpen) {
             const currentStage = taskData.scriptingStage;
-            // If it's pending or doesn't exist, the next logical stage is initial_thoughts
-            if (currentStage === 'pending' || !currentStage) {
-                stageToOpen = 'initial_thoughts'; 
-            } else {
-                // Otherwise, continue from where the user left off
-                stageToOpen = currentStage; 
-            }
+            stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
         }
-
-        // 2. Update the database ONLY IF we are starting for the first time.
-        // This is the key change: it moves the state from 'pending' to an active stage.
         if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-            try {
-                // We now AWAIT this operation to ensure it completes before we proceed.
-                await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
-            } catch (e) {
-                console.error("Failed to update task stage:", e);
-                // Optionally show an error to the user here.
-                return; // Don't open the modal if the database update fails.
-            }
+            await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
         }
-        
-        // 3. Now that we're sure the database is updated, open the modal.
-        // The parent component will re-render with the correct data from the database.
         setShowWorkspace(true);
     };
 
-    const handleGenerateDraftOutline = async (thoughtsText) => {
+    const handleGenerateInitialQuestions = async (thoughtsText) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText });
-        const { draftOutline } = await window.aiUtils.generateDraftOutlineAI({
-            videoTitle: video.chosenTitle || video.title,
-            videoConcept: video.concept,
+        
+        const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
             settings: settings
         });
+
+        if (!response || !Array.isArray(response.questions)) {
+            console.error("AI response did not contain 'questions' array:", response);
+            throw new Error("The AI failed to generate clarifying questions. Please try again.");
+        }
+
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptingStage': 'initial_qa',
+            'tasks.initialQuestions': response.questions,
+            'tasks.initialAnswers': {}
+        });
+    };
+
+    const handleGenerateDraftOutline = async () => {
+        const answersText = (taskData.initialQuestions || []).map((q, index) =>
+            `Q: ${q}\nA: ${(taskData.initialAnswers || {})[index] || 'No answer.'}`
+        ).join('\n\n');
+
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': taskData.initialAnswers });
+
+        const response = await window.aiUtils.generateDraftOutlineAI({
+            videoTitle: video.chosenTitle || video.title,
+            videoConcept: video.concept,
+            initialThoughts: taskData.initialThoughts,
+            initialAnswers: answersText,
+            settings: settings
+        });
+
+        if (!response || typeof response.draftOutline !== 'string') {
+            console.error("AI response did not contain 'draftOutline' string:", response);
+            throw new Error("The AI failed to generate a valid outline. Please try again.");
+        }
+
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'draft_outline_review',
-            'tasks.scriptPlan': draftOutline
+            'tasks.scriptPlan': response.draftOutline
         });
     };
     
     const handleRefineOutline = async (currentOutline, refinementText) => {
-        const { draftOutline } = await window.aiUtils.generateDraftOutlineAI({
+         const answersText = (taskData.initialQuestions || []).map((q, index) =>
+            `Q: ${q}\nA: ${(taskData.initialAnswers || {})[index] || 'No answer.'}`
+        ).join('\n\n');
+        
+        const response = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
             initialThoughts: taskData.initialThoughts,
+            initialAnswers: answersText,
             settings: settings,
-            refinementText: refinementText // Pass the new text
+            refinementText: refinementText
         });
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptPlan': draftOutline
-        });
+
+        if (!response || typeof response.draftOutline !== 'string') {
+            console.error("AI response did not contain 'draftOutline' string for refinement:", response);
+            throw new Error("The AI failed to refine the outline. Please try again.");
+        }
+
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
     
     const handleGenerateRefinementPlan = async () => {
-        const planData = await window.aiUtils.generateScriptPlanAI({
+        const response = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
             draftOutline: taskData.scriptPlan,
             settings: settings,
         });
+
+        if (!response || !response.scriptPlan || !Array.isArray(response.locationQuestions)) {
+             console.error("AI response did not contain valid script plan/questions:", response);
+            throw new Error("The AI failed to generate the next set of questions. Please try again.");
+        }
+
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'refinement_qa',
-            'tasks.scriptPlan': planData.scriptPlan,
-            'tasks.locationQuestions': planData.locationQuestions,
-            'tasks.userExperiences': {} // Reset answers for new questions
+            'tasks.scriptPlan': response.scriptPlan,
+            'tasks.locationQuestions': response.locationQuestions,
+            'tasks.userExperiences': {}
         });
     };
     
@@ -309,15 +336,21 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        const { finalScript } = await window.aiUtils.generateFinalScriptAI({
+        const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: taskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings
         });
+
+        if (!response || typeof response.finalScript !== 'string') {
+            console.error("AI response did not contain 'finalScript' string:", response);
+            throw new Error("The AI failed to generate the final script. Please try again.");
+        }
+
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'full_script_review',
-            'script': finalScript
+            'script': response.finalScript
         });
     };
 
@@ -326,15 +359,21 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        const { finalScript } = await window.aiUtils.generateFinalScriptAI({
+        const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: taskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            refinementText: refinementText // Pass refinement text
+            refinementText: refinementText
         });
+        
+        if (!response || typeof response.finalScript !== 'string') {
+            console.error("AI response did not contain 'finalScript' string for refinement:", response);
+            throw new Error("The AI failed to refine the script. Please try again.");
+        }
+
         await onUpdateTask('scripting', 'in-progress', {
-            'script': finalScript
+            'script': response.finalScript
         });
     };
 
@@ -342,6 +381,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
+            'tasks.initialQuestions': updatedTaskData.initialQuestions,
+            'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
@@ -357,6 +398,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
+            'tasks.initialQuestions': finalTaskData.initialQuestions,
+            'tasks.initialAnswers': finalTaskData.initialAnswers,
             'tasks.scriptPlan': finalTaskData.scriptPlan,
             'tasks.locationQuestions': finalTaskData.locationQuestions,
             'tasks.userExperiences': finalTaskData.userExperiences,
@@ -402,9 +445,10 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
-                    taskData={taskData} // Pass the single source of truth directly
+                    taskData={taskData}
                     onClose={handleUpdateAndCloseWorkspace}
                     onSave={handleSaveAndComplete}
+                    onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
                     onGenerateRefinementPlan={handleGenerateRefinementPlan}
