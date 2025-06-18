@@ -23,7 +23,7 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                     center: location,
                     radius: 100000 
                 }).getBounds();
-                autocompleteOptions.strictBounds = false; // Allow results outside the area, but prefer inside.
+                autocompleteOptions.strictBounds = true; // Restrict search to this area for better relevance.
             }
         }
         // --- End of New Logic ---
