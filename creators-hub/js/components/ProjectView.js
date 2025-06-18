@@ -140,9 +140,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 videoConcept: videoConcept,
                 videoLocationsFeatured: locationsFeatured,
                 projectFootageInventory: projectFootageInventory,
-                whoAmI: settings.knowledgeBases?.youtube?.whoAmI,
-                styleGuideText: settings.styleGuideText,
-                apiKey: settings.geminiApiKey
+                settings: settings // Pass the whole settings object
             });
 
             setScriptPlanData({
@@ -186,10 +184,8 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         if (!db || !localProject?.id) return;
         const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
         try {
-            await videoRef.update({
-                [`tasks.${taskName}`]: status,
-                ...data
-            });
+            const updatePayload = { [`tasks.${taskName}`]: status, ...data };
+            await videoRef.update(updatePayload);
             if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
                 setTaskBeingEdited(null);
             }
@@ -294,7 +290,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
 
     return (
-        // Changed p-8 to p-4 for less padding on mobile, and sm:p-8 to bring it back on larger screens
         <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white">
             <window.ProjectHeader
                 project={localProject}
@@ -309,7 +304,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
             <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
 
-                {/* Left Sidebar - Video List (conditionally rendered for playlists) */}
                 {!isSingleVideoProject && (
                     <div className={`lg:w-1/4 flex-shrink-0 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg ${isSidebarOpen ? 'block' : 'hidden'} lg:block`}>
                         <window.VideoList
@@ -317,7 +311,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                             activeVideoId={activeVideoId}
                             onSelectVideo={(id) => {
                                 setActiveVideoId(id);
-                                setIsSidebarOpen(false); // Close sidebar on selection in mobile
+                                setIsSidebarOpen(false);
                             }}
                             onEditVideo={(videoToEdit) => {
                                 setActiveVideoId(videoToEdit.id);
@@ -357,7 +351,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     </div>
                 )}
 
-                {/* Main Content Area & RHS Sidebar */}
                 <div className={`flex-1 flex flex-col lg:flex-row gap-4 ${isSidebarOpen && !isSingleVideoProject ? 'hidden' : 'flex'} lg:flex`}>
                     {activeVideo ? (
                         <>
@@ -404,6 +397,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             )}
 
             {showVideoModal && activeVideo && (
+                // MODIFICATION: Pass the 'db' prop down to the modal
                 <window.EditVideoModal
                     video={activeVideo}
                     onClose={handleCloseVideoModal}
@@ -411,6 +405,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                     settings={settings}
                     project={localProject}
                     googleMapsLoaded={googleMapsLoaded}
+                    db={db} 
                 />
             )}
 
