@@ -2,7 +2,8 @@
 
 const { useState, useCallback } = React;
 
-const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsLoaded }) => {
+// MODIFICATION: Added 'db' to the list of props
+const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsLoaded, db }) => {
     // Basic Details
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
@@ -18,6 +19,7 @@ const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsL
     const [showConfirmComplete, setShowConfirmComplete] = useState(false);
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+    // This line will now work correctly because 'db' is received as a prop
     const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
     const handleLocationsUpdate = useCallback((newLocations) => {
@@ -84,7 +86,8 @@ const EditVideoModal = ({ video, userId, settings, project, onClose, googleMapsL
 
         try {
             const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const modelName = 'gemini-1.5-flash-latest'; // It's better to use a consistent, up-to-date model
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) throw new Error(await response.text());
             const result = await response.json();
