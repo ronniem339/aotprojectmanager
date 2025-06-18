@@ -1,4 +1,4 @@
-// In creators-hub/js/components/LocationSearchInput.js
+// creators-hub/js/components/LocationSearchInput.js
 
 const { useEffect, useRef } = React;
 
@@ -6,45 +6,70 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     const inputRef = useRef(null);
 
     useEffect(() => {
-        // Ensure the Google Maps API is loaded and the input element is available
-        if (window.google && window.google.maps.places && inputRef.current) {
-            const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-                // You can customize the types of places to search for
-                types: ['(cities)', 'administrative_area_level_1', 'country'],
-            });
-            
-            // Set the fields to retrieve for each place
-            autocomplete.setFields(['place_id', 'name', 'formatted_address']);
-
-            // Add a listener for when the user selects a place from the dropdown
-            const listener = autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace();
-                
-                // Ensure the place has a place_id
-                if (place && place.place_id) {
-                    // Check if the location is already in the list
-                    const isDuplicate = (existingLocations || []).some(loc => loc.place_id === place.place_id);
-                    
-                    if (!isDuplicate) {
-                        // Add the new location to the list
-                        onLocationsChange([...(existingLocations || []), place]);
-                    }
-                    
-                    // Clear the input field after a location is selected
-                    if (inputRef.current) {
-                        inputRef.current.value = "";
-                    }
-                }
-            });
-
-            // Clean up the listener when the component is unmounted
-            return () => {
-                if (window.google && window.google.maps.event) {
-                    window.google.maps.event.clearInstanceListeners(autocomplete);
-                }
-            };
+        if (!window.google || !window.google.maps.places || !inputRef.current) {
+            return;
         }
-    }, [existingLocations, onLocationsChange]); // Rerun the effect if these change
+
+        // --- NEW: Location Biasing Logic ---
+        const autocompleteOptions = {
+            types: ['(regions)', 'locality', 'tourist_attraction', 'point_of_interest', 'establishment'],
+        };
+
+        // If there's an existing location, use it to bias the search.
+        if (existingLocations && existingLocations.length > 0) {
+            const mainLocation = existingLocations[0]; // Use the first location as the anchor
+            if (mainLocation.lat && mainLocation.lng) {
+                const location = new window.google.maps.LatLng(mainLocation.lat, mainLocation.lng);
+                // Bias towards a 100km radius around the main location.
+                autocompleteOptions.bounds = new window.google.maps.Circle({
+                    center: location,
+                    radius: 100000 
+                }).getBounds();
+                autocompleteOptions.strictBounds = false; // Allow results outside the area, but prefer inside.
+            }
+        }
+        // --- End of New Logic ---
+
+        // MODIFIED: Pass the new options to the Autocomplete constructor
+        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, autocompleteOptions);
+        
+        autocomplete.setFields(['place_id', 'name', 'formatted_address', 'geometry', 'types']);
+
+        const listener = autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            
+            if (place && place.place_id) {
+                const isDuplicate = (existingLocations || []).some(loc => loc.place_id === place.place_id);
+                
+                if (!isDuplicate) {
+                    // Also include lat/lng in the location object
+                    const newLocation = {
+                        name: place.name,
+                        place_id: place.place_id,
+                        formatted_address: place.formatted_address,
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng(),
+                        types: place.types
+                    };
+                    onLocationsChange([...(existingLocations || []), newLocation]);
+                }
+                
+                if (inputRef.current) {
+                    inputRef.current.value = "";
+                }
+            }
+        });
+
+        return () => {
+            if (window.google && window.google.maps.event) {
+                // Important to remove the old listeners to prevent memory leaks
+                window.google.maps.event.clearInstanceListeners(autocomplete);
+                // Also remove pac-container from the body
+                const pacContainers = document.querySelectorAll('.pac-container');
+                pacContainers.forEach(container => container.remove());
+            }
+        };
+    }, [existingLocations, onLocationsChange]); // Rerun effect if existingLocations changes
 
     const handleRemoveLocation = (place_id_to_remove) => {
         const newLocations = existingLocations.filter(loc => loc.place_id !== place_id_to_remove);
@@ -58,16 +83,17 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                     ref={inputRef}
                     type="text"
                     placeholder="Search and add a location..."
-                    className="form-input w-full"
+                    className="w-full form-input"
+                    disabled={!window.google}
                 />
             </div>
             <div className="space-y-2">
                 {(existingLocations || []).map(loc => (
-                    <div key={loc.place_id} className="flex items-center justify-between bg-gray-800 p-2 rounded-md">
-                        <span className="font-semibold">{loc.name}</span>
+                    <div key={loc.place_id || loc.name} className="flex items-center justify-between bg-gray-800/70 p-2 rounded-md">
+                        <span className="font-semibold text-gray-200">{loc.name}</span>
                         <button 
                             onClick={() => handleRemoveLocation(loc.place_id)} 
-                            className="text-red-500 hover:text-red-700 font-bold text-lg"
+                            className="text-gray-400 hover:text-red-500 font-bold text-xl leading-none px-2"
                             title={`Remove ${loc.name}`}
                         >
                             &times;
