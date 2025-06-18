@@ -23,6 +23,8 @@ const ScriptingWorkspaceModal = ({
     const [error, setError] = useState('');
 
     useEffect(() => {
+        // This effect keeps the modal's local state in sync with the parent's data.
+        // This is crucial for seeing updates after an AI action completes.
         setLocalTaskData(taskData);
     }, [taskData]);
     
@@ -54,6 +56,7 @@ const ScriptingWorkspaceModal = ({
     };
 
     const renderContent = () => {
+        // The stage is now always read from the synchronized localTaskData
         const stage = localTaskData.scriptingStage || 'initial_thoughts';
 
         switch (stage) {
@@ -211,9 +214,8 @@ const ScriptingWorkspaceModal = ({
 
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
-    const [initialStage, setInitialStage] = useState('initial_thoughts');
     
-    // Consolidate task data from video prop into a consistent object
+    // Consolidate task data from the video prop. This is the single source of truth.
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'initial_thoughts',
         initialThoughts: video.tasks?.initialThoughts || '',
@@ -221,28 +223,24 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
         script: video.script || '',
-        outlineRefinementText: '',
-        scriptRefinementText: '',
+        outlineRefinementText: '', // This is transient UI state, so it's fine here
+        scriptRefinementText: '',  // This is transient UI state, so it's fine here
     };
     
     // Logic to decide which stage to open the modal at
     const handleOpenWorkspace = (startStage = null) => {
-        let stageToOpen = 'initial_thoughts';
-        if (startStage) {
-            stageToOpen = startStage;
-        } else if (video.script) {
-            stageToOpen = 'full_script_review';
-        } else if (video.tasks?.locationQuestions?.length > 0) {
-            stageToOpen = 'refinement_qa';
-        } else if (video.tasks?.scriptPlan) {
-            stageToOpen = 'draft_outline_review';
+        // If a specific start stage is requested (like 'full_script_review' for the paste button), use it.
+        // Otherwise, determine the current stage from the existing video data.
+        let stageToOpen = startStage;
+        if (!stageToOpen) {
+            stageToOpen = taskData.scriptingStage;
         }
-        
-        if (taskData.scriptingStage === 'pending') {
+
+        // If the task has never been started, update its stage in Firestore.
+        if (video.tasks?.scriptingStage === 'pending' || !video.tasks?.scriptingStage) {
             onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
         }
         
-        setInitialStage(stageToOpen);
         setShowWorkspace(true);
     };
 
@@ -321,18 +319,25 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
+    // This function is called when the modal is closed via the 'X' button.
+    // It syncs any direct edits the user made in textareas before closing.
     const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
-        onUpdateTask('scripting', 'in-progress', {
+        const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'script': updatedTaskData.script,
-        });
+        };
+        // Only update if the task is not yet complete
+        if(video.tasks?.scripting !== 'complete'){
+             onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
+        }
         setShowWorkspace(false);
     };
 
+    // This function is called by the final "Save and Complete" button
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
@@ -377,15 +382,13 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         );
     };
 
-    const modalTaskData = { ...taskData, scriptingStage: initialStage };
-
     return (
         <div>
             {renderAccordionContent()}
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
-                    taskData={modalTaskData}
+                    taskData={taskData} // Pass the single source of truth directly
                     onClose={handleUpdateAndCloseWorkspace}
                     onSave={handleSaveAndComplete}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
