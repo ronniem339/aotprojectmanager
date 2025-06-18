@@ -2,7 +2,8 @@
 
 const { useState, useCallback } = React;
 
-window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance }) => {
+// MODIFICATION: Added 'db' to the list of props to fix the crash
+window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance, db }) => {
     const [title, setTitle] = useState(project.playlistTitle);
     const [description, setDescription] = useState(project.playlistDescription);
     const [locations, setLocations] = useState(project.locations || []);
@@ -13,6 +14,8 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || '');
     const [isSaving, setIsSaving] = useState(false);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+    
+    // This line will now work correctly as 'db' is received as a prop
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
@@ -121,10 +124,8 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         setGenerating(type);
         const apiKey = settings.geminiApiKey || "";
 
-        // Create a summary of the videos in the project for context
         const videoSummary = videos.map(v => `- Video Title: "${v.title}", Concept: "${v.concept}"`).join('\n');
         
-        // Get the user's style guide from settings
         const styleGuide = settings.styleGuideText || 'The user has not provided a style guide.';
         
         let prompt = '';
@@ -166,7 +167,7 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
 
         try {
             const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) throw new Error(await response.text());
             const result = await response.json();
