@@ -10,12 +10,13 @@ const ScriptingWorkspaceModal = ({
     taskData,
     onClose,
     onSave,
+    stageOverride, // BUGFIX: New prop to override the initial stage view
     // AI action handlers
     onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onRefineOutline,
     onGenerateRefinementPlan,
-    onProceedToScripting, // New handler to decide next step
+    onProceedToScripting,
     onGenerateFullScript,
     onRefineScript,
 }) => {
@@ -31,7 +32,6 @@ const ScriptingWorkspaceModal = ({
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
     };
 
-    // New handler specifically for on-camera descriptions
     const handleOnCameraDescriptionChange = (locationName, description) => {
         const newDescriptions = { 
             ...(localTaskData.onCameraDescriptions || {}), 
@@ -57,7 +57,8 @@ const ScriptingWorkspaceModal = ({
     const handleSaveAndComplete = () => onSave(localTaskData);
 
     const renderContent = () => {
-        const stage = localTaskData.scriptingStage || 'initial_thoughts';
+        // BUGFIX: Use the stageOverride if provided, otherwise use the stage from the task data
+        const stage = stageOverride || localTaskData.scriptingStage || 'initial_thoughts';
 
         switch (stage) {
             case 'initial_thoughts':
@@ -165,7 +166,6 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                          <div className="text-center mt-8">
-                            {/* MODIFICATION: This button now triggers the check for on-camera footage */}
                             <button onClick={() => handleAction(onProceedToScripting)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
                             </button>
@@ -173,7 +173,6 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
-            // NEW STAGE for collecting on-camera segment details
             case 'on_camera_qa':
                 return (
                     <div>
@@ -235,7 +234,7 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
             default:
-                return <p>Invalid scripting stage: {stage}</p>;
+                return <p className="text-red-400 text-center p-4">Invalid scripting stage: {stage}</p>;
         }
     };
 
@@ -256,8 +255,9 @@ const ScriptingWorkspaceModal = ({
 
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
+    // BUGFIX: State to override the modal's starting view, separate from the persisted task status
+    const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     
-    // MODIFICATION: Added fields to hold on-camera footage details
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
@@ -266,21 +266,30 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptPlan: video.tasks?.scriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
-        onCameraLocations: video.tasks?.onCameraLocations || [],      // new
-        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},// new
+        onCameraLocations: video.tasks?.onCameraLocations || [],
+        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
         script: video.script || '',
         outlineRefinementText: '',
         scriptRefinementText: '',
     };
     
+    // BUGFIX: Updated logic to handle opening a completed task for viewing
     const handleOpenWorkspace = async (startStage = null) => {
+        setWorkspaceStageOverride(null); // Reset override each time
         let stageToOpen = startStage;
-        if (!stageToOpen) {
-            const currentStage = taskData.scriptingStage;
-            stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
-        }
-        if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-            await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
+
+        if (video.tasks?.scripting === 'complete' && startStage === 'full_script_review') {
+            // If task is done and we just want to view/edit, set the override
+            setWorkspaceStageOverride('full_script_review');
+        } else {
+            // Otherwise, follow the normal workflow
+            if (!stageToOpen) {
+                const currentStage = taskData.scriptingStage;
+                stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
+            }
+            if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
+                await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
+            }
         }
         setShowWorkspace(true);
     };
@@ -373,9 +382,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
     
-    // NEW FUNCTION: Checks for on-camera footage and routes to the new Q&A step or skips it.
     const handleProceedToScripting = async () => {
-        // First, save the user's answers from the current step
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': taskData.userExperiences });
 
         const onCameraLocations = (video.locations_featured || [])
@@ -385,14 +392,12 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             });
 
         if (onCameraLocations.length > 0) {
-            // If on-camera footage exists, go to the new Q&A step
             await onUpdateTask('scripting', 'in-progress', {
                 'tasks.scriptingStage': 'on_camera_qa',
                 'tasks.onCameraLocations': onCameraLocations,
                 'tasks.onCameraDescriptions': taskData.onCameraDescriptions || {}
             });
         } else {
-            // Otherwise, skip directly to generating the full script
             await handleGenerateFullScript();
         }
     };
@@ -402,7 +407,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // MODIFICATION: Pass the on-camera descriptions to the AI
         const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: taskData.scriptPlan,
             userAnswers: answersText,
@@ -427,7 +431,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // MODIFICATION: Pass on-camera descriptions during refinement as well
         const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: taskData.scriptPlan,
             userAnswers: answersText,
@@ -448,7 +451,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
-        // MODIFICATION: Include new on-camera fields when saving progress
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
@@ -468,7 +470,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleSaveAndComplete = (finalTaskData) => {
-        // MODIFICATION: Include new on-camera fields when completing the task
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
@@ -522,13 +523,14 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                 <ScriptingWorkspaceModal
                     video={video}
                     taskData={taskData}
+                    stageOverride={workspaceStageOverride} // BUGFIX: Pass the override prop
                     onClose={handleUpdateAndCloseWorkspace}
                     onSave={handleSaveAndComplete}
                     onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
                     onGenerateRefinementPlan={handleGenerateRefinementPlan}
-                    onProceedToScripting={handleProceedToScripting} // Pass new handler
+                    onProceedToScripting={handleProceedToScripting}
                     onGenerateFullScript={handleGenerateFullScript}
                     onRefineScript={handleRefineScript}
                 />,
