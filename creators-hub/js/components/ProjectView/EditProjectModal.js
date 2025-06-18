@@ -2,7 +2,7 @@
 
 const { useState, useCallback } = React;
 
-// MODIFICATION: Added 'db' to the list of props to fix the crash
+// MODIFICATION: Added 'db' to the props to ensure the component has database access.
 window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance, db }) => {
     const [title, setTitle] = useState(project.playlistTitle);
     const [description, setDescription] = useState(project.playlistDescription);
@@ -13,9 +13,11 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const [generating, setGenerating] = useState(null);
     const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || '');
     const [isSaving, setIsSaving] = useState(false);
+
+    // NEW: State to manage the project's footage inventory.
+    const [footageInventory, setFootageInventory] = useState(project.footageInventory || {});
+
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
-    
-    // This line will now work correctly as 'db' is received as a prop
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
@@ -42,9 +44,31 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         }
     };
 
+    // MODIFICATION: Update location handler to ensure new locations get a default inventory entry.
     const handleLocationsUpdate = useCallback((newLocations) => {
         setLocations(newLocations);
+        setFootageInventory(prev => {
+            const newInventory = {...prev};
+            newLocations.forEach(loc => {
+                if (!newInventory[loc.name]) {
+                    newInventory[loc.name] = { name: loc.name, bRoll: false, onCamera: false, drone: false, importance: 'secondary' };
+                }
+            });
+            return newInventory;
+        });
     }, []);
+
+    // NEW: Handler to manage changes in the footage inventory checkboxes and dropdowns.
+    const handleInventoryChange = (locationName, field, value) => {
+        const isCheckbox = typeof value !== 'string';
+        setFootageInventory(prev => ({
+            ...prev,
+            [locationName]: {
+                ...(prev[locationName] || { name: locationName }),
+                [field]: isCheckbox ? !prev[locationName]?.[field] : value,
+            }
+        }));
+    };
 
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && keywordInput.trim() !== '') {
@@ -105,12 +129,14 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         }
 
         try {
+            // MODIFICATION: Add the updated footage inventory to the save operation.
             await projectDocRef.update({
                 playlistTitle: title,
                 playlistDescription: description,
                 locations: locations,
                 coverImageUrl: finalCoverImageUrl,
-                targeted_keywords: targetedKeywords
+                targeted_keywords: targetedKeywords,
+                footageInventory: footageInventory 
             });
             onClose();
         } catch (error) {
@@ -123,45 +149,36 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const handleRefine = async (type) => {
         setGenerating(type);
         const apiKey = settings.geminiApiKey || "";
-
         const videoSummary = videos.map(v => `- Video Title: "${v.title}", Concept: "${v.concept}"`).join('\n');
-        
         const styleGuide = settings.styleGuideText || 'The user has not provided a style guide.';
-        
         let prompt = '';
         if (type === 'title') {
             prompt = `A user is creating a YouTube series. Based on the individual video concepts and the user's style guide below, refine the overall series title.
 
 Current Series Title: "${title}"
 User's Refinement Instruction: "${refinement}"
-
 Creator's Style Guide:
 ---
 ${styleGuide}
 ---
-
 Video Concepts in this Series:
 ---
 ${videoSummary}
 ---
-
 Generate 3 NEW, creative, and SEO-friendly title suggestions for the series that reflect the video content AND the creator's style guide. Return as a JSON object like: {"suggestions": ["title1", "title2", "title3"]}`;
         } else {
             prompt = `A user is creating a YouTube series. Based on the individual video concepts and the user's style guide below, rewrite the overall series description.
 
 Current Series Description: "${description}"
 User's Refinement Instruction: "${refinement}"
-
 Creator's Style Guide:
 ---
 ${styleGuide}
 ---
-
 Video Concepts in this Series:
 ---
 ${videoSummary}
 ---
-
 Rewrite the playlist description to incorporate the user's feedback, accurately summarize the videos, and match the creator's style guide. Keep it SEO-optimized. Return as a JSON object like: {"suggestion": "new description..."}`;
         }
 
@@ -207,6 +224,45 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                             : <window.MockLocationSearchInput />
                         }
                     </div>
+
+                    {/* NEW: Footage Inventory Section */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Footage Inventory</label>
+                        <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700 space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
+                            {locations.length > 0 ? (
+                                locations.map(location => {
+                                    const inventory = footageInventory[location.name] || {};
+                                    return (
+                                        <div key={location.place_id || location.name} className="p-3 bg-gray-800 rounded-md">
+                                            <h4 className="font-semibold text-gray-200">{location.name}</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 items-center">
+                                                <label className="flex items-center space-x-2 text-sm">
+                                                    <input type="checkbox" checked={!!inventory.bRoll} onChange={() => handleInventoryChange(location.name, 'bRoll')} className="form-checkbox-small"/>
+                                                    <span>B-Roll</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 text-sm">
+                                                    <input type="checkbox" checked={!!inventory.onCamera} onChange={() => handleInventoryChange(location.name, 'onCamera')} className="form-checkbox-small"/>
+                                                    <span>On-Camera</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 text-sm">
+                                                    <input type="checkbox" checked={!!inventory.drone} onChange={() => handleInventoryChange(location.name, 'drone')} className="form-checkbox-small"/>
+                                                    <span>Drone</span>
+                                                </label>
+                                                <select value={inventory.importance || 'secondary'} onChange={(e) => handleInventoryChange(location.name, 'importance', e.target.value)} className="form-select-small text-xs">
+                                                    <option value="primary">Primary</option>
+                                                    <option value="secondary">Secondary</option>
+                                                    <option value="background">Background</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            ) : (
+                                <p className="text-gray-500 text-sm p-2">Add locations to the project to manage their footage inventory.</p>
+                            )}
+                        </div>
+                    </div>
+
 
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Keywords</label>
