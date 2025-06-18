@@ -5,23 +5,24 @@ const { useState, useEffect, useCallback } = React;
 window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db }) => {
     // --- STATE MANAGEMENT ---
 
-    // Video-specific details from original code
+    // Video-specific details from the provided original code
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
     const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
 
+    // --- NEW & MODIFIED STATE for Location/Inventory Sync ---
     // State for locations tied to this specific video
     const [videoLocations, setVideoLocations] = useState(
-        video.locations_featured 
-            ? project.locations.filter(loc => video.locations_featured.includes(loc.name)) 
+        video.locations_featured
+            ? (project.locations || []).filter(loc => video.locations_featured.includes(loc.name))
             : []
     );
 
-    // Project-level data that can be modified from this modal
+    // State for the overall project data, which can be modified from this modal
     const [projectLocations, setProjectLocations] = useState(project.locations || []);
     const [projectFootageInventory, setProjectFootageInventory] = useState(project.footageInventory || {});
-
+    
     // AI and UI State from original code
     const [keywordIdeas, setKeywordIdeas] = useState([]);
     const [isLoadingKeywords, setIsLoadingKeywords] = useState(false);
@@ -39,7 +40,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     useEffect(() => {
         setProjectFootageInventory(prevInventory => {
             const newInventory = {};
-            projectLocations.forEach(loc => {
+            (projectLocations || []).forEach(loc => {
                 newInventory[loc.name] = prevInventory[loc.name] || {
                     name: loc.name, bRoll: false, onCamera: false, drone: false, stopType: 'quick'
                 };
@@ -69,7 +70,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     const handleInventoryChange = (locationName, field, value) => {
         setProjectFootageInventory(prev => ({
             ...prev,
-            [locationName]: { ...prev[locationName], [field]: value },
+            [locationName]: { ...(prev[locationName] || { name: locationName }), [field]: value },
         }));
     };
 
@@ -85,7 +86,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     // Handles deleting a location from this video's inventory
     const handleDeleteLocation = (locationNameToDelete) => {
         setVideoLocations(prev => prev.filter(loc => loc.name !== locationNameToDelete));
-        const isLocationUsedElsewhere = allVideos.some(v => 
+        const isLocationUsedElsewhere = (allVideos || []).some(v => 
             v.id !== video.id && v.locations_featured?.includes(locationNameToDelete)
         );
         if (!isLocationUsedElsewhere) {
@@ -113,7 +114,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         setTargetedKeywords(prev => prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]);
     };
 
-    // --- ASYNC & AI FUNCTIONS ---
+    // --- ASYNC & AI FUNCTIONS from original code ---
 
     const handleGenerateKeywords = async () => {
         setIsLoadingKeywords(true);
@@ -139,7 +140,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     const handleRefine = async (type) => {
         setGenerating(type);
         const apiKey = settings.geminiApiKey || "";
-        let prompt = '';
+        let prompt;
         if (type === 'title') {
             prompt = `The user is creating a YouTube video. The current title is "${title}" and the concept is "${concept}". Their refinement instruction is: "${refinement}". Generate 3 NEW, creative title suggestions. Return as a JSON object like: {"suggestions": ["title1", "title2", "title3"]}`;
         } else {
@@ -164,13 +165,14 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
             setRefinement('');
         }
     };
-
+    
+    // *** MODIFIED SAVE HANDLER with Batch Write for full synchronization ***
     const handleSaveChanges = async () => {
         setIsSaving(true);
         const batch = db.batch();
 
-        // 1. Update the Video Document
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/videos`).doc(video.id);
+        // 1. Update the Video Document using the correct subcollection path
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         batch.update(videoDocRef, {
             chosenTitle: title,
             concept: concept,
@@ -178,7 +180,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
             targeted_keywords: targetedKeywords
         });
 
-        // 2. Update the Project Document
+        // 2. Update the Project Document with synced locations and inventory
         const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
         batch.update(projectDocRef, {
             locations: projectLocations,
@@ -196,7 +198,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     };
 
     const handleMarkAllComplete = async () => {
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/videos`).doc(video.id);
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         const completedTasks = {};
         window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => {  
             completedTasks[task.id] = 'complete';
@@ -205,7 +207,8 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         onClose();
     };
 
-    // --- RENDER ---
+
+    // --- RENDER METHOD ---
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-start z-50 p-4 overflow-y-auto">
             <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-5xl relative my-8">
@@ -226,10 +229,12 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                     {/* Locations */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Video Locations</label>
-                        {googleMapsLoaded 
-                            ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdateForVideo} existingLocations={videoLocations} /> 
-                            : <window.MockLocationSearchInput />
-                        }
+                        <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                             {googleMapsLoaded 
+                                ? <window.LocationSearchInput onLocationsChange={handleLocationsUpdateForVideo} existingLocations={videoLocations} /> 
+                                : <window.MockLocationSearchInput />
+                            }
+                        </div>
                     </div>
 
                     {/* Footage Inventory */}
