@@ -19,6 +19,9 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
     useEffect(() => {
+        // This effect syncs the footage inventory whenever the main 'locations' array changes.
+        // It ensures that the inventory list always matches the project's locations,
+        // correctly handling both additions and removals.
         setFootageInventory(prevInventory => {
             const newInventory = {};
             locations.forEach(loc => {
@@ -51,9 +54,10 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     };
 
     const handleLocationsUpdate = useCallback((newLocations) => {
+        // This function is called by the LocationSearchInput when its list is modified.
         setLocations(newLocations);
     }, []);
-
+    
     const handleInventoryChange = (locationName, field, value) => {
         setFootageInventory(prev => {
             const currentLoc = prev[locationName] || { name: locationName };
@@ -75,6 +79,12 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         setFootageInventory(newInventory);
     };
 
+    const handleDeleteLocation = (locationNameToDelete) => {
+        // This function ensures that when a location is deleted from the inventory UI,
+        // it's also removed from the main locations list, keeping them in sync.
+        const newLocations = locations.filter(loc => loc.name !== locationNameToDelete);
+        setLocations(newLocations);
+    };
 
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && keywordInput.trim() !== '') {
@@ -196,12 +206,12 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-5xl relative">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-start z-50 p-4 overflow-y-auto">
+            <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-5xl relative my-8">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-2xl font-bold mb-6">Edit Project Details</h2>
                 
-                <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-4 custom-scrollbar">
+                <div className="space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Title</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full form-input" />
@@ -218,32 +228,32 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                         }
                     </div>
 
-                    {/* --- UI OVERHAUL: Footage Inventory Grid --- */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Footage Inventory</label>
                         <div className="bg-gray-900/50 rounded-lg border border-gray-700">
-                             <div className="grid grid-cols-6 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
+                             <div className="grid grid-cols-7 gap-4 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
                                 <div className="col-span-2">Location</div>
                                 <div>Stop Type</div>
                                 <div className="text-center">
                                     B-Roll
-                                    <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                    <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                 </div>
                                 <div className="text-center">
                                     On-Camera
-                                     <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                     <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                 </div>
                                 <div className="text-center">
                                     Drone
-                                    <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                    <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
                                 </div>
+                                <div className="text-center">Action</div>
                             </div>
-                            <div className="max-h-56 overflow-y-auto custom-scrollbar">
+                            <div>
                                 {locations.length > 0 ? (
                                     locations.map(location => {
                                         const inventory = footageInventory[location.name] || {};
                                         return (
-                                            <div key={location.place_id || location.name} className="grid grid-cols-6 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
+                                            <div key={location.place_id || location.name} className="grid grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
                                                 <div className="col-span-2 pr-2">
                                                     <p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p>
                                                 </div>
@@ -252,13 +262,20 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                                                      <button onClick={() => handleInventoryChange(location.name, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
                                                 </div>
                                                 <div className="flex justify-center">
-                                                    <input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(location.name, 'bRoll', e.target.checked)} className="form-checkbox-small"/>
+                                                    <input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(location.name, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
                                                 </div>
                                                 <div className="flex justify-center">
-                                                    <input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(location.name, 'onCamera', e.target.checked)} className="form-checkbox-small"/>
+                                                    <input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(location.name, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
                                                 </div>
                                                 <div className="flex justify-center">
-                                                    <input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(location.name, 'drone', e.target.checked)} className="form-checkbox-small"/>
+                                                    <input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(location.name, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
+                                                </div>
+                                                <div className="flex justify-center">
+                                                    <button onClick={() => handleDeleteLocation(location.name)} className="text-gray-500 hover:text-red-500 transition-colors" title={`Delete ${location.name}`}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </div>
                                         )
@@ -269,7 +286,6 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                             </div>
                         </div>
                     </div>
-                    {/* --- END OF UI OVERHAUL --- */}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Keywords</label>
