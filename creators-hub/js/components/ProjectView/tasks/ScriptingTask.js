@@ -217,30 +217,49 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     
     // Consolidate task data from the video prop. This is the single source of truth.
     const taskData = {
-        scriptingStage: video.tasks?.scriptingStage || 'initial_thoughts',
+        scriptingStage: video.tasks?.scriptingStage || 'pending', // Default to 'pending'
         initialThoughts: video.tasks?.initialThoughts || '',
         scriptPlan: video.tasks?.scriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
         script: video.script || '',
-        outlineRefinementText: '', // This is transient UI state, so it's fine here
-        scriptRefinementText: '',  // This is transient UI state, so it's fine here
+        outlineRefinementText: '',
+        scriptRefinementText: '',
     };
     
-    // Logic to decide which stage to open the modal at
-    const handleOpenWorkspace = (startStage = null) => {
-        // If a specific start stage is requested (like 'full_script_review' for the paste button), use it.
-        // Otherwise, determine the current stage from the existing video data.
-        let stageToOpen = startStage;
-        if (!stageToOpen) {
-            stageToOpen = taskData.scriptingStage;
+    // **FIX IS HERE** Logic to decide which stage to open the modal at
+    const handleOpenWorkspace = async (startStage = null) => {
+        let stageToOpen;
+
+        // 1. Determine the target stage
+        if (startStage) {
+            stageToOpen = startStage;
+        } else {
+            const currentStage = taskData.scriptingStage;
+            // If it's pending or doesn't exist, the next logical stage is initial_thoughts
+            if (currentStage === 'pending' || !currentStage) {
+                stageToOpen = 'initial_thoughts'; 
+            } else {
+                // Otherwise, continue from where the user left off
+                stageToOpen = currentStage; 
+            }
         }
 
-        // If the task has never been started, update its stage in Firestore.
-        if (video.tasks?.scriptingStage === 'pending' || !video.tasks?.scriptingStage) {
-            onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
+        // 2. Update the database ONLY IF we are starting for the first time.
+        // This is the key change: it moves the state from 'pending' to an active stage.
+        if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
+            try {
+                // We now AWAIT this operation to ensure it completes before we proceed.
+                await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': stageToOpen });
+            } catch (e) {
+                console.error("Failed to update task stage:", e);
+                // Optionally show an error to the user here.
+                return; // Don't open the modal if the database update fails.
+            }
         }
         
+        // 3. Now that we're sure the database is updated, open the modal.
+        // The parent component will re-render with the correct data from the database.
         setShowWorkspace(true);
     };
 
@@ -319,8 +338,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    // This function is called when the modal is closed via the 'X' button.
-    // It syncs any direct edits the user made in textareas before closing.
     const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
@@ -330,14 +347,12 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'script': updatedTaskData.script,
         };
-        // Only update if the task is not yet complete
         if(video.tasks?.scripting !== 'complete'){
              onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
         }
         setShowWorkspace(false);
     };
 
-    // This function is called by the final "Save and Complete" button
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
@@ -373,7 +388,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     <button onClick={() => handleOpenWorkspace()} className="button-primary">
                         Open Scripting Workspace
                     </button>
-                    {/* NEW BUTTON ADDED HERE */}
                     <button onClick={() => handleOpenWorkspace('full_script_review')} className="button-secondary">
                         Paste Final Script
                     </button>
