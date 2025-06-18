@@ -13,10 +13,11 @@ const addLocationsWithoutDuplicates = (existingLocations, newLocations) => {
 };
 
 
-window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db }) => {
+window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db, firebaseAppInstance }) => {
     // --- STATE MANAGEMENT ---
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
+    const [thumbnailUrl, setThumbnailUrl] = useState(video.thumbnail_url || ''); // State for the thumbnail
     const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
 
@@ -41,6 +42,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     const [isSaving, setIsSaving] = useState(false);
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+    const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
     // --- EFFECTS ---
 
@@ -64,6 +66,25 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     }, [projectLocations]);
 
     // --- HANDLERS ---
+    
+    // Handler for direct file upload of the video thumbnail
+    const handleThumbnailFileChange = async (e) => {
+        if (e.target.files && e.target.files[0] && storage) {
+            const file = e.target.files[0];
+            setIsSaving(true);
+            try {
+                const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}_${file.name}`;
+                const storageRef = storage.ref(path);
+                await storageRef.put(file);
+                const newUrl = await storageRef.getDownloadURL();
+                setThumbnailUrl(newUrl);
+            } catch (error) {
+                console.error("Error uploading thumbnail:", error);
+            } finally {
+                setIsSaving(false);
+            }
+        }
+    };
 
     const handleLocationsUpdateForVideo = useCallback((updatedVideoLocations) => {
         setVideoLocations(updatedVideoLocations);
@@ -72,7 +93,6 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         });
     }, []);
 
-    // Handles changes to the footage inventory using the location's key (place_id)
     const handleInventoryChange = (locationKey, field, value) => {
         setProjectFootageInventory(prev => ({
             ...prev,
@@ -80,7 +100,6 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         }));
     };
 
-    // Handles "Select All" for footage types for locations in this video
     const handleSelectAllFootage = (type, isChecked) => {
         setProjectFootageInventory(prevInventory => {
             const newInventory = { ...prevInventory };
@@ -92,26 +111,21 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         });
     };
     
-    // Handles deleting a location from this video's list
     const handleDeleteLocation = (locationKeyToDelete) => {
         const locationToDelete = videoLocations.find(loc => (loc.place_id || loc.name) === locationKeyToDelete);
         if (!locationToDelete) return;
 
-        // Remove from this video's list of locations
         setVideoLocations(prev => prev.filter(loc => (loc.place_id || loc.name) !== locationKeyToDelete));
         
-        // Check if the location is used in any OTHER video
         const isLocationUsedElsewhere = (allVideos || []).some(v => 
             v.id !== video.id && v.locations_featured?.includes(locationToDelete.name)
         );
 
-        // If not used elsewhere, remove it from the main project list
         if (!isLocationUsedElsewhere) {
             setProjectLocations(prev => prev.filter(loc => (loc.place_id || loc.name) !== locationKeyToDelete));
         }
     };
     
-    // Keyword Handlers
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && keywordInput.trim() !== '') {
             e.preventDefault();
@@ -183,17 +197,39 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         }
     };
     
-    // SAVE HANDLER with Batch Write for full synchronization
     const handleSaveChanges = async () => {
         setIsSaving(true);
         const batch = db.batch();
+        
+        let finalThumbnailUrl = thumbnailUrl;
+
+        if (thumbnailUrl && !thumbnailUrl.includes('firebasestorage.googleapis.com') && storage) {
+             try {
+                const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(thumbnailUrl)}`;
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error(await response.text());
+                const blob = await response.blob();
+                
+                const fileExtensionMatch = thumbnailUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
+                const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
+                const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}${fileExtension}`;
+                
+                const storageRef = storage.ref(path);
+                await storageRef.put(blob);
+                finalThumbnailUrl = await storageRef.getDownloadURL();
+            } catch (error) {
+                console.error("Failed to upload new thumbnail from URL:", error);
+                finalThumbnailUrl = video.thumbnail_url || '';
+            }
+        }
 
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         batch.update(videoDocRef, {
             chosenTitle: title,
             concept: concept,
             locations_featured: videoLocations.map(loc => loc.name),
-            targeted_keywords: targetedKeywords
+            targeted_keywords: targetedKeywords,
+            thumbnail_url: finalThumbnailUrl
         });
 
         const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
@@ -241,6 +277,36 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                         <textarea value={concept} onChange={(e) => setConcept(e.target.value)} rows="4" className="w-full form-textarea" />
                     </div>
 
+                    {/* Thumbnail Section */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Video Thumbnail</label>
+                        <div className="flex items-center gap-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                            {thumbnailUrl ? (
+                                <img src={thumbnailUrl} alt="Video Thumbnail" className="w-40 h-24 object-cover rounded-md border border-gray-600"/>
+                            ) : (
+                                <div className="w-40 h-24 flex items-center justify-center bg-gray-800 text-gray-500 text-xs rounded-md border border-gray-700">No Thumbnail</div>
+                            )}
+                            <div className="flex-grow">
+                                <input 
+                                    type="text" 
+                                    value={thumbnailUrl} 
+                                    onChange={(e) => setThumbnailUrl(e.target.value)} 
+                                    className="w-full form-input mb-2" 
+                                    placeholder="Paste thumbnail URL here..."
+                                />
+                                <label className="block w-full text-center px-4 py-2 text-sm bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold cursor-pointer transition-colors">
+                                    <span>Or Upload Thumbnail</span>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={handleThumbnailFileChange}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Locations */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Video Locations</label>
@@ -275,8 +341,8 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                                             <div key={locationKey} className="grid grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
                                                 <div className="col-span-2 pr-2"><p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p></div>
                                                 <div className="flex gap-1">
-                                                    <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
-                                                    <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
+                                                     <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
+                                                     <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
                                                 </div>
                                                 <div className="flex justify-center"><input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(locationKey, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
                                                 <div className="flex justify-center"><input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(locationKey, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
