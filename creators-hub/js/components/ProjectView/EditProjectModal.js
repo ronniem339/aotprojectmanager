@@ -1,4 +1,4 @@
-// js/components/ProjectView/EditProjectModal.js
+// creators-hub/js/components/ProjectView/EditProjectModal.js
 
 const { useState, useEffect, useCallback } = React;
 
@@ -18,17 +18,16 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
-    // This hook keeps the footage inventory synchronized with the locations list.
     useEffect(() => {
         setFootageInventory(prevInventory => {
             const newInventory = {};
             locations.forEach(loc => {
-                newInventory[loc.name] = prevInventory[loc.name] || { 
-                    name: loc.name, 
-                    bRoll: false, 
-                    onCamera: false, 
-                    drone: false, 
-                    stopType: 'standard' 
+                newInventory[loc.name] = prevInventory[loc.name] || {
+                    name: loc.name,
+                    bRoll: false,
+                    onCamera: false,
+                    drone: false,
+                    stopType: 'quick' // Default to 'quick'
                 };
             });
             return newInventory;
@@ -56,18 +55,26 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     }, []);
 
     const handleInventoryChange = (locationName, field, value) => {
-        const isCheckbox = typeof value === 'undefined';
         setFootageInventory(prev => {
             const currentLoc = prev[locationName] || { name: locationName };
             return {
                 ...prev,
                 [locationName]: {
                     ...currentLoc,
-                    [field]: isCheckbox ? !currentLoc[field] : value,
+                    [field]: value,
                 }
             };
         });
     };
+    
+    const handleSelectAllFootage = (type, isChecked) => {
+        const newInventory = { ...footageInventory };
+        locations.forEach(loc => {
+            newInventory[loc.name] = { ...(newInventory[loc.name] || { name: loc.name }), [type]: isChecked };
+        });
+        setFootageInventory(newInventory);
+    };
+
 
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && keywordInput.trim() !== '') {
@@ -123,7 +130,7 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                 locations: locations,
                 coverImageUrl: finalCoverImageUrl,
                 targeted_keywords: targetedKeywords,
-                footageInventory: footageInventory 
+                footageInventory: footageInventory
             });
             onClose();
         } catch (error) {
@@ -133,7 +140,6 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         }
     };
 
-    // RESTORED: The full AI Refinement logic
     const handleRefine = async (type) => {
         setGenerating(type);
         const apiKey = settings.geminiApiKey || "";
@@ -191,7 +197,7 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-3xl relative">
+            <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-5xl relative">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-2xl font-bold mb-6">Edit Project Details</h2>
                 
@@ -216,12 +222,21 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Footage Inventory</label>
                         <div className="bg-gray-900/50 rounded-lg border border-gray-700">
-                            <div className="grid grid-cols-6 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
+                             <div className="grid grid-cols-6 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
                                 <div className="col-span-2">Location</div>
                                 <div>Stop Type</div>
-                                <div className="text-center">B-Roll</div>
-                                <div className="text-center">On-Camera</div>
-                                <div className="text-center">Drone</div>
+                                <div className="text-center">
+                                    B-Roll
+                                    <input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                </div>
+                                <div className="text-center">
+                                    On-Camera
+                                     <input type="checkbox" onChange={(e) => handleSelectAllFootage('onCamera', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                </div>
+                                <div className="text-center">
+                                    Drone
+                                    <input type="checkbox" onChange={(e) => handleSelectAllFootage('drone', e.target.checked)} className="ml-2 h-4 w-4 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/>
+                                </div>
                             </div>
                             <div className="max-h-56 overflow-y-auto custom-scrollbar">
                                 {locations.length > 0 ? (
@@ -232,25 +247,18 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                                                 <div className="col-span-2 pr-2">
                                                     <p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p>
                                                 </div>
-                                                <div>
-                                                    <select 
-                                                        value={inventory.stopType || 'standard'} 
-                                                        onChange={(e) => handleInventoryChange(location.name, 'stopType', e.target.value)} 
-                                                        className="form-select-small text-xs w-full"
-                                                    >
-                                                        <option value="major">Major Feature</option>
-                                                        <option value="standard">Standard Stop</option>
-                                                        <option value="passing">Passing Mention</option>
-                                                    </select>
+                                                <div className="flex gap-1">
+                                                     <button onClick={() => handleInventoryChange(location.name, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
+                                                     <button onClick={() => handleInventoryChange(location.name, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
                                                 </div>
                                                 <div className="flex justify-center">
-                                                    <input type="checkbox" checked={!!inventory.bRoll} onChange={() => handleInventoryChange(location.name, 'bRoll')} className="form-checkbox-small"/>
+                                                    <input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(location.name, 'bRoll', e.target.checked)} className="form-checkbox-small"/>
                                                 </div>
                                                 <div className="flex justify-center">
-                                                    <input type="checkbox" checked={!!inventory.onCamera} onChange={() => handleInventoryChange(location.name, 'onCamera')} className="form-checkbox-small"/>
+                                                    <input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(location.name, 'onCamera', e.target.checked)} className="form-checkbox-small"/>
                                                 </div>
                                                 <div className="flex justify-center">
-                                                    <input type="checkbox" checked={!!inventory.drone} onChange={() => handleInventoryChange(location.name, 'drone')} className="form-checkbox-small"/>
+                                                    <input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(location.name, 'drone', e.target.checked)} className="form-checkbox-small"/>
                                                 </div>
                                             </div>
                                         )
@@ -287,11 +295,11 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
 
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Cover Image URL (e.g., from Unsplash)</label>
-                        <input 
-                            type="url" 
-                            value={coverImageUrl} 
-                            onChange={(e) => setCoverImageUrl(e.target.value)} 
-                            className="w-full form-input" 
+                        <input
+                            type="url"
+                            value={coverImageUrl}
+                            onChange={(e) => setCoverImageUrl(e.target.value)}
+                            className="w-full form-input"
                             placeholder="Paste image URL here (e.g., from Unsplash)"
                         />
                         {coverImageUrl && (
@@ -303,9 +311,9 @@ Rewrite the playlist description to incorporate the user's feedback, accurately 
                      <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-1">Project Thumbnail</label>
                         <p className="text-xs text-gray-400 mb-3">Use Canva to create the main thumbnail for your YouTube playlist.</p>
-                        <a 
+                        <a
                             href="https://www.canva.com/create/youtube-thumbnails/"
-                            target="_blank" 
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="inline-block px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
                         >
