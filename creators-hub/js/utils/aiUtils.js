@@ -6,6 +6,22 @@
  */
 window.aiUtils = {
     /**
+     * Helper function to gather and format the creator's style guide information.
+     * @param {object} settings - The application's complete settings object.
+     * @param {string} [videoTone] - The specific tone of the current video, if available.
+     * @returns {string} - A formatted string containing the style guide prompt.
+     */
+    getStyleGuidePrompt: (settings, videoTone) => {
+        const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
+        const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
+        const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
+
+        return `**Creator Style Guide & Context:**
+Creator Persona (Who Am I): "${whoAmI}"
+Creator Style Guide: "${styleGuideText}"${toneText}`;
+    },
+
+    /**
      * The core, centralized function to call the Gemini API.
      * It now dynamically selects the model (Flash or Pro) based on the user's settings and the complexity of the task.
      * All other helper functions in this file will call this central function.
@@ -26,12 +42,12 @@ window.aiUtils = {
         // ** NEW LOGIC: Dynamically select the model **
         // Check if the task is complex and if the user has enabled the Pro model toggle.
         const usePro = isComplex && settings.useProModelForComplexTasks;
-        
+
         // Select the model name from settings, with fallbacks to the latest versions.
-        const modelName = usePro 
-            ? (settings.proModelName || 'gemini-1.5-pro-latest') 
+        const modelName = usePro
+            ? (settings.proModelName || 'gemini-1.5-pro-latest')
             : (settings.flashModelName || 'gemini-1.5-flash-latest');
-        
+
         // This is the line for testing which model is being used.
         console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
 
@@ -45,7 +61,7 @@ window.aiUtils = {
 
         // The API URL is now built dynamically with the selected model name.
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-        
+
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,9 +72,9 @@ window.aiUtils = {
             const err = await response.json();
             throw new Error(err?.error?.message || `API Error (${response.status})`);
         }
-        
+
         const result = await response.json();
-        
+
         if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
             console.error("Unexpected AI response structure:", result);
             throw new Error("AI returned an unexpected or empty response.");
@@ -71,7 +87,7 @@ window.aiUtils = {
             throw new Error("AI response was not valid JSON.");
         }
     },
-    
+
     /**
      * Generates blog post ideas. This is considered a complex task.
      * MODIFIED: Now accepts the full 'settings' object and calls callGeminiAPI with isComplex=true.
@@ -123,7 +139,7 @@ For each idea, provide the following in a valid JSON object:
 - "monetizationOpportunities": (string) A brief (1-2 sentence) explanation of the specific monetization opportunities (e.g., affiliate links for hotels, tours, gear) and how it aligns with the user's content goals.
 
 Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
-        
+
         try {
             // Call the central API function, passing the settings object and marking task as complex.
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
@@ -176,10 +192,15 @@ Your response MUST be a valid JSON object with a single key "suggestedLocations"
      * Generates a draft outline from raw text. This is a complex task.
      * MODIFIED: Now accepts 'settings' instead of 'apiKey' and marks the task as complex.
      */
-    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, settings, refinementText }) => {
+    generateDraftOutlineAI: async ({ videoTitle, videoConcept, initialThoughts, settings, refinementText, videoTone }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
         const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
 Video Title: "${videoTitle}"
 Video Concept: "${videoConcept}"
+
+${styleGuide}
+The structure, section titles, and suggestions should reflect the creator's personal style and tone.
 
 User's raw notes, experiences, and brain dump:
 ---
@@ -202,7 +223,9 @@ Your response MUST be a valid JSON object with a single key "draftOutline", whic
      * Generates a detailed script plan and follow-up questions. This is a complex task.
      * MODIFIED: Now accepts 'settings' instead of 'apiKey' and marks the task as complex.
      */
-    generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, whoAmI, styleGuideText, settings }) => {
+    generateScriptPlanAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, settings, videoTone }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
         const locationsDetail = (videoLocationsFeatured || []).map(locName => {
             const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
             const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
@@ -223,19 +246,20 @@ Draft Outline / Concept:
 ${videoConcept}
 ---
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
-Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+${styleGuide}
+
 Featured Locations & Available Footage:
 ${locationsDetail || 'No specific featured locations listed.'}
 
 **Your Task:**
 1.  **Review the Outline:** Analyze the provided script outline.
-2.  **Generate Specific, Easy-to-Answer Questions:** Your main goal is to pull out the specific details, emotions, and anecdotes needed to write a compelling script. Based on the outline, generate a list of simple, direct questions. 
+2.  **Generate Specific, Easy-to-Answer Questions:** Your main goal is to pull out the specific details, emotions, and anecdotes needed to write a compelling script. Based on the outline, generate a list of simple, direct questions.
+    The phrasing of these questions should align with the creator's persona and style. For example, a quirky creator might ask a funnier, more lighthearted question, while a serious one might ask a more direct, analytical question.
 
-**Good Question Examples:**
-- "What was the most surprising thing you saw at [Location]?"
-- "What's one practical tip you'd give someone visiting [Location]?"
-- "Describe the taste of the food you ate at [Restaurant]."
+**Good Question Examples (tailored to creator style):**
+- "So, what was the most 'jaw-drop' moment you had at [Location]?" (for a high-energy creator)
+- "Could you elaborate on the practical considerations for a first-time visitor to [Location]?" (for an informative creator)
+- "What's the one thing at [Restaurant] that made your taste buds sing?" (for a foodie creator)
 
 **Bad Question Example (Avoid These):**
 - "What was your experience?" (Too broad)
@@ -249,7 +273,7 @@ Your response MUST be a valid JSON object with two keys: "scriptPlan" and "locat
 `;
 
         const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-        
+
         if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
             return {
                 scriptPlan: parsedJson.scriptPlan,
@@ -260,19 +284,20 @@ Your response MUST be a valid JSON object with two keys: "scriptPlan" and "locat
             throw new Error("AI returned an invalid format for script plan.");
         }
     },
-    
+
     /**
      * Generates a full script. This is a complex task that requires a plain text response.
      * MODIFIED: Accepts 'settings' and implements the model selection logic directly for the 'text/plain' fetch call.
      */
-    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, whoAmI, styleGuideText, settings, refinementText }) => {
+    generateFullScriptAI: async ({ scriptPlan, generalFeedback, locationExperiences, videoTitle, settings, refinementText, videoTone }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
         const experienceDetails = Object.entries(locationExperiences).map(([key, value]) => `For ${key}, the user noted: "${value}"`).join('\n');
-        
+
         const prompt = `You are a professional scriptwriter for YouTube. Your task is to write a complete, engaging video script.
 
 Video Title: "${videoTitle}"
-Creator Persona: "${whoAmI || 'A knowledgeable and engaging content creator.'}"
-Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+${styleGuide}
 
 Script Outline:
 ---
@@ -292,7 +317,7 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
 
         const usePro = true && settings.useProModelForComplexTasks; // This is a complex task.
         const modelName = usePro ? (settings.proModelName || 'gemini-1.5-pro-latest') : (settings.flashModelName || 'gemini-1.5-flash-latest');
-        
+
         // Logging for functions that return plain text
         console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: true)`, 'color: #2563eb; font-weight: bold;');
 
@@ -322,7 +347,7 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
 
         const prompt = `Act as a YouTube SEO expert and keyword research tool.
         Generate a list of 25-30 potential search terms.
-        
+
         Context for keyword generation:
         - Main Title/Topic: "${title}"
         - Concept/Description: "${concept}"
@@ -337,11 +362,11 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
         - Short-tail keywords (e.g., "travel Cyprus")
         - Long-tail keywords (e.g., "best hidden beaches in Cyprus")
         - Question-based keywords (e.g., "what to do in Cyprus in October")
-        
+
         Return the list as a JSON object like: {"keywords": ["keyword one", "keyword two", "keyword three", ...]}.`;
 
         const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
-        
+
         if (parsedJson && Array.isArray(parsedJson.keywords)) {
             return parsedJson.keywords;
         } else {
@@ -358,16 +383,16 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
 
         const prompt = `Analyze the following YouTube video title and description.
         Infer the most relevant geographical locations featured in the video and the most important keywords/tags for SEO.
-        
+
         Video Title: "${videoTitle}"
         Video Description: "${videoDescription}"
-        
+
         ${youtubeSeoKb ? `YouTube SEO Best Practices Context: ${youtubeSeoKb}` : ''}
 
         Provide the output as a JSON object with two keys:
         - "locations_featured": An array of strings, listing inferred locations (e.g., ["Paris", "Eiffel Tower"]). If no specific locations can be inferred, return an empty array.
         - "targeted_keywords": An array of strings, listing relevant SEO keywords/tags (e.g., ["travel vlog", "Paris guide", "Eiffel Tower climb"]). Include about 10-15 keywords.
-        
+
         Example output:
         {
           "locations_featured": ["New York City", "Statue of Liberty"],
@@ -385,7 +410,7 @@ ${refinementText ? `6. **Refinement Feedback:** The user has reviewed the previo
             throw new Error("AI returned an invalid format for video metadata extraction.");
         }
     },
-    
+
     /**
      * Parses a full video structure from unstructured text. This is a complex task.
      * MODIFIED: Accepts 'settings' instead of 'apiKey' and calls the central API function as complex.
@@ -423,12 +448,16 @@ Your response MUST be only the valid JSON object, with no other text or explanat
      * Rewrites a script based on changes. This is a complex task requiring a plain text response.
      * MODIFIED: Accepts 'settings' and implements the model selection logic directly for the 'text/plain' fetch call.
      */
-    refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings }) => {
+    refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings, videoTone }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
         const prompt = `You are a YouTube video concept reviser. A user has changed their footage inventory for locations featured in a video.
 Please review the original video concept and the changes to the footage inventory, then provide a revised, brief outline or high-level plan for the video's content. Focus on key segments and main takeaways, NOT a full script.
 
 Original Video Title: "${videoTitle}"
 Original Video Concept/Plan: "${currentConcept}"
+
+${styleGuide}
 
 Changes in footage inventory for featured locations:
 ${footageChangesSummary}
@@ -472,21 +501,24 @@ Based on these changes, how should the video concept be updated? Provide only th
         projectFootageInventory,
         projectTitle,
         shortsIdeaGenerationKb,
-        whoAmI,
-        styleGuideText,
+        whoAmI, // whoAmI is now passed via settings to getStyleGuidePrompt
+        styleGuideText, // styleGuideText is now passed via settings to getStyleGuidePrompt
         previouslyCreatedShorts = [],
-        settings
+        settings,
+        videoTone
     }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
         const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
-                const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
-                const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
-                    if (type === 'bRoll') return 'B-Roll';
-                    if (type === 'onCamera') return 'On-Camera';
-                    if (type === 'drone') return 'Drone';
-                    return '';
-                }).join(', ');
-                return ` - ${locName}: ${footageTypes ? footageTypes + ' footage available' : 'No specific footage recorded'}.`;
-            }).join('\n');
+            const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
+            const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => {
+                if (type === 'bRoll') return 'B-Roll';
+                if (type === 'onCamera') return 'On-Camera';
+                if (type === 'drone') return 'Drone';
+                return '';
+            }).join(', ');
+            return ` - ${locName}: ${footageTypes ? footageTypes + ' footage available' : 'No specific footage recorded'}.`;
+        }).join('\n');
 
         const previouslyCreatedShortsSummary = previouslyCreatedShorts.length > 0
             ? previouslyCreatedShorts.map(short => `- "${short.title}" (Status: ${short.status || 'unknown'})`).join('\n')
@@ -504,8 +536,7 @@ ${featuredLocationsDetail || 'No specific locations featured in this video.'}
 Overall Project Context:
 - Project/Series Title: "${projectTitle}"
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
-Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+${styleGuide}
 YouTube Shorts Ideas Knowledge Base: "${shortsIdeaGenerationKb || 'Focus on quick hooks, trending sounds, and challenges. Keep it concise.'}"
 
 Previously created shorts from this video (consider these to avoid overlap or suggest variations):
@@ -514,7 +545,7 @@ ${previouslyCreatedShortsSummary}
 Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
 -   A concise, catchy title for the Short.
 -   A brief description (1-2 sentences) explaining the concept and why it's suitable for Shorts.
--   A suggestion for specific footage to use, leveraging the available footage and featured locations (e.g., "Drone shots of [Location X] combined with B-roll of [activity]").
+-   A suggestion for specific footage to use, leveraging the available footage and featured locations (e.g., "Drone shots of [Location X] combined with B-roll of [activity)").
 
 Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects. Each object in the array must have "title" (string), "description" (string), and "footageToUse" (string) properties.`;
 
@@ -538,10 +569,13 @@ Your response MUST be a valid JSON object with a single key "shortsIdeas" which 
     generateShortsMetadataAI: async ({
         videoTitle,
         shortsIdea,
-        whoAmI,
-        styleGuideText,
-        settings
+        whoAmI, // whoAmI is now passed via settings to getStyleGuidePrompt
+        styleGuideText, // styleGuideText is now passed via settings to getStyleGuidePrompt
+        settings,
+        videoTone
     }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+
         const prompt = `You are a YouTube Shorts expert. Based on the long-form video context and a specific Shorts idea, generate optimized metadata for YouTube Studio.
 
 Long-Form Video Title: "${videoTitle}"
@@ -551,8 +585,7 @@ Shorts Idea:
 - Concept: "${shortsIdea.description}"
 - Footage Suggestion: "${shortsIdea.footageToUse}"
 
-Creator Persona (Who Am I): "${whoAmI || 'A knowledgeable and engaging content creator.'}"
-Creator Style Guide: "${styleGuideText || 'Clear, concise, and captivating.'}"
+${styleGuide}
 
 Your task is to generate:
 1.  **On-Screen Text:** 1-3 short, punchy phrases suitable for on-screen overlays.
