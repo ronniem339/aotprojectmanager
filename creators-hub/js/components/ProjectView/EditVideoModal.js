@@ -2,7 +2,7 @@
 
 const { useState, useEffect, useCallback } = React;
 
-// NEW: Utility function to prevent adding duplicate locations based on place_id.
+// Utility function to prevent adding duplicate locations based on place_id.
 const addLocationsWithoutDuplicates = (existingLocations, newLocations) => {
     if (!Array.isArray(existingLocations) || !Array.isArray(newLocations)) {
         return existingLocations || [];
@@ -15,14 +15,11 @@ const addLocationsWithoutDuplicates = (existingLocations, newLocations) => {
 
 window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db }) => {
     // --- STATE MANAGEMENT ---
-
-    // Video-specific details from the provided original code
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
     const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
 
-    // --- NEW & MODIFIED STATE for Location/Inventory Sync ---
     // State for locations tied to this specific video
     const [videoLocations, setVideoLocations] = useState(
         video.locations_featured
@@ -34,7 +31,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     const [projectLocations, setProjectLocations] = useState(project.locations || []);
     const [projectFootageInventory, setProjectFootageInventory] = useState(project.footageInventory || {});
     
-    // AI and UI State from original code
+    // AI and UI State
     const [keywordIdeas, setKeywordIdeas] = useState([]);
     const [isLoadingKeywords, setIsLoadingKeywords] = useState(false);
     const [keywordError, setKeywordError] = useState('');
@@ -47,13 +44,19 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
 
     // --- EFFECTS ---
 
-    // Effect to keep project-level footage inventory in sync with project locations
+    // Effect to keep project-level footage inventory in sync with project locations using place_id
     useEffect(() => {
         setProjectFootageInventory(prevInventory => {
             const newInventory = {};
             (projectLocations || []).forEach(loc => {
-                newInventory[loc.name] = prevInventory[loc.name] || {
-                    name: loc.name, bRoll: false, onCamera: false, drone: false, stopType: 'quick'
+                const key = loc.place_id || loc.name; // Use place_id as the primary key
+                newInventory[key] = prevInventory[key] || {
+                    name: loc.name,
+                    place_id: loc.place_id,
+                    bRoll: false,
+                    onCamera: false,
+                    drone: false,
+                    stopType: 'quick'
                 };
             });
             return newInventory;
@@ -62,46 +65,53 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
 
     // --- HANDLERS ---
 
-    // MODIFIED: This handler is now simpler and uses the de-duplication utility.
     const handleLocationsUpdateForVideo = useCallback((updatedVideoLocations) => {
         setVideoLocations(updatedVideoLocations);
-        
-        // Also update the main project locations list, preventing duplicates
         setProjectLocations(currentProjectLocations => {
             return addLocationsWithoutDuplicates(currentProjectLocations, updatedVideoLocations);
         });
     }, []);
 
-
-    // Handles changes to the footage inventory (checkboxes, toggles)
-    const handleInventoryChange = (locationName, field, value) => {
+    // Handles changes to the footage inventory using the location's key (place_id)
+    const handleInventoryChange = (locationKey, field, value) => {
         setProjectFootageInventory(prev => ({
             ...prev,
-            [locationName]: { ...(prev[locationName] || { name: locationName }), [field]: value },
+            [locationKey]: { ...(prev[locationKey] || {}), [field]: value },
         }));
     };
 
-    // Handles "Select All" for footage types
+    // Handles "Select All" for footage types for locations in this video
     const handleSelectAllFootage = (type, isChecked) => {
-        const newInventory = { ...projectFootageInventory };
-        videoLocations.forEach(loc => {
-            newInventory[loc.name] = { ...(newInventory[loc.name] || { name: loc.name }), [type]: isChecked };
+        setProjectFootageInventory(prevInventory => {
+            const newInventory = { ...prevInventory };
+            videoLocations.forEach(loc => {
+                const key = loc.place_id || loc.name;
+                newInventory[key] = { ...(newInventory[key] || { name: loc.name }), [type]: isChecked };
+            });
+            return newInventory;
         });
-        setProjectFootageInventory(newInventory);
     };
+    
+    // Handles deleting a location from this video's list
+    const handleDeleteLocation = (locationKeyToDelete) => {
+        const locationToDelete = videoLocations.find(loc => (loc.place_id || loc.name) === locationKeyToDelete);
+        if (!locationToDelete) return;
 
-    // Handles deleting a location from this video's inventory
-    const handleDeleteLocation = (locationNameToDelete) => {
-        setVideoLocations(prev => prev.filter(loc => loc.name !== locationNameToDelete));
+        // Remove from this video's list of locations
+        setVideoLocations(prev => prev.filter(loc => (loc.place_id || loc.name) !== locationKeyToDelete));
+        
+        // Check if the location is used in any OTHER video
         const isLocationUsedElsewhere = (allVideos || []).some(v => 
-            v.id !== video.id && v.locations_featured?.includes(locationNameToDelete)
+            v.id !== video.id && v.locations_featured?.includes(locationToDelete.name)
         );
+
+        // If not used elsewhere, remove it from the main project list
         if (!isLocationUsedElsewhere) {
-            setProjectLocations(prev => prev.filter(loc => loc.name !== locationNameToDelete));
+            setProjectLocations(prev => prev.filter(loc => (loc.place_id || loc.name) !== locationKeyToDelete));
         }
     };
     
-    // Keyword Handlers from original code
+    // Keyword Handlers
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && keywordInput.trim() !== '') {
             e.preventDefault();
@@ -121,7 +131,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         setTargetedKeywords(prev => prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]);
     };
 
-    // --- ASYNC & AI FUNCTIONS from original code ---
+    // --- ASYNC & AI FUNCTIONS ---
 
     const handleGenerateKeywords = async () => {
         setIsLoadingKeywords(true);
@@ -173,12 +183,11 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         }
     };
     
-    // *** MODIFIED SAVE HANDLER with Batch Write for full synchronization ***
+    // SAVE HANDLER with Batch Write for full synchronization
     const handleSaveChanges = async () => {
         setIsSaving(true);
         const batch = db.batch();
 
-        // 1. Update the Video Document using the correct subcollection path
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         batch.update(videoDocRef, {
             chosenTitle: title,
@@ -187,7 +196,6 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
             targeted_keywords: targetedKeywords
         });
 
-        // 2. Update the Project Document with synced locations and inventory
         const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
         batch.update(projectDocRef, {
             locations: projectLocations,
@@ -196,7 +204,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
 
         try {
             await batch.commit();
-            onSave(); // This will trigger a re-fetch in the parent and close the modal
+            onSave();
         } catch (error) {
             console.error("Error saving changes in batch:", error);
         } finally {
@@ -237,7 +245,6 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Video Locations</label>
                         <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
-                             {/* MODIFIED: Use the new LocationSearchInput */}
                              {googleMapsLoaded 
                                 ? <window.LocationSearchInput 
                                       onLocationsChange={handleLocationsUpdateForVideo} 
@@ -262,19 +269,20 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                             <div>
                                 {videoLocations.length > 0 ? (
                                     videoLocations.map(location => {
-                                        const inventory = projectFootageInventory[location.name] || {};
+                                        const locationKey = location.place_id || location.name;
+                                        const inventory = projectFootageInventory[locationKey] || {};
                                         return (
-                                            <div key={location.name} className="grid grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
+                                            <div key={locationKey} className="grid grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
                                                 <div className="col-span-2 pr-2"><p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p></div>
                                                 <div className="flex gap-1">
-                                                    <button onClick={() => handleInventoryChange(location.name, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
-                                                    <button onClick={() => handleInventoryChange(location.name, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
+                                                    <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
+                                                    <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
                                                 </div>
-                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(location.name, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
-                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(location.name, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
-                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(location.name, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
+                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(locationKey, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
+                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(locationKey, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
+                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(locationKey, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
                                                 <div className="flex justify-center">
-                                                    <button onClick={() => handleDeleteLocation(location.name)} className="text-gray-500 hover:text-red-500 transition-colors" title={`Delete ${location.name}`}>
+                                                    <button onClick={() => handleDeleteLocation(locationKey)} className="text-gray-500 hover:text-red-500 transition-colors" title={`Delete ${location.name}`}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                                                     </button>
                                                 </div>
