@@ -4,11 +4,26 @@ const { useState, useEffect, useRef, useCallback } = React;
 
 window.useDebounce = (value, delay) => {
     const [debouncedValue, setDebouncedValue] = useState(value);
+    const timerIdRef = useRef(null);
+
+    const cancel = () => {
+        if (timerIdRef.current) {
+            clearTimeout(timerIdRef.current);
+        }
+    };
+
     useEffect(() => {
-        const handler = setTimeout(() => { setDebouncedValue(value); }, delay);
-        return () => { clearTimeout(handler); };
+        timerIdRef.current = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(timerIdRef.current);
+        };
     }, [value, delay]);
-    return debouncedValue;
+
+    // Return the debounced value and the new cancel function in an array.
+    return [debouncedValue, cancel];
 };
 
 window.loadGoogleMapsScript = (apiKey, callback) => {
