@@ -66,7 +66,7 @@ const ScriptingWorkspaceModal = ({
     const [saveStatus, setSaveStatus] = useState('idle');
     const isInitialMount = useRef(true);
     
-    const [debouncedLocalTaskData, cancelAutoSave] = window.useDebounce(localTaskData, 1500);
+    const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500);
 
     useEffect(() => {
         if (isInitialMount.current) {
@@ -152,8 +152,6 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleAction = async (action, ...args) => {
-        cancelAutoSave();
-
         setIsLoading(true);
         setError('');
         try {
@@ -475,7 +473,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         setShowWorkspace(true);
     };
 
-    // --- MODIFIED: This is the new, consolidated update logic ---
     const handleGenerateInitialQuestions = async (thoughtsText) => {
         const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
@@ -487,7 +484,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate clarifying questions. Please try again.");
         }
 
-        // Perform a single, combined update after the AI call is successful.
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.initialThoughts': thoughtsText,
             'tasks.scriptingStage': 'initial_qa',
@@ -632,26 +628,29 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
-    const fieldsToUpdate = {
-        'tasks.scriptingStage': updatedTaskData.scriptingStage,
-        'tasks.initialThoughts': updatedTaskData.initialThoughts,
-        'tasks.initialQuestions': updatedTaskData.initialQuestions,
-        'tasks.initialAnswers': updatedTaskData.initialAnswers,
-        'tasks.scriptPlan': updatedTaskData.scriptPlan,
-        'tasks.locationQuestions': updatedTaskData.locationQuestions,
-        'tasks.userExperiences': updatedTaskData.userExperiences,
-        'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
-        'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
-        'script': updatedTaskData.script,
+    // --- MODIFIED: This is the new, safer auto-save handler ---
+    const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
+        // This function, used for auto-saving, will now only update content fields.
+        // It will NOT update the 'scriptingStage', preventing the UI from reverting.
+        const fieldsToUpdate = {
+            'tasks.initialThoughts': updatedTaskData.initialThoughts,
+            'tasks.initialQuestions': updatedTaskData.initialQuestions,
+            'tasks.initialAnswers': updatedTaskData.initialAnswers,
+            'tasks.scriptPlan': updatedTaskData.scriptPlan,
+            'tasks.locationQuestions': updatedTaskData.locationQuestions,
+            'tasks.userExperiences': updatedTaskData.userExperiences,
+            'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
+            'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
+            'script': updatedTaskData.script,
+        };
+
+        if(video.tasks?.scripting !== 'complete'){
+            onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
+        }
+        if (shouldClose) {
+            setShowWorkspace(false);
+        }
     };
-    if(video.tasks?.scripting !== 'complete'){
-           onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
-    }
-    if (shouldClose) {
-        setShowWorkspace(false);
-    }
-};
 
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
