@@ -49,8 +49,7 @@ const ScriptingWorkspaceModal = ({
     onClose,
     onSave,
     stageOverride,
-    onInitiateRemoveLocation, // New prop to open the confirmation modal
-    // AI action handlers
+    onInitiateRemoveLocation,
     onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onRefineOutline,
@@ -279,15 +278,13 @@ const ScriptingWorkspaceModal = ({
                                 <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-start mb-2">
                                         <label className="block text-gray-200 text-md font-medium">{locationName}</label>
-                                        <button
-                                            onClick={() => onInitiateRemoveLocation(locationName)}
-                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0"
-                                            title={`Remove ${locationName}`}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                                            </svg>
-                                        </button>
+                                    <button
+                                        onClick={() => onInitiateRemoveLocation(locationName)}
+                                        className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0"
+                                        title={`Update use of ${locationName}`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
                                     </div>
                                     <textarea
                                         value={(localTaskData.onCameraDescriptions || {})[locationName] || ''}
@@ -303,7 +300,7 @@ const ScriptingWorkspaceModal = ({
                                 <button onClick={() => handleAction(onGenerateFullScript, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
                             </button>
-                        </div>
+                            </div>
                     </div>
                 );
 
@@ -371,33 +368,44 @@ const ScriptingWorkspaceModal = ({
     );
 };
 
-window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
+window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
-    const [locationToRemove, setLocationToRemove] = useState(null); 
-
+    const [locationToModify, setLocationToModify] = useState(null);
+    
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+    const [localOnCameraLocations, setLocalOnCameraLocations] = useState(null);
 
-    const handleLocationRemoval = async (locationName, removalType) => {
-        const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
-        
-        try {
-            if (removalType === 'script') {
-                const key = `footageInventory.${locationName}.onCamera`;
-                await projectRef.update({ [key]: false });
-            } else if (removalType === 'project') {
-                const newLocations = project.locations.filter(loc => loc.name !== locationName);
+    const handleLocationModification = async (locationName, modificationType) => {
+        if (modificationType === 'script-only') {
+            // Temporarily remove the location from the list for this session only.
+            const newLocations = localOnCameraLocations.filter(loc => loc !== locationName);
+            setLocalOnCameraLocations(newLocations);
+            setLocationToModify(null); // Close the modal
+            return;
+        }
+
+        if (modificationType === 'video-remove') {
+            // Permanently remove the location from this video and potentially the project.
+            const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+            const newLocationsForVideo = video.locations_featured.filter(loc => loc !== locationName);
+
+            await videoRef.update({ 'locations_featured': newLocationsForVideo });
+
+            // Check if any other video in the project uses this location.
+            const isLocationUsedElsewhere = allVideos.some(v => v.id !== video.id && (v.locations_featured || []).includes(locationName));
+
+            // If not used elsewhere, perform garbage collection on the project.
+            if (!isLocationUsedElsewhere) {
+                const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+                const newProjectLocations = project.locations.filter(loc => loc.name !== locationName);
                 const footageKey = `footageInventory.${locationName}`;
-
                 await projectRef.update({
-                    locations: newLocations,
+                    locations: newProjectLocations,
                     [footageKey]: firebase.firestore.FieldValue.delete()
                 });
             }
-        } catch (error) {
-            console.error(`Failed to remove location '${locationName}' with type '${removalType}':`, error);
-        } finally {
-            setLocationToRemove(null); 
+            setLocationToModify(null); // Close the modal
         }
     };
 
@@ -409,7 +417,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptPlan: video.tasks?.scriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
-        onCameraLocations: video.tasks?.onCameraLocations || [],
+        onCameraLocations: localOnCameraLocations !== null ? localOnCameraLocations : video.tasks?.onCameraLocations || [],
         onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
         script: video.script || '',
         outlineRefinementText: '',
@@ -419,42 +427,30 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const handleOpenWorkspace = async (startStage = null) => {
         setWorkspaceStageOverride(null);
         let stageToOpen = startStage;
-
         const allStages = ['initial_thoughts', 'initial_qa', 'draft_outline_review', 'refinement_qa', 'on_camera_qa', 'full_script_review', 'complete'];
-        const currentStage = taskData.scriptingStage || 'pending';
+        const currentStage = video.tasks?.scriptingStage || 'pending';
         const currentStageIndex = allStages.indexOf(currentStage);
         const onCameraStageIndex = allStages.indexOf('on_camera_qa');
 
-        if (currentStageIndex >= onCameraStageIndex) {
-            const freshOnCameraLocations = (video.locations_featured || [])
-                .filter(locName => {
-                    const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
-                    return inventoryItem && inventoryItem.onCamera;
-                });
+        // Always calculate the fresh list of on-camera locations when opening the workspace.
+        const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
+            const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+            return inventoryItem && inventoryItem.onCamera;
+        });
 
-            const sortedOld = [...(video.tasks?.onCameraLocations || [])].sort();
-            const sortedNew = [...freshOnCameraLocations].sort();
-            if (JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
-                await onUpdateTask('scripting', 'in-progress', {
-                    'tasks.onCameraLocations': freshOnCameraLocations
-                });
-            }
+        // Set the local state for this session. This is what the modal will display.
+        setLocalOnCameraLocations(freshOnCameraLocations);
+
+        // If the calculated list differs from what's in the DB, update the DB.
+        if (currentStageIndex >= onCameraStageIndex && JSON.stringify(freshOnCameraLocations.sort()) !== JSON.stringify((video.tasks?.onCameraLocations || []).sort())) {
+            await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': freshOnCameraLocations });
         }
 
         if (!stageToOpen) {
-            if (video.tasks?.scripting === 'complete') {
-                    stageToOpen = 'full_script_review';
-            } else {
-                    stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
-            }
+            stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
         }
 
         setWorkspaceStageOverride(stageToOpen);
-
-        if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-            await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
-        }
-
         setShowWorkspace(true);
     };
 
@@ -568,12 +564,20 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
+        // New logic to respect the temporary removal
+        const onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
+        for(const key in onCameraDescriptionsToUse){
+            if(!currentTaskData.onCameraLocations.includes(key)){
+                delete onCameraDescriptionsToUse[key];
+            }
+        }
+
         const response = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: currentTaskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            onCameraDescriptions: currentTaskData.onCameraDescriptions
+            onCameraDescriptions: onCameraDescriptionsToUse // Use the filtered descriptions
         });
 
         if (!response || typeof response.finalScript !== 'string') {
@@ -627,6 +631,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         }
         if (shouldClose) {
             setShowWorkspace(false);
+            setLocalOnCameraLocations(null); // <-- ADD THIS
         }
     };
 
@@ -644,6 +649,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'script': finalTaskData.script,
         });
         setShowWorkspace(false);
+        setLocalOnCameraLocations(null); // <-- ADD THIS
     };
 
     const renderAccordionContent = () => {
@@ -681,13 +687,12 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         <div>
             {renderAccordionContent()}
             
-            <window.RemoveLocationConfirmationModal
-                isOpen={!!locationToRemove}
-                locationName={locationToRemove}
-                onConfirm={handleLocationRemoval}
-                onCancel={() => setLocationToRemove(null)}
+            <window.LocationRemovalOptionsModal
+                isOpen={!!locationToModify}
+                locationName={locationToModify}
+                onConfirm={handleLocationModification}
+                onCancel={() => setLocationToModify(null)}
             />
-
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
@@ -695,7 +700,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     stageOverride={workspaceStageOverride}
                     onClose={handleUpdateAndCloseWorkspace}
                     onSave={handleSaveAndComplete}
-                    onInitiateRemoveLocation={setLocationToRemove}
+                    onInitiateRemoveLocation={setLocationToModify}
                     onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
