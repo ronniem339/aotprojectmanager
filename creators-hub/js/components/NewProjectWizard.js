@@ -123,8 +123,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [footageInventory]);
 
-    // FIX: This handler is now redundant as Step 2 manages its own state and reports back.
-    // However, we'll leave it to avoid potential side effects elsewhere.
     const handleInventoryChange = useCallback((place_id, type, value) => {
         setFootageInventory(prev => ({
             ...prev,
@@ -132,7 +130,6 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         }));
     }, []);
 
-    // FIX: This handler is also now redundant.
     const handleSelectAllFootage = useCallback((type, isChecked) => {
         const newInventory = { ...footageInventory };
         locations.slice(1).forEach(loc => {
@@ -262,11 +259,9 @@ Generate a complete project plan as a JSON object with keys:
         let finalCoverImageUrl = '';
 
         if (coverImageFile) {
-            // If a file was uploaded, prioritize it
             const path = `project_thumbnails/${Date.now()}_${userId}_${coverImageFile.name}`;
             finalCoverImageUrl = await uploadFile(coverImageFile, path);
         } else if (coverImageUrl) {
-            // If a URL was provided, use the existing download/upload logic
             const fileExtension = coverImageUrl.split('.').pop().split('?')[0];
             const path = `project_thumbnails/${Date.now()}_${userId}.${fileExtension}`;
             finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
@@ -306,14 +301,12 @@ Generate a complete project plan as a JSON object with keys:
                                 onCoverImageFileChange={setCoverImageFile}
                             />;
             case 2: 
-                // FIX: Pass props that the WizardStep2_Inventory component expects.
                 return <window.WizardStep2_Inventory 
-                    initialData={{ locations, footageInventory }}
-                    onDataChange={({ locations: newLocations, footageInventory: newInventory }) => {
-                        setLocations(newLocations);
-                        setFootageInventory(newInventory);
-                    }}
-                    onValidationChange={() => {}} // This can be a no-op if not used for parent logic
+                    locations={locations}
+                    footageInventory={footageInventory}
+                    onLocationsUpdate={handleLocationsUpdate}
+                    onInventoryChange={handleInventoryChange}
+                    onSelectAllFootage={handleSelectAllFootage}
                     googleMapsLoaded={googleMapsLoaded}
                 />;
             case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
