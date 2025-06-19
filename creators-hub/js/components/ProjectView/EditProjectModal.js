@@ -1,6 +1,6 @@
 // creators-hub/js/components/ProjectView/EditProjectModal.js
 
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleMapsLoaded, firebaseAppInstance, db }) => {
     // State for all modal inputs and UI
@@ -9,36 +9,107 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
     const [locations, setLocations] = useState(project.locations || []);
     const [targetedKeywords, setTargetedKeywords] = useState(project.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
-    const [refinement, setRefinement] = useState('');
-    const [generating, setGenerating] = useState(null);
     const [coverImageUrl, setCoverImageUrl] = useState(project.coverImageUrl || '');
-    const [isSaving, setIsSaving] = useState(false);
     const [footageInventory, setFootageInventory] = useState(project.footageInventory || {});
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
 
     // Firebase and App configuration
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
+    
+    // --- AUTO-SAVING LOGIC ---
+    const debouncedState = window.useDebounce({ title, description, locations, targetedKeywords, coverImageUrl, footageInventory }, 1500);
+    const isInitialMount = useRef(true);
 
-    // MODIFIED: Effect to keep footage inventory synced with locations, now using place_id
+    useEffect(() => {
+        // Prevent saving on the initial component mount
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+
+        const autoSaveChanges = async () => {
+            setSaveStatus('saving');
+            let finalCoverImageUrl = debouncedState.coverImageUrl;
+
+            // Handle image upload if a new, non-Firebase URL is pasted
+            if (finalCoverImageUrl && !finalCoverImageUrl.includes('firebasestorage.googleapis.com')) {
+                try {
+                    const fileExtensionMatch = finalCoverImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
+                    const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
+                    const path = `project_thumbnails/${project.id}_${Date.now()}${fileExtension}`;
+                    finalCoverImageUrl = await downloadAndUploadImage(finalCoverImageUrl, path);
+                    // Update state directly as this won't be in debounced state yet
+                    setCoverImageUrl(finalCoverImageUrl);
+                } catch (error) {
+                    console.error("Failed to upload new cover image to Firebase Storage:", error);
+                    finalCoverImageUrl = project.coverImageUrl || ''; // Revert on failure
+                }
+            }
+            
+            const batch = db.batch();
+            const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+
+            // Logic to update videos if locations are removed
+            const originalLocationIds = (project.locations || []).map(l => l.place_id || l.name);
+            const currentLocationIds = debouncedState.locations.map(l => l.place_id || l.name);
+            const deletedLocationIds = originalLocationIds.filter(id => !currentLocationIds.includes(id));
+            const deletedLocationNames = (project.locations || [])
+                .filter(l => deletedLocationIds.includes(l.place_id || l.name))
+                .map(l => l.name);
+
+            if (deletedLocationNames.length > 0 && videos) {
+                videos.forEach(video => {
+                    const videoLocationsFeatured = video.locations_featured || [];
+                    if (videoLocationsFeatured.some(locName => deletedLocationNames.includes(locName))) {
+                        const newVideoLocationsFeatured = videoLocationsFeatured.filter(name => !deletedLocationNames.includes(name));
+                        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+                        batch.update(videoDocRef, { locations_featured: newVideoLocationsFeatured });
+                    }
+                });
+            }
+            
+            // Update the main project document with debounced data
+            batch.update(projectDocRef, {
+                playlistTitle: debouncedState.title,
+                playlistDescription: debouncedState.description,
+                locations: debouncedState.locations,
+                coverImageUrl: finalCoverImageUrl,
+                targeted_keywords: debouncedState.targetedKeywords,
+                footageInventory: debouncedState.footageInventory
+            });
+
+            try {
+                await batch.commit();
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus('idle'), 2000); // Revert to idle after 2s
+            } catch (error) {
+                console.error("Error auto-saving project:", error);
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            }
+        };
+
+        autoSaveChanges();
+
+    }, [debouncedState, project.id, userId, appId, db, videos]);
+    // --- END AUTO-SAVING LOGIC ---
+
+
+    // Effect to keep footage inventory synced with locations
     useEffect(() => {
         setFootageInventory(prevInventory => {
-            const newInventory = {};
+            const newInventory = { ...(prevInventory || {}) };
             locations.forEach(loc => {
-                const key = loc.place_id || loc.name; // Use place_id as the key, fallback to name for older data
-                newInventory[key] = prevInventory[key] || {
-                    name: loc.name,
-                    place_id: loc.place_id,
-                    bRoll: false, 
-                    onCamera: false, 
-                    drone: false, 
-                    stopType: 'quick'
-                };
+                const key = loc.place_id || loc.name;
+                if (!newInventory[key]) {
+                    newInventory[key] = { name: loc.name, place_id: loc.place_id, bRoll: false, onCamera: false, drone: false, stopType: 'quick' };
+                }
             });
             return newInventory;
         });
     }, [locations]);
 
-    // Function to download an image from a URL and upload it to Firebase Storage
     const downloadAndUploadImage = async (imageUrl, uploadPath) => {
         if (!imageUrl || !storage) return '';
         const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
@@ -55,33 +126,25 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         }
     };
     
-    // NEW: Handler for direct file upload of thumbnail image
     const handleImageFileChange = async (e) => {
         if (e.target.files && e.target.files[0] && storage) {
             const file = e.target.files[0];
-            // Use the main save button's loading state to indicate upload progress
-            setIsSaving(true); 
+            setSaveStatus('saving');
             try {
                 const path = `project_thumbnails/${project.id}_${Date.now()}_${file.name}`;
                 const storageRef = storage.ref(path);
                 await storageRef.put(file);
                 const newUrl = await storageRef.getDownloadURL();
-                setCoverImageUrl(newUrl); // Update state with the new Firebase URL
+                setCoverImageUrl(newUrl); // This change will be picked up by the debounced auto-save
             } catch (error) {
                 console.error("Error uploading new image file:", error);
-                // Optionally, set an error state to show a message to the user
-            } finally {
-                setIsSaving(false);
+                setSaveStatus('error');
             }
         }
     };
 
-    // MODIFIED: Simplified handler for the new LocationSearchInput component
     const handleLocationsUpdate = useCallback((newLocations) => { setLocations(newLocations); }, []);
-
-    // MODIFIED: Handlers now use place_id (or name as fallback) for keys
     const handleInventoryChange = (locationKey, field, value) => { setFootageInventory(prev => ({ ...prev, [locationKey]: { ...(prev[locationKey] || {}), [field]: value }})); };
-    
     const handleSelectAllFootage = (type, isChecked) => {
         const newInventory = { ...footageInventory };
         locations.forEach(loc => { 
@@ -90,12 +153,9 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         });
         setFootageInventory(newInventory);
     };
-
-    // MODIFIED: Deletion is now based on place_id for reliability
     const handleDeleteLocation = (placeIdToDelete) => { 
         setLocations(locations.filter(loc => (loc.place_id || loc.name) !== placeIdToDelete)); 
     };
-
     const handleKeywordAdd = (e) => {
         if (e.key === 'Enter' && keywordInput.trim() !== '') {
             e.preventDefault();
@@ -104,93 +164,8 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
             setKeywordInput('');
         }
     };
-
     const handleKeywordRemove = (keywordToRemove) => { setTargetedKeywords(targetedKeywords.filter(kw => kw !== keywordToRemove)); };
 
-    // Handler to regenerate locations and keywords based on all videos in the project
-    const handleRegenerateFromVideos = () => {
-        const allVideoLocationNames = new Set();
-        const allVideoKeywords = new Set();
-        videos.forEach(video => {
-            (video.locations_featured || []).forEach(locName => allVideoLocationNames.add(locName));
-            (video.targeted_keywords || []).forEach(keyword => allVideoKeywords.add(keyword));
-        });
-        const uniqueLocationNames = Array.from(allVideoLocationNames);
-        const aggregatedLocations = (project.locations || []).filter(locObject => uniqueLocationNames.includes(locObject.name));
-        uniqueLocationNames.forEach(name => {
-            if (!aggregatedLocations.some(l => l.name === name)) {
-                aggregatedLocations.push({ name: name, place_id: name, lat: null, lng: null, types: [] });
-            }
-        });
-        setLocations(aggregatedLocations);
-        setTargetedKeywords(Array.from(allVideoKeywords));
-    };
-
-    // *** MODIFIED SAVE HANDLER with Batch Write for full synchronization ***
-    const handleSave = async () => {
-        setIsSaving(true);
-        let finalCoverImageUrl = coverImageUrl;
-        // This logic handles uploading an image if a URL is pasted from an external source
-        if (coverImageUrl && !coverImageUrl.includes('firebasestorage.googleapis.com')) {
-            try {
-                const fileExtensionMatch = coverImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
-                const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
-                const path = `project_thumbnails/${project.id}_${Date.now()}${fileExtension}`;
-                finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
-            } catch (error) {
-                console.error("Failed to upload new cover image to Firebase Storage:", error);
-                finalCoverImageUrl = project.coverImageUrl || '';
-            }
-        }
-        
-        const batch = db.batch();
-
-        // MODIFIED: Detect deleted locations based on place_id for reliability
-        const originalLocationIds = (project.locations || []).map(l => l.place_id || l.name);
-        const currentLocationIds = locations.map(l => l.place_id || l.name);
-        const deletedLocationIds = originalLocationIds.filter(id => !currentLocationIds.includes(id));
-        const deletedLocationNames = (project.locations || [])
-            .filter(l => deletedLocationIds.includes(l.place_id || l.name))
-            .map(l => l.name);
-
-        // If locations were deleted, update all affected video documents
-        if (deletedLocationNames.length > 0 && videos) {
-            videos.forEach(video => {
-                const videoLocationsFeatured = video.locations_featured || [];
-                if (videoLocationsFeatured.some(locName => deletedLocationNames.includes(locName))) {
-                    const newVideoLocationsFeatured = videoLocationsFeatured.filter(name => !deletedLocationNames.includes(name));
-                    const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-                    batch.update(videoDocRef, { locations_featured: newVideoLocationsFeatured });
-                }
-            });
-        }
-
-        // Update the main project document
-        const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
-        batch.update(projectDocRef, {
-            playlistTitle: title,
-            playlistDescription: description,
-            locations: locations,
-            coverImageUrl: finalCoverImageUrl,
-            targeted_keywords: targetedKeywords,
-            footageInventory: footageInventory
-        });
-
-        // Commit all changes
-        try {
-            await batch.commit();
-            onClose(); 
-        } catch (error) {
-            console.error("Error saving project and updating videos:", error);
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    // AI refinement handler
-    const handleRefine = async (type) => {
-        // ... (AI handler code remains the same)
-    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-start z-50 p-4 overflow-y-auto">
@@ -218,7 +193,7 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                         }
                     </div>
                     
-                    {/* NEW: Cover Image Section */}
+                    {/* Cover Image Section */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Project Cover Image</label>
                         <div className="flex items-center gap-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700">
@@ -237,12 +212,7 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                                 />
                                 <label className="block w-full text-center px-4 py-2 text-sm bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold cursor-pointer transition-colors">
                                     <span>Or Upload an Image</span>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        onChange={handleImageFileChange}
-                                    />
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
                                 </label>
                             </div>
                         </div>
@@ -287,17 +257,32 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                             </div>
                         </div>
                     </div>
-
-                    {/* Keywords are managed in the original code, this part is omitted for brevity but would be here */}
-
                 </div>
 
-                {/* Final Save/Cancel Buttons */}
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-700">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
-                    <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                        {isSaving ? <window.LoadingSpinner isButton={true} /> : 'Save Changes'}
-                    </button>
+                {/* Auto-Save Status Indicator */}
+                <div className="flex justify-end items-center gap-4 mt-8 pt-6 border-t border-gray-700 h-10">
+                    {saveStatus === 'saving' && (
+                        <div className="flex items-center gap-2 text-gray-400">
+                            <window.LoadingSpinner isButton={true} />
+                            <span>Auto-saving...</span>
+                        </div>
+                    )}
+                    {saveStatus === 'saved' && (
+                        <div className="flex items-center gap-2 text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span>Changes saved</span>
+                        </div>
+                    )}
+                    {saveStatus === 'error' && (
+                         <div className="flex items-center gap-2 text-red-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <span>Save failed. Please try again.</span>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
