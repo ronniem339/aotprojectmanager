@@ -64,39 +64,55 @@ callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false
             generationConfig: finalGenerationConfig
         };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+    // Added a 30-second timeout for the fetch request.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err?.error?.message || `API Error (${response.status})`);
-        }
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal // Link the abort controller to the fetch request
+        });
 
-        const result = await response.json();
+        clearTimeout(timeoutId); // Clear the timeout if the request succeeds
 
-        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
-            console.error("Unexpected AI response structure:", result);
-            throw new Error("AI returned an unexpected or empty response.");
-        }
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err?.error?.message || `API Error (${response.status})`);
+        }
 
-        const responseText = result.candidates[0].content.parts[0].text;
-        
-        if (finalGenerationConfig.responseMimeType === "application/json") {
-            try {
-                return JSON.parse(responseText);
-            } catch (e) {
-                console.error("Failed to parse AI response as JSON:", responseText, e);
-                throw new Error("AI response was expected to be valid JSON but wasn't.");
-            }
-        } else {
-            return responseText;
-        }
-    },
+        const result = await response.json();
+
+        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
+            console.error("Unexpected AI response structure:", result);
+            throw new Error("AI returned an unexpected or empty response.");
+        }
+
+        const responseText = result.candidates[0].content.parts[0].text;
+        
+        if (finalGenerationConfig.responseMimeType === "application/json") {
+            try {
+                return JSON.parse(responseText);
+            } catch (e) {
+                console.error("Failed to parse AI response as JSON:", responseText, e);
+                throw new Error("AI response was expected to be valid JSON but wasn't.");
+            }
+        } else {
+            return responseText;
+        }
+    } catch (error) {
+        clearTimeout(timeoutId); // Also clear timeout on error
+        if (error.name === 'AbortError') {
+            throw new Error('API call timed out after 30 seconds.');
+        }
+        // Re-throw other network or parsing errors
+        throw error;
+    }
+},
 
     /**
      * Generates blog post ideas. This is considered a complex task.
