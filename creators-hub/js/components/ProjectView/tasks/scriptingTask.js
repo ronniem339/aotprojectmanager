@@ -470,7 +470,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         const currentStageIndex = allStages.indexOf(currentStage);
         const onCameraStageIndex = allStages.indexOf('on_camera_qa');
 
-        // Always calculate the fresh list of on-camera locations when opening the workspace.
+        // Calculate the fresh list of on-camera locations, preserving original order
         const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
             const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
             return inventoryItem && inventoryItem.onCamera;
@@ -479,8 +479,13 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         // Set the local state for this session. This is what the modal will display.
         setLocalOnCameraLocations(freshOnCameraLocations);
 
-        // If the calculated list differs from what's in the DB, update the DB.
-        if (currentStageIndex >= onCameraStageIndex && JSON.stringify(freshOnCameraLocations.sort()) !== JSON.stringify((video.tasks?.onCameraLocations || []).sort())) {
+        // **THE FIX IS HERE:** Create copies of the arrays using [...] before sorting for comparison.
+        // This leaves the original `freshOnCameraLocations` array in the correct order.
+        const sortedOld = [...(video.tasks?.onCameraLocations || [])].sort();
+        const sortedNew = [...freshOnCameraLocations].sort();
+
+        if (currentStageIndex >= onCameraStageIndex && JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
+            // Save the correctly ordered list to the database
             await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': freshOnCameraLocations });
         }
 
@@ -491,7 +496,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         setWorkspaceStageOverride(stageToOpen);
         setShowWorkspace(true);
     };
-
     const handleGenerateInitialQuestions = async (thoughtsText) => {
         const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
