@@ -182,16 +182,29 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
         const updatePayload = { [`tasks.${taskName}`]: status, ...data };
 
-        // --- START: Optimistic UI Update ---
+        // --- START: Corrected Optimistic UI Update ---
         setVideos(currentVideos => currentVideos.map(v => {
             if (v.id === videoId) {
-                const newTasks = { ...v.tasks, ...data };
-                newTasks[taskName] = status;
-                return { ...v, tasks: newTasks };
+                const newVideo = JSON.parse(JSON.stringify(v));
+                if (!newVideo.tasks) {
+                    newVideo.tasks = {};
+                }
+                for (const key in data) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        const keys = key.split('.');
+                        let current = newVideo;
+                        for (let i = 0; i < keys.length - 1; i++) {
+                            current = current[keys[i]];
+                        }
+                        current[keys[keys.length - 1]] = data[key];
+                    }
+                }
+                newVideo.tasks[taskName] = status;
+                return newVideo;
             }
             return v;
         }));
-        // --- END: Optimistic UI Update ---
+        // --- END: Corrected Optimistic UI Update ---
 
         try {
             const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
