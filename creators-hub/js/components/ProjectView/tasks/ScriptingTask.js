@@ -63,8 +63,6 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // --- REMOVED: All state and effects related to auto-saving ---
-
     useEffect(() => {
         setLocalTaskData(taskData);
     }, [taskData]);
@@ -89,19 +87,8 @@ const ScriptingWorkspaceModal = ({
 
     const handleRemoveQuestion = (indexToRemove) => {
         const newQuestions = localTaskData.locationQuestions.filter((_, index) => index !== indexToRemove);
-
-        const oldExperiences = localTaskData.userExperiences || {};
-        const newExperiences = {};
-        let newIndex = 0;
-        for (let i = 0; i < localTaskData.locationQuestions.length; i++) {
-            if (i !== indexToRemove) {
-                if (oldExperiences[i] !== undefined) {
-                    newExperiences[newIndex] = oldExperiences[i];
-                }
-                newIndex++;
-            }
-        }
-
+        const newExperiences = { ...(localTaskData.userExperiences || {}) };
+        delete newExperiences[indexToRemove];
         setLocalTaskData(prev => ({
             ...prev,
             locationQuestions: newQuestions,
@@ -115,7 +102,6 @@ const ScriptingWorkspaceModal = ({
         );
         const newDescriptions = { ...(localTaskData.onCameraDescriptions || {}) };
         delete newDescriptions[locationNameToRemove];
-
         setLocalTaskData(prev => ({
             ...prev,
             onCameraLocations: newLocations,
@@ -123,13 +109,14 @@ const ScriptingWorkspaceModal = ({
         }));
     };
 
+    // **** THIS IS THE FIX ****
+    // The handleAction function is simplified. It no longer saves before acting,
+    // which prevents stale data from being used. The action functions themselves
+    // are responsible for saving the data they need.
     const handleAction = async (action, ...args) => {
         setIsLoading(true);
         setError('');
         try {
-            // First, save any pending text changes
-            await onClose(localTaskData, false);
-            // Then, perform the main action
             await action(...args);
         } catch (err) {
             setError(err.message);
@@ -144,7 +131,7 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleStageClick = (targetStage) => {
-        onClose(localTaskData, false); // Save current state before switching stage
+        onClose(localTaskData, false);
         setCurrentStage(targetStage);
     };
 
@@ -213,7 +200,6 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
-            // ... other cases remain the same
             case 'draft_outline_review':
                 return (
                     <div>
@@ -381,7 +367,6 @@ const ScriptingWorkspaceModal = ({
                     {renderContent()}
                 </div>
 
-                {/* --- REMOVED: Save status indicator from the footer --- */}
                 <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
                 </div>
 
@@ -390,7 +375,6 @@ const ScriptingWorkspaceModal = ({
     );
 };
 
-// The rest of the file remains the same...
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
@@ -500,6 +484,9 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleGenerateRefinementPlan = async (currentTaskData) => {
+        // First, save the current state of the outline
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': currentTaskData.scriptPlan });
+
         const response = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
             draftOutline: currentTaskData.scriptPlan,
@@ -611,6 +598,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
+            // ... and all other fields
             'tasks.initialThoughts': finalTaskData.initialThoughts,
             'tasks.initialQuestions': finalTaskData.initialQuestions,
             'tasks.initialAnswers': finalTaskData.initialAnswers,
@@ -662,6 +650,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
+                    project={project}
                     taskData={taskData}
                     stageOverride={workspaceStageOverride}
                     onClose={handleUpdateAndCloseWorkspace}
