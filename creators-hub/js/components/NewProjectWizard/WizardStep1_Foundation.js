@@ -42,7 +42,6 @@ window.WizardStep1_Foundation = ({
             const points = await window.aiUtils.findPointsOfInterestAI({
                 mainLocationName: mainLocation.name,
                 currentLocations: locations,
-                // FIX: Pass the entire settings object instead of just the apiKey
                 settings: settings
             });
             
@@ -62,19 +61,30 @@ window.WizardStep1_Foundation = ({
             return;
         }
         const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ 'address': `${suggestedLocation.name}, ${locations[0].name}` }, (results, status) => {
+
+        // FIX: Prioritize using lat/lng from the AI for a more reliable lookup.
+        // Fall back to the address string if coordinates are not provided.
+        const geocodeRequest = (suggestedLocation.lat && suggestedLocation.lng)
+            ? { 'location': { lat: suggestedLocation.lat, lng: suggestedLocation.lng } }
+            : { 'address': `${suggestedLocation.name}, ${locations[0].name}` };
+
+        geocoder.geocode(geocodeRequest, (results, status) => {
             if (status === 'OK' && results[0]) {
                 const place = results[0];
                 const newLocation = {
-                    name: suggestedLocation.name,
+                    name: suggestedLocation.name, // Use the AI's name for consistency
                     place_id: place.place_id,
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng(),
                     importance: determineDefaultImportance(place.types),
                     types: place.types
                 };
+
                 if (!locations.some(loc => loc.place_id === newLocation.place_id)) {
                     onLocationsUpdate([...locations, newLocation]);
+                    setAiLocationSuggestions(prev => prev.filter(sug => sug.name !== suggestedLocation.name));
+                } else {
+                    // If it's a duplicate, just remove it from the suggestions list
                     setAiLocationSuggestions(prev => prev.filter(sug => sug.name !== suggestedLocation.name));
                 }
             } else {
