@@ -109,10 +109,6 @@ const ScriptingWorkspaceModal = ({
         }));
     };
 
-    // **** THIS IS THE FIX ****
-    // The handleAction function is simplified. It no longer saves before acting,
-    // which prevents stale data from being used. The action functions themselves
-    // are responsible for saving the data they need.
     const handleAction = async (action, ...args) => {
         setIsLoading(true);
         setError('');
@@ -131,7 +127,7 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleStageClick = (targetStage) => {
-        onClose(localTaskData, false);
+        onClose(localTaskData, false); // Save current state before switching stage
         setCurrentStage(targetStage);
     };
 
@@ -394,12 +390,38 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptRefinementText: '',
     };
 
+    // **** THIS IS THE FIX ****
+    // This function is called every time the workspace is opened.
+    // It now includes logic to refresh the on-camera location list if needed.
     const handleOpenWorkspace = async (startStage = null) => {
         setWorkspaceStageOverride(null);
         let stageToOpen = startStage;
 
+        // If the user is already at or beyond the on-camera notes stage,
+        // we must re-calculate the on-camera locations list to ensure it's not stale.
+        const allStages = ['initial_thoughts', 'initial_qa', 'draft_outline_review', 'refinement_qa', 'on_camera_qa', 'full_script_review', 'complete'];
+        const currentStage = taskData.scriptingStage || 'pending';
+        const currentStageIndex = allStages.indexOf(currentStage);
+        const onCameraStageIndex = allStages.indexOf('on_camera_qa');
+
+        if (currentStageIndex >= onCameraStageIndex) {
+            const freshOnCameraLocations = (video.locations_featured || [])
+                .filter(locName => {
+                    const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+                    return inventoryItem && inventoryItem.onCamera;
+                });
+
+            // Only update if the list has actually changed to avoid unnecessary writes.
+            const sortedOld = [...(video.tasks?.onCameraLocations || [])].sort();
+            const sortedNew = [...freshOnCameraLocations].sort();
+            if (JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
+                await onUpdateTask('scripting', 'in-progress', {
+                    'tasks.onCameraLocations': freshOnCameraLocations
+                });
+            }
+        }
+
         if (!stageToOpen) {
-            const currentStage = taskData.scriptingStage;
             if (video.tasks?.scripting === 'complete') {
                     stageToOpen = 'full_script_review';
             } else {
@@ -484,7 +506,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleGenerateRefinementPlan = async (currentTaskData) => {
-        // First, save the current state of the outline
         await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': currentTaskData.scriptPlan });
 
         const response = await window.aiUtils.generateScriptPlanAI({
@@ -598,7 +619,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
-            // ... and all other fields
             'tasks.initialThoughts': finalTaskData.initialThoughts,
             'tasks.initialQuestions': finalTaskData.initialQuestions,
             'tasks.initialAnswers': finalTaskData.initialAnswers,
@@ -650,7 +670,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
-                    project={project}
                     taskData={taskData}
                     stageOverride={workspaceStageOverride}
                     onClose={handleUpdateAndCloseWorkspace}
