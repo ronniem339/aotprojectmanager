@@ -77,7 +77,6 @@ const ScriptingWorkspaceModal = ({
         const autoSaveProgress = async () => {
             setSaveStatus('saving');
             try {
-                // Call the save handler passed in props, but tell it not to close the modal
                 await onClose(debouncedLocalTaskData, false);
                 setSaveStatus('saved');
                 const timer = setTimeout(() => setSaveStatus('idle'), 2000);
@@ -92,9 +91,22 @@ const ScriptingWorkspaceModal = ({
 
         autoSaveProgress();
 
-    }, [debouncedLocalTaskData, onClose]); // Now debouncedLocalTaskData and onClose are correctly in scope
+    }, [debouncedLocalTaskData, onClose]);
 
-    // --- END AUTO-SAVING LOGIC ---
+    // --- DEBUG LOGGING ---
+    useEffect(() => {
+        console.log("MODAL_DEBUG: taskData prop updated.", taskData);
+    }, [taskData]);
+
+    useEffect(() => {
+        console.log(`MODAL_DEBUG: Stage-change useEffect fired. Current stage: '${currentStage}', New prop stage: '${taskData.scriptingStage}'`);
+        if (taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
+            console.log(`MODAL_DEBUG: ADVANCING STAGE from '${currentStage}' to '${taskData.scriptingStage}'`);
+            setCurrentStage(taskData.scriptingStage);
+        }
+    }, [taskData.scriptingStage]);
+    // --- END DEBUG LOGGING ---
+
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -172,7 +184,6 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleStageClick = (targetStage) => {
-        // Save current state explicitly before navigating
         onClose(localTaskData, false);
         setCurrentStage(targetStage);
     };
@@ -438,9 +449,6 @@ return (
 };
 
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
-    // ...
-    // ... all the existing handle... functions remain the same
-    // ...
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
 
@@ -482,23 +490,33 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleGenerateInitialQuestions = async (thoughtsText) => {
+        console.log("SCRIPTING_TASK: STEP 1 - Saving initial thoughts.");
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText });
 
-        const response = await window.aiUtils.generateInitialQuestionsAI({
-            initialThoughts: thoughtsText,
-            settings: settings
-        });
+        try {
+            console.log("SCRIPTING_TASK: STEP 2 - Calling AI to generate questions...");
+            const response = await window.aiUtils.generateInitialQuestionsAI({
+                initialThoughts: thoughtsText,
+                settings: settings
+            });
+            console.log("SCRIPTING_TASK: STEP 3 - AI response received:", response);
 
-        if (!response || !Array.isArray(response.questions)) {
-            console.error("AI response did not contain 'questions' array:", response);
-            throw new Error("The AI failed to generate clarifying questions. Please try again.");
+            if (!response || !Array.isArray(response.questions)) {
+                console.error("AI response did not contain 'questions' array:", response);
+                throw new Error("The AI failed to generate clarifying questions. Please try again.");
+            }
+
+            console.log("SCRIPTING_TASK: STEP 4 - Updating task with new questions and stage 'initial_qa'.");
+            await onUpdateTask('scripting', 'in-progress', {
+                'tasks.scriptingStage': 'initial_qa',
+                'tasks.initialQuestions': response.questions,
+                'tasks.initialAnswers': {}
+            });
+            console.log("SCRIPTING_TASK: STEP 5 - Task update complete.");
+        } catch (error) {
+            console.error("SCRIPTING_TASK: An error occurred during handleGenerateInitialQuestions", error);
+            throw error;
         }
-
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'initial_qa',
-            'tasks.initialQuestions': response.questions,
-            'tasks.initialAnswers': {}
-        });
     };
 
     const handleGenerateDraftOutline = async (currentTaskData) => {
