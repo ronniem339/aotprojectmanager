@@ -726,33 +726,38 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     return (
-        <div>
-            {renderAccordionContent()}
-            
+    <div>
+        {renderAccordionContent()}
+
+        {showWorkspace && ReactDOM.createPortal(
+            <ScriptingWorkspaceModal
+                video={video}
+                taskData={taskData}
+                stageOverride={workspaceStageOverride}
+                onClose={handleUpdateAndCloseWorkspace}
+                onSave={handleSaveAndComplete}
+                onInitiateRemoveLocation={setLocationToModify}
+                onGenerateInitialQuestions={handleGenerateInitialQuestions}
+                onGenerateDraftOutline={handleGenerateDraftOutline}
+                onRefineOutline={handleRefineOutline}
+                onGenerateRefinementPlan={handleGenerateRefinementPlan}
+                onProceedToScripting={handleProceedToScripting}
+                onGenerateFullScript={handleGenerateFullScript}
+                onRefineScript={handleRefineScript}
+            />,
+            document.body
+        )}
+
+        {/* MOVED AND WRAPPED THE MODAL IN ITS OWN PORTAL */}
+        {locationToModify && ReactDOM.createPortal(
             <LocationRemovalOptionsModal
                 isOpen={!!locationToModify}
                 locationName={locationToModify}
                 onConfirm={handleLocationModification}
                 onCancel={() => setLocationToModify(null)}
-            />
-            {showWorkspace && ReactDOM.createPortal(
-                <ScriptingWorkspaceModal
-                    video={video}
-                    taskData={taskData}
-                    stageOverride={workspaceStageOverride}
-                    onClose={handleUpdateAndCloseWorkspace}
-                    onSave={handleSaveAndComplete}
-                    onInitiateRemoveLocation={setLocationToModify}
-                    onGenerateInitialQuestions={handleGenerateInitialQuestions}
-                    onGenerateDraftOutline={handleGenerateDraftOutline}
-                    onRefineOutline={handleRefineOutline}
-                    onGenerateRefinementPlan={handleGenerateRefinementPlan}
-                    onProceedToScripting={handleProceedToScripting}
-                    onGenerateFullScript={handleGenerateFullScript}
-                    onRefineScript={handleRefineScript}
-                />,
-                document.body
-            )}
-        </div>
-    );
+            />,
+            document.body
+        )}
+    </div>
+);
 };
