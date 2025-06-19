@@ -202,7 +202,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         } catch (e) {
             console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
             setError(`Failed to update task status: ${e.message}`);
-            // Optionally revert state here if the update fails
         }
     }, [userId, localProject?.id, appId, taskBeingEdited, db]);
 
