@@ -160,27 +160,39 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
      * Finds points of interest. This is a simple task.
      */
     findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
-        const prompt = `You are a creative travel planner and content idea generator. Your task is to suggest as many relevant *new and distinct* points of interest as possible, up to 50, for a video project focusing on "${mainLocationName}".
+        const existingLocationNames = currentLocations.map(l => l.name).join(', ');
 
-Consider the following existing locations already planned for the project:
-- A concise name for the location.
-- A brief, engaging description (1-2 sentences) explaining why it's a good filming location or a key point of interest for content.
+        const prompt = `You are a creative travel planner. Based on the main location "${mainLocationName}", suggest 5-10 specific, popular, and interesting points of interest (like museums, landmarks, famous restaurants, unique natural features). Avoid suggesting general areas or cities that are already in the existing list of locations: ${existingLocationNames}.
 
-Your response MUST be a valid JSON object with a single key "suggestedLocations" which is an array of objects. Each object in the array must have "name" (string), "description" (string) properties.`;
+Return your answer as a JSON array of objects. Each object must have four keys:
+1. "name" (a string for the place name).
+2. "description" (a brief, compelling 1-sentence description).
+3. "lat" (a number for the latitude).
+4. "lng" (a number for the longitude).
+
+Ensure the latitude and longitude are accurate for the suggested location. Do not include any locations from the existing list.
+
+Example JSON format:
+[
+  {"name": "Eiffel Tower", "description": "Iconic iron tower offering breathtaking panoramic views of Paris.", "lat": 48.8584, "lng": 2.2945},
+  {"name": "Louvre Museum", "description": "Home to masterpieces like the Mona Lisa and Venus de Milo.", "lat": 48.8606, "lng": 2.3376}
+]`;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
-            if (parsedJson && Array.isArray(parsedJson.suggestedLocations)) {
-                return parsedJson.suggestedLocations;
-            } else {
-                throw new Error("AI returned an invalid format for suggested locations.");
+            if (!Array.isArray(parsedJson)) {
+                const key = Object.keys(parsedJson).find(k => Array.isArray(parsedJson[k]));
+                if (key) {
+                    return parsedJson[key];
+                }
+                throw new Error("AI response was not a valid JSON array.");
             }
+            return parsedJson;
         } catch (error) {
             console.error("Error finding points of interest:", error);
             throw new Error(`AI failed to find locations: ${error.message || error}`);
         }
     },
-
     /**
      * Asks high-level strategic questions based on the user's initial notes.
      */
