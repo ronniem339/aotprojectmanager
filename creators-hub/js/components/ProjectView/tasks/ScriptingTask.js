@@ -88,7 +88,6 @@ const ScriptingWorkspaceModal = ({
     const handleRemoveQuestion = (indexToRemove) => {
         const newQuestions = localTaskData.locationQuestions.filter((_, index) => index !== indexToRemove);
         
-        // Re-key the userExperiences to keep them aligned with the new questions array
         const oldExperiences = localTaskData.userExperiences || {};
         const newExperiences = {};
         let newIndex = 0;
@@ -105,6 +104,20 @@ const ScriptingWorkspaceModal = ({
             ...prev,
             locationQuestions: newQuestions,
             userExperiences: newExperiences
+        }));
+    };
+
+    const handleRemoveOnCameraLocation = (locationNameToRemove) => {
+        const newLocations = localTaskData.onCameraLocations.filter(
+            (locName) => locName !== locationNameToRemove
+        );
+        const newDescriptions = { ...(localTaskData.onCameraDescriptions || {}) };
+        delete newDescriptions[locationNameToRemove];
+
+        setLocalTaskData(prev => ({
+            ...prev,
+            onCameraLocations: newLocations,
+            onCameraDescriptions: newDescriptions
         }));
     };
 
@@ -262,15 +275,25 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'on_camera_qa':
-                 // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
-                        <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
+                        <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments. You can remove any locations that are too broad to describe.</p>
                         <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
                             {(localTaskData.onCameraLocations || []).map((locationName) => (
                                 <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-gray-200 text-md font-medium mb-2">{locationName}</label>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <label className="block text-gray-200 text-md font-medium">{locationName}</label>
+                                        <button
+                                            onClick={() => handleRemoveOnCameraLocation(locationName)}
+                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0"
+                                            title={`Remove ${locationName}`}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                     <textarea
                                         value={(localTaskData.onCameraDescriptions || {})[locationName] || ''}
                                         onChange={(e) => handleOnCameraDescriptionChange(locationName, e.target.value)}
@@ -290,7 +313,6 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'full_script_review':
-                // This case remains the same
                 return (
                        <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
@@ -350,9 +372,11 @@ const ScriptingWorkspaceModal = ({
     );
 };
 
-// The rest of the ScriptingTask component remains the same
+// The rest of the ScriptingTask component is unchanged...
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
-    // This part of the component remains unchanged...
+    // ...
+    // ... all the existing handle... functions remain the same
+    // ...
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     
