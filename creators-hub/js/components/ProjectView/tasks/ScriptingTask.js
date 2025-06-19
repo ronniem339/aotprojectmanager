@@ -63,13 +63,14 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // --- AUTO-SAVING LOGIC MOVED INSIDE COMPONENT ---
     const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
     const isInitialMount = useRef(true);
-    const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500); // Debounce local data
+    const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500);
 
+    // This is the auto-save effect with the fix.
     useEffect(() => {
-        if (isInitialMount.current) {
+        // If it's the first render OR an AI action is in progress, do not auto-save.
+        if (isInitialMount.current || isLoading) {
             isInitialMount.current = false;
             return;
         }
@@ -91,22 +92,7 @@ const ScriptingWorkspaceModal = ({
 
         autoSaveProgress();
 
-    }, [debouncedLocalTaskData, onClose]);
-
-    // --- DEBUG LOGGING ---
-    useEffect(() => {
-        console.log("MODAL_DEBUG: taskData prop updated.", taskData);
-    }, [taskData]);
-
-    useEffect(() => {
-        console.log(`MODAL_DEBUG: Stage-change useEffect fired. Current stage: '${currentStage}', New prop stage: '${taskData.scriptingStage}'`);
-        if (taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
-            console.log(`MODAL_DEBUG: ADVANCING STAGE from '${currentStage}' to '${taskData.scriptingStage}'`);
-            setCurrentStage(taskData.scriptingStage);
-        }
-    }, [taskData.scriptingStage]);
-    // --- END DEBUG LOGGING ---
-
+    }, [debouncedLocalTaskData, onClose, isLoading]); // Added isLoading to dependency array
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -417,7 +403,6 @@ return (
                 {renderContent()}
             </div>
 
-            {/* --- THIS IS THE NEWLY ADDED FOOTER --- */}
             <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
                 {saveStatus === 'saving' && (
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
@@ -490,33 +475,23 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleGenerateInitialQuestions = async (thoughtsText) => {
-        console.log("SCRIPTING_TASK: STEP 1 - Saving initial thoughts.");
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText });
 
-        try {
-            console.log("SCRIPTING_TASK: STEP 2 - Calling AI to generate questions...");
-            const response = await window.aiUtils.generateInitialQuestionsAI({
-                initialThoughts: thoughtsText,
-                settings: settings
-            });
-            console.log("SCRIPTING_TASK: STEP 3 - AI response received:", response);
+        const response = await window.aiUtils.generateInitialQuestionsAI({
+            initialThoughts: thoughtsText,
+            settings: settings
+        });
 
-            if (!response || !Array.isArray(response.questions)) {
-                console.error("AI response did not contain 'questions' array:", response);
-                throw new Error("The AI failed to generate clarifying questions. Please try again.");
-            }
-
-            console.log("SCRIPTING_TASK: STEP 4 - Updating task with new questions and stage 'initial_qa'.");
-            await onUpdateTask('scripting', 'in-progress', {
-                'tasks.scriptingStage': 'initial_qa',
-                'tasks.initialQuestions': response.questions,
-                'tasks.initialAnswers': {}
-            });
-            console.log("SCRIPTING_TASK: STEP 5 - Task update complete.");
-        } catch (error) {
-            console.error("SCRIPTING_TASK: An error occurred during handleGenerateInitialQuestions", error);
-            throw error;
+        if (!response || !Array.isArray(response.questions)) {
+            console.error("AI response did not contain 'questions' array:", response);
+            throw new Error("The AI failed to generate clarifying questions. Please try again.");
         }
+
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptingStage': 'initial_qa',
+            'tasks.initialQuestions': response.questions,
+            'tasks.initialAnswers': {}
+        });
     };
 
     const handleGenerateDraftOutline = async (currentTaskData) => {
