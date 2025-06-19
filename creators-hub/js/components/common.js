@@ -417,6 +417,46 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
     );
 };
 
+// NEW: A modal to confirm how a location should be removed.
+window.RemoveLocationConfirmationModal = ({ isOpen, locationName, onConfirm, onCancel }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[100] p-4">
+            <div className="glass-card rounded-lg p-8 w-full max-w-lg text-center">
+                <h3 className="text-2xl font-bold text-amber-400 mb-4">Confirm Removal</h3>
+                <p className="text-gray-300 mb-6">
+                    How should <strong className="text-white">"{locationName}"</strong> be removed?
+                </p>
+
+                <div className="space-y-4">
+                    <button
+                        onClick={() => onConfirm(locationName, 'script')}
+                        className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg border border-gray-600 hover:border-primary-accent transition-all"
+                    >
+                        <p className="font-semibold text-lg text-white">Remove from Script Only</p>
+                        <p className="text-gray-400 text-sm">The location will not be used for this script, but will remain in the project's footage inventory for future videos.</p>
+                    </button>
+
+                    <button
+                        onClick={() => onConfirm(locationName, 'project')}
+                        className="w-full text-left p-4 bg-red-900/50 hover:bg-red-800/50 rounded-lg border border-red-700 hover:border-red-500 transition-all"
+                    >
+                        <p className="font-semibold text-lg text-red-300">Remove from Project Completely</p>
+                        <p className="text-gray-400 text-sm">This will permanently delete the location from the project's footage inventory and location list. This cannot be undone.</p>
+                    </button>
+                </div>
+
+                <div className="mt-8">
+                    <button onClick={onCancel} className="px-8 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // EXPOSE NEW COMPONENTS GLOBALLY
 window.CopyButton = CopyButton;
