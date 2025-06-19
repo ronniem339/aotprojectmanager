@@ -1,6 +1,36 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingTask.js
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
+const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+const isInitialMount = useRef(true);
+const debouncedTaskData = window.useDebounce(localTaskData, 1500); // Debounce local data
+
+// --- AUTO-SAVING LOGIC ---
+useEffect(() => {
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+    }
+
+    const autoSaveProgress = async () => {
+        setSaveStatus('saving');
+        try {
+            // Call the save handler passed in props, but tell it not to close the modal
+            await onClose(debouncedTaskData, false);
+            setSaveStatus('saved');
+            const timer = setTimeout(() => setSaveStatus('idle'), 2000);
+            return () => clearTimeout(timer);
+        } catch (err) {
+            console.error("Auto-save failed:", err);
+            setSaveStatus('error');
+            const timer = setTimeout(() => setSaveStatus('idle'), 3000);
+            return () => clearTimeout(timer);
+        }
+    };
+
+    autoSaveProgress();
+
+}, [debouncedTaskData, onClose]);
 
 // Stepper component for navigation
 const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
@@ -134,7 +164,15 @@ const ScriptingWorkspaceModal = ({
         }
     };
     
-    const handleClose = () => onClose(localTaskData);
+const handleClose = (shouldClose = true) => {
+    onClose(localTaskData, shouldClose);
+};
+
+const handleStageClick = (targetStage) => {
+    // Save current state explicitly before navigating
+    onClose(localTaskData, false);
+    setCurrentStage(targetStage);
+};
     const handleSaveAndComplete = () => onSave(localTaskData);
 
     const stages = [
@@ -350,26 +388,53 @@ const ScriptingWorkspaceModal = ({
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
-            <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
-                <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
-                
-                <ScriptingStepper 
-                    stages={stages}
-                    currentStage={currentStage}
-                    highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
-                    onStageClick={setCurrentStage}
-                />
+return (
+    <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
+        <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
+            <button onClick={() => handleClose(true)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
+            
+            <ScriptingStepper 
+                stages={stages}
+                currentStage={currentStage}
+                highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
+                onStageClick={handleStageClick}
+            />
 
-                <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
-                    {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                    {renderContent()}
-                </div>
+            <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
+                {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
+                {renderContent()}
             </div>
+
+            {/* --- THIS IS THE NEWLY ADDED FOOTER --- */}
+            <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
+                {saveStatus === 'saving' && (
+                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <window.LoadingSpinner isButton={true} />
+                        <span>Saving...</span>
+                    </div>
+                )}
+                {saveStatus === 'saved' && (
+                    <div className="flex items-center gap-2 text-green-400 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span>All changes saved</span>
+                    </div>
+                )}
+                    {saveStatus === 'error' && (
+                        <div className="flex items-center gap-2 text-red-400 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                        <span>Save failed</span>
+                    </div>
+                )}
+            </div>
+            
         </div>
-    );
+    </div>
+);
 };
 
 // The rest of the ScriptingTask component is unchanged...
@@ -573,24 +638,26 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleUpdateAndCloseWorkspace = (updatedTaskData) => {
-        const fieldsToUpdate = {
-            'tasks.scriptingStage': updatedTaskData.scriptingStage,
-            'tasks.initialThoughts': updatedTaskData.initialThoughts,
-            'tasks.initialQuestions': updatedTaskData.initialQuestions,
-            'tasks.initialAnswers': updatedTaskData.initialAnswers,
-            'tasks.scriptPlan': updatedTaskData.scriptPlan,
-            'tasks.locationQuestions': updatedTaskData.locationQuestions,
-            'tasks.userExperiences': updatedTaskData.userExperiences,
-            'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
-            'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
-            'script': updatedTaskData.script,
-        };
-        if(video.tasks?.scripting !== 'complete'){
-             onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
-        }
-        setShowWorkspace(false);
+const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
+    const fieldsToUpdate = {
+        'tasks.scriptingStage': updatedTaskData.scriptingStage,
+        'tasks.initialThoughts': updatedTaskData.initialThoughts,
+        'tasks.initialQuestions': updatedTaskData.initialQuestions,
+        'tasks.initialAnswers': updatedTaskData.initialAnswers,
+        'tasks.scriptPlan': updatedTaskData.scriptPlan,
+        'tasks.locationQuestions': updatedTaskData.locationQuestions,
+        'tasks.userExperiences': updatedTaskData.userExperiences,
+        'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
+        'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
+        'script': updatedTaskData.script,
     };
+    if(video.tasks?.scripting !== 'complete'){
+         onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
+    }
+    if (shouldClose) {
+        setShowWorkspace(false);
+    }
+};
 
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
