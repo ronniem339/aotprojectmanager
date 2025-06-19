@@ -63,14 +63,14 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+    const [saveStatus, setSaveStatus] = useState('idle');
     const isInitialMount = useRef(true);
-    const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500);
+    
+    // --- MODIFIED: Get the cancel function from the hook ---
+    const [debouncedLocalTaskData, cancelAutoSave] = window.useDebounce(localTaskData, 1500);
 
-    // This is the auto-save effect with the fix.
     useEffect(() => {
-        // If it's the first render OR an AI action is in progress, do not auto-save.
-        if (isInitialMount.current || isLoading) {
+        if (isInitialMount.current) {
             isInitialMount.current = false;
             return;
         }
@@ -92,7 +92,7 @@ const ScriptingWorkspaceModal = ({
 
         autoSaveProgress();
 
-    }, [debouncedLocalTaskData, onClose, isLoading]); // Added isLoading to dependency array
+    }, [debouncedLocalTaskData, onClose]);
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -152,7 +152,11 @@ const ScriptingWorkspaceModal = ({
         }));
     };
 
+    // --- MODIFIED: The core fix is here ---
     const handleAction = async (action, ...args) => {
+        // Cancel any pending auto-save before starting the action.
+        cancelAutoSave();
+
         setIsLoading(true);
         setError('');
         try {
