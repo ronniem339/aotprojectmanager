@@ -1,4 +1,4 @@
-// creators-hub/js/components/ProjectView/tasks/ScriptingTask.js
+// js/components/ProjectView/tasks/ScriptingTask.js
 
 const { useState, useEffect, useRef } = React;
 
@@ -467,7 +467,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         setWorkspaceStageOverride(stageToOpen);
 
         if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-            await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
+            await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
         }
 
         setShowWorkspace(true);
@@ -484,7 +484,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate clarifying questions. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
+        await onUpdateTask(video.id, 'scripting', 'in-progress', {
             'tasks.initialThoughts': thoughtsText,
             'tasks.scriptingStage': 'initial_qa',
             'tasks.initialQuestions': response.questions,
@@ -497,7 +497,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
+        await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
         const response = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
@@ -512,7 +512,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate a valid outline. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
+        await onUpdateTask(video.id, 'scripting', 'in-progress', {
             'tasks.scriptingStage': 'draft_outline_review',
             'tasks.scriptPlan': response.draftOutline
         });
@@ -537,7 +537,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to refine the outline. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
+        await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
 
     const handleGenerateRefinementPlan = async (currentTaskData) => {
@@ -552,7 +552,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate the next set of questions. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
+        await onUpdateTask(video.id, 'scripting', 'in-progress', {
             'tasks.scriptingStage': 'refinement_qa',
             'tasks.scriptPlan': response.scriptPlan,
             'tasks.locationQuestions': response.locationQuestions,
@@ -561,7 +561,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleProceedToScripting = async (currentTaskData) => {
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
+        await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
 
         const onCameraLocations = (video.locations_featured || [])
             .filter(locName => {
@@ -570,7 +570,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             });
 
         if (onCameraLocations.length > 0) {
-            await onUpdateTask('scripting', 'in-progress', {
+            await onUpdateTask(video.id, 'scripting', 'in-progress', {
                 'tasks.scriptingStage': 'on_camera_qa',
                 'tasks.onCameraLocations': onCameraLocations,
                 'tasks.onCameraDescriptions': currentTaskData.onCameraDescriptions || {}
@@ -598,7 +598,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate the final script. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
+        await onUpdateTask(video.id, 'scripting', 'in-progress', {
             'tasks.scriptingStage': 'full_script_review',
             'script': response.finalScript
         });
@@ -623,25 +623,26 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to refine the script. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
+        await onUpdateTask(video.id, 'scripting', 'in-progress', {
             'script': response.finalScript
         });
     };
 
     const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
-        // This function is for auto-saving. It now only saves user-editable content.
-        // It will NOT save system-generated data like the stage or the questions list.
         const fieldsToUpdate = {
+            'tasks.scriptingStage': updatedTaskData.scriptingStage,
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
+            'tasks.initialQuestions': updatedTaskData.initialQuestions,
             'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
+            'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
+            'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
             'script': updatedTaskData.script,
         };
-
         if(video.tasks?.scripting !== 'complete'){
-            onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
+           onUpdateTask(video.id, 'scripting', 'in-progress', fieldsToUpdate);
         }
         if (shouldClose) {
             setShowWorkspace(false);
@@ -649,7 +650,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleSaveAndComplete = (finalTaskData) => {
-        onUpdateTask('scripting', 'complete', {
+        onUpdateTask(video.id, 'scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
             'tasks.initialQuestions': finalTaskData.initialQuestions,
@@ -697,6 +698,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     return (
         <div>
+            {renderAccordionContent()}
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
