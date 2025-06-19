@@ -392,6 +392,8 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
                                     project={localProject}
                                     userId={userId}
                                     db={db}
+                                    allVideos={videos} 
+
                                 />
                             </main>
                             <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : 'hidden lg:block'}`}>
