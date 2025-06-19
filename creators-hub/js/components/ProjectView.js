@@ -12,7 +12,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
     const [showScriptPlanModal, setShowScriptPlanModal] = useState(false);
     const [scriptPlanData, setScriptPlanData] = useState(null);
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
-    const [showManageFootageModal, setShowManageFootageModal] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
 
@@ -295,7 +294,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 project={localProject}
                 onBack={onCloseProject}
                 onEdit={handleEditClick}
-                onManageFootage={() => setShowManageFootageModal(true)}
                 overallProgress={overallProgress}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 hideDescription={isSingleVideoProject}
@@ -385,7 +383,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             </div>
 
             {showEditProjectModal && (
-                // MODIFICATION: Pass the 'db' prop down to the modal
                 <window.EditProjectModal
                     project={localProject}
                     videos={videos}
@@ -399,52 +396,16 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
             )}
 
             {showVideoModal && activeVideo && (
-    <window.EditVideoModal
-        video={activeVideo}
-        onClose={handleCloseVideoModal}
-        onSave={handleCloseVideoModal} // This will close the modal and refresh the data
-        userId={userId}
-        settings={settings}
-        project={localProject}
-        allVideos={videos} // Pass the list of all videos
-        googleMapsLoaded={googleMapsLoaded}
-        db={db}
-    />
-)}
-
-            {showManageFootageModal && (
-                <window.ManageFootageModal
-                    project={localProject}
-                    onClose={() => setShowManageFootageModal(false)}
+                <window.EditVideoModal
+                    video={activeVideo}
+                    onClose={handleCloseVideoModal}
+                    onSave={handleCloseVideoModal}
                     userId={userId}
                     settings={settings}
+                    project={localProject}
+                    allVideos={videos}
                     googleMapsLoaded={googleMapsLoaded}
-                    videos={videos}
-                    onSaveAndSuggestConcepts={async (updatedLocations, updatedFootageInventory, videosToUpdate) => {
-                        try {
-                            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
-                            await projectRef.update({
-                                locations: updatedLocations,
-                                footageInventory: updatedFootageInventory
-                            });
-
-                            const batch = db.batch();
-                            videosToUpdate.forEach(videoUpdate => {
-                                const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoUpdate.videoId);
-                                const updatePayload = { concept: videoUpdate.newConcept };
-                                if (videoUpdate.resetScriptingTask) {
-                                    updatePayload['tasks.scripting'] = 'pending';
-                                    updatePayload['tasks.scriptingStage'] = 'pending';
-                                    updatePayload['script'] = '';
-                                }
-                                batch.update(videoRef, updatePayload);
-                            });
-                            await batch.commit();
-                        } catch (e) {
-                            console.error("Error saving footage and concepts:", e);
-                            setError(`Failed to save changes: ${e.message}`);
-                        }
-                    }}
+                    db={db}
                 />
             )}
 
