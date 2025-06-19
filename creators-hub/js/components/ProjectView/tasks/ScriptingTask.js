@@ -2,29 +2,39 @@
 
 const { useState, useEffect } = React;
 
-// NEW: Stepper component for navigation
-const ScriptingStepper = ({ stages, currentStage, onStageClick, isComplete }) => {
+// Stepper component for navigation
+const ScriptingStepper = ({ stages, currentStage, onStageClick }) => {
+    const currentStageIndex = stages.findIndex(s => s.id === currentStage);
+
     return (
         <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
-            {stages.map((stage, index) => (
-                <React.Fragment key={stage.id}>
-                    <button
-                        onClick={() => isComplete && onStageClick(stage.id)}
-                        disabled={!isComplete}
-                        className={`flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-colors ${
-                            currentStage === stage.id
-                                ? 'bg-primary-accent text-white font-semibold'
-                                : 'bg-gray-800 text-gray-400'
-                        } ${isComplete ? 'hover:bg-primary-accent-darker cursor-pointer' : 'cursor-default'}`}
-                    >
-                        <span className={`flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${currentStage === stage.id ? 'bg-white text-primary-accent' : 'bg-gray-700'}`}>
-                            {index + 1}
-                        </span>
-                        <span className="hidden sm:inline">{stage.name}</span>
-                    </button>
-                    {index < stages.length - 1 && <div className="h-1 w-4 sm:w-8 bg-gray-700 rounded-full"></div>}
-                </React.Fragment>
-            ))}
+            {stages.map((stage, index) => {
+                const isPastStage = index < currentStageIndex;
+                const isCurrentStage = index === currentStageIndex;
+                const isClickable = isPastStage;
+
+                return (
+                    <React.Fragment key={stage.id}>
+                        <button
+                            onClick={() => isClickable && onStageClick(stage.id)}
+                            disabled={!isClickable && !isCurrentStage}
+                            className={`flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-colors ${
+                                isCurrentStage
+                                    ? 'bg-primary-accent text-white font-semibold'
+                                    : 'bg-gray-800 text-gray-400'
+                            } ${isClickable ? 'hover:bg-primary-accent-darker cursor-pointer' : 'cursor-default'}
+                              ${!isClickable && !isCurrentStage ? 'opacity-50' : ''}
+                            `}
+                        >
+                            <span className={`flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${isCurrentStage ? 'bg-white text-primary-accent' : (isPastStage ? 'bg-green-600 text-white' : 'bg-gray-700')}`}>
+                                {isPastStage ? '✓' : index + 1}
+                            </span>
+                            <span className="hidden sm:inline">{stage.name}</span>
+                        </button>
+                        {index < stages.length - 1 && <div className="h-1 w-4 sm:w-8 bg-gray-700 rounded-full"></div>}
+                    </React.Fragment>
+                );
+            })}
         </div>
     );
 };
@@ -93,7 +103,6 @@ const ScriptingWorkspaceModal = ({
     const handleClose = () => onClose(localTaskData);
     const handleSaveAndComplete = () => onSave(localTaskData);
 
-    // NEW: Define the stages for the stepper
     const stages = [
         { id: 'initial_thoughts', name: 'Brain Dump' },
         { id: 'initial_qa', name: 'Clarify Vision' },
@@ -105,7 +114,7 @@ const ScriptingWorkspaceModal = ({
 
 
     const renderContent = () => {
-        // MODIFIED: Use the internal state for the stage
+        // ... (renderContent function remains the same)
         switch (currentStage) {
             case 'initial_thoughts':
                 return (
@@ -290,12 +299,10 @@ const ScriptingWorkspaceModal = ({
                 <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
                 
-                {/* NEW: Add the stepper */}
                 <ScriptingStepper 
                     stages={stages}
                     currentStage={currentStage}
                     onStageClick={setCurrentStage}
-                    isComplete={video.tasks?.scripting === 'complete'}
                 />
 
                 <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
@@ -309,6 +316,7 @@ const ScriptingWorkspaceModal = ({
 
 
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
+    // ... (rest of the ScriptingTask component remains the same)
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     
