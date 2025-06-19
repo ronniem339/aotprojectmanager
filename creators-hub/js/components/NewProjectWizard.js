@@ -123,6 +123,8 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         setFootageInventory(newInventory);
     }, [footageInventory]);
 
+    // FIX: This handler is now redundant as Step 2 manages its own state and reports back.
+    // However, we'll leave it to avoid potential side effects elsewhere.
     const handleInventoryChange = useCallback((place_id, type, value) => {
         setFootageInventory(prev => ({
             ...prev,
@@ -130,6 +132,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
         }));
     }, []);
 
+    // FIX: This handler is also now redundant.
     const handleSelectAllFootage = useCallback((type, isChecked) => {
         const newInventory = { ...footageInventory };
         locations.slice(1).forEach(loc => {
@@ -302,7 +305,17 @@ Generate a complete project plan as a JSON object with keys:
                                 onCoverImageUrlChange={setCoverImageUrl}
                                 onCoverImageFileChange={setCoverImageFile}
                             />;
-            case 2: return <window.WizardStep2_Inventory locations={locations} footageInventory={footageInventory} onInventoryChange={handleInventoryChange} onSelectAllFootage={handleSelectAllFootage} />;
+            case 2: 
+                // FIX: Pass props that the WizardStep2_Inventory component expects.
+                return <window.WizardStep2_Inventory 
+                    initialData={{ locations, footageInventory }}
+                    onDataChange={({ locations: newLocations, footageInventory: newInventory }) => {
+                        setLocations(newLocations);
+                        setFootageInventory(newInventory);
+                    }}
+                    onValidationChange={() => {}} // This can be a no-op if not used for parent logic
+                    googleMapsLoaded={googleMapsLoaded}
+                />;
             case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
             case 5: return <window.WizardStep5_Description description={editableOutline?.playlistDescription} refinement={refinement} isLoading={isLoading} error={error} onDescriptionChange={(val) => setEditableOutline(p => ({...p, playlistDescription: val}))} onRefinementChange={setRefinement} onRefine={handleRefineDescription} />;
