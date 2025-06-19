@@ -162,7 +162,7 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
     findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
         const existingLocationNames = currentLocations.map(l => l.name).join(', ');
 
-        const prompt = `You are a creative travel planner. Based on the main location "${mainLocationName}", suggest 5-10 specific, popular, and interesting points of interest (like museums, landmarks, famous restaurants, unique natural features). Avoid suggesting general areas or cities that are already in the existing list of locations: ${existingLocationNames}.
+        const prompt = `You are a creative travel planner. Based on the main location "${mainLocationName}", suggest up to 50 specific, popular, and interesting points of interest (like museums, landmarks, famous restaurants, unique natural features). Avoid suggesting general areas or cities that are already in the existing list of locations: ${existingLocationNames}.
 
 Return your answer as a JSON array of objects. Each object must have four keys:
 1. "name" (a string for the place name).
