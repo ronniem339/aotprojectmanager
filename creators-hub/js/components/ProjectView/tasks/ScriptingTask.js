@@ -4,17 +4,13 @@ const { useState, useEffect } = React;
 
 // Stepper component for navigation
 const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
-    // Find the index of the highest stage the user has unlocked
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
     return (
         <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
             {stages.map((stage, index) => {
-                // A stage is considered unlocked if its index is less than or equal to the highest completed index.
                 const isUnlocked = index <= highestCompletedIndex;
                 const isCurrent = currentStage === stage.id;
-
-                // A stage is clickable if it's unlocked and it's not the one currently being viewed.
                 const isClickable = isUnlocked && !isCurrent;
 
                 return (
@@ -71,8 +67,6 @@ const ScriptingWorkspaceModal = ({
         setLocalTaskData(taskData);
     }, [taskData]);
     
-    // When the underlying data updates (e.g., after an AI action),
-    // ensure the modal view advances to the new stage.
     useEffect(() => {
         if(taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
             setCurrentStage(taskData.scriptingStage);
@@ -89,6 +83,29 @@ const ScriptingWorkspaceModal = ({
             [locationName]: description 
         };
         handleDataChange('onCameraDescriptions', newDescriptions);
+    };
+
+    const handleRemoveQuestion = (indexToRemove) => {
+        const newQuestions = localTaskData.locationQuestions.filter((_, index) => index !== indexToRemove);
+        
+        // Re-key the userExperiences to keep them aligned with the new questions array
+        const oldExperiences = localTaskData.userExperiences || {};
+        const newExperiences = {};
+        let newIndex = 0;
+        for (let i = 0; i < localTaskData.locationQuestions.length; i++) {
+            if (i !== indexToRemove) {
+                if (oldExperiences[i] !== undefined) {
+                    newExperiences[newIndex] = oldExperiences[i];
+                }
+                newIndex++;
+            }
+        }
+
+        setLocalTaskData(prev => ({
+            ...prev,
+            locationQuestions: newQuestions,
+            userExperiences: newExperiences
+        }));
     };
 
     const handleAction = async (action, ...args) => {
@@ -120,6 +137,7 @@ const ScriptingWorkspaceModal = ({
     const renderContent = () => {
         switch (currentStage) {
             case 'initial_thoughts':
+                // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 1: Brain Dump</h3>
@@ -140,6 +158,7 @@ const ScriptingWorkspaceModal = ({
                 );
             
             case 'initial_qa':
+                // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Clarify Your Vision</h3>
@@ -169,6 +188,7 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'draft_outline_review':
+                 // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 3: Review AI-Generated Outline</h3>
@@ -206,11 +226,21 @@ const ScriptingWorkspaceModal = ({
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4: Answer a Few More Questions</h3>
-                        <p className="text-gray-400 mb-6">Let's get specific. Your answers here will be woven directly into the final script.</p>
+                        <p className="text-gray-400 mb-6">Let's get specific. Your answers here will be woven directly into the final script. You can leave questions blank or remove any that aren't helpful.</p>
                         <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
                             {(localTaskData.locationQuestions || []).map((item, index) => (
                                 <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-gray-200 text-md font-medium mb-2">{item.question}</label>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <label className="block text-gray-200 text-md font-medium flex-grow pr-4">{item.question}</label>
+                                        <button 
+                                            onClick={() => handleRemoveQuestion(index)}
+                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0" 
+                                            title="Remove this question">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                     <textarea
                                         value={(localTaskData.userExperiences || {})[index] || ''}
                                         onChange={(e) => {
@@ -232,6 +262,7 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'on_camera_qa':
+                 // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
@@ -251,7 +282,7 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                          <div className="text-center mt-8">
-                               <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
                             </button>
                         </div>
@@ -259,8 +290,9 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'full_script_review':
-                 return (
-                     <div>
+                // This case remains the same
+                return (
+                       <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
                         <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask the AI for changes.</p>
                         <textarea
@@ -285,8 +317,8 @@ const ScriptingWorkspaceModal = ({
                             </button>
                         </div>
                          <div className="text-center mt-8">
-                              <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                 Save and Complete Task
+                                <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                  Save and Complete Task
                             </button>
                         </div>
                     </div>
@@ -318,8 +350,9 @@ const ScriptingWorkspaceModal = ({
     );
 };
 
-// ... The rest of the ScriptingTask component remains the same
+// The rest of the ScriptingTask component remains the same
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
+    // This part of the component remains unchanged...
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     
