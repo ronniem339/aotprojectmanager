@@ -350,7 +350,7 @@ const ScriptingWorkspaceModal = ({
                 return (
                         <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
-                        <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask the AI for changes.</p>
+                        <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
                         <textarea
                             value={localTaskData.script}
                             onChange={e => handleDataChange('script', e.target.value)}
@@ -698,7 +698,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     return (
         <div>
-            {renderAccordionContent()}
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
