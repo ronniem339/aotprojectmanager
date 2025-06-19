@@ -184,7 +184,7 @@ Context:
 Your Task:
 Generate a complete project plan as a JSON object with keys:
 "playlistTitleSuggestions" (array of 3 strings),
-"playlistDescription" (string - an initial, comprehensive description for the entire playlist, designed to be immediately usable but fully editable later),
+"playlistDescription" (string - a general, engaging, and brief overview for the entire YouTube playlist. This should be 2-3 sentences long and act as a teaser for the whole series. It should NOT include video-specific details, chapters, or timestamps. It is a placeholder to be refined later.),
 "videos" (array of objects, each with:
     "title": string (the video's main title),
     "concept": string (a brief outline or high-level plan for the video's content, focusing on key segments and main takeaways, NOT a full script),
@@ -194,7 +194,6 @@ Generate a complete project plan as a JSON object with keys:
 ).`; 
 
         try {
-            // FIX: Pass the entire settings object to the AI utility
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (!parsedJson.playlistTitleSuggestions || !parsedJson.playlistDescription || !parsedJson.videos) throw new Error("AI returned an invalid plan.");
             parsedJson.videos.forEach(v => { v.status = 'pending'; v.tasks = {}; });
@@ -207,7 +206,6 @@ Generate a complete project plan as a JSON object with keys:
         setIsLoading(true); setError('');
         const prompt = `Rewrite the YouTube series title "${selectedTitle}" based on this feedback: "${refinement}". Follow these guidelines: ${settings.knowledgeBases?.youtube?.videoTitles}. Return JSON: {"suggestions": ["new title 1", "new title 2", "new title 3"]}`;
         try {
-            // FIX: Pass the entire settings object
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             setEditableOutline(p => ({...p, playlistTitleSuggestions: parsedJson.suggestions}));
             setSelectedTitle(parsedJson.suggestions[0]);
@@ -219,7 +217,6 @@ Generate a complete project plan as a JSON object with keys:
         setIsLoading(true); setError('');
         const prompt = `Rewrite this description: "${editableOutline.playlistDescription}" based on this feedback: "${refinement}". Follow these guidelines: ${settings.knowledgeBases?.youtube?.videoDescriptions}. Return JSON: {"playlistDescription": "new description"}`;
         try {
-            // FIX: Pass the entire settings object
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             setEditableOutline(p => ({...p, playlistDescription: parsedJson.playlistDescription}));
             setRefinement('');
@@ -231,7 +228,6 @@ Generate a complete project plan as a JSON object with keys:
         const video = editableOutline.videos[index];
         const prompt = `Refine this video concept outline/plan: ${JSON.stringify(video)} based on this feedback: "${refinement}". Return a single JSON object for the updated video (only the video object itself, not the full outline). The 'concept' field should remain a brief outline or high-level plan.`;
         try {
-            // FIX: Pass the entire settings object
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             const newVideos = [...editableOutline.videos];
             newVideos[index] = { ...newVideos[index], ...parsedJson, status: 'pending' };
