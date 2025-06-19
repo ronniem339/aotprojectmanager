@@ -17,13 +17,11 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // Set localProject when the 'project' prop changes
     useEffect(() => {
         setLocalProject(project);
-        setActiveVideoId(null); // Reset active video when project changes
+        setActiveVideoId(null); 
     }, [project]);
 
-    // Set active video to the first one if it's a single video project upon loading
     useEffect(() => {
         if (localProject && localProject.videoCount === 1 && videos.length === 1 && !activeVideoId) {
             setActiveVideoId(videos[0].id);
@@ -139,7 +137,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                 videoConcept: videoConcept,
                 videoLocationsFeatured: locationsFeatured,
                 projectFootageInventory: projectFootageInventory,
-                settings: settings // Pass the whole settings object
+                settings: settings 
             });
 
             setScriptPlanData({
@@ -181,9 +179,22 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
 
     const handleTaskCompletion = useCallback(async (videoId, taskName, status, data = {}) => {
         if (!db || !localProject?.id) return;
-        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
+
+        const updatePayload = { [`tasks.${taskName}`]: status, ...data };
+
+        // --- START: Optimistic UI Update ---
+        setVideos(currentVideos => currentVideos.map(v => {
+            if (v.id === videoId) {
+                const newTasks = { ...v.tasks, ...data };
+                newTasks[taskName] = status;
+                return { ...v, tasks: newTasks };
+            }
+            return v;
+        }));
+        // --- END: Optimistic UI Update ---
+
         try {
-            const updatePayload = { [`tasks.${taskName}`]: status, ...data };
+            const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
             await videoRef.update(updatePayload);
             if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
                 setTaskBeingEdited(null);
@@ -191,6 +202,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
         } catch (e) {
             console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
             setError(`Failed to update task status: ${e.message}`);
+            // Optionally revert state here if the update fails
         }
     }, [userId, localProject?.id, appId, taskBeingEdited, db]);
 
@@ -356,6 +368,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoa
                                 <window.VideoWorkspace
                                     video={activeVideo}
                                     settings={settings}
+                                    onUpdateTask={handleTaskCompletion}
                                     project={localProject}
                                     userId={userId}
                                     db={db}
