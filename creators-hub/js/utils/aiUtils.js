@@ -279,10 +279,10 @@ Your response MUST be a valid JSON object with a single key "draftOutline", whic
      * Generates a detailed script plan and follow-up questions. This is a complex task.
      */
     generateScriptPlanAI: async ({ videoTitle, videoConcept, draftOutline, settings, videoTone }) => {
-        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
-        const outline = draftOutline || videoConcept;
+    const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    const outline = draftOutline || videoConcept;
 
-        const prompt = `You are an experienced YouTube script planner. Your task is to analyze a draft outline and generate specific, easy-to-answer questions to extract the details needed for a full script.
+    const prompt = `You are an experienced YouTube script planner. Your task is to analyze a draft outline and generate specific, easy-to-answer questions to extract the details needed for a full script.
 
 Video Title: "${videoTitle}"
 Draft Outline:
@@ -294,16 +294,22 @@ ${styleGuide}
 
 **Your Task:**
 1.  **Review the Outline:** Analyze each section of the provided script outline.
-2.  **Generate Specific Questions:** For each section, create 1-3 simple, direct questions designed to pull out specific details, emotions, and anecdotes. The phrasing of these questions should align with the creator's persona and style.
+2.  **Generate Specific Questions:** For each section, create 1-3 simple, direct questions. The goal is a balance between practical information and personal experience. Questions should pull out:
+    - **Practical Details:** Key actions, "how-to" steps, important facts, or logistics.
+    - **Personal Details:** Specific memories, sensory details (sight, sound, taste), emotions, and anecdotes.
+    The phrasing of these questions should align with the creator's persona and style.
     
     *Good Question Examples:*
-    - "What was the most surprising thing you discovered at [Location]?"
-    - "What's the one piece of advice you'd give someone visiting [Place] for the first time?"
-    - "Describe the taste of [Food Item] in three words."
+    - "What was the single most surprising thing you discovered at [Location]?"
+    - "What's the #1 practical tip you'd give someone visiting [Place] for the first time?"
+    - "Describe the taste of [Food Item] in just three words."
+    - "What was the first thing you did when you arrived at [Scene]?"
+    - "What's a common mistake people make here?"
 
     *Bad Question Examples (Avoid these):*
     - "What was your experience?" (Too broad)
     - "Tell me about the location." (Not specific enough)
+    - "How did this place make you feel on a deep, spiritual level?" (Usually too abstract)
 
 3.  **Return a Refined Plan & Questions:** Your goal is to present the user with their own plan, now enhanced with your clarifying questions.
 
@@ -321,13 +327,13 @@ Example:
 }
 `;
 
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-        if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
-            return parsedJson;
-        } else {
-             throw new Error("AI returned an invalid format for script plan.");
-        }
-    },
+    const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+    if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
+        return parsedJson;
+    } else {
+         throw new Error("AI returned an invalid format for script plan.");
+    }
+},
     
     /**
      * MODIFIED: Generates a full script, now aware of on-camera segments. This is a complex task.
