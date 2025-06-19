@@ -3,31 +3,35 @@
 const { useState, useEffect } = React;
 
 // Stepper component for navigation
-const ScriptingStepper = ({ stages, currentStage, onStageClick }) => {
-    const currentStageIndex = stages.findIndex(s => s.id === currentStage);
+const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
+    // Find the index of the highest stage the user has unlocked
+    const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
     return (
         <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
             {stages.map((stage, index) => {
-                const isPastStage = index < currentStageIndex;
-                const isCurrentStage = index === currentStageIndex;
-                const isClickable = isPastStage;
+                // A stage is considered unlocked if its index is less than or equal to the highest completed index.
+                const isUnlocked = index <= highestCompletedIndex;
+                const isCurrent = currentStage === stage.id;
+
+                // A stage is clickable if it's unlocked and it's not the one currently being viewed.
+                const isClickable = isUnlocked && !isCurrent;
 
                 return (
                     <React.Fragment key={stage.id}>
                         <button
                             onClick={() => isClickable && onStageClick(stage.id)}
-                            disabled={!isClickable && !isCurrentStage}
+                            disabled={!isUnlocked}
                             className={`flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-colors ${
-                                isCurrentStage
+                                isCurrent
                                     ? 'bg-primary-accent text-white font-semibold'
                                     : 'bg-gray-800 text-gray-400'
-                            } ${isClickable ? 'hover:bg-primary-accent-darker cursor-pointer' : 'cursor-default'}
-                              ${!isClickable && !isCurrentStage ? 'opacity-50' : ''}
+                            } ${isClickable ? 'hover:bg-primary-accent-darker cursor-pointer' : ''}
+                              ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : ''}
                             `}
                         >
-                            <span className={`flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${isCurrentStage ? 'bg-white text-primary-accent' : (isPastStage ? 'bg-green-600 text-white' : 'bg-gray-700')}`}>
-                                {isPastStage ? '✓' : index + 1}
+                            <span className={`flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${isCurrent ? 'bg-white text-primary-accent' : (isUnlocked ? 'bg-green-600 text-white' : 'bg-gray-700')}`}>
+                                {isUnlocked ? '✓' : index + 1}
                             </span>
                             <span className="hidden sm:inline">{stage.name}</span>
                         </button>
@@ -58,7 +62,6 @@ const ScriptingWorkspaceModal = ({
     onGenerateFullScript,
     onRefineScript,
 }) => {
-    // MODIFIED: Manage the current stage inside the modal
     const [currentStage, setCurrentStage] = useState(stageOverride || taskData.scriptingStage || 'initial_thoughts');
     const [localTaskData, setLocalTaskData] = useState(taskData);
     const [isLoading, setIsLoading] = useState(false);
@@ -67,9 +70,10 @@ const ScriptingWorkspaceModal = ({
     useEffect(() => {
         setLocalTaskData(taskData);
     }, [taskData]);
-
+    
+    // When the underlying data updates (e.g., after an AI action),
+    // ensure the modal view advances to the new stage.
     useEffect(() => {
-        // If the underlying stage in the DB changes, update the modal's view
         if(taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
             setCurrentStage(taskData.scriptingStage);
         }
@@ -114,7 +118,6 @@ const ScriptingWorkspaceModal = ({
 
 
     const renderContent = () => {
-        // ... (renderContent function remains the same)
         switch (currentStage) {
             case 'initial_thoughts':
                 return (
@@ -302,6 +305,7 @@ const ScriptingWorkspaceModal = ({
                 <ScriptingStepper 
                     stages={stages}
                     currentStage={currentStage}
+                    highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
                     onStageClick={setCurrentStage}
                 />
 
@@ -314,9 +318,8 @@ const ScriptingWorkspaceModal = ({
     );
 };
 
-
+// ... The rest of the ScriptingTask component remains the same
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
-    // ... (rest of the ScriptingTask component remains the same)
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     
@@ -335,14 +338,12 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptRefinementText: '',
     };
     
-    // MODIFIED: Simplified this logic. The modal itself will handle stage navigation.
     const handleOpenWorkspace = async (startStage = null) => {
         setWorkspaceStageOverride(null); 
         let stageToOpen = startStage;
 
         if (!stageToOpen) {
             const currentStage = taskData.scriptingStage;
-            // If task is complete, open to the last step unless specified otherwise.
             if (video.tasks?.scripting === 'complete') {
                  stageToOpen = 'full_script_review';
             } else {
@@ -559,7 +560,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             return (
                 <div className="text-center py-4">
                      <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
-                    {/* MODIFIED: This button now opens the workspace and allows free navigation */}
                     <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
                         View/Edit Script
                     </button>
