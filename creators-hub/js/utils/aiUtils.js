@@ -33,64 +33,70 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
      * @returns {Promise<object|string>} - A promise that resolves to the parsed JSON response or plain text from the API.
      * @throws {Error} If the API key is not set or if the API response is not OK.
      */
-    callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
-        if (!settings || !settings.geminiApiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-        const apiKey = settings.geminiApiKey;
+callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
+        if (!settings || !settings.geminiApiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+        const apiKey = settings.geminiApiKey;
 
-        // Dynamically select the model based on complexity and user settings
-        const usePro = isComplex && settings.useProModelForComplexTasks;
-        const modelName = usePro
-            ? (settings.proModelName || 'gemini-1.5-pro-latest')
-            : (settings.flashModelName || 'gemini-1.5-flash-latest');
+        const usePro = isComplex && settings.useProModelForComplexTasks;
+        const modelName = usePro
+            ? (settings.proModelName || 'gemini-1.5-pro-latest')
+            : (settings.flashModelName || 'gemini-1.5-flash-latest');
 
-        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
 
-        // Default to application/json, but allow overriding for plain text
-        const finalGenerationConfig = {
-            responseMimeType: "application/json",
-            ...generationConfig
-        };
+        // --- START OF NEW CODE ---
+        // This rule will now be added to every prompt sent to the AI.
+        const diacriticsRule = `CRITICAL RULE: For all text you generate (titles, keywords, descriptions, names, script content, etc.), you MUST NOT use diacritics (e.g., use 'cafe' instead of 'café', 'Cordoba' instead of 'Córdoba'). This is for SEO and searchability for an English-speaking audience.`;
 
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: finalGenerationConfig
-        };
+        const finalPrompt = `${diacriticsRule}\n\n--- ORIGINAL PROMPT BEGINS ---\n${prompt}`;
+        // --- END OF NEW CODE ---
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const finalGenerationConfig = {
+            responseMimeType: "application/json",
+            ...generationConfig
+        };
 
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const payload = {
+            // Use the modified prompt with the added rule
+            contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+            generationConfig: finalGenerationConfig
+        };
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err?.error?.message || `API Error (${response.status})`);
-        }
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        const result = await response.json();
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
-            console.error("Unexpected AI response structure:", result);
-            throw new Error("AI returned an unexpected or empty response.");
-        }
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err?.error?.message || `API Error (${response.status})`);
+        }
 
-        const responseText = result.candidates[0].content.parts[0].text;
-        
-        if (finalGenerationConfig.responseMimeType === "application/json") {
-            try {
-                return JSON.parse(responseText);
-            } catch (e) {
-                console.error("Failed to parse AI response as JSON:", responseText, e);
-                throw new Error("AI response was expected to be valid JSON but wasn't.");
-            }
-        } else {
-            return responseText;
-        }
-    },
+        const result = await response.json();
+
+        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
+            console.error("Unexpected AI response structure:", result);
+            throw new Error("AI returned an unexpected or empty response.");
+        }
+
+        const responseText = result.candidates[0].content.parts[0].text;
+        
+        if (finalGenerationConfig.responseMimeType === "application/json") {
+            try {
+                return JSON.parse(responseText);
+            } catch (e) {
+                console.error("Failed to parse AI response as JSON:", responseText, e);
+                throw new Error("AI response was expected to be valid JSON but wasn't.");
+            }
+        } else {
+            return responseText;
+        }
+    },
 
     /**
      * Generates blog post ideas. This is considered a complex task.
