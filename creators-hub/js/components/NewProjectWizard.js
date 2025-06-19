@@ -313,6 +313,9 @@ Return ONLY the updated JSON object.`;
                 playlistTitle: finalizedTitle,
                 playlistDescription: finalizedDescription,
                 locations,
+                footageInventory: footageInventory,
+                targeted_keywords: selectedKeywords,
+                videoCount: acceptedVideos.length,
                 coverImageUrl: finalCoverImageUrl,
                 createdAt: new Date().toISOString()
             });
