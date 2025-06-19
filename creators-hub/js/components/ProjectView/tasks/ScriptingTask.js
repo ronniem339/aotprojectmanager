@@ -497,7 +497,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // This update is now based on the most current data from the modal.
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
         const response = await window.aiUtils.generateDraftOutlineAI({
@@ -630,15 +629,13 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
-        // This function is for auto-saving. It will now only update user-editable content fields.
-        // By removing the AI-generated question fields, we prevent the auto-save's stale data
-        // from reverting the user's progress.
+        // This function is for auto-saving. It now only saves user-editable content.
+        // It will NOT save system-generated data like the stage or the questions list.
         const fieldsToUpdate = {
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
             'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
             'tasks.userExperiences': updatedTaskData.userExperiences,
-            'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
             'script': updatedTaskData.script,
         };
