@@ -1,38 +1,8 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingTask.js
 
 const { useState, useEffect, useRef } = React;
-const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
-const isInitialMount = useRef(true);
-const debouncedTaskData = window.useDebounce(localTaskData, 1500); // Debounce local data
 
-// --- AUTO-SAVING LOGIC ---
-useEffect(() => {
-    if (isInitialMount.current) {
-        isInitialMount.current = false;
-        return;
-    }
-
-    const autoSaveProgress = async () => {
-        setSaveStatus('saving');
-        try {
-            // Call the save handler passed in props, but tell it not to close the modal
-            await onClose(debouncedTaskData, false);
-            setSaveStatus('saved');
-            const timer = setTimeout(() => setSaveStatus('idle'), 2000);
-            return () => clearTimeout(timer);
-        } catch (err) {
-            console.error("Auto-save failed:", err);
-            setSaveStatus('error');
-            const timer = setTimeout(() => setSaveStatus('idle'), 3000);
-            return () => clearTimeout(timer);
-        }
-    };
-
-    autoSaveProgress();
-
-}, [debouncedTaskData, onClose]);
-
-// Stepper component for navigation
+// Stepper component for navigation (this remains outside as it's a separate component)
 const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
@@ -53,7 +23,7 @@ const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onSta
                                     ? 'bg-primary-accent text-white font-semibold'
                                     : 'bg-gray-800 text-gray-400'
                             } ${isClickable ? 'hover:bg-primary-accent-darker cursor-pointer' : ''}
-                              ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : ''}
+                             ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : ''}
                             `}
                         >
                             <span className={`flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${isCurrent ? 'bg-white text-primary-accent' : (isUnlocked ? 'bg-green-600 text-white' : 'bg-gray-700')}`}>
@@ -93,31 +63,64 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // --- AUTO-SAVING LOGIC MOVED INSIDE COMPONENT ---
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+    const isInitialMount = useRef(true);
+    const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500); // Debounce local data
+
+    useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+
+        const autoSaveProgress = async () => {
+            setSaveStatus('saving');
+            try {
+                // Call the save handler passed in props, but tell it not to close the modal
+                await onClose(debouncedLocalTaskData, false);
+                setSaveStatus('saved');
+                const timer = setTimeout(() => setSaveStatus('idle'), 2000);
+                return () => clearTimeout(timer);
+            } catch (err) {
+                console.error("Auto-save failed:", err);
+                setSaveStatus('error');
+                const timer = setTimeout(() => setSaveStatus('idle'), 3000);
+                return () => clearTimeout(timer);
+            }
+        };
+
+        autoSaveProgress();
+
+    }, [debouncedLocalTaskData, onClose]); // Now debouncedLocalTaskData and onClose are correctly in scope
+
+    // --- END AUTO-SAVING LOGIC ---
+
     useEffect(() => {
         setLocalTaskData(taskData);
     }, [taskData]);
-    
+
     useEffect(() => {
         if(taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
             setCurrentStage(taskData.scriptingStage);
         }
     }, [taskData.scriptingStage]);
-    
+
     const handleDataChange = (field, value) => {
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
     };
 
     const handleOnCameraDescriptionChange = (locationName, description) => {
-        const newDescriptions = { 
-            ...(localTaskData.onCameraDescriptions || {}), 
-            [locationName]: description 
+        const newDescriptions = {
+            ...(localTaskData.onCameraDescriptions || {}),
+            [locationName]: description
         };
         handleDataChange('onCameraDescriptions', newDescriptions);
     };
 
     const handleRemoveQuestion = (indexToRemove) => {
         const newQuestions = localTaskData.locationQuestions.filter((_, index) => index !== indexToRemove);
-        
+
         const oldExperiences = localTaskData.userExperiences || {};
         const newExperiences = {};
         let newIndex = 0;
@@ -163,16 +166,16 @@ const ScriptingWorkspaceModal = ({
             setIsLoading(false);
         }
     };
-    
-const handleClose = (shouldClose = true) => {
-    onClose(localTaskData, shouldClose);
-};
 
-const handleStageClick = (targetStage) => {
-    // Save current state explicitly before navigating
-    onClose(localTaskData, false);
-    setCurrentStage(targetStage);
-};
+    const handleClose = (shouldClose = true) => {
+        onClose(localTaskData, shouldClose);
+    };
+
+    const handleStageClick = (targetStage) => {
+        // Save current state explicitly before navigating
+        onClose(localTaskData, false);
+        setCurrentStage(targetStage);
+    };
     const handleSaveAndComplete = () => onSave(localTaskData);
 
     const stages = [
@@ -188,7 +191,6 @@ const handleStageClick = (targetStage) => {
     const renderContent = () => {
         switch (currentStage) {
             case 'initial_thoughts':
-                // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 1: Brain Dump</h3>
@@ -200,16 +202,15 @@ const handleStageClick = (targetStage) => {
                             className="w-full form-textarea"
                             placeholder="Paste your notes, describe your experience, list key points..."
                         />
-                         <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateInitialQuestions, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Clarify My Vision'}
-                            </button>
-                        </div>
+                           <div className="text-center mt-8">
+                                <button onClick={() => handleAction(onGenerateInitialQuestions, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Clarify My Vision'}
+                                </button>
+                            </div>
                     </div>
                 );
-            
+
             case 'initial_qa':
-                // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Clarify Your Vision</h3>
@@ -230,16 +231,15 @@ const handleStageClick = (targetStage) => {
                                 </div>
                             ))}
                         </div>
-                         <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateDraftOutline)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
-                            </button>
-                        </div>
+                           <div className="text-center mt-8">
+                                <button onClick={() => handleAction(onGenerateDraftOutline)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
+                                </button>
+                            </div>
                     </div>
                 );
 
             case 'draft_outline_review':
-                 // This case remains the same
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 3: Review AI-Generated Outline</h3>
@@ -257,8 +257,8 @@ const handleStageClick = (targetStage) => {
                                 onChange={(e) => handleDataChange('outlineRefinementText', e.target.value)}
                                 className="form-textarea w-full" rows="2" placeholder="E.g., Make the intro shorter..."
                             />
-                            <button 
-                                onClick={() => handleAction(onRefineOutline, localTaskData.scriptPlan, localTaskData.outlineRefinementText)} 
+                            <button
+                                onClick={() => handleAction(onRefineOutline, localTaskData.scriptPlan, localTaskData.outlineRefinementText)}
                                 disabled={isLoading || !(localTaskData.outlineRefinementText || '').trim()}
                                 className="button-secondary-small mt-2 disabled:opacity-50">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Outline'}
@@ -272,7 +272,7 @@ const handleStageClick = (targetStage) => {
                         </div>
                     </div>
                 );
-            
+
             case 'refinement_qa':
                 return (
                     <div>
@@ -283,9 +283,9 @@ const handleStageClick = (targetStage) => {
                                 <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-start mb-2">
                                         <label className="block text-gray-200 text-md font-medium flex-grow pr-4">{item.question}</label>
-                                        <button 
+                                        <button
                                             onClick={() => handleRemoveQuestion(index)}
-                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0" 
+                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0"
                                             title="Remove this question">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
@@ -304,11 +304,11 @@ const handleStageClick = (targetStage) => {
                                 </div>
                             ))}
                         </div>
-                         <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onProceedToScripting)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
-                            </button>
-                        </div>
+                           <div className="text-center mt-8">
+                                <button onClick={() => handleAction(onProceedToScripting)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
+                                </button>
+                            </div>
                     </div>
                 );
 
@@ -342,9 +342,9 @@ const handleStageClick = (targetStage) => {
                                 </div>
                             ))}
                         </div>
-                         <div className="text-center mt-8">
-                                <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
+                           <div className="text-center mt-8">
+                                 <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
                             </button>
                         </div>
                     </div>
@@ -352,7 +352,7 @@ const handleStageClick = (targetStage) => {
 
             case 'full_script_review':
                 return (
-                       <div>
+                        <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
                         <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask the AI for changes.</p>
                         <textarea
@@ -369,19 +369,19 @@ const handleStageClick = (targetStage) => {
                                 onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)}
                                 className="form-textarea w-full" rows="2" placeholder="E.g., Make the conclusion more powerful..."
                             />
-                            <button 
-                                onClick={() => handleAction(onRefineScript, localTaskData.scriptRefinementText)} 
+                            <button
+                                onClick={() => handleAction(onRefineScript, localTaskData.scriptRefinementText)}
                                 disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()}
                                 className="button-secondary-small mt-2 disabled:opacity-50">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
                             </button>
                         </div>
-                         <div className="text-center mt-8">
-                                <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                  Save and Complete Task
-                            </button>
+                           <div className="text-center mt-8">
+                                 <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                    Save and Complete Task
+                                </button>
+                            </div>
                         </div>
-                    </div>
                 );
             default:
                 return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
@@ -393,8 +393,8 @@ return (
         <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
             <button onClick={() => handleClose(true)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
             <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
-            
-            <ScriptingStepper 
+
+            <ScriptingStepper
                 stages={stages}
                 currentStage={currentStage}
                 highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
@@ -431,20 +431,19 @@ return (
                     </div>
                 )}
             </div>
-            
+
         </div>
     </div>
 );
 };
 
-// The rest of the ScriptingTask component is unchanged...
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     // ...
     // ... all the existing handle... functions remain the same
     // ...
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
-    
+
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
@@ -459,32 +458,32 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         outlineRefinementText: '',
         scriptRefinementText: '',
     };
-    
+
     const handleOpenWorkspace = async (startStage = null) => {
-        setWorkspaceStageOverride(null); 
+        setWorkspaceStageOverride(null);
         let stageToOpen = startStage;
 
         if (!stageToOpen) {
             const currentStage = taskData.scriptingStage;
             if (video.tasks?.scripting === 'complete') {
-                 stageToOpen = 'full_script_review';
+                   stageToOpen = 'full_script_review';
             } else {
-                 stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
+                   stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
             }
         }
-        
+
         setWorkspaceStageOverride(stageToOpen);
 
         if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
             await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
         }
-        
+
         setShowWorkspace(true);
     };
 
     const handleGenerateInitialQuestions = async (thoughtsText) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText });
-        
+
         const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
             settings: settings
@@ -527,12 +526,12 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'tasks.scriptPlan': response.draftOutline
         });
     };
-    
+
     const handleRefineOutline = async (currentOutline, refinementText) => {
-         const answersText = (taskData.initialQuestions || []).map((q, index) =>
+           const answersText = (taskData.initialQuestions || []).map((q, index) =>
             `Q: ${q}\nA: ${(taskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
-        
+
         const response = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
@@ -549,7 +548,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
         await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
-    
+
     const handleGenerateRefinementPlan = async () => {
         const response = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
@@ -558,7 +557,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
 
         if (!response || !response.scriptPlan || !Array.isArray(response.locationQuestions)) {
-             console.error("AI response did not contain valid script plan/questions:", response);
+               console.error("AI response did not contain valid script plan/questions:", response);
             throw new Error("The AI failed to generate the next set of questions. Please try again.");
         }
 
@@ -569,7 +568,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'tasks.userExperiences': {}
         });
     };
-    
+
     const handleProceedToScripting = async () => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': taskData.userExperiences });
 
@@ -627,7 +626,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             refinementText: refinementText,
             onCameraDescriptions: taskData.onCameraDescriptions
         });
-        
+
         if (!response || typeof response.finalScript !== 'string') {
             console.error("AI response did not contain 'finalScript' string for refinement:", response);
             throw new Error("The AI failed to refine the script. Please try again.");
@@ -652,7 +651,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         'script': updatedTaskData.script,
     };
     if(video.tasks?.scripting !== 'complete'){
-         onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
+           onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
     }
     if (shouldClose) {
         setShowWorkspace(false);
@@ -683,14 +682,14 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         if (video.tasks?.scripting === 'complete') {
             return (
                 <div className="text-center py-4">
-                     <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
-                    <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
+                       <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
+                     <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
                         View/Edit Script
                     </button>
                 </div>
             );
         }
-        
+
         return (
             <div className="text-center py-4">
                 <p className="text-gray-400 mb-4">Use our AI-powered scripting assistant to go from a rough idea to a full script.</p>
