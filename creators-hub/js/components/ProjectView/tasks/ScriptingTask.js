@@ -232,7 +232,7 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                            <div className="text-center mt-8">
-                                <button onClick={() => handleAction(onGenerateDraftOutline)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                                <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
                                 </button>
                             </div>
@@ -266,7 +266,7 @@ const ScriptingWorkspaceModal = ({
                         </div>
                         <div className="flex justify-between items-center mt-8">
                             <button onClick={() => setCurrentStage('initial_thoughts')} className="button-secondary">Start Over</button>
-                            <button onClick={() => handleAction(onGenerateRefinementPlan)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                            <button onClick={() => handleAction(onGenerateRefinementPlan, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
                             </button>
                         </div>
@@ -305,7 +305,7 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                            <div className="text-center mt-8">
-                                <button onClick={() => handleAction(onProceedToScripting)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                <button onClick={() => handleAction(onProceedToScripting, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
                                 </button>
                             </div>
@@ -343,7 +343,7 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                            <div className="text-center mt-8">
-                                 <button onClick={() => handleAction(onGenerateFullScript)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                 <button onClick={() => handleAction(onGenerateFullScript, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                  {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
                             </button>
                         </div>
@@ -370,7 +370,7 @@ const ScriptingWorkspaceModal = ({
                                 className="form-textarea w-full" rows="2" placeholder="E.g., Make the conclusion more powerful..."
                             />
                             <button
-                                onClick={() => handleAction(onRefineScript, localTaskData.scriptRefinementText)}
+                                onClick={() => handleAction(onRefineScript, localTaskData)}
                                 disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()}
                                 className="button-secondary-small mt-2 disabled:opacity-50">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
@@ -501,17 +501,17 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleGenerateDraftOutline = async () => {
-        const answersText = (taskData.initialQuestions || []).map((q, index) =>
-            `Q: ${q}\nA: ${(taskData.initialAnswers || {})[index] || 'No answer.'}`
+    const handleGenerateDraftOutline = async (currentTaskData) => {
+        const answersText = (currentTaskData.initialQuestions || []).map((q, index) =>
+            `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': taskData.initialAnswers });
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
         const response = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
-            initialThoughts: taskData.initialThoughts,
+            initialThoughts: currentTaskData.initialThoughts,
             initialAnswers: answersText,
             settings: settings
         });
@@ -549,10 +549,10 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
 
-    const handleGenerateRefinementPlan = async () => {
+    const handleGenerateRefinementPlan = async (currentTaskData) => {
         const response = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
-            draftOutline: taskData.scriptPlan,
+            draftOutline: currentTaskData.scriptPlan,
             settings: settings,
         });
 
@@ -569,8 +569,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleProceedToScripting = async () => {
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': taskData.userExperiences });
+    const handleProceedToScripting = async (currentTaskData) => {
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
 
         const onCameraLocations = (video.locations_featured || [])
             .filter(locName => {
@@ -582,24 +582,24 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             await onUpdateTask('scripting', 'in-progress', {
                 'tasks.scriptingStage': 'on_camera_qa',
                 'tasks.onCameraLocations': onCameraLocations,
-                'tasks.onCameraDescriptions': taskData.onCameraDescriptions || {}
+                'tasks.onCameraDescriptions': currentTaskData.onCameraDescriptions || {}
             });
         } else {
-            await handleGenerateFullScript();
+            await handleGenerateFullScript(currentTaskData);
         }
     };
 
-    const handleGenerateFullScript = async () => {
-        const answersText = (taskData.locationQuestions || []).map((q, index) =>
-            `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
+    const handleGenerateFullScript = async (currentTaskData) => {
+        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
         const response = await window.aiUtils.generateFinalScriptAI({
-            scriptPlan: taskData.scriptPlan,
+            scriptPlan: currentTaskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            onCameraDescriptions: taskData.onCameraDescriptions
+            onCameraDescriptions: currentTaskData.onCameraDescriptions
         });
 
         if (!response || typeof response.finalScript !== 'string') {
@@ -613,18 +613,18 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleRefineScript = async (refinementText) => {
-        const answersText = (taskData.locationQuestions || []).map((q, index) =>
-            `Q: ${q.question}\nA: ${(taskData.userExperiences || {})[index] || 'No answer.'}`
+    const handleRefineScript = async (currentTaskData) => {
+        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
         const response = await window.aiUtils.generateFinalScriptAI({
-            scriptPlan: taskData.scriptPlan,
+            scriptPlan: currentTaskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            refinementText: refinementText,
-            onCameraDescriptions: taskData.onCameraDescriptions
+            refinementText: currentTaskData.scriptRefinementText,
+            onCameraDescriptions: currentTaskData.onCameraDescriptions
         });
 
         if (!response || typeof response.finalScript !== 'string') {
