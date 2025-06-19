@@ -7,7 +7,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
 
     useEffect(() => {
-        setOpenTask(null); 
+        setOpenTask(null);
     }, [video.id]);
 
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
@@ -24,14 +24,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
         let dataToReset = {};
         switch (taskId) {
             case 'scripting':
-                dataToReset = { 
-                    script: '', 
-                    'tasks.scriptingStage': 'pending', 
-                    'tasks.initialQuestions': [], 
-                    'tasks.initialAnswers': [], 
-                    'tasks.scriptPlan': '', 
-                    'tasks.locationQuestions': [], 
-                    'tasks.userExperiences': {} 
+                dataToReset = {
+                    script: '',
+                    'tasks.scriptingStage': 'pending',
+                    'tasks.initialQuestions': [],
+                    'tasks.initialAnswers': [],
+                    'tasks.scriptPlan': '',
+                    'tasks.locationQuestions': [],
+                    'tasks.userExperiences': {}
                 };
                 break;
             case 'videoEdited':
@@ -88,7 +88,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
             case 'titleGenerated':
                 return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'descriptionGenerated':
-                return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'chaptersGenerated':
                 return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'tagsGenerated':
@@ -116,7 +116,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db }) =>
                         status = 'in-progress';
                     }
                     const locked = isTaskLocked(index);
-                    
+
                     return (
                         <window.Accordion
                             key={task.id}
