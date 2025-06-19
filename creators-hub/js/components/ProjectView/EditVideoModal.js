@@ -1,6 +1,6 @@
 // creators-hub/js/components/ProjectView/EditVideoModal.js
 
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 // Utility function to prevent adding duplicate locations based on place_id.
 const addLocationsWithoutDuplicates = (existingLocations, newLocations) => {
@@ -17,18 +17,14 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     // --- STATE MANAGEMENT ---
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
-    const [thumbnailUrl, setThumbnailUrl] = useState(video.thumbnail_url || ''); // State for the thumbnail
+    const [thumbnailUrl, setThumbnailUrl] = useState(video.thumbnail_url || '');
     const [targetedKeywords, setTargetedKeywords] = useState(video.targeted_keywords || []);
     const [keywordInput, setKeywordInput] = useState('');
-
-    // State for locations tied to this specific video
     const [videoLocations, setVideoLocations] = useState(
         video.locations_featured
             ? (project.locations || []).filter(loc => video.locations_featured.includes(loc.name))
             : []
     );
-
-    // State for the overall project data, which can be modified from this modal
     const [projectLocations, setProjectLocations] = useState(project.locations || []);
     const [projectFootageInventory, setProjectFootageInventory] = useState(project.footageInventory || {});
     
@@ -39,19 +35,85 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     const [refinement, setRefinement] = useState('');
     const [generating, setGenerating] = useState(false);
     const [showConfirmComplete, setShowConfirmComplete] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
+    const isInitialMount = useRef(true);
+
+    // --- AUTO-SAVING LOGIC ---
+    const debouncedState = window.useDebounce({ title, concept, thumbnailUrl, targetedKeywords, videoLocations, projectLocations, projectFootageInventory }, 1500);
+
+    useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+
+        const autoSaveChanges = async () => {
+            setSaveStatus('saving');
+            const batch = db.batch();
+            let finalThumbnailUrl = debouncedState.thumbnailUrl;
+
+            // Handle thumbnail upload if a new, non-Firebase URL is pasted
+            if (finalThumbnailUrl && !finalThumbnailUrl.includes('firebasestorage.googleapis.com') && storage) {
+                try {
+                    const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(finalThumbnailUrl)}`;
+                    const response = await fetch(fetchUrl);
+                    if (!response.ok) throw new Error(await response.text());
+                    const blob = await response.blob();
+                    const fileExtensionMatch = finalThumbnailUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
+                    const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
+                    const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}${fileExtension}`;
+                    const storageRef = storage.ref(path);
+                    await storageRef.put(blob);
+                    finalThumbnailUrl = await storageRef.getDownloadURL();
+                    setThumbnailUrl(finalThumbnailUrl); // Update local state post-upload
+                } catch (error) {
+                    console.error("Failed to upload new thumbnail from URL:", error);
+                    finalThumbnailUrl = video.thumbnail_url || ''; // Revert on failure
+                }
+            }
+
+            // Update Video Document
+            const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+            batch.update(videoDocRef, {
+                chosenTitle: debouncedState.title,
+                concept: debouncedState.concept,
+                locations_featured: debouncedState.videoLocations.map(loc => loc.name),
+                targeted_keywords: debouncedState.targetedKeywords,
+                thumbnail_url: finalThumbnailUrl
+            });
+
+            // Update Project Document
+            const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+            batch.update(projectDocRef, {
+                locations: debouncedState.projectLocations,
+                footageInventory: debouncedState.projectFootageInventory
+            });
+
+            try {
+                await batch.commit();
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus('idle'), 2000);
+            } catch (error) {
+                console.error("Error auto-saving changes:", error);
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            }
+        };
+
+        autoSaveChanges();
+    }, [debouncedState, project.id, video.id, userId, appId, db]);
+    // --- END AUTO-SAVING LOGIC ---
+
 
     // --- EFFECTS ---
-
-    // Effect to keep project-level footage inventory in sync with project locations using place_id
     useEffect(() => {
         setProjectFootageInventory(prevInventory => {
             const newInventory = {};
             (projectLocations || []).forEach(loc => {
-                const key = loc.place_id || loc.name; // Use place_id as the primary key
+                const key = loc.place_id || loc.name;
                 newInventory[key] = prevInventory[key] || {
                     name: loc.name,
                     place_id: loc.place_id,
@@ -66,22 +128,19 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     }, [projectLocations]);
 
     // --- HANDLERS ---
-    
-    // Handler for direct file upload of the video thumbnail
     const handleThumbnailFileChange = async (e) => {
         if (e.target.files && e.target.files[0] && storage) {
             const file = e.target.files[0];
-            setIsSaving(true);
+            setSaveStatus('saving'); // Indicate that an operation is in progress
             try {
                 const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}_${file.name}`;
                 const storageRef = storage.ref(path);
                 await storageRef.put(file);
                 const newUrl = await storageRef.getDownloadURL();
-                setThumbnailUrl(newUrl);
+                setThumbnailUrl(newUrl); // This state change will be picked up by the debounced auto-save
             } catch (error) {
                 console.error("Error uploading thumbnail:", error);
-            } finally {
-                setIsSaving(false);
+                setSaveStatus('error');
             }
         }
     };
@@ -146,7 +205,6 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
     };
 
     // --- ASYNC & AI FUNCTIONS ---
-
     const handleGenerateKeywords = async () => {
         setIsLoadingKeywords(true);
         setKeywordError('');
@@ -197,57 +255,6 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
         }
     };
     
-    const handleSaveChanges = async () => {
-        setIsSaving(true);
-        const batch = db.batch();
-        
-        let finalThumbnailUrl = thumbnailUrl;
-
-        if (thumbnailUrl && !thumbnailUrl.includes('firebasestorage.googleapis.com') && storage) {
-             try {
-                const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(thumbnailUrl)}`;
-                const response = await fetch(fetchUrl);
-                if (!response.ok) throw new Error(await response.text());
-                const blob = await response.blob();
-                
-                const fileExtensionMatch = thumbnailUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
-                const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
-                const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}${fileExtension}`;
-                
-                const storageRef = storage.ref(path);
-                await storageRef.put(blob);
-                finalThumbnailUrl = await storageRef.getDownloadURL();
-            } catch (error) {
-                console.error("Failed to upload new thumbnail from URL:", error);
-                finalThumbnailUrl = video.thumbnail_url || '';
-            }
-        }
-
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        batch.update(videoDocRef, {
-            chosenTitle: title,
-            concept: concept,
-            locations_featured: videoLocations.map(loc => loc.name),
-            targeted_keywords: targetedKeywords,
-            thumbnail_url: finalThumbnailUrl
-        });
-
-        const projectDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
-        batch.update(projectDocRef, {
-            locations: projectLocations,
-            footageInventory: projectFootageInventory
-        });
-
-        try {
-            await batch.commit();
-            onSave();
-        } catch (error) {
-            console.error("Error saving changes in batch:", error);
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
     const handleMarkAllComplete = async () => {
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
         const completedTasks = {};
@@ -416,12 +423,30 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                     </div>
                 </div>
 
-                {/* Modal Actions */}
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-700">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
-                    <button onClick={handleSaveChanges} disabled={isSaving} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                        {isSaving ? <window.LoadingSpinner isButton={true} /> : 'Save Changes'}
-                    </button>
+                {/* Auto-Save Status Indicator */}
+                <div className="flex justify-end items-center gap-4 mt-8 pt-6 border-t border-gray-700 h-10">
+                    {saveStatus === 'saving' && (
+                        <div className="flex items-center gap-2 text-gray-400">
+                            <window.LoadingSpinner isButton={true} />
+                            <span>Auto-saving...</span>
+                        </div>
+                    )}
+                    {saveStatus === 'saved' && (
+                        <div className="flex items-center gap-2 text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span>Changes saved</span>
+                        </div>
+                    )}
+                    {saveStatus === 'error' && (
+                         <div className="flex items-center gap-2 text-red-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <span>Save failed. Please try again.</span>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
