@@ -1,12 +1,17 @@
 // js/components/ProjectView/tasks/TitleTask.js
 
-window.TitleTask = ({ video, onUpdate, onCompletion, project, settings }) => {
-    const { useState } = React;
+window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
+    const { useState, useEffect } = React;
     const [generating, setGenerating] = useState(false);
     const [editableTitle, setEditableTitle] = useState(video.chosenTitle || video.title);
     const [titleSuggestions, setTitleSuggestions] = useState([]);
     const [error, setError] = useState('');
     const [titleRefinement, setTitleRefinement] = useState('');
+
+    // Ensures the title in the input field updates if the video data changes
+    useEffect(() => {
+        setEditableTitle(video.chosenTitle || video.title);
+    }, [video.chosenTitle, video.title]);
 
     const handleGenerateSuggestions = async () => {
         setGenerating(true);
@@ -16,7 +21,6 @@ window.TitleTask = ({ video, onUpdate, onCompletion, project, settings }) => {
         Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
         Your response must be a JSON object like: {"suggestions": ["Title 1", "Title 2", ...]}.`;
         try {
-            // FIXED: Pass the 'settings' object
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             setTitleSuggestions(parsedJson.suggestions || []);
         } catch (err) {
@@ -34,11 +38,13 @@ window.TitleTask = ({ video, onUpdate, onCompletion, project, settings }) => {
         Instructions: "${titleRefinement}"
         Return only the new title in a JSON object like: {"newTitle": "The new improved title"}.`;
         try {
-            // FIXED: Pass the 'settings' object
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (parsedJson.newTitle) {
-                setEditableTitle(parsedJson.newTitle);
+                const newTitle = parsedJson.newTitle;
+                setEditableTitle(newTitle);
                 setTitleRefinement('');
+                // Save the refined title immediately and set status to in-progress
+                onUpdateTask('titleGenerated', 'in-progress', { chosenTitle: newTitle });
             }
         } catch (err) {
             setError(`Failed to refine title: ${err.message}`);
@@ -47,15 +53,24 @@ window.TitleTask = ({ video, onUpdate, onCompletion, project, settings }) => {
         }
     };
 
-    const handleSave = () => {
-        onUpdate({ ...video, chosenTitle: editableTitle });
-        onCompletion(true);
+    const selectSuggestion = (suggestion) => {
+        setEditableTitle(suggestion);
+        // Save the selected title immediately and set status to in-progress
+        onUpdateTask('titleGenerated', 'in-progress', { chosenTitle: suggestion });
     };
+
+    const handleSave = () => {
+        // Marks the task as complete
+        onUpdateTask('titleGenerated', 'complete', { chosenTitle: editableTitle });
+    };
+
+    // Locks the component until the previous task is done
+    if (isLocked) {
+        return <p className="text-gray-400 text-center py-2 text-sm">Please complete the previous step first.</p>;
+    }
 
     return (
         <div className="task-container">
-            <h3 className="task-title">Finalize Title</h3>
-            {video.tasks.titleGenerated === 'complete' && <span className="task-badge-complete">✓ Completed</span>}
             <div className="task-content">
                 <input
                     type="text"
@@ -63,7 +78,6 @@ window.TitleTask = ({ video, onUpdate, onCompletion, project, settings }) => {
                     value={editableTitle}
                     onChange={(e) => {
                         setEditableTitle(e.target.value);
-                        onCompletion(false);
                     }}
                 />
                 <button onClick={handleGenerateSuggestions} disabled={generating} className="button-primary-small mt-4 w-full justify-center">
@@ -74,7 +88,7 @@ window.TitleTask = ({ video, onUpdate, onCompletion, project, settings }) => {
                     <div className="mt-4 space-y-2">
                         <p className="font-semibold text-sm">Suggestions:</p>
                         {titleSuggestions.map((s, i) => (
-                            <button key={i} onClick={() => setEditableTitle(s)} className="suggestion-item">{s}</button>
+                            <button key={i} onClick={() => selectSuggestion(s)} className="suggestion-item">{s}</button>
                         ))}
                     </div>
                 )}
