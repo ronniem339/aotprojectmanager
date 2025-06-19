@@ -2,7 +2,7 @@
 
 const { useState, useEffect, useRef } = React;
 
-// Stepper component for navigation (this remains outside as it's a separate component)
+// Stepper component for navigation
 const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
@@ -63,35 +63,7 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [saveStatus, setSaveStatus] = useState('idle');
-    const isInitialMount = useRef(true);
-
-    const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500);
-
-    useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
-        }
-
-        const autoSaveProgress = async () => {
-            setSaveStatus('saving');
-            try {
-                await onClose(debouncedLocalTaskData, false);
-                setSaveStatus('saved');
-                const timer = setTimeout(() => setSaveStatus('idle'), 2000);
-                return () => clearTimeout(timer);
-            } catch (err) {
-                console.error("Auto-save failed:", err);
-                setSaveStatus('error');
-                const timer = setTimeout(() => setSaveStatus('idle'), 3000);
-                return () => clearTimeout(timer);
-            }
-        };
-
-        autoSaveProgress();
-
-    }, [debouncedLocalTaskData, onClose]);
+    // --- REMOVED: All state and effects related to auto-saving ---
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -155,6 +127,9 @@ const ScriptingWorkspaceModal = ({
         setIsLoading(true);
         setError('');
         try {
+            // First, save any pending text changes
+            await onClose(localTaskData, false);
+            // Then, perform the main action
             await action(...args);
         } catch (err) {
             setError(err.message);
@@ -169,10 +144,13 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleStageClick = (targetStage) => {
-        onClose(localTaskData, false);
+        onClose(localTaskData, false); // Save current state before switching stage
         setCurrentStage(targetStage);
     };
-    const handleSaveAndComplete = () => onSave(localTaskData);
+
+    const handleSaveAndComplete = () => {
+        onSave(localTaskData);
+    };
 
     const stages = [
         { id: 'initial_thoughts', name: 'Brain Dump' },
@@ -235,6 +213,7 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
+            // ... other cases remain the same
             case 'draft_outline_review':
                 return (
                     <div>
@@ -261,7 +240,7 @@ const ScriptingWorkspaceModal = ({
                             </button>
                         </div>
                         <div className="flex justify-between items-center mt-8">
-                            <button onClick={() => setCurrentStage('initial_thoughts')} className="button-secondary">Start Over</button>
+                            <button onClick={() => handleStageClick('initial_thoughts')} className="button-secondary">Start Over</button>
                             <button onClick={() => handleAction(onGenerateRefinementPlan, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
                             </button>
@@ -402,29 +381,8 @@ const ScriptingWorkspaceModal = ({
                     {renderContent()}
                 </div>
 
+                {/* --- REMOVED: Save status indicator from the footer --- */}
                 <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
-                    {saveStatus === 'saving' && (
-                        <div className="flex items-center gap-2 text-gray-400 text-sm">
-                            <window.LoadingSpinner isButton={true} />
-                            <span>Saving...</span>
-                        </div>
-                    )}
-                    {saveStatus === 'saved' && (
-                        <div className="flex items-center gap-2 text-green-400 text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span>All changes saved</span>
-                        </div>
-                    )}
-                        {saveStatus === 'error' && (
-                            <div className="flex items-center gap-2 text-red-400 text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                            <span>Save failed</span>
-                        </div>
-                    )}
                 </div>
 
             </div>
@@ -432,6 +390,7 @@ const ScriptingWorkspaceModal = ({
     );
 };
 
+// The rest of the file remains the same...
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
@@ -467,7 +426,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         setWorkspaceStageOverride(stageToOpen);
 
         if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-            // FIXED: onUpdateTask signature
             await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
         }
 
@@ -485,7 +443,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate clarifying questions. Please try again.");
         }
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.initialThoughts': thoughtsText,
             'tasks.scriptingStage': 'initial_qa',
@@ -499,7 +456,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
         const response = await window.aiUtils.generateDraftOutlineAI({
@@ -515,7 +471,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate a valid outline. Please try again.");
         }
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'draft_outline_review',
             'tasks.scriptPlan': response.draftOutline
@@ -541,7 +496,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to refine the outline. Please try again.");
         }
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
 
@@ -557,7 +511,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate the next set of questions. Please try again.");
         }
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'refinement_qa',
             'tasks.scriptPlan': response.scriptPlan,
@@ -567,18 +520,15 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleProceedToScripting = async (currentTaskData) => {
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
 
         const onCameraLocations = (video.locations_featured || [])
             .filter(locName => {
-                // This logic is now safe because the 'project' prop is correctly passed down
                 const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
                 return inventoryItem && inventoryItem.onCamera;
             });
 
         if (onCameraLocations.length > 0) {
-            // FIXED: onUpdateTask signature
             await onUpdateTask('scripting', 'in-progress', {
                 'tasks.scriptingStage': 'on_camera_qa',
                 'tasks.onCameraLocations': onCameraLocations,
@@ -607,7 +557,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate the final script. Please try again.");
         }
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'full_script_review',
             'script': response.finalScript
@@ -633,7 +582,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to refine the script. Please try again.");
         }
 
-        // FIXED: onUpdateTask signature
         await onUpdateTask('scripting', 'in-progress', {
             'script': response.finalScript
         });
@@ -653,7 +601,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'script': updatedTaskData.script,
         };
         if(video.tasks?.scripting !== 'complete'){
-           // FIXED: onUpdateTask signature
            onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
         }
         if (shouldClose) {
@@ -662,7 +609,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleSaveAndComplete = (finalTaskData) => {
-        // FIXED: onUpdateTask signature
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
@@ -694,7 +640,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             );
         }
 
-        // This is the part that was missing - the buttons to start the process
         return (
             <div className="text-center py-4">
                 <p className="text-gray-400 mb-4">Use our AI-powered scripting assistant to go from a rough idea to a full script.</p>
@@ -712,7 +657,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     return (
         <div>
-            {/* FIXED: This renders the initial buttons inside the accordion */}
             {renderAccordionContent()}
 
             {showWorkspace && ReactDOM.createPortal(
