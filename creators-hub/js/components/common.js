@@ -417,33 +417,32 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
     );
 };
 
-// NEW: A modal to confirm how a location should be removed.
-window.RemoveLocationConfirmationModal = ({ isOpen, locationName, onConfirm, onCancel }) => {
+window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCancel }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[100] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center p-4" style={{zIndex: 1500}}>
             <div className="glass-card rounded-lg p-8 w-full max-w-lg text-center">
-                <h3 className="text-2xl font-bold text-amber-400 mb-4">Confirm Removal</h3>
+                <h3 className="text-2xl font-bold text-amber-400 mb-4">Update Location Use</h3>
                 <p className="text-gray-300 mb-6">
-                    How should <strong className="text-white">"{locationName}"</strong> be removed?
+                    For the location <strong className="text-white">"{locationName}"</strong>, what would you like to do?
                 </p>
 
                 <div className="space-y-4">
                     <button
-                        onClick={() => onConfirm(locationName, 'script')}
+                        onClick={() => onConfirm(locationName, 'script-only')}
                         className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg border border-gray-600 hover:border-primary-accent transition-all"
                     >
-                        <p className="font-semibold text-lg text-white">Remove from Script Only</p>
-                        <p className="text-gray-400 text-sm">The location will not be used for this script, but will remain in the project's footage inventory for future videos.</p>
+                        <p className="font-semibold text-lg text-white">Exclude from this Script's On-Camera Notes</p>
+                        <p className="text-gray-400 text-sm">This is temporary. The location will still be marked as "On-Camera" for the project, but will be ignored for this script generation.</p>
                     </button>
 
                     <button
-                        onClick={() => onConfirm(locationName, 'project')}
+                        onClick={() => onConfirm(locationName, 'video-remove')}
                         className="w-full text-left p-4 bg-red-900/50 hover:bg-red-800/50 rounded-lg border border-red-700 hover:border-red-500 transition-all"
                     >
-                        <p className="font-semibold text-lg text-red-300">Remove from Project Completely</p>
-                        <p className="text-gray-400 text-sm">This will permanently delete the location from the project's footage inventory and location list. This cannot be undone.</p>
+                        <p className="font-semibold text-lg text-red-300">Remove Location from this Video</p>
+                        <p className="text-gray-400 text-sm">Permanently removes this location from this video's "featured" list. If no other videos use it, it will be removed from the project inventory.</p>
                     </button>
                 </div>
 
@@ -456,7 +455,6 @@ window.RemoveLocationConfirmationModal = ({ isOpen, locationName, onConfirm, onC
         </div>
     );
 };
-
 
 // EXPOSE NEW COMPONENTS GLOBALLY
 window.CopyButton = CopyButton;
