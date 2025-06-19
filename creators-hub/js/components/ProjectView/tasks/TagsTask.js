@@ -1,27 +1,42 @@
 // js/components/ProjectView/tasks/TagsTask.js
 
-window.TagsTask = ({ video, onUpdate, onCompletion, project, settings }) => {
-    const { useState } = React;
+window.TagsTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
+    const { useState, useEffect } = React;
     const [generating, setGenerating] = useState(false);
-    const [tags, setTags] = useState(video.metadata?.tags || '');
+    const [tags, setTags] = useState('');
     const [error, setError] = useState('');
+
+    // This hook properly parses the tags from the video's metadata JSON string
+    useEffect(() => {
+        try {
+            const currentMeta = video.metadata ? JSON.parse(video.metadata) : {};
+            setTags(currentMeta.tags || '');
+        } catch (e) {
+            console.error("Failed to parse video metadata for tags:", e);
+            setTags('');
+        }
+    }, [video.metadata]);
 
     const handleGenerateTags = async () => {
         setGenerating(true);
         setError('');
         try {
-            // FIXED: Pass the entire 'settings' object instead of just the apiKey.
             const result = await window.aiUtils.generateKeywordsAI({
-                title: video.title,
+                title: video.chosenTitle || video.title,
                 concept: video.concept,
                 locationsFeatured: video.locations_featured,
                 projectTitle: project.playlistTitle,
                 projectDescription: project.playlistDescription,
-                settings: settings, // This is the corrected part
+                settings: settings,
             });
 
             const uniqueTags = [...new Set(result)].join(', ');
             setTags(uniqueTags);
+
+            // Immediately save the generated tags and set status to 'in-progress'
+            const currentMeta = video.metadata ? JSON.parse(video.metadata) : {};
+            const newMeta = JSON.stringify({ ...currentMeta, tags: uniqueTags });
+            onUpdateTask('tagsGenerated', 'in-progress', { metadata: newMeta });
 
         } catch (err) {
             console.error("Error generating tags:", err);
@@ -32,22 +47,27 @@ window.TagsTask = ({ video, onUpdate, onCompletion, project, settings }) => {
     };
 
     const handleSave = () => {
-        const updatedVideo = { 
-            ...video, 
-            metadata: { ...video.metadata, tags: tags }
-        };
-        onUpdate(updatedVideo);
-        if (tags && tags.trim().length > 0) {
-            onCompletion(true);
+        try {
+            const currentMeta = video.metadata ? JSON.parse(video.metadata) : {};
+            // Update the tags property within the metadata object
+            const newMeta = JSON.stringify({ ...currentMeta, tags });
+            // Save the updated metadata and mark the task as complete
+            onUpdateTask('tagsGenerated', 'complete', { metadata: newMeta });
+        } catch (e) {
+            console.error("Failed to parse and update metadata:", e);
+            setError("Could not save tags due to a metadata issue.");
         }
     };
+
+    // Locks the component until the previous task is complete
+    if (isLocked) {
+        return <p className="text-gray-400 text-center py-2 text-sm">Please finalize the chapters first.</p>;
+    }
 
     const isComplete = video.tasks.tagsGenerated === 'complete';
 
     return (
         <div className="task-container">
-            <h3 className="task-title">Generate Tags</h3>
-            {isComplete && <span className="task-badge-complete">✓ Completed</span>}
             <div className="task-content">
                 <p className="task-description">Generate a list of SEO-optimized tags based on the video's content, title, and description.</p>
                 <button onClick={handleGenerateTags} disabled={generating} className="button-primary-small w-full justify-center">
@@ -59,7 +79,6 @@ window.TagsTask = ({ video, onUpdate, onCompletion, project, settings }) => {
                     value={tags}
                     onChange={(e) => {
                         setTags(e.target.value);
-                        onCompletion(false); // Mark as incomplete if user edits
                     }}
                     placeholder="e.g., travel vlog, cyprus travel, what to do in limassol..."
                 />
