@@ -497,6 +497,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
+        // This update is now based on the most current data from the modal.
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
         const response = await window.aiUtils.generateDraftOutlineAI({
@@ -628,16 +629,14 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    // --- MODIFIED: This is the new, safer auto-save handler ---
     const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
-        // This function, used for auto-saving, will now only update content fields.
-        // It will NOT update the 'scriptingStage', preventing the UI from reverting.
+        // This function is for auto-saving. It will now only update user-editable content fields.
+        // By removing the AI-generated question fields, we prevent the auto-save's stale data
+        // from reverting the user's progress.
         const fieldsToUpdate = {
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
-            'tasks.initialQuestions': updatedTaskData.initialQuestions,
             'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
-            'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
@@ -701,7 +700,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     return (
         <div>
-            {renderAccordionContent()}
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
