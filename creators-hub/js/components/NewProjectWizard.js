@@ -30,6 +30,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [coverImageUrl, setCoverImageUrl] = useState(initialDraft?.coverImageUrl || '');
     const [coverImageFile, setCoverImageFile] = useState(null); // New state for the uploaded file
     const [refinement, setRefinement] = useState('');
+    const [planRefinement, setPlanRefinement] = useState(initialDraft?.planRefinement || ''); // New state for plan-level refinement
     const [refiningVideoIndex, setRefiningVideoIndex] = useState(null);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false); // General loading state for the wizard
@@ -37,7 +38,7 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
-    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle, coverImageUrl }, 1000);
+    const debouncedState = window.useDebounce({ step, inputs, locations, footageInventory, keywordIdeas, selectedKeywords, editableOutline, finalizedTitle, finalizedDescription, selectedTitle, coverImageUrl, planRefinement }, 1000);
 
     // Initialize Firebase Storage
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
@@ -237,6 +238,44 @@ Generate a complete project plan as a JSON object with keys:
         } catch (e) { setError(`Failed to refine video: ${e.message}`); } finally { setIsLoading(false); }
     }, [editableOutline, refinement, settings]);
 
+    const handleRefineEntirePlan = useCallback(async () => {
+        setIsLoading(true);
+        setError('');
+        const prompt = `You are a YouTube series producer. A user has created an initial plan for a video series and wants to refine it based on their feedback.
+
+Original Video Plan:
+---
+${JSON.stringify(editableOutline, null, 2)}
+---
+
+User's Refinement Instructions for the ENTIRE plan: "${planRefinement}"
+
+Your Task:
+Rewrite the ENTIRE video plan based on the user's feedback. You can add, remove, or modify videos. You can change the titles, concepts, and lengths. The structure of your response must be an updated JSON object that is IDENTICAL in format to the original plan.
+
+The JSON object must have keys:
+"playlistTitleSuggestions" (array of 3 strings),
+"playlistDescription" (string),
+"videos" (array of objects, each with: "title", "concept", "estimatedLengthMinutes", "locations_featured", "targeted_keywords").
+
+Return ONLY the updated JSON object.`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true); // Mark as complex task
+            if (!parsedJson.playlistTitleSuggestions || !parsedJson.playlistDescription || !parsedJson.videos) {
+                throw new Error("AI returned an invalid plan format.");
+            }
+            // Reset status for all videos in the new plan
+            parsedJson.videos.forEach(v => { v.status = 'pending'; v.tasks = {}; });
+            setEditableOutline(parsedJson);
+            setPlanRefinement(''); // Clear the input after refinement
+        } catch (e) {
+            setError(`Failed to refine the entire plan: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [editableOutline, planRefinement, settings]);
+
     const handleAcceptVideo = (index) => {
         const newVideos = [...editableOutline.videos];
         newVideos[index].status = 'accepted';
@@ -301,17 +340,31 @@ Generate a complete project plan as a JSON object with keys:
                                 onCoverImageFileChange={setCoverImageFile}
                             />;
             case 2: return <window.WizardStep2_Inventory 
-                    locations={locations}
-                    footageInventory={footageInventory}
-                    onLocationsUpdate={handleLocationsUpdate}
-                    onInventoryChange={handleInventoryChange}
-                    onSelectAllFootage={handleSelectAllFootage}
-                    googleMapsLoaded={googleMapsLoaded}
-                />;
+                       locations={locations}
+                       footageInventory={footageInventory}
+                       onLocationsUpdate={handleLocationsUpdate}
+                       onInventoryChange={handleInventoryChange}
+                       onSelectAllFootage={handleSelectAllFootage}
+                       googleMapsLoaded={googleMapsLoaded}
+                   />;
             case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
             case 5: return <window.WizardStep5_Description description={editableOutline?.playlistDescription} refinement={refinement} isLoading={isLoading} error={error} onDescriptionChange={(val) => setEditableOutline(p => ({...p, playlistDescription: val}))} onRefinementChange={setRefinement} onRefine={handleRefineDescription} />;
-            case 6: return <window.WizardStep6_Review videos={editableOutline?.videos || []} refiningVideoIndex={refiningVideoIndex} refinement={refinement} isLoading={isLoading} error={error} onRefinementChange={setRefinement} onSetRefiningVideoIndex={setRefiningVideoIndex} onRefineVideo={handleRefineVideo} onAcceptVideo={handleAcceptVideo} onDeleteVideo={handleDeleteVideoSuggestion} />;
+            case 6: return <window.WizardStep6_Review 
+                        videos={editableOutline?.videos || []} 
+                        refiningVideoIndex={refiningVideoIndex} 
+                        refinement={refinement} 
+                        planRefinement={planRefinement}
+                        isLoading={isLoading} 
+                        error={error} 
+                        onRefinementChange={setRefinement} 
+                        onPlanRefinementChange={setPlanRefinement}
+                        onSetRefiningVideoIndex={setRefiningVideoIndex} 
+                        onRefineVideo={handleRefineVideo} 
+                        onRefineEntirePlan={handleRefineEntirePlan}
+                        onAcceptVideo={handleAcceptVideo} 
+                        onDeleteVideo={handleDeleteVideoSuggestion} 
+                    />;
             default: return <p>Step {step} not found.</p>;
         }
     };
@@ -325,18 +378,18 @@ Generate a complete project plan as a JSON object with keys:
             <div className="flex justify-between items-center w-full">
                 <div><button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100">Delete Draft</button></div>
                 <div className="flex items-center gap-4">
-                     {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
-                     {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500">Next</button>}
-                     {step === 2 && <button onClick={handleGenerateKeywords} disabled={isGeneratingKeywords || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isGeneratingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
-                     {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
-                     {step === 4 && <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
-                     {step === 5 && <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
-                     {step === 6 && (
-                        <>
-                            <button onClick={() => editableOutline.videos.forEach((v, i) => v.status === 'pending' && handleAcceptVideo(i))} disabled={isLoading || allVideosHandled} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500">Accept All Remaining</button>
-                            <button onClick={handleCreateProject} disabled={isLoading || !atLeastOneVideoAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '✅ Finish & Create Project'}</button>
-                        </>
-                     )}
+                       {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
+                       {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500">Next</button>}
+                       {step === 2 && <button onClick={handleGenerateKeywords} disabled={isGeneratingKeywords || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isGeneratingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
+                       {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
+                       {step === 4 && <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
+                       {step === 5 && <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
+                       {step === 6 && (
+                            <>
+                                <button onClick={() => editableOutline.videos.forEach((v, i) => v.status === 'pending' && handleAcceptVideo(i))} disabled={isLoading || allVideosHandled} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500">Accept All Remaining</button>
+                                <button onClick={handleCreateProject} disabled={isLoading || !atLeastOneVideoAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '✅ Finish & Create Project'}</button>
+                            </>
+                       )}
                 </div>
             </div>
         );
