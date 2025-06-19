@@ -65,7 +65,7 @@ const ScriptingWorkspaceModal = ({
 
     const [saveStatus, setSaveStatus] = useState('idle');
     const isInitialMount = useRef(true);
-    
+
     const debouncedLocalTaskData = window.useDebounce(localTaskData, 1500);
 
     useEffect(() => {
@@ -198,7 +198,7 @@ const ScriptingWorkspaceModal = ({
                             className="w-full form-textarea"
                             placeholder="Paste your notes, describe your experience, list key points..."
                         />
-                           <div className="text-center mt-8">
+                            <div className="text-center mt-8">
                                 <button onClick={() => handleAction(onGenerateInitialQuestions, localTaskData.initialThoughts)} disabled={isLoading || !(localTaskData.initialThoughts || '').trim()} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg disabled:opacity-50">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Clarify My Vision'}
                                 </button>
@@ -227,7 +227,7 @@ const ScriptingWorkspaceModal = ({
                                 </div>
                             ))}
                         </div>
-                           <div className="text-center mt-8">
+                            <div className="text-center mt-8">
                                 <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
                                 </button>
@@ -300,7 +300,7 @@ const ScriptingWorkspaceModal = ({
                                 </div>
                             ))}
                         </div>
-                           <div className="text-center mt-8">
+                            <div className="text-center mt-8">
                                 <button onClick={() => handleAction(onProceedToScripting, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
                                 </button>
@@ -338,9 +338,9 @@ const ScriptingWorkspaceModal = ({
                                 </div>
                             ))}
                         </div>
-                           <div className="text-center mt-8">
-                                 <button onClick={() => handleAction(onGenerateFullScript, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
+                            <div className="text-center mt-8">
+                                <button onClick={() => handleAction(onGenerateFullScript, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
                             </button>
                         </div>
                     </div>
@@ -372,8 +372,8 @@ const ScriptingWorkspaceModal = ({
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
                             </button>
                         </div>
-                           <div className="text-center mt-8">
-                                 <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                            <div className="text-center mt-8">
+                                <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                     Save and Complete Task
                                 </button>
                             </div>
@@ -384,52 +384,52 @@ const ScriptingWorkspaceModal = ({
         }
     };
 
-return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
-        <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
-            <button onClick={() => handleClose(true)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-            <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
+            <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
+                <button onClick={() => handleClose(true)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
 
-            <ScriptingStepper
-                stages={stages}
-                currentStage={currentStage}
-                highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
-                onStageClick={handleStageClick}
-            />
+                <ScriptingStepper
+                    stages={stages}
+                    currentStage={currentStage}
+                    highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
+                    onStageClick={handleStageClick}
+                />
 
-            <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
-                {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                {renderContent()}
+                <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
+                    {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
+                    {renderContent()}
+                </div>
+
+                <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
+                    {saveStatus === 'saving' && (
+                        <div className="flex items-center gap-2 text-gray-400 text-sm">
+                            <window.LoadingSpinner isButton={true} />
+                            <span>Saving...</span>
+                        </div>
+                    )}
+                    {saveStatus === 'saved' && (
+                        <div className="flex items-center gap-2 text-green-400 text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span>All changes saved</span>
+                        </div>
+                    )}
+                        {saveStatus === 'error' && (
+                            <div className="flex items-center gap-2 text-red-400 text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <span>Save failed</span>
+                        </div>
+                    )}
+                </div>
+
             </div>
-
-            <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
-                {saveStatus === 'saving' && (
-                    <div className="flex items-center gap-2 text-gray-400 text-sm">
-                        <window.LoadingSpinner isButton={true} />
-                        <span>Saving...</span>
-                    </div>
-                )}
-                {saveStatus === 'saved' && (
-                    <div className="flex items-center gap-2 text-green-400 text-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <span>All changes saved</span>
-                    </div>
-                )}
-                    {saveStatus === 'error' && (
-                        <div className="flex items-center gap-2 text-red-400 text-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Save failed</span>
-                    </div>
-                )}
-            </div>
-
         </div>
-    </div>
-);
+    );
 };
 
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db }) => {
@@ -458,16 +458,17 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         if (!stageToOpen) {
             const currentStage = taskData.scriptingStage;
             if (video.tasks?.scripting === 'complete') {
-                   stageToOpen = 'full_script_review';
+                    stageToOpen = 'full_script_review';
             } else {
-                   stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
+                    stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
             }
         }
 
         setWorkspaceStageOverride(stageToOpen);
 
         if (taskData.scriptingStage === 'pending' || !taskData.scriptingStage) {
-            await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
+            // FIXED: onUpdateTask signature
+            await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': 'initial_thoughts' });
         }
 
         setShowWorkspace(true);
@@ -484,7 +485,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate clarifying questions. Please try again.");
         }
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', {
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', {
             'tasks.initialThoughts': thoughtsText,
             'tasks.scriptingStage': 'initial_qa',
             'tasks.initialQuestions': response.questions,
@@ -497,7 +499,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
         const response = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
@@ -512,14 +515,15 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate a valid outline. Please try again.");
         }
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', {
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'draft_outline_review',
             'tasks.scriptPlan': response.draftOutline
         });
     };
 
     const handleRefineOutline = async (currentOutline, refinementText) => {
-           const answersText = (taskData.initialQuestions || []).map((q, index) =>
+            const answersText = (taskData.initialQuestions || []).map((q, index) =>
             `Q: ${q}\nA: ${(taskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
@@ -537,7 +541,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to refine the outline. Please try again.");
         }
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
 
     const handleGenerateRefinementPlan = async (currentTaskData) => {
@@ -552,7 +557,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate the next set of questions. Please try again.");
         }
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', {
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'refinement_qa',
             'tasks.scriptPlan': response.scriptPlan,
             'tasks.locationQuestions': response.locationQuestions,
@@ -561,16 +567,19 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleProceedToScripting = async (currentTaskData) => {
-        await onUpdateTask(video.id, 'scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
 
         const onCameraLocations = (video.locations_featured || [])
             .filter(locName => {
+                // This logic is now safe because the 'project' prop is correctly passed down
                 const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
                 return inventoryItem && inventoryItem.onCamera;
             });
 
         if (onCameraLocations.length > 0) {
-            await onUpdateTask(video.id, 'scripting', 'in-progress', {
+            // FIXED: onUpdateTask signature
+            await onUpdateTask('scripting', 'in-progress', {
                 'tasks.scriptingStage': 'on_camera_qa',
                 'tasks.onCameraLocations': onCameraLocations,
                 'tasks.onCameraDescriptions': currentTaskData.onCameraDescriptions || {}
@@ -598,7 +607,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate the final script. Please try again.");
         }
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', {
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'full_script_review',
             'script': response.finalScript
         });
@@ -623,7 +633,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to refine the script. Please try again.");
         }
 
-        await onUpdateTask(video.id, 'scripting', 'in-progress', {
+        // FIXED: onUpdateTask signature
+        await onUpdateTask('scripting', 'in-progress', {
             'script': response.finalScript
         });
     };
@@ -642,7 +653,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             'script': updatedTaskData.script,
         };
         if(video.tasks?.scripting !== 'complete'){
-           onUpdateTask(video.id, 'scripting', 'in-progress', fieldsToUpdate);
+           // FIXED: onUpdateTask signature
+           onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
         }
         if (shouldClose) {
             setShowWorkspace(false);
@@ -650,7 +662,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     const handleSaveAndComplete = (finalTaskData) => {
-        onUpdateTask(video.id, 'scripting', 'complete', {
+        // FIXED: onUpdateTask signature
+        onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
             'tasks.initialQuestions': finalTaskData.initialQuestions,
@@ -673,14 +686,15 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         if (video.tasks?.scripting === 'complete') {
             return (
                 <div className="text-center py-4">
-                       <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
-                     <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
+                        <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
+                       <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
                         View/Edit Script
                     </button>
                 </div>
             );
         }
 
+        // This is the part that was missing - the buttons to start the process
         return (
             <div className="text-center py-4">
                 <p className="text-gray-400 mb-4">Use our AI-powered scripting assistant to go from a rough idea to a full script.</p>
@@ -698,6 +712,9 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     return (
         <div>
+            {/* FIXED: This renders the initial buttons inside the accordion */}
+            {renderAccordionContent()}
+
             {showWorkspace && ReactDOM.createPortal(
                 <ScriptingWorkspaceModal
                     video={video}
