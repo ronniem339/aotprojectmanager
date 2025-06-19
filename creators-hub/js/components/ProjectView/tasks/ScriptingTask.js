@@ -66,7 +66,6 @@ const ScriptingWorkspaceModal = ({
     const [saveStatus, setSaveStatus] = useState('idle');
     const isInitialMount = useRef(true);
     
-    // --- MODIFIED: Get the cancel function from the hook ---
     const [debouncedLocalTaskData, cancelAutoSave] = window.useDebounce(localTaskData, 1500);
 
     useEffect(() => {
@@ -152,9 +151,7 @@ const ScriptingWorkspaceModal = ({
         }));
     };
 
-    // --- MODIFIED: The core fix is here ---
     const handleAction = async (action, ...args) => {
-        // Cancel any pending auto-save before starting the action.
         cancelAutoSave();
 
         setIsLoading(true);
@@ -478,9 +475,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         setShowWorkspace(true);
     };
 
+    // --- MODIFIED: This is the new, consolidated update logic ---
     const handleGenerateInitialQuestions = async (thoughtsText) => {
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialThoughts': thoughtsText });
-
         const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
             settings: settings
@@ -491,7 +487,9 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate clarifying questions. Please try again.");
         }
 
+        // Perform a single, combined update after the AI call is successful.
         await onUpdateTask('scripting', 'in-progress', {
+            'tasks.initialThoughts': thoughtsText,
             'tasks.scriptingStage': 'initial_qa',
             'tasks.initialQuestions': response.questions,
             'tasks.initialAnswers': {}
