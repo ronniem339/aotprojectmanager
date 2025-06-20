@@ -437,9 +437,15 @@ const ScriptingWorkspaceModal = ({
     // This is the main modal layout container.
     // Notice the changes to the classes to allow for a single, main scrollbar.
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 p-4 sm:p-8 overflow-y-auto">
-            <div className="glass-card rounded-lg p-6 sm:p-8 w-full max-w-4xl my-8 mx-auto relative">
-                <button onClick={() => handleClose(true)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+        // MODIFIED: This outer div now creates a solid, full-screen background.
+        // Padding has been removed and the background is now opaque.
+        <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
+            {/* MODIFIED: This inner div is now the main content container.
+              It's been stripped of sizing/margin classes to allow it to fill the screen.
+              Padding has been adjusted for a better full-screen experience.
+            */}
+            <div className="w-full min-h-full p-6 sm:p-12 md:p-16 relative">
+                <button onClick={() => handleClose(true)} className="absolute top-6 right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
 
                 <ScriptingStepper
@@ -449,7 +455,6 @@ const ScriptingWorkspaceModal = ({
                     onStageClick={handleStageClick}
                 />
 
-                {/* This div no longer has overflow or height classes */}
                 <div className="">
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     {renderContent()}
