@@ -421,6 +421,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     // This is the fix: Save the new list to the database so it persists.
     await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': newLocations });
+    setLocalOnCameraLocations(newLocations);
 
     setLocationToModify(null); // This closes the confirmation modal.
     return;
