@@ -68,7 +68,7 @@ const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelN
 
     // Added a 30-second timeout for the fetch request.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
 
     try {
         const response = await fetch(apiUrl, {
