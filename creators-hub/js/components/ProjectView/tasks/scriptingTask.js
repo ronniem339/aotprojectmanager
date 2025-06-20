@@ -469,6 +469,9 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptRefinementText: '',
     };
 
+
+// creators-hub/js/components/ProjectView/tasks/scriptingTask.js
+
 const handleOpenWorkspace = async (startStage = null) => {
     setWorkspaceStageOverride(null);
     let stageToOpen = startStage;
@@ -478,29 +481,37 @@ const handleOpenWorkspace = async (startStage = null) => {
     const onCameraStageIndex = allStages.indexOf('on_camera_qa');
 
     if (currentStageIndex >= onCameraStageIndex) {
-        // Logic to re-sync if master data changes, but otherwise respect saved edits.
+        const savedOnCameraLocations = video.tasks?.onCameraLocations;
+
+        // Get the latest master list of on-camera locations from the project inventory.
         const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
             const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
             return inventoryItem && inventoryItem.onCamera;
         });
 
-        const savedOnCameraLocations = video.tasks?.onCameraLocations;
-        const sortedFresh = [...freshOnCameraLocations].sort();
-        const sortedSaved = savedOnCameraLocations ? [...savedOnCameraLocations].sort() : [];
-
-        // Check if the master list has changed since the list was last saved.
-        const needsRefresh = JSON.stringify(sortedFresh) !== JSON.stringify(sortedSaved);
-
-        if (savedOnCameraLocations === undefined || needsRefresh) {
-            // If no list was ever saved, or if it's out of sync, use the fresh list as the new source of truth.
+        if (savedOnCameraLocations === undefined) {
+            // FIRST TIME OPENING: The script has no saved list, so use the fresh one from the project.
             setLocalOnCameraLocations(freshOnCameraLocations);
             await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': freshOnCameraLocations });
+        
         } else {
-            // Otherwise, trust the list already saved in the database, as it contains your edits.
-            setLocalOnCameraLocations(savedOnCameraLocations);
+            // A SAVED LIST EXISTS: Use it as the source of truth, but check for any new additions.
+            const savedSet = new Set(savedOnCameraLocations);
+            const newLocationsToAdd = freshOnCameraLocations.filter(loc => !savedSet.has(loc));
+
+            if (newLocationsToAdd.length > 0) {
+                // If there are new locations in the project master list, add them to the script's list.
+                const mergedLocations = [...savedOnCameraLocations, ...newLocationsToAdd];
+                setLocalOnCameraLocations(mergedLocations);
+                // Persist this newly merged list to the database.
+                await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': mergedLocations });
+            } else {
+                // No new locations were found. The saved list is up-to-date and respects all prior deletions.
+                setLocalOnCameraLocations(savedOnCameraLocations);
+            }
         }
     } else {
-        // For earlier stages, just use the saved list.
+        // For earlier stages, just use the saved list or an empty one.
         setLocalOnCameraLocations(video.tasks?.onCameraLocations || []);
     }
 
