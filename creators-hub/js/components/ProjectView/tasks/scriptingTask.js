@@ -604,20 +604,24 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleGenerateDraftOutline = async (currentTaskData) => {
-        const answersText = (currentTaskData.initialQuestions || []).map((q, index) =>
-            `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
-        ).join('\n\n');
+   const handleGenerateDraftOutline = async (currentTaskData) => {
+        const answersText = (currentTaskData.initialQuestions || []).map((q, index) =>
+            `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
+        ).join('\n\n');
 
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
+        // Add this line to get the storytelling knowledge
+        const storytellingKnowledge = settings.knowledgeBases?.storytelling?.videoStorytellingPrinciples || '';
 
-        const response = await window.aiUtils.generateDraftOutlineAI({
-            videoTitle: video.chosenTitle || video.title,
-            videoConcept: video.concept,
-            initialThoughts: currentTaskData.initialThoughts,
-            initialAnswers: answersText,
-            settings: settings
-        });
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
+
+        const response = await window.aiUtils.generateDraftOutlineAI({
+            videoTitle: video.chosenTitle || video.title,
+            videoConcept: video.concept,
+            initialThoughts: currentTaskData.initialThoughts,
+            initialAnswers: answersText,
+            storytellingKnowledge: storytellingKnowledge, // Add this line
+            settings: settings
+        });
 
         if (!response || typeof response.draftOutline !== 'string') {
             throw new Error("The AI failed to generate a valid outline. Please try again.");
