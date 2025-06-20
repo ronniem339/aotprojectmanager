@@ -309,22 +309,17 @@ generateDraftOutlineAI: async (params) => {
         2.  Use your "Internal Guide" to structure the user's information into a clear narrative outline.
         3.  For each part of the outline, write a brief, engaging description of the content and the narrative focus in a way that is easy for anyone to understand. The tone must match the creator's style.
         4.  **Critically Important:** Your final output MUST NOT contain the names of the storytelling principles or any other technical jargon. Do not write "(The Hook)", "(Rising Action)", "(Act I)", etc. in the outline you produce. You are the expert; you do the structural work and present a clean, inspiring outline to the user.
-
+        
+        **Output Formatting Instructions:**
+        - You MUST use Markdown for all formatting.
+        - Use a '###' heading for each major part of the outline (e.g., "### Part 1: The Title").
+        - Use bold for sub-headings inside each part (e.g., "**Content:**").
+        - Use a single dash (-) for all bullet points.
+        - Use a triple dash "---" as a separator between each major part.
+        
         Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the clean, formatted outline.
     `;
-// --- NEW LOGGING CODE ---
-    console.log("%c[AI Draft Outline] Full prompt being sent:", "color: #4ade80; font-weight: bold;", { prompt });
 
-    try {
-        const response = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-        console.log("%c[AI Draft Outline] Raw response received:", "color: #22c55e; font-weight: bold;", response);
-        return response;
-    } catch (error) {
-        console.error("%c[AI Draft Outline] Error caught within generateDraftOutlineAI:", "color: #ef4444; font-weight: bold;", error);
-        // Re-throw the error so the calling function can handle it and show a message to the user
-        throw error;
-    }
-    // --- END OF NEW LOGGING CODE ---
     return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
 },
 
