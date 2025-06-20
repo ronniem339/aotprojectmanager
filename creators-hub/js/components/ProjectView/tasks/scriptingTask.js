@@ -327,7 +327,10 @@ const ScriptingWorkspaceModal = ({
                         </div>
                         <div className="flex justify-between items-center mt-8">
                             <button onClick={() => handleStageClick('initial_thoughts')} className="button-secondary">Start Over</button>
-                            <button onClick={() => handleAction(onProceedToOnCamera, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                            {/* THIS IS THE KEY CHANGE.
+                              Replace 'onProceedToOnCamera' with the new 'onGenerateRefinementQuestions' handler.
+                            */}
+                            <button onClick={() => handleAction(onGenerateRefinementQuestions, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
                             </button>
                         </div>
@@ -657,6 +660,34 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
     // REPLACE the block of handler functions in ScriptingTask with this
+    const handleGenerateRefinementQuestions = async (currentTaskData) => {
+        // Save the current state of the outline, as the user might have edited it.
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptPlan': currentTaskData.scriptPlan
+        });
+
+        // Call the AI to generate the detailed, easy-to-answer questions.
+        const response = await window.aiUtils.generateScriptPlanAI({
+            videoTitle: video.chosenTitle || video.title,
+            videoConcept: video.concept,
+            draftOutline: currentTaskData.scriptPlan,
+            settings: settings
+        });
+
+        if (!response || !Array.isArray(response.locationQuestions)) {
+            throw new Error("The AI failed to generate refinement questions. Please try again.");
+        }
+
+        // Save the new questions from the AI and officially move to the Refinement Q&A stage.
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptingStage': 'refinement_qa',
+            'tasks.locationQuestions': response.locationQuestions,
+            'tasks.userExperiences': {} // Clear out any old answers to avoid confusion.
+        });
+    };
+
+    // This function is now only responsible for moving to the On-Camera QA step.
+    const handleProceedToOnCamera = async (currentTaskData) => {
 
     // This function is now only responsible for moving to the On-Camera QA step.
     const handleProceedToOnCamera = async (currentTaskData) => {
@@ -831,6 +862,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
+                    onGenerateRefinementQuestions={handleGenerateRefinementQuestions} 
                     onProceedToOnCamera={handleProceedToOnCamera}
                     onGenerateFullScript={handleGenerateFullScript}
                     onRefineScript={handleRefineScript}
