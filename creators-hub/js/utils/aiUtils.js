@@ -389,54 +389,65 @@ Example:
      * The function name is changed to align with the calling component (ScriptingTask.js)
      */
 generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone }) => {
-        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-        // Build the prompt section for on-camera descriptions, if they exist
-        let onCameraPromptSection = '';
-        if (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0) {
-            const descriptions = Object.entries(onCameraDescriptions)
-                .filter(([, desc]) => desc && desc.trim() !== '')
-                .map(([loc, desc]) => `- At <span class="math-inline">\{loc\}, the creator will be on camera to say/do the following\: "</span>{desc}"`)
-                .join('\n');
-            
-            if (descriptions) {
-                // --- This instruction block is refined for clarity ---
-                onCameraPromptSection = `**On-Camera Segments (CRITICAL CONTEXT):**
+    // Build the prompt section for on-camera descriptions, if they exist
+    let onCameraPromptSection = '';
+    if (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0) {
+        const descriptions = Object.entries(onCameraDescriptions)
+            .filter(([, desc]) => desc && desc.trim() !== '')
+            .map(([loc, desc]) => `- At ${loc}, the creator will be on camera to say/do the following: "${desc}"`)
+            .join('\n');
+        
+        if (descriptions) {
+            onCameraPromptSection = `**On-Camera Segments (CRITICAL CONTEXT):**
 The creator has already recorded on-camera dialogue/actions. Your most important job is to write a voiceover that works AROUND these segments.
 
 DO NOT repeat information that is already delivered on-camera. Your script should provide the missing context or what's happening between takes, not restate what's already said.
 Your voiceover MUST serve as the bridge between segments. Write smooth transitions that lead INTO and OUT OF these on-camera moments.
 Here is what the creator has noted about their on-camera footage. This is what you must work around:
 ${descriptions}
-;             }         }                  const answersPromptSection =Creator's Detailed Answers to Questions:
+`;
+        }
+    }
+
+    const answersPromptSection = `
+Creator's Detailed Answers to Questions:
+---
 ${userAnswers}
+---
 `;
 
-        const refinementPromptSection = refinementText 
-            ? `**Refinement Feedback:** You MUST incorporate this feedback into the new script: "${refinementText}".\n---\n` 
-            : '';
+    const refinementPromptSection = refinementText 
+        ? `**Refinement Feedback:** You MUST incorporate this feedback into the new script: "${refinementText}".\n---\n` 
+        : '';
 
-        const prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
+    const prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
 Video Title: "${videoTitle}"
 ${styleGuide}
 
 Approved Script Outline:
+---
 ${scriptPlan}
-onCameraPromptSection{answersPromptSection}${refinementPromptSection}
+---
+${onCameraPromptSection}
+${answersPromptSection}
+${refinementPromptSection}
 Your Final Instructions:
 
-Write the final, complete video script.
-The output must be ONLY the spoken voiceover dialogue, ready for the creator to record.
-Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), speaker names, or any text that isn't part of the dialogue.
-Crucially, you must follow the rules in the "On-Camera Segments" section. Your script is the glue that holds the on-camera parts and the voiceover together. For example, lead into an on-camera segment with a question ("I had to see if this place lived up to the hype...") and lead out of it with a reflection ("...and it absolutely did. Now, on to the next stop.").
+1. Write the final, complete video script.
+2. The output must be ONLY the spoken voiceover dialogue, ready for the creator to record.
+3. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), speaker names, or any text that isn't part of the dialogue.
+4. Crucially, you must follow the rules in the "On-Camera Segments" section if it exists. Your script is the glue that holds the on-camera parts and the voiceover together. For example, lead into an on-camera segment with a question ("I had to see if this place lived up to the hype...") and lead out of it with a reflection ("...and it absolutely did. Now, on to the next stop.").
+
 Now, write the complete voiceover script.`;
-        
-        // This is a complex task requiring a plain text response.
-        const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-        
-        // The calling function expects an object, so we wrap the text response.
-        return { finalScript: responseText };
-    },
+    
+    // This is a complex task requiring a plain text response.
+    const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+    
+    // The calling function expects an object, so we wrap the text response.
+    return { finalScript: responseText };
+},
 
 // NEW: Function to update the creator's style guide based on feedback.
 updateStyleGuideAI: async ({ currentStyleGuide, refinementFeedback, settings }) => {
