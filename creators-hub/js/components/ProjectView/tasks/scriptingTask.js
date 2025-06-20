@@ -414,46 +414,59 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const [localOnCameraLocations, setLocalOnCameraLocations] = useState(null);
 
-    const handleLocationModification = async (locationName, modificationType) => {
+ // In creators-hub/js/components/ProjectView/tasks/scriptingTask.js
+
+const handleLocationModification = async (locationName, modificationType) => {
     if (modificationType === 'script-only') {
-    const currentLocations = localOnCameraLocations || video.tasks?.onCameraLocations || [];
-    const newLocations = currentLocations.filter(loc => loc !== locationName);
-
-    // This is the fix: Save the new list to the database so it persists.
-    await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': newLocations });
-    setLocalOnCameraLocations(newLocations);
-
-    setLocationToModify(null); // This closes the confirmation modal.
-    return;
-}
-        if (modificationType === 'video-remove') {
-            // This is the permanent change that was missing the UI update.
-            const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-            const newLocationsForVideo = video.locations_featured.filter(loc => loc !== locationName);
-            
-            await videoRef.update({ 'locations_featured': newLocationsForVideo });
-
-            const isLocationUsedElsewhere = allVideos.some(v => v.id !== video.id && (v.locations_featured || []).includes(locationName));
-            
-            if (!isLocationUsedElsewhere) {
-                const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
-                const newProjectLocations = project.locations.filter(loc => loc.name !== locationName);
-                const footageKey = `footageInventory.${locationName}`;
-                await projectRef.update({
-                    locations: newProjectLocations,
-                    [footageKey]: firebase.firestore.FieldValue.delete()
-                });
-            }
-            
-            // ** THE FIX IS HERE **
-            // After the database updates, we now also update the local state
-            // to ensure the UI refreshes instantly.
-            const newLocations = localOnCameraLocations.filter(loc => loc !== locationName);
-            setLocalOnCameraLocations(newLocations);
-
-            setLocationToModify(null); // Close the modal
+        // Add the location to a new "removed" list, implementing the user's flag idea.
+        const currentRemoved = video.tasks?.scripting_locations_removed || [];
+        if (currentRemoved.includes(locationName)) {
+            setLocationToModify(null);
+            return; // Already removed, nothing to do.
         }
-    };
+        const newRemovedList = [...currentRemoved, locationName];
+
+        // Save this new list of removed locations to the database.
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.scripting_locations_removed': newRemovedList });
+
+        // Update the local UI by re-calculating the list to display.
+        const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
+            const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+            return inventoryItem && inventoryItem.onCamera;
+        });
+        const removedSet = new Set(newRemovedList);
+        const derivedOnCameraLocations = freshOnCameraLocations.filter(loc => !removedSet.has(loc));
+        setLocalOnCameraLocations(derivedOnCameraLocations);
+
+        setLocationToModify(null); // This closes the confirmation modal.
+        return;
+    }
+
+    if (modificationType === 'video-remove') {
+        // This logic for permanent removal remains the same.
+        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        const newLocationsForVideo = video.locations_featured.filter(loc => loc !== locationName);
+        
+        await videoRef.update({ 'locations_featured': newLocationsForVideo });
+
+        const isLocationUsedElsewhere = allVideos.some(v => v.id !== video.id && (v.locations_featured || []).includes(locationName));
+        
+        if (!isLocationUsedElsewhere) {
+            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+            const newProjectLocations = project.locations.filter(loc => loc.name !== locationName);
+            const footageKey = `footageInventory.${locationName}`;
+            await projectRef.update({
+                locations: newProjectLocations,
+                [footageKey]: firebase.firestore.FieldValue.delete()
+            });
+        }
+        
+        const newLocations = localOnCameraLocations.filter(loc => loc !== locationName);
+        setLocalOnCameraLocations(newLocations);
+
+        setLocationToModify(null);
+    }
+};
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
@@ -477,43 +490,29 @@ const handleOpenWorkspace = async (startStage = null) => {
     let stageToOpen = startStage;
     const allStages = ['initial_thoughts', 'initial_qa', 'draft_outline_review', 'refinement_qa', 'on_camera_qa', 'full_script_review', 'complete'];
     const currentStage = video.tasks?.scriptingStage || 'pending';
-    const currentStageIndex = allStages.indexOf(currentStage);
-    const onCameraStageIndex = allStages.indexOf('on_camera_qa');
 
-    if (currentStageIndex >= onCameraStageIndex) {
-        const savedOnCameraLocations = video.tasks?.onCameraLocations;
+    // --- Start of Targeted Change ---
 
-        // Get the latest master list of on-camera locations from the project inventory.
-        const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
-            const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
-            return inventoryItem && inventoryItem.onCamera;
-        });
+    // This block is now the single source of truth for what locations to display.
+    // It derives the list on-the-fly, rather than reading a saved list.
+    
+    // 1. Get the master list of all on-camera locations from the project inventory.
+    const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
+        const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+        return inventoryItem && inventoryItem.onCamera;
+    });
 
-        if (savedOnCameraLocations === undefined) {
-            // FIRST TIME OPENING: The script has no saved list, so use the fresh one from the project.
-            setLocalOnCameraLocations(freshOnCameraLocations);
-            await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': freshOnCameraLocations });
-        
-        } else {
-            // A SAVED LIST EXISTS: Use it as the source of truth, but check for any new additions.
-            const savedSet = new Set(savedOnCameraLocations);
-            const newLocationsToAdd = freshOnCameraLocations.filter(loc => !savedSet.has(loc));
+    // 2. Get our new "flag" list of locations the user has specifically removed for this script.
+    const removedLocations = video.tasks?.scripting_locations_removed || [];
+    const removedSet = new Set(removedLocations);
 
-            if (newLocationsToAdd.length > 0) {
-                // If there are new locations in the project master list, add them to the script's list.
-                const mergedLocations = [...savedOnCameraLocations, ...newLocationsToAdd];
-                setLocalOnCameraLocations(mergedLocations);
-                // Persist this newly merged list to the database.
-                await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': mergedLocations });
-            } else {
-                // No new locations were found. The saved list is up-to-date and respects all prior deletions.
-                setLocalOnCameraLocations(savedOnCameraLocations);
-            }
-        }
-    } else {
-        // For earlier stages, just use the saved list or an empty one.
-        setLocalOnCameraLocations(video.tasks?.onCameraLocations || []);
-    }
+    // 3. The correct list to display is the master list MINUS the removed list.
+    const derivedOnCameraLocations = freshOnCameraLocations.filter(loc => !removedSet.has(loc));
+    
+    // 4. Set the component's local state with this freshly calculated list.
+    setLocalOnCameraLocations(derivedOnCameraLocations);
+
+    // --- End of Targeted Change ---
 
     if (!stageToOpen) {
         stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
