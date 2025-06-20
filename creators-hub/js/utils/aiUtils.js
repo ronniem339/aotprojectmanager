@@ -411,6 +411,38 @@ Now, write the complete voiceover script.`;
         return { finalScript: responseText };
     },
 
+// NEW: Function to update the creator's style guide based on feedback.
+updateStyleGuideAI: async ({ currentStyleGuide, refinementFeedback, settings }) => {
+    const prompt = `You are an expert brand strategist and copy editor. Your task is to refine a creator's style guide based on their feedback.
+
+Current Style Guide:
+---
+${currentStyleGuide}
+---
+
+Creator's Feedback for Improvement:
+---
+"${refinementFeedback}"
+---
+
+Your Instructions:
+1.  Analyze the feedback in the context of the current style guide.
+2.  Incorporate the feedback to create a new, improved, and concise style guide.
+3.  The new style guide should be a clear, actionable set of principles for future content. It should not be a script or a response to the user, but the guide itself.
+4.  Do not just append the feedback. Integrate it holistically. For example, if the guide says "be funny" and the feedback is "be more sarcastic," the new guide might say "be funny and sarcastic." If the guide says "formal tone" and feedback is "make it more casual," the new guide should say "casual and conversational tone."
+
+Return your response as a valid JSON object with a single key, "newStyleGuideText".`;
+
+    // CORRECTED: This is a complex task, so the 'isComplex' flag is set to true.
+    const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+    
+    if (parsedJson && typeof parsedJson.newStyleGuideText === 'string') {
+        return parsedJson;
+    } else {
+        throw new Error("AI failed to return a valid style guide format.");
+    }
+},
+    
     /**
      * Generates keywords. This is a simple task.
      */
