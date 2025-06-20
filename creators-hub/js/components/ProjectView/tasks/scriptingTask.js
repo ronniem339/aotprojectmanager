@@ -415,19 +415,16 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const [localOnCameraLocations, setLocalOnCameraLocations] = useState(null);
 
     const handleLocationModification = async (locationName, modificationType) => {
-     if (modificationType === 'script-only') {
-    // Get the current list from the component's local state.
+    if (modificationType === 'script-only') {
     const currentLocations = localOnCameraLocations || video.tasks?.onCameraLocations || [];
     const newLocations = currentLocations.filter(loc => loc !== locationName);
 
-    // **THE FIX**: Save the new, shorter list to the database so it persists.
+    // This is the fix: Save the new list to the database so it persists.
     await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': newLocations });
 
-    // This will close the confirmation modal.
-    setLocationToModify(null); 
+    setLocationToModify(null); // This closes the confirmation modal.
     return;
 }
-
         if (modificationType === 'video-remove') {
             // This is the permanent change that was missing the UI update.
             const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
@@ -480,20 +477,21 @@ const handleOpenWorkspace = async (startStage = null) => {
     const onCameraStageIndex = allStages.indexOf('on_camera_qa');
 
     if (currentStageIndex >= onCameraStageIndex) {
-        // **THE FIX**: This logic now correctly re-syncs if master data has changed,
-        // but otherwise respects your previously saved list.
+        // Logic to re-sync if master data changes, but otherwise respect saved edits.
         const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
             const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
             return inventoryItem && inventoryItem.onCamera;
         });
 
         const savedOnCameraLocations = video.tasks?.onCameraLocations;
+        const sortedFresh = [...freshOnCameraLocations].sort();
+        const sortedSaved = savedOnCameraLocations ? [...savedOnCameraLocations].sort() : [];
 
-        // Check if the master list of on-camera locations has changed since the list was last saved.
-        const needsRefresh = JSON.stringify([...freshOnCameraLocations].sort()) !== JSON.stringify([...(savedOnCameraLocations || [])].sort());
+        // Check if the master list has changed since the list was last saved.
+        const needsRefresh = JSON.stringify(sortedFresh) !== JSON.stringify(sortedSaved);
 
         if (savedOnCameraLocations === undefined || needsRefresh) {
-            // If there's no saved list, or if it's out of sync, use the fresh list as the new source of truth.
+            // If no list was ever saved, or if it's out of sync, use the fresh list as the new source of truth.
             setLocalOnCameraLocations(freshOnCameraLocations);
             await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': freshOnCameraLocations });
         } else {
@@ -680,7 +678,6 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         'tasks.scriptPlan': updatedTaskData.scriptPlan,
         'tasks.locationQuestions': updatedTaskData.locationQuestions,
         'tasks.userExperiences': updatedTaskData.userExperiences,
-        // **THE FIX**: Use the local component state as the definitive source of truth for the list.
         'tasks.onCameraLocations': localOnCameraLocations, 
         'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
         'script': updatedTaskData.script,
