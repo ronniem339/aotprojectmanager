@@ -140,6 +140,9 @@ const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onSta
  * A full-screen modal for the entire multi-step scripting process.
  */
 // REPLACE the start of your ScriptingWorkspaceModal with this
+
+// REPLACE the existing ScriptingWorkspaceModal component with this one.
+
 const ScriptingWorkspaceModal = ({
     video,
     taskData,
@@ -150,17 +153,16 @@ const ScriptingWorkspaceModal = ({
     onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onRefineOutline,
-    onProceedToOnCamera, // Formerly onGenerateRefinementPlan, now renamed
-    onGenerateFullScript, // Formerly part of onProceedToScripting
+    onProceedToOnCamera,
+    onGenerateFullScript,
     onRefineScript,
-    settings, // Pass settings down
-    project, // Pass project down
+    settings,
+    project,
 }) => {
     const [currentStage, setCurrentStage] = useState(stageOverride || taskData.scriptingStage || 'initial_thoughts');
     const [localTaskData, setLocalTaskData] = useState(taskData);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    // NEW: State for the style guide checkbox
     const [shouldUpdateStyleGuide, setShouldUpdateStyleGuide] = useState(false);
 
     useEffect(() => {
@@ -173,7 +175,11 @@ const ScriptingWorkspaceModal = ({
         }
     }, [taskData.scriptingStage]);
 
-    // RESTORED: These helper functions are required for the component to work.
+    const initiateScriptGeneration = async () => {
+        setCurrentStage('full_script_review');
+        await handleAction(onGenerateFullScript, localTaskData);
+    };
+    
     const handleDataChange = (field, value) => {
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
     };
@@ -188,7 +194,6 @@ const ScriptingWorkspaceModal = ({
 
     const handleRemoveQuestion = (indexToRemove) => {
         const newQuestions = localTaskData.locationQuestions.filter((_, index) => index !== indexToRemove);
-
         const oldExperiences = localTaskData.userExperiences || {};
         const newExperiences = {};
         let newIndex = 0;
@@ -200,7 +205,6 @@ const ScriptingWorkspaceModal = ({
                 newIndex++;
             }
         }
-
         setLocalTaskData(prev => ({
             ...prev,
             locationQuestions: newQuestions,
@@ -226,20 +230,13 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleStageClick = (targetStage) => {
-        onClose(localTaskData, false); // Save current state before switching stage
+        onClose(localTaskData, false);
         setCurrentStage(targetStage);
     };
 
     const handleSaveAndComplete = () => {
         onSave(localTaskData);
     };
-
-    // ADD this new handler function inside ScriptingWorkspaceModal
-    const initiateScriptGeneration = async () => {
-        setCurrentStage('full_script_review');
-        await handleAction(onGenerateFullScript, localTaskData);
-    };
-
 
     const stages = [
         { id: 'initial_thoughts', name: 'Brain Dump' },
@@ -250,8 +247,6 @@ const ScriptingWorkspaceModal = ({
         { id: 'full_script_review', name: 'Final Script' },
     ];
 
-
-    // REPLACE the entire renderContent function with this
     const renderContent = () => {
         switch (currentStage) {
             case 'initial_thoughts':
@@ -262,7 +257,7 @@ const ScriptingWorkspaceModal = ({
                         <textarea
                             value={localTaskData.initialThoughts || ''}
                             onChange={(e) => handleDataChange('initialThoughts', e.target.value)}
-                            rows="15"
+                            rows="20"
                             className="w-full form-textarea"
                             placeholder="Paste your notes, describe your experience, list key points..."
                         />
@@ -279,7 +274,8 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Clarify Your Vision</h3>
                         <p className="text-gray-400 mb-6">Let's refine the core idea. Your answers here will guide the entire script structure.</p>
-                        <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {/* REMOVED max-h and overflow classes */}
+                        <div className="space-y-6">
                             {(localTaskData.initialQuestions || []).map((question, index) => (
                                 <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                                     <label className="block text-gray-200 text-md font-medium mb-2">{question}</label>
@@ -304,14 +300,14 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'draft_outline_review':
-                return (
+                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 3: Review AI-Generated Outline</h3>
                         <p className="text-gray-400 mb-4">Here's a potential structure based on your notes and goals. Review it, edit it, or use the refinement box to ask for changes.</p>
                         <textarea
                             value={localTaskData.scriptPlan || ''}
                             onChange={e => handleDataChange('scriptPlan', e.target.value)}
-                            rows="15"
+                            rows="20"
                             className="w-full form-textarea whitespace-pre-wrap leading-relaxed"
                         />
                         <div className="mt-6">
@@ -325,7 +321,7 @@ const ScriptingWorkspaceModal = ({
                                 onClick={() => handleAction(onRefineOutline, localTaskData.scriptPlan, localTaskData.outlineRefinementText)}
                                 disabled={isLoading || !(localTaskData.outlineRefinementText || '').trim()}
                                 className="button-secondary-small mt-2 disabled:opacity-50">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Outline'}
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Outline'}
                             </button>
                         </div>
                         <div className="flex justify-between items-center mt-8">
@@ -337,14 +333,15 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
-            case 'refinement_qa': // This is Step 4
+            case 'refinement_qa':
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4: Answer a Few More Questions</h3>
                         <p className="text-gray-400 mb-6">Let's get specific. Your answers here will be woven directly into the final script. You can leave questions blank or remove any that aren't helpful.</p>
-                        <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {/* REMOVED max-h and overflow classes */}
+                        <div className="space-y-6">
                             {(localTaskData.locationQuestions || []).map((item, index) => (
-                                <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                                 <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-start mb-2">
                                         <label className="block text-gray-200 text-md font-medium flex-grow pr-4">{item.question}</label>
                                         <button onClick={() => handleRemoveQuestion(index)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0" title="Remove this question">
@@ -356,7 +353,7 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                         <div className="text-center mt-8">
-                            <button
+                             <button 
                                 onClick={async () => {
                                     const onCameraLocations = (video.locations_featured || []).filter(locName => {
                                         const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
@@ -367,8 +364,8 @@ const ScriptingWorkspaceModal = ({
                                     } else {
                                         await initiateScriptGeneration();
                                     }
-                                }}
-                                disabled={isLoading}
+                                }} 
+                                disabled={isLoading} 
                                 className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg"
                             >
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
@@ -377,12 +374,13 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
-            case 'on_camera_qa': // This is Step 4.5
+            case 'on_camera_qa':
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
                         <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
-                        <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {/* REMOVED max-h and overflow classes */}
+                        <div className="space-y-6">
                             {(localTaskData.onCameraLocations || []).map((locationName) => (
                                 <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-start mb-2">
@@ -404,14 +402,15 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'full_script_review':
-                if (isLoading) {
+                 if (isLoading) {
                     return <EngagingLoader durationInSeconds={120} />;
                 }
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
                         <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
-                        <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="20" className="w-full form-textarea leading-relaxed h-[50vh]" placeholder="Your final script will appear here." />
+                        {/* REMOVED h-[50vh] from textarea */}
+                        <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="25" className="w-full form-textarea leading-relaxed" placeholder="Your final script will appear here." />
                         <div className="mt-6">
                             <h4 className="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
                             <textarea value={localTaskData.scriptRefinementText || ''} onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)} className="form-textarea w-full" rows="2" placeholder="E.g., Make the conclusion more powerful, be more sarcastic..." />
@@ -435,9 +434,11 @@ const ScriptingWorkspaceModal = ({
         }
     };
 
+    // This is the main modal layout container.
+    // Notice the changes to the classes to allow for a single, main scrollbar.
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-8">
-            <div className="glass-card rounded-lg p-8 w-full h-[90vh] flex flex-col relative">
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 p-4 sm:p-8 overflow-y-auto">
+            <div className="glass-card rounded-lg p-6 sm:p-8 w-full max-w-4xl my-8 mx-auto relative">
                 <button onClick={() => handleClose(true)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
 
@@ -448,19 +449,19 @@ const ScriptingWorkspaceModal = ({
                     onStageClick={handleStageClick}
                 />
 
-                <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
+                {/* This div no longer has overflow or height classes */}
+                <div className="">
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     {renderContent()}
                 </div>
-
+                
                 <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
+                    {/* Footer can go here if needed */}
                 </div>
-
             </div>
         </div>
     );
 };
-
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
