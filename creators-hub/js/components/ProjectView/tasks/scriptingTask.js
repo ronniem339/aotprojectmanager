@@ -416,7 +416,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     const handleLocationModification = async (locationName, modificationType) => {
         if (modificationType === 'script-only') {
-            // Temporarily remove the location from the list for this session only.
+            // This is the temporary, local-only change. It works correctly.
             const newLocations = localOnCameraLocations.filter(loc => loc !== locationName);
             setLocalOnCameraLocations(newLocations);
             setLocationToModify(null); // Close the modal
@@ -424,16 +424,14 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         }
 
         if (modificationType === 'video-remove') {
-            // Permanently remove the location from this video and potentially the project.
+            // This is the permanent change that was missing the UI update.
             const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
             const newLocationsForVideo = video.locations_featured.filter(loc => loc !== locationName);
-
+            
             await videoRef.update({ 'locations_featured': newLocationsForVideo });
 
-            // Check if any other video in the project uses this location.
             const isLocationUsedElsewhere = allVideos.some(v => v.id !== video.id && (v.locations_featured || []).includes(locationName));
-
-            // If not used elsewhere, perform garbage collection on the project.
+            
             if (!isLocationUsedElsewhere) {
                 const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
                 const newProjectLocations = project.locations.filter(loc => loc.name !== locationName);
@@ -443,10 +441,16 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     [footageKey]: firebase.firestore.FieldValue.delete()
                 });
             }
+            
+            // ** THE FIX IS HERE **
+            // After the database updates, we now also update the local state
+            // to ensure the UI refreshes instantly.
+            const newLocations = localOnCameraLocations.filter(loc => loc !== locationName);
+            setLocalOnCameraLocations(newLocations);
+
             setLocationToModify(null); // Close the modal
         }
     };
-
     const taskData = {
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
