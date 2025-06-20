@@ -1,4 +1,4 @@
-// js/components/ProjectView/VideoWorkspace.js
+// creators-hub/js/components/ProjectView/VideoWorkspace.js
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos }) => {
     const { useState, useEffect, useCallback } = React;
@@ -10,21 +10,56 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setOpenTask(null);
     }, [video.id]);
 
-// creators-hub/js/components/ProjectView/VideoWorkspace.js
+    const updateTask = useCallback(async (taskName, status, extraData = {}) => {
+        if (!db) {
+            console.error("Firestore DB not available for updateTask.");
+            return;
+        }
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
-const updateTask = useCallback(async (taskName, status, extraData = {}) => {
-    if (!db) {
-        console.error("Firestore DB not available for updateTask.");
-        return;
-    }
-    const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        try {
+            // Using a transaction for a robust read-modify-write operation
+            await db.runTransaction(async (transaction) => {
+                const videoDoc = await transaction.get(videoDocRef);
+                if (!videoDoc.exists) {
+                    throw "Document does not exist!";
+                }
 
-    // FIX: Construct the payload in two steps for reliability.
-    const payload = { ...extraData };
-    payload[`tasks.${taskName}`] = status;
+                const currentData = videoDoc.data();
+                const currentTasks = currentData.tasks || {};
+                const topLevelUpdates = {};
+                const updatesForTasks = {};
 
-    await videoDocRef.update(payload);
-}, [userId, project.id, video.id, appId, db]);
+                // Set the primary task status, e.g., 'scripting': 'in-progress'
+                updatesForTasks[taskName] = status;
+
+                // Process extraData to separate keys meant for the 'tasks' object from top-level keys
+                for (const key in extraData) {
+                    if (Object.prototype.hasOwnProperty.call(extraData, key)) {
+                        if (key.startsWith('tasks.')) {
+                            const subKey = key.substring(6); // Remove 'tasks.' prefix
+                            updatesForTasks[subKey] = extraData[key];
+                        } else {
+                            topLevelUpdates[key] = extraData[key];
+                        }
+                    }
+                }
+
+                // Merge the updates with the existing tasks object to avoid overwriting other task data
+                const newTasksObject = { ...currentTasks, ...updatesForTasks };
+
+                const payload = {
+                    ...topLevelUpdates,
+                    tasks: newTasksObject
+                };
+                
+                // Perform the update within the transaction
+                transaction.update(videoDocRef, payload);
+            });
+        } catch (e) {
+            console.error("Database transaction failed: ", e);
+        }
+    }, [userId, project.id, video.id, appId, db]);
 
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
