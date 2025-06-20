@@ -689,11 +689,20 @@ const handleOpenWorkspace = async (startStage = null) => {
     };
 
     const handleGenerateFullScript = async (currentTaskData) => {
+        // --- START OF CORRECTION ---
+
+        // 1. First, immediately update the application state to move to the final review stage.
+        // This will make the EngagingLoader appear right away.
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptingStage': 'full_script_review',
+            'script': '' // Ensure script is cleared while generating
+        });
+
+        // 2. Now, with the loader showing, we make the long call to the AI.
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // New logic to respect the temporary removal
         const onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
         for(const key in onCameraDescriptionsToUse){
             if(!currentTaskData.onCameraLocations.includes(key)){
@@ -706,17 +715,20 @@ const handleOpenWorkspace = async (startStage = null) => {
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            onCameraDescriptions: onCameraDescriptionsToUse // Use the filtered descriptions
+            onCameraDescriptions: onCameraDescriptionsToUse
         });
 
         if (!response || typeof response.finalScript !== 'string') {
             throw new Error("The AI failed to generate the final script. Please try again.");
         }
 
+        // 3. Finally, update the task with the newly generated script content.
+        // The loader will disappear and the script will be displayed.
         await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'full_script_review',
             'script': response.finalScript
         });
+        
+        // --- END OF CORRECTION ---
     };
 
     const handleRefineScript = async (currentTaskData) => {
