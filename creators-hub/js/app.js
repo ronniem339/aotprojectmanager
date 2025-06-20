@@ -59,7 +59,10 @@ window.App = () => { // Exposing App component globally
                 ideaGeneration: '',
                 destinationGuideBlueprint: '',
                 listiclePostFramework: '',
-            }
+            },
+            storytelling: { // Add this new block
+        videoStorytellingPrinciples: '',
+    }
         },
         wordpress: { url: '', username: '', applicationPassword: '' }
     });
@@ -114,7 +117,10 @@ window.App = () => { // Exposing App component globally
                                 blog: {
                                     coreSeoEngine: '', ideaGeneration: '',
                                     destinationGuideBlueprint: '', listiclePostFramework: '',
-                                }
+                                },
+                                storytelling: { // Add this new block
+        videoStorytellingPrinciples: '',
+    }
                             },
                             wordpress: { url: '', username: '', applicationPassword: '' }
                         }); 
