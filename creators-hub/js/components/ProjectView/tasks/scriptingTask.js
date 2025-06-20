@@ -415,13 +415,18 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const [localOnCameraLocations, setLocalOnCameraLocations] = useState(null);
 
     const handleLocationModification = async (locationName, modificationType) => {
-        if (modificationType === 'script-only') {
-            // This is the temporary, local-only change. It works correctly.
-            const newLocations = localOnCameraLocations.filter(loc => loc !== locationName);
-            setLocalOnCameraLocations(newLocations);
-            setLocationToModify(null); // Close the modal
-            return;
-        }
+     if (modificationType === 'script-only') {
+    // Get the current list from the component's local state.
+    const currentLocations = localOnCameraLocations || video.tasks?.onCameraLocations || [];
+    const newLocations = currentLocations.filter(loc => loc !== locationName);
+
+    // **THE FIX**: Save the new, shorter list to the database so it persists.
+    await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': newLocations });
+
+    // This will close the confirmation modal.
+    setLocationToModify(null); 
+    return;
+}
 
         if (modificationType === 'video-remove') {
             // This is the permanent change that was missing the UI update.
@@ -466,40 +471,47 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         scriptRefinementText: '',
     };
 
-    const handleOpenWorkspace = async (startStage = null) => {
-        setWorkspaceStageOverride(null);
-        let stageToOpen = startStage;
-        const allStages = ['initial_thoughts', 'initial_qa', 'draft_outline_review', 'refinement_qa', 'on_camera_qa', 'full_script_review', 'complete'];
-        const currentStage = video.tasks?.scriptingStage || 'pending';
-        const currentStageIndex = allStages.indexOf(currentStage);
-        const onCameraStageIndex = allStages.indexOf('on_camera_qa');
+const handleOpenWorkspace = async (startStage = null) => {
+    setWorkspaceStageOverride(null);
+    let stageToOpen = startStage;
+    const allStages = ['initial_thoughts', 'initial_qa', 'draft_outline_review', 'refinement_qa', 'on_camera_qa', 'full_script_review', 'complete'];
+    const currentStage = video.tasks?.scriptingStage || 'pending';
+    const currentStageIndex = allStages.indexOf(currentStage);
+    const onCameraStageIndex = allStages.indexOf('on_camera_qa');
 
-        // Calculate the fresh list of on-camera locations, preserving original order
+    if (currentStageIndex >= onCameraStageIndex) {
+        // **THE FIX**: This logic now correctly re-syncs if master data has changed,
+        // but otherwise respects your previously saved list.
         const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
             const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
             return inventoryItem && inventoryItem.onCamera;
         });
 
-        // Set the local state for this session. This is what the modal will display.
-        setLocalOnCameraLocations(freshOnCameraLocations);
+        const savedOnCameraLocations = video.tasks?.onCameraLocations;
 
-        // **THE FIX IS HERE:** Create copies of the arrays using [...] before sorting for comparison.
-        // This leaves the original `freshOnCameraLocations` array in the correct order.
-        const sortedOld = [...(video.tasks?.onCameraLocations || [])].sort();
-        const sortedNew = [...freshOnCameraLocations].sort();
+        // Check if the master list of on-camera locations has changed since the list was last saved.
+        const needsRefresh = JSON.stringify([...freshOnCameraLocations].sort()) !== JSON.stringify([...(savedOnCameraLocations || [])].sort());
 
-        if (currentStageIndex >= onCameraStageIndex && JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
-            // Save the correctly ordered list to the database
+        if (savedOnCameraLocations === undefined || needsRefresh) {
+            // If there's no saved list, or if it's out of sync, use the fresh list as the new source of truth.
+            setLocalOnCameraLocations(freshOnCameraLocations);
             await onUpdateTask('scripting', 'in-progress', { 'tasks.onCameraLocations': freshOnCameraLocations });
+        } else {
+            // Otherwise, trust the list already saved in the database, as it contains your edits.
+            setLocalOnCameraLocations(savedOnCameraLocations);
         }
+    } else {
+        // For earlier stages, just use the saved list.
+        setLocalOnCameraLocations(video.tasks?.onCameraLocations || []);
+    }
 
-        if (!stageToOpen) {
-            stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
-        }
+    if (!stageToOpen) {
+        stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
+    }
 
-        setWorkspaceStageOverride(stageToOpen);
-        setShowWorkspace(true);
-    };
+    setWorkspaceStageOverride(stageToOpen);
+    setShowWorkspace(true);
+};
     const handleGenerateInitialQuestions = async (thoughtsText) => {
         const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
@@ -659,27 +671,28 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
-        const fieldsToUpdate = {
-            'tasks.scriptingStage': updatedTaskData.scriptingStage,
-            'tasks.initialThoughts': updatedTaskData.initialThoughts,
-            'tasks.initialQuestions': updatedTaskData.initialQuestions,
-            'tasks.initialAnswers': updatedTaskData.initialAnswers,
-            'tasks.scriptPlan': updatedTaskData.scriptPlan,
-            'tasks.locationQuestions': updatedTaskData.locationQuestions,
-            'tasks.userExperiences': updatedTaskData.userExperiences,
-            'tasks.onCameraLocations': updatedTaskData.onCameraLocations,
-            'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
-            'script': updatedTaskData.script,
-        };
-        if(video.tasks?.scripting !== 'complete'){
-           onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
-        }
-        if (shouldClose) {
-            setShowWorkspace(false);
-            setLocalOnCameraLocations(null); // <-- ADD THIS
-        }
+const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
+    const fieldsToUpdate = {
+        'tasks.scriptingStage': updatedTaskData.scriptingStage,
+        'tasks.initialThoughts': updatedTaskData.initialThoughts,
+        'tasks.initialQuestions': updatedTaskData.initialQuestions,
+        'tasks.initialAnswers': updatedTaskData.initialAnswers,
+        'tasks.scriptPlan': updatedTaskData.scriptPlan,
+        'tasks.locationQuestions': updatedTaskData.locationQuestions,
+        'tasks.userExperiences': updatedTaskData.userExperiences,
+        // **THE FIX**: Use the local component state as the definitive source of truth for the list.
+        'tasks.onCameraLocations': localOnCameraLocations, 
+        'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
+        'script': updatedTaskData.script,
     };
+    if(video.tasks?.scripting !== 'complete'){
+       onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
+    }
+    if (shouldClose) {
+        setShowWorkspace(false);
+        setLocalOnCameraLocations(null);
+    }
+};
 
     const handleSaveAndComplete = (finalTaskData) => {
         onUpdateTask('scripting', 'complete', {
