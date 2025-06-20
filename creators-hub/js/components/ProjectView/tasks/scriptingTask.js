@@ -588,6 +588,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             initialThoughts: thoughtsText,
             locations: project.locations,
             description: video.description,
+            storytellingKnowledge: settings.knowledgeBases?.storytelling?.videoStorytellingPrinciples || '', // Add this line
             settings: settings
         });
 
