@@ -219,38 +219,38 @@ Example JSON format:
      * Asks high-level strategic questions based on the user's initial notes.
      */
     generateInitialQuestionsAI: async (params) => {
-        const { initialThoughts, settings } = params;
+        const { initialThoughts, locations, settings } = params;
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-        const prompt = `You are a video strategist and producer. Your goal is to help a creator clarify their vision before scripting.
-        Based on their raw "brain dump" notes and their style guide, generate 3-5 insightful, high-level questions to get to the heart of the video's purpose.
+        const prompt = `You are an expert video scriptwriter and storyteller. Your goal is to help the user refine their initial thoughts into a compelling video narrative.
 
         **Creator's Raw Notes:**
         \`\`\`
         ${initialThoughts}
         \`\`\`
 
+        **Available Locations:**
+        The creator has these locations available for the video. Use these as context for your questions.
+        \`\`\`
+        ${JSON.stringify(locations.map(loc => loc.name))}
+        \`\`\`
+
         ${styleGuidePrompt}
 
         **Your Task:**
-        Your main goal is to ask questions that get to the heart of the video's purpose, phrased in a way that matches the creator's personal style (as defined in their Style Guide).
+        Based on the brain dump and the available locations, ask 3-5 insightful questions aimed at building a narrative outline. The questions should help the user think about the story they want to tell, phrased in a way that matches their personal style.
 
-        Focus your questions on:
-        1.  **The Core Message:** What is the single most important idea the viewer should walk away with?
-        2.  **The Video's Vibe:** What's the general mood or energy of the video (e.g., is it a serious deep-dive, a funny adventure, a relaxing tour)?
-        3.  **The Unique Angle:** What makes the creator's perspective on this topic special or different?
-
-        **Good Question Examples:**
-        - "Beyond just showing the location, what's the main story or point you're really trying to make with this video?"
-        - "What makes your take on this different from other videos on the same topic?"
-        - "When someone finishes watching, what's the one word you'd want them to use to describe the video's vibe (e.g., 'epic', 'hilarious', 'cozy', 'mind-bending')?"
+        Focus your questions on building a story:
+        - Which location could be the main highlight or a turning point in the story?
+        - What is the core message or feeling you want to leave the viewer with?
+        - What potential narrative arc could connect these locations? (e.g., "I'm thinking of focusing on [aspect], what do you think?").
 
         **Output Format:**
         Your response MUST be a valid JSON object with a single key "questions".
-        "questions" must be an array of strings.
-        Example: {"questions": ["What is the primary goal of this video?", "Who are you trying to reach with this message?"]}
-        IMPORTANT: All string values must be properly escaped for JSON.
-        `;
+        "questions" must be an array of strings.
+        Example: {"questions": ["What is the primary goal of this video?", "Who are you trying to reach with this message?"]}
+        IMPORTANT: All string values must be properly escaped for JSON.
+`;
 
         return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
     },
