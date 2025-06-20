@@ -249,6 +249,7 @@ const ScriptingWorkspaceModal = ({
 
     const renderContent = () => {
         switch (currentStage) {
+            case 'pending':
             case 'initial_thoughts':
                 return (
                     <div>
