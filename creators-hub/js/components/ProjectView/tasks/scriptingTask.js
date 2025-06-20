@@ -637,12 +637,14 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         const answersText = (taskData.initialQuestions || []).map((q, index) =>
             `Q: ${q}\nA: ${(taskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
+    const storytellingKnowledge = settings.knowledgeBases?.storytelling?.videoStorytellingPrinciples || '';
 
         const response = await window.aiUtils.generateDraftOutlineAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
             initialThoughts: taskData.initialThoughts,
             initialAnswers: answersText,
+            storytellingKnowledge: storytellingKnowledge, // Add this line
             settings: settings,
             refinementText: refinementText
         });
