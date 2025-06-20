@@ -312,6 +312,19 @@ generateDraftOutlineAI: async (params) => {
 
         Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the clean, formatted outline.
     `;
+// --- NEW LOGGING CODE ---
+    console.log("%c[AI Draft Outline] Full prompt being sent:", "color: #4ade80; font-weight: bold;", { prompt });
+
+    try {
+        const response = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+        console.log("%c[AI Draft Outline] Raw response received:", "color: #22c55e; font-weight: bold;", response);
+        return response;
+    } catch (error) {
+        console.error("%c[AI Draft Outline] Error caught within generateDraftOutlineAI:", "color: #ef4444; font-weight: bold;", error);
+        // Re-throw the error so the calling function can handle it and show a message to the user
+        throw error;
+    }
+    // --- END OF NEW LOGGING CODE ---
     return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
 },
 
