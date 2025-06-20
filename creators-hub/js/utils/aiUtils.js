@@ -219,11 +219,18 @@ Example JSON format:
      * Asks high-level strategic questions based on the user's initial notes.
      */
     generateInitialQuestionsAI: async (params) => {
-        const { initialThoughts, locations, description, settings } = params; // 1. Add 'description' here
+    // 1. Add 'storytellingKnowledge' here
+        const { initialThoughts, locations, description, storytellingKnowledge, settings } = params; 
 
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-        const prompt = `You are an expert video scriptwriter and storyteller. Your goal is to help the user refine their initial thoughts into a compelling video narrative.
+        const prompt = `You are an expert video scriptwriter and storyteller. Your goal is to help the user refine their initial thoughts into a compelling video narrative by asking smart, clarifying questions.
+
+        **Core Storytelling Principles:**
+        You must use these principles to frame your questions.
+        \`\`\`
+        ${storytellingKnowledge}
+        \`\`\`
 
         **Video Description:**
         This is the core concept for the video.
@@ -246,12 +253,12 @@ Example JSON format:
         ${styleGuidePrompt}
 
         **Your Task:**
-        Based on the video description, the brain dump, and the available locations, ask 3-5 insightful questions aimed at building a narrative outline. The questions should help the user think about the story they want to tell, phrased in a way that matches their personal style.
+        Based on ALL the information provided (storytelling principles, description, notes, locations), ask 3-5 insightful questions. Your questions must be aimed at uncovering the narrative potential of the user's idea.
 
-        Focus your questions on building a story:
-        - Which location could be the main highlight or a turning point in the story?
-        - How can the core message from the description be turned into a narrative?
-        - What potential story arc could connect these locations and ideas?
+        Focus your questions on building a story using the provided principles (Hook, Climax, etc.).
+        - "Thinking about the 'Hook', what's the most surprising thing we could open with?"
+        - "What moment from your notes could serve as the 'Climax' of this story?"
+        - "How can we use the [Location Name] to build 'Rising Action'?"
 
         **Output Format:**
         Your response MUST be a valid JSON object with a single key "questions".
