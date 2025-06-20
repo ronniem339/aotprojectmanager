@@ -290,44 +290,74 @@ Return ONLY the updated JSON object.`;
         });
     };
     
-    const handleCreateProject = async () => {
-        const acceptedVideos = editableOutline.videos.filter(v => v.status === 'accepted');
-        if (!finalizedTitle || !finalizedDescription || acceptedVideos.length === 0) return;
-        setIsLoading(true); setError('');
+const handleCreateProject = async () => {
+    const acceptedVideos = editableOutline.videos.filter(v => v.status === 'accepted');
+    if (!finalizedTitle || !finalizedDescription || acceptedVideos.length === 0) return;
+    setIsLoading(true);
+    setError('');
 
-        let finalCoverImageUrl = '';
+    let finalCoverImageUrl = '';
 
-        if (coverImageFile) {
-            const path = `project_thumbnails/${Date.now()}_${userId}_${coverImageFile.name}`;
-            finalCoverImageUrl = await uploadFile(coverImageFile, path);
-        } else if (coverImageUrl) {
-            const fileExtension = coverImageUrl.split('.').pop().split('?')[0];
-            const path = `project_thumbnails/${Date.now()}_${userId}.${fileExtension}`;
-            finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
+    // Upload cover image if one exists
+    if (coverImageFile) {
+        const path = `project_thumbnails/${Date.now()}_${userId}_${coverImageFile.name}`;
+        finalCoverImageUrl = await uploadFile(coverImageFile, path);
+    } else if (coverImageUrl) {
+        const fileExtension = coverImageUrl.split('.').pop().split('?')[0];
+        const path = `project_thumbnails/${Date.now()}_${userId}.${fileExtension}`;
+        finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
+    }
+
+    try {
+        const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc();
+
+        // Start the first batch
+        let batch = db.batch();
+
+        // 1. Set the main project data
+        batch.set(projectRef, {
+            playlistTitle: finalizedTitle,
+            playlistDescription: finalizedDescription,
+            locations,
+            footageInventory: footageInventory,
+            targeted_keywords: selectedKeywords,
+            videoCount: acceptedVideos.length,
+            coverImageUrl: finalCoverImageUrl,
+            createdAt: new Date().toISOString()
+        });
+
+        // 2. Add video creations to the batch, committing in chunks
+        for (let i = 0; i < acceptedVideos.length; i++) {
+            const video = acceptedVideos[i];
+            const videoRef = projectRef.collection('videos').doc();
+            batch.set(videoRef, { ...video, chosenTitle: video.title, script: '', order: i, createdAt: new Date().toISOString() });
+
+            // **THE FIX**: Commit the batch every 400 writes and start a new one.
+            // This prevents a single batch from getting too large.
+            if ((i + 1) % 400 === 0) {
+                await batch.commit();
+                batch = db.batch(); // Start a new batch for the next chunk
+            }
         }
 
-        try {
-            const batch = db.batch();
-            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc();
-            batch.set(projectRef, {
-                playlistTitle: finalizedTitle,
-                playlistDescription: finalizedDescription,
-                locations,
-                footageInventory: footageInventory,
-                targeted_keywords: selectedKeywords,
-                videoCount: acceptedVideos.length,
-                coverImageUrl: finalCoverImageUrl,
-                createdAt: new Date().toISOString()
-            });
-            acceptedVideos.forEach((video, index) => {
-                const videoRef = projectRef.collection('videos').doc();
-                batch.set(videoRef, { ...video, chosenTitle: video.title, script: '', order: index, createdAt: new Date().toISOString() });
-            });
-            await batch.commit();
-            if (draftId) await db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId).delete();
-            onClose();
-        } catch(e) { setError(`Failed to save project. ${e.message}`); } finally { setIsLoading(false); }
-    };
+        // 3. Commit any remaining operations in the last batch
+        await batch.commit();
+
+        // 4. Clean up the draft
+        if (draftId) {
+            await db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId).delete();
+        }
+
+        onClose(); // Close the wizard on success
+
+    } catch (e) {
+        setError(`Failed to save project. ${e.message}`);
+        console.error("Error creating project:", e); // It's good practice to log the full error
+    } finally {
+        setIsLoading(false);
+    }
+};
+    
     
     const renderWizardStep = () => {
         switch (step) {
