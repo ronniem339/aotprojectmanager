@@ -417,6 +417,62 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
     );
 };
 
+// NEW: EngagingLoader component for long-running AI tasks
+window.EngagingLoader = ({ durationInSeconds = 120 }) => {
+    const [progress, setProgress] = useState(0);
+    const [message, setMessage] = useState("Kicking off the creative process...");
+
+    const messages = [
+        { time: 0, text: "Powering up the AI's brain cell..." },
+        { time: 10, text: "Reading your notes with our one good eye..." },
+        { time: 25, text: "Consulting the ghost of a goldfish for ideas..." },
+        { time: 40, text: "Untangling the plot spaghetti..." },
+        { time: 60, text: "Adding a dramatic plot twist (it involves a squirrel)..." },
+        { time: 80, text: "Trying to remember what a 'character arc' is..." },
+        { time: 100, text: "Making sure the script is at least 1% better than a cat walking on a keyboard..." },
+        { time: 115, text: "Putting the script in a tiny, fancy hat. It's ready!" }
+    ];
+
+    useEffect(() => {
+        const intervalTime = 1000; // update every second
+        const totalSteps = durationInSeconds;
+        
+        const interval = setInterval(() => {
+            setProgress(prevProgress => {
+                const newProgress = prevProgress + (100 / totalSteps);
+                
+                const elapsedTime = (newProgress / 100) * durationInSeconds;
+                const currentMessage = messages.slice().reverse().find(m => elapsedTime >= m.time);
+                
+                if (currentMessage) {
+                    setMessage(currentMessage.text);
+                }
+
+                if (newProgress >= 100) {
+                    clearInterval(interval);
+                    return 100;
+                }
+                return newProgress;
+            });
+        }, intervalTime);
+
+        return () => clearInterval(interval);
+    }, [durationInSeconds]);
+
+    return (
+        <div className="text-center p-8">
+            <h3 className="text-xl font-semibold text-primary-accent mb-4">Crafting Your Script...</h3>
+            <p className="text-gray-400 mb-6">{message}</p>
+            <div className="w-full bg-gray-700 rounded-full h-4">
+                <div 
+                    className="bg-primary-accent h-4 rounded-full transition-width duration-1000 ease-linear" 
+                    style={{ width: `${progress}%` }}
+                ></div>
+            </div>
+            <p className="text-sm text-gray-500 mt-4 font-semibold">{Math.round(progress)}%</p>
+        </div>
+    );
+};
 
 
 // EXPOSE NEW COMPONENTS GLOBALLY
