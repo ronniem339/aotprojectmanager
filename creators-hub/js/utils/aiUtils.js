@@ -2,7 +2,7 @@
 
 /**
  * This is the central AI utility object for the Creator's Hub application.
- * It handles all interactions with the Google Gemini API.
+ * It handles all interactions with the Google Gemini API.f
  */
 window.aiUtils = {
     /**
@@ -270,46 +270,51 @@ Example JSON format:
      * Generates a draft outline from raw text. This is a complex task.
      */
 generateDraftOutlineAI: async (params) => {
-    // 1. Add storytellingKnowledge to the function's parameters
-    const { videoTitle, videoConcept, initialThoughts, initialAnswers, storytellingKnowledge, settings, refinementText, videoTone } = params;
-    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    // All the parameters and helper variables remain the same
+    const { videoTitle, videoConcept, initialThoughts, initialAnswers, storytellingKnowledge, settings, refinementText, videoTone } = params;
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-    const initialAnswersPrompt = initialAnswers
-        ? `**Creator's Answers to Initial Questions:**\n${initialAnswers}\n`
-        : '';
+    const initialAnswersPrompt = initialAnswers
+        ? `**Creator's Answers to Initial Questions:**\n${initialAnswers}\n`
+        : '';
 
-    const refinementPrompt = refinementText 
-        ? `**Refinement Feedback:** The user has reviewed a previous version and provided these instructions that you MUST follow: "${refinementText}".` 
-        : '';
+    const refinementPrompt = refinementText 
+        ? `**Refinement Feedback:** The user has reviewed a previous version and provided these instructions that you MUST follow: "${refinementText}".` 
+        : '';
 
-    const prompt = `You are a master scriptwriter and storyteller. Your task is to create a compelling draft outline for a video.
+    // The prompt is the only part that changes
+    const prompt = `You are a master scriptwriter and storyteller. Your task is to create a compelling, clean, and easy-to-read draft outline for a video.
 
-        **Your Internal Guide: Core Storytelling Principles**
-        You MUST use these principles to structure the outline. This is your expert knowledge.
-        \`\`\`
-        ${storytellingKnowledge}
-        \`\`\`
+        **Your Internal Guide: Core Storytelling Principles**
+        You MUST use these principles to structure the outline. This is your expert knowledge.
+        \`\`\`
+        ${storytellingKnowledge}
+        \`\`\`
 
-        **Project Information:**
-        - Video Title: "${videoTitle}"
+        **Project Information:**
+        {/* --- START OF CORRECTIONS --- */}
+        - Video Title: "${videoTitle}"
         - Video Concept: "${videoConcept}"
-        - Creator's Raw Notes: \`\`\`${initialThoughts}\`\`\`
-        ${initialAnswersPrompt}
-        ${refinementPrompt}
+        - Creator's Raw Notes: \`\`\`
+        ${initialThoughts}
+        \`\`\`
+        {/* --- END OF CORRECTIONS --- */}
+        ${initialAnswersPrompt}
+        ${refinementPrompt}
 
-        ${styleGuidePrompt}
+        ${styleGuidePrompt}
 
-        **Your Task:**
-        1.  Read all the provided information.
-        2.  Synthesize the user's notes and answers.
-        3.  Using the "Core Storytelling Principles" as your guide, structure the user's information into a clear narrative outline.
-        4.  The outline must have a clear Introduction (The Hook), 2-4 logical Main Segments (Rising Action), a Climax (the most exciting part), and a Conclusion (The Resolution/Call to Action).
-        5.  For each part of the outline, write a brief, engaging description of the content and narrative focus. The tone should match the creator's style.
+        **Your Task & Output Instructions:**
+        1.  Read all the provided information and synthesize it.
+        2.  Use your "Internal Guide" to structure the user's information into a clear narrative outline.
+        3.  For each part of the outline, write a brief, engaging description of the content and the narrative focus in a way that is easy for anyone to understand. The tone must match the creator's style.
+        4.  **Critically Important:** Your final output MUST NOT contain the names of the storytelling principles or any other technical jargon. Do not write "(The Hook)", "(Rising Action)", "(Act I)", etc. in the outline you produce. You are the expert; you do the structural work and present a clean, inspiring outline to the user.
 
-        Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the formatted outline.
-    `;
-    return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+        Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the clean, formatted outline.
+    `;
+    return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
 },
+
 
     /**
      * Generates a detailed script plan and follow-up questions. This is a complex task.
