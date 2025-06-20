@@ -343,6 +343,10 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'full_script_review':
+                // MODIFIED: This now uses the new EngagingLoader.
+                if (isLoading) {
+                    return <window.EngagingLoader durationInSeconds={120} />;
+                }
                 return (
                         <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
