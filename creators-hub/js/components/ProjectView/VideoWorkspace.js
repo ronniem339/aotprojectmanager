@@ -10,15 +10,21 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setOpenTask(null);
     }, [video.id]);
 
-    const updateTask = useCallback(async (taskName, status, extraData = {}) => {
-        if (!db) {
-            console.error("Firestore DB not available for updateTask.");
-            return;
-        }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        const payload = { [`tasks.${taskName}`]: status, ...extraData };
-        await videoDocRef.update(payload);
-    }, [userId, project.id, video.id, appId, db]);
+// creators-hub/js/components/ProjectView/VideoWorkspace.js
+
+const updateTask = useCallback(async (taskName, status, extraData = {}) => {
+    if (!db) {
+        console.error("Firestore DB not available for updateTask.");
+        return;
+    }
+    const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+
+    // FIX: Construct the payload in two steps for reliability.
+    const payload = { ...extraData };
+    payload[`tasks.${taskName}`] = status;
+
+    await videoDocRef.update(payload);
+}, [userId, project.id, video.id, appId, db]);
 
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
