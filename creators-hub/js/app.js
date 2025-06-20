@@ -170,7 +170,8 @@ window.App = () => { // Exposing App component globally
                     ...defaultSettings.knowledgeBases, 
                     ...data.knowledgeBases, 
                     youtube: { ...defaultSettings.knowledgeBases.youtube, ...data.knowledgeBases?.youtube },
-                    blog: { ...defaultSettings.knowledgeBases.blog, ...data.knowledgeBases?.blog }
+                    blog: { ...defaultSettings.knowledgeBases.blog, ...data.knowledgeBases?.blog },
+                    storytelling: { ...defaultSettings.knowledgeBases.storytelling, ...data.knowledgeBases?.storytelling } // Add this line
                 };
 
                 const newSettings = { ...defaultSettings, ...data, knowledgeBases: mergedKnowledgeBases };
