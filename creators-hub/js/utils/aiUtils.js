@@ -224,47 +224,43 @@ Example JSON format:
 
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-        const prompt = `You are an expert video scriptwriter and storyteller. Your goal is to help the user refine their initial thoughts into a compelling video narrative by asking smart, clarifying questions.
+        const prompt = `You are an expert video scriptwriter and storyteller. Your role is to be the creative guide for a user.
 
-        **Core Storytelling Principles:**
-        You must use these principles to frame your questions.
+        **Your Internal Guide: Core Storytelling Principles**
+        Read and internalize these principles. This is your expert knowledge for how to build a good story.
         \`\`\`
         ${storytellingKnowledge}
         \`\`\`
 
-        **Video Description:**
-        This is the core concept for the video.
-        \`\`\`
-        ${description}
-        \`\`\`
-
-        **Creator's Raw Notes:**
-        This is a "brain dump" from the creator.
-        \`\`\`
-        ${initialThoughts}
-        \`\`\`
-
-        **Available Locations:**
-        The creator has these locations available for the video. Use these as context for your questions.
-        \`\`\`
-        ${JSON.stringify(locations.map(loc => loc.name))}
-        \`\`\`
+        **User's Project Information:**
+        Here is the information about the user's project and their raw thoughts.
+        - Video Description: ${description}
+        - Creator's Notes: ${initialThoughts}
+        - Available Locations: ${JSON.stringify(locations.map(loc => loc.name))}
 
         ${styleGuidePrompt}
 
         **Your Task:**
-        Based on ALL the information provided (storytelling principles, description, notes, locations), ask 3-5 insightful questions. Your questions must be aimed at uncovering the narrative potential of the user's idea.
+        Your goal is to become the storytelling expert for the user. Use your internal guide (the Storytelling Principles) to figure out what you need to ask to build a great narrative.
 
-        Focus your questions on building a story using the provided principles (Hook, Climax, etc.).
-        - "Thinking about the 'Hook', what's the most surprising thing we could open with?"
-        - "What moment from your notes could serve as the 'Climax' of this story?"
-        - "How can we use the [Location Name] to build 'Rising Action'?"
+        **Critically Important:** DO NOT ask the user questions using the jargon from the principles (e.g., do not mention "The Hook," "Inciting Incident," "Climax," or "The Elixir"). The user is not the expert - you are.
+
+        Instead, you must **translate** those storytelling concepts into simple, direct, and personal questions about the user's actual experience.
+
+        **Example of what NOT to do:**
+        - BAD: "What was the 'Inciting Incident' of your trip?"
+        - BAD: "Considering the 'Resolution', what is the Elixir you returned with?"
+
+        **Example of what TO do:**
+        - GOOD: "Looking back, what was the one moment that made you realize this trip was going to be special or different than you expected?" (This gets the 'Inciting Incident' without using the jargon).
+        - GOOD: "If a viewer could only remember one single idea or feeling from your video, what would you want it to be?" (This gets the 'Resolution'/'Core Message' simply).
+        - GOOD: "What was the most challenging or surprising moment you faced during this trip?" (This helps identify the 'Climax').
+
+        Ask 3-5 of these simple, experience-focused questions.
 
         **Output Format:**
         Your response MUST be a valid JSON object with a single key "questions".
         "questions" must be an array of strings.
-        Example: {"questions": ["What is the primary goal of this video?", "Who are you trying to reach with this message?"]}
-        IMPORTANT: All string values must be properly escaped for JSON.
 `;
 
         return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
