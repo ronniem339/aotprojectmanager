@@ -269,38 +269,47 @@ Example JSON format:
     /**
      * Generates a draft outline from raw text. This is a complex task.
      */
-    generateDraftOutlineAI: async (params) => {
-        const { videoTitle, videoConcept, initialThoughts, initialAnswers, settings, refinementText, videoTone } = params;
-        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+generateDraftOutlineAI: async (params) => {
+    // 1. Add storytellingKnowledge to the function's parameters
+    const { videoTitle, videoConcept, initialThoughts, initialAnswers, storytellingKnowledge, settings, refinementText, videoTone } = params;
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-        const initialAnswersPrompt = initialAnswers
-            ? `**Strategic Context (from user's answers):**\n${initialAnswers}\n`
-            : '';
+    const initialAnswersPrompt = initialAnswers
+        ? `**Creator's Answers to Initial Questions:**\n${initialAnswers}\n`
+        : '';
 
-        const prompt = `You are a scriptwriter tasked with creating an initial structure for a video.
-Video Title: "${videoTitle}"
-Video Concept: "${videoConcept}"
+    const refinementPrompt = refinementText 
+        ? `**Refinement Feedback:** The user has reviewed a previous version and provided these instructions that you MUST follow: "${refinementText}".` 
+        : '';
 
-**Creator's Raw Notes:**
-\`\`\`
-${initialThoughts}
-\`\`\`
+    const prompt = `You are a master scriptwriter and storyteller. Your task is to create a compelling draft outline for a video.
 
-${initialAnswersPrompt}
-${styleGuidePrompt}
-The structure, section titles, and suggestions should reflect the creator's personal style and tone.
+        **Your Internal Guide: Core Storytelling Principles**
+        You MUST use these principles to structure the outline. This is your expert knowledge.
+        \`\`\`
+        ${storytellingKnowledge}
+        \`\`\`
 
-**Your Instructions:**
-1.  Analyze all the provided information.
-2.  When analyzing the user's notes, specifically look for: a potential **hook** (an exciting or intriguing opening), a **call to action** (what the user wants the viewer to do), and key **emotional moments**.
-${refinementText ? `3. **Refinement Feedback:** The user has reviewed the previous draft and provided these instructions: "${refinementText}". You MUST incorporate this feedback into the new outline.` : ''}
-4.  Based on all available information, create a logical draft script outline.
-This outline should have a clear Introduction, 2-4 Main Segments, and a Conclusion.
-For each part, briefly describe the narrative focus. The goal is to turn their raw experiences into a coherent story flow.
+        **Project Information:**
+        - Video Title: "${videoTitle}"
+        - Video Concept: "${videoConcept}"
+        - Creator's Raw Notes: \`\`\`${initialThoughts}\`\`\`
+        ${initialAnswersPrompt}
+        ${refinementPrompt}
 
-Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the formatted outline.`;
-        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    },
+        ${styleGuidePrompt}
+
+        **Your Task:**
+        1.  Read all the provided information.
+        2.  Synthesize the user's notes and answers.
+        3.  Using the "Core Storytelling Principles" as your guide, structure the user's information into a clear narrative outline.
+        4.  The outline must have a clear Introduction (The Hook), 2-4 logical Main Segments (Rising Action), a Climax (the most exciting part), and a Conclusion (The Resolution/Call to Action).
+        5.  For each part of the outline, write a brief, engaging description of the content and narrative focus. The tone should match the creator's style.
+
+        Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the formatted outline.
+    `;
+    return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+},
 
     /**
      * Generates a detailed script plan and follow-up questions. This is a complex task.
