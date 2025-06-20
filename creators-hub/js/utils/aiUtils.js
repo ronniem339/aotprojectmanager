@@ -219,12 +219,20 @@ Example JSON format:
      * Asks high-level strategic questions based on the user's initial notes.
      */
     generateInitialQuestionsAI: async (params) => {
-        const { initialThoughts, locations, settings } = params;
-        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+        const { initialThoughts, locations, description, settings } = params; // 1. Add 'description' here
 
-        const prompt = `You are an expert video scriptwriter and storyteller. Your goal is to help the user refine their initial thoughts into a compelling video narrative.
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+
+        const prompt = `You are an expert video scriptwriter and storyteller. Your goal is to help the user refine their initial thoughts into a compelling video narrative.
+
+        **Video Description:**
+        This is the core concept for the video.
+        \`\`\`
+        ${description}
+        \`\`\`
 
         **Creator's Raw Notes:**
+        This is a "brain dump" from the creator.
         \`\`\`
         ${initialThoughts}
         \`\`\`
@@ -238,12 +246,12 @@ Example JSON format:
         ${styleGuidePrompt}
 
         **Your Task:**
-        Based on the brain dump and the available locations, ask 3-5 insightful questions aimed at building a narrative outline. The questions should help the user think about the story they want to tell, phrased in a way that matches their personal style.
+        Based on the video description, the brain dump, and the available locations, ask 3-5 insightful questions aimed at building a narrative outline. The questions should help the user think about the story they want to tell, phrased in a way that matches their personal style.
 
         Focus your questions on building a story:
         - Which location could be the main highlight or a turning point in the story?
-        - What is the core message or feeling you want to leave the viewer with?
-        - What potential narrative arc could connect these locations? (e.g., "I'm thinking of focusing on [aspect], what do you think?").
+        - How can the core message from the description be turned into a narrative?
+        - What potential story arc could connect these locations and ideas?
 
         **Output Format:**
         Your response MUST be a valid JSON object with a single key "questions".
@@ -252,8 +260,8 @@ Example JSON format:
         IMPORTANT: All string values must be properly escaped for JSON.
 `;
 
-        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    },
+        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+    },
 
     /**
      * Generates a draft outline from raw text. This is a complex task.
