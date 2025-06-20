@@ -400,7 +400,7 @@ const ScriptingWorkspaceModal = ({
                         </div>
                     </div>
                 );
-
+            case 'complete':
             case 'full_script_review':
                  if (isLoading) {
                     return <EngagingLoader durationInSeconds={120} />;
