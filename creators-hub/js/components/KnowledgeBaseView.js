@@ -2,8 +2,9 @@
 
 window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     const { useState, useEffect } = React;
-    const [activeCategory, setActiveCategory] = useState('youtube'); // 'youtube' or 'blog'
+    const [activeCategory, setActiveCategory] = useState('youtube'); // 'youtube', 'blog', or 'storytelling'
     
+    // NEW: Add 'storytelling' to the default structure
     const defaultKnowledgeBases = {
         youtube: {
             whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
@@ -14,23 +15,30 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
             ideaGeneration: '',
             destinationGuideBlueprint: '',
             listiclePostFramework: '',
-            monetizationGoals: '', // NEW
+            monetizationGoals: '',
+        },
+        storytelling: {
+            videoStorytellingPrinciples: '',
         }
     };
 
     const [localKnowledgeBases, setLocalKnowledgeBases] = useState(() => {
         const savedKbs = settings.knowledgeBases || {};
+        // NEW: Ensure 'storytelling' is merged correctly
         return {
             youtube: { ...defaultKnowledgeBases.youtube, ...savedKbs.youtube },
-            blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog }
+            blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog },
+            storytelling: { ...defaultKnowledgeBases.storytelling, ...savedKbs.storytelling }
         };
     });
 
     useEffect(() => {
         const savedKbs = settings.knowledgeBases || {};
+        // NEW: Ensure 'storytelling' is part of the effect dependency
         setLocalKnowledgeBases({
             youtube: { ...defaultKnowledgeBases.youtube, ...savedKbs.youtube },
-            blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog }
+            blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog },
+            storytelling: { ...defaultKnowledgeBases.storytelling, ...savedKbs.storytelling }
         });
     }, [settings.knowledgeBases]);
 
@@ -49,6 +57,7 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     };
 
     const youtubeKbs = [
+        // ... (this array remains unchanged)
         { id: 'whoAmI', title: 'Who Am I', description: 'Describe your persona, brand voice, and unique perspective.', placeholder: 'e.g., "I am an adventurous travel vlogger focusing on hidden gems and authentic experiences, with a friendly and informative tone."'},
         { id: 'videoTitles', title: 'YouTube Video Titles', description: 'Best practices for crafting engaging video titles.', placeholder: 'e.g., "Titles should be under 70 characters. Use strong verbs. Include numbers where applicable."'},
         { id: 'videoDescriptions', title: 'YouTube Video Descriptions', description: 'Guidelines for writing SEO-rich descriptions.', placeholder: 'e.g., "Always include a strong hook in the first 3 lines. Utilize keywords naturally throughout the description."'},
@@ -59,6 +68,7 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     ];
     
     const blogKbs = [
+        // ... (this array remains unchanged)
         { id: 'coreSeoEngine', title: 'Core SEO & Content Engine', description: 'Foundational principles for all blog content to ensure high performance in organic search.', placeholder: 'e.g., "Always target a primary keyword. Use LSI keywords. Ensure content answers user intent. Internal link to relevant posts..."'},
         { id: 'monetizationGoals', title: 'Monetization & Content Goals', description: 'Define the primary business goals for your blog content.', placeholder: 'e.g., "Primary Goal: Drive traffic to my YouTube channel. Secondary Goal: Generate revenue through affiliate links for hotels, tours, and car rentals. All relevant posts should include these types of links."'},
         { id: 'ideaGeneration', title: 'Blog Post Idea Generation', description: 'How to generate a diverse list of SEO-friendly blog post ideas for a given travel destination.', placeholder: 'e.g., "Generate ideas based on question keywords, comparisons (X vs Y), seasonal topics, and different user intents (informational, commercial)..."'},
@@ -66,7 +76,27 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         { id: 'listiclePostFramework', title: 'Listicle Post Framework', description: 'The framework for shorter, list-based articles (e.g., "Top 10s"), often for commercial investigation topics.', placeholder: 'e.g., "Structure: Engaging intro, each list item with a clear heading (H3), detailed description, pros/cons, and a clear call-to-action..."'},
     ];
 
-    const currentKbs = activeCategory === 'youtube' ? youtubeKbs : blogKbs;
+    // NEW: Define the structure for the storytelling KB
+    const storytellingKbs = [
+        { 
+            id: 'videoStorytellingPrinciples', 
+            title: 'Video Storytelling Principles', 
+            description: 'The core principles of narrative structure to guide the AI in building compelling video outlines and scripts.', 
+            placeholder: 'e.g., "1. The Hook: Grab attention immediately... 2. The Inciting Incident: Kick off the story..."'
+        }
+    ];
+
+    // NEW: Update this line to be a function that selects the correct KB structure
+    const getCurrentKbs = () => {
+        switch (activeCategory) {
+            case 'youtube': return youtubeKbs;
+            case 'blog': return blogKbs;
+            case 'storytelling': return storytellingKbs;
+            default: return [];
+        }
+    };
+    
+    const currentKbs = getCurrentKbs();
 
     return (
         <div className="p-8">
@@ -89,6 +119,13 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
                         className={`py-2 px-4 text-lg font-medium transition-colors ${activeCategory === 'blog' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}
                     >
                         Blog Knowledge Bases
+                    </button>
+                    {/* NEW: Add the Storytelling button */}
+                    <button 
+                        onClick={() => setActiveCategory('storytelling')}
+                        className={`py-2 px-4 text-lg font-medium transition-colors ${activeCategory === 'storytelling' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Storytelling Knowledge Bases
                     </button>
                 </nav>
             </div>
