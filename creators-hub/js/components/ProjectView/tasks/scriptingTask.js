@@ -586,7 +586,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     const handleGenerateInitialQuestions = async (thoughtsText) => {
         const response = await window.aiUtils.generateInitialQuestionsAI({
             initialThoughts: thoughtsText,
-            locations: project.locations, 
+            locations: project.locations,
+            description: video.description,
             settings: settings
         });
 
