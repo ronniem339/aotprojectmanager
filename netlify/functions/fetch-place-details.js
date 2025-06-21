@@ -12,7 +12,7 @@ exports.handler = async (event) => {
   const { place_id } = event.queryStringParameters;
 
   // Securely access your API key from a Netlify environment variable
-  const apiKey = process.env.VITE_Maps_API_KEY;
+  const apiKey = process.env.GOOGLEAPIKEY;
 
   if (!place_id) {
     return { statusCode: 400, body: 'Missing place_id parameter' };
