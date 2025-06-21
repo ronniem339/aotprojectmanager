@@ -37,7 +37,7 @@ window.App = () => { // Exposing App component globally
     const { useState, useEffect, useCallback } = React;
     const [user, setUser] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
-    const [currentView, setCurrentView] = useState('dashboard');
+    const [previousView, setPreviousView] = useState('dashboard');
     const [selectedProject, setSelectedProject] = useState(null);
     const [settings, setSettings] = useState({ 
         geminiApiKey: '', 
@@ -283,10 +283,9 @@ window.App = () => { // Exposing App component globally
         setCurrentView('project');
     };
 
-    const handleBackToDashboard = () => {
-        setSelectedProject(null);
-        setCurrentView('dashboard');
-    };
+const handleNavigateBack = () => {
+    setCurrentView(previousView);
+};
 
     const handleShowSettings = () => setCurrentView('settingsMenu');
     const handleShowTools = () => setCurrentView('tools');
@@ -298,8 +297,10 @@ window.App = () => { // Exposing App component globally
     const handleShowTechnicalSettings = () => setCurrentView('technicalSettings');
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
-const handleNavigate = (view) => setCurrentView(view);
-
+const handleNavigate = (view) => {
+    setPreviousView(currentView);
+    setCurrentView(view);
+};
 const handleSaveSettings = async (updater) => {
     if (!user || !firebaseDb) return;
 
@@ -479,8 +480,8 @@ const handleSaveSettings = async (updater) => {
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
             case 'technicalSettings':
                 return <window.TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
-            case 'myStudio':
-                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} previousView={previousView} />;
+           case 'myStudio':
+    return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleNavigateBack} previousView={previousView} />;
             case 'importProject':
                 return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
             case 'knowledgeBases':
