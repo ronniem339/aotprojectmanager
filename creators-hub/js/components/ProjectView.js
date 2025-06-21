@@ -1,6 +1,6 @@
 // js/components/ProjectView.js
 
-window.ProjectView = ({ userId, project, onCloseProject, settings, googleMapsLoaded, db, auth, firebaseAppInstance }) => {
+window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance }) => {
     const { useState, useEffect, useCallback } = React;
     const [localProject, setLocalProject] = useState(null);
     const [videos, setVideos] = useState([]);
