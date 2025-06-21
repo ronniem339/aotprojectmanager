@@ -177,7 +177,78 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
             throw new Error(`AI failed to generate ideas: ${error.message || error}`);
         }
     },
+/**
+     * NEW: Generates a full blog post based on an approved idea. This is considered a complex task.
+     */
+    generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
+        // Ensure you're passing listicleContent and destinationGuideContent from settings to this function when you call it.
+        // For example, in BlogIdeasDashboard.js when calling this, it would be:
+        // window.aiUtils.generateBlogPostContentAI({
+        //     idea: idea,
+        //     coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
+        //     monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
+        //     listicleContent: settings.knowledgeBases.blog.listicleContent, // New
+        //     destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent, // New
+        //     settings: settings // Always pass the full settings object
+        // });
+        
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
+        let postTypeSpecificKb = '';
+        if (idea.postType === 'Listicle Post' && settings.knowledgeBases.blog.listicleContent) {
+            postTypeSpecificKb = `**Listicle Post Knowledge Base:**\n${settings.knowledgeBases.blog.listicleContent}\n---`;
+        } else if (idea.postType === 'Destination Guide' && settings.knowledgeBases.blog.destinationGuideContent) {
+            postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${settings.knowledgeBases.blog.destinationGuideContent}\n---`;
+        }
+
+        const prompt = `You are an expert blog post writer for a travel blog.
+Your task is to write a complete, detailed, and engaging blog post based on the following approved idea.
+
+Blog Post Idea Details:
+- Title: "${idea.title}"
+- Description: "${idea.description}"
+- Primary Keyword: "${idea.primaryKeyword}"
+- Post Type: "${idea.postType}"
+- Monetization Opportunities: "${idea.monetizationOpportunities}"
+
+${styleGuidePrompt}
+
+You MUST adhere to the following foundational knowledge bases for all generated content:
+---
+**Core SEO & Content Engine:**
+${coreSeoEngine || "Focus on user intent and long-tail keywords. Structure with H1, H2, H3 tags. Include internal and external linking opportunities."}
+---
+${postTypeSpecificKb} // Include the post-type specific knowledge base here
+**Monetization & Content Goals:**
+${monetizationGoals || "Strategically integrate opportunities for affiliate revenue from links naturally within the content. Do NOT explicitly suggest adding links, just provide the content that would support them."}
+---
+
+**Your Task & Output Instructions:**
+1.  Write a comprehensive blog post (around 1000-1500 words is ideal, but focus on quality and completeness).
+2.  Structure the post logically with an engaging introduction, several body sections using H2 and H3 headings, and a clear conclusion/call to action.
+3.  Naturally integrate the "primaryKeyword" throughout the content.
+4.  Weave in the "monetizationOpportunities" as seamlessly as possible. Think about what relevant products, services, or tours could be mentioned naturally. Do not explicitly suggest adding links, just provide the content that would support them.
+5.  Maintain the creator's style and tone.
+6.  The response MUST be a valid JSON object with a single key "blogPostContent" which is a string containing the full blog post formatted in Markdown.
+
+Example JSON format:
+{
+  "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n...\\n### Section 1\\n...\\n"
+}
+`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "application/json" }, true);
+            if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
+                return parsedJson.blogPostContent;
+            } else {
+                throw new Error("AI returned an invalid format for blog post content.");
+            }
+        } catch (error) {
+            console.error("Error generating blog post content:", error);
+            throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
+        }
+    },
     /**
      * Finds points of interest. This is a simple task.
      */
