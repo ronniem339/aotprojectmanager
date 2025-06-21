@@ -1,6 +1,6 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings}) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
     const { useState, useEffect, useCallback } = React;
     const [openTask, setOpenTask] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -123,7 +123,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         // The 'project={project}' prop is now correctly passed down to all task components that need it for context.
         switch (task.id) {
             case 'scripting':
-                return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} db={db} allVideos={allVideos} />;
+                return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
             case 'videoEdited':
                 return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'titleGenerated':
