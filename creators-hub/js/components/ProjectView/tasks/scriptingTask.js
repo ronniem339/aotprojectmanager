@@ -837,42 +837,52 @@ const handleRefineScript = async (currentTaskData) => {
     if (shouldUpdateStyleGuide && scriptRefinementText) {
         const currentStyleGuide = settings.knowledgeBases?.creator?.styleGuideText || '';
         
-        // 1. Update the Style Guide text
+        // 1. Get the updated style guide text from the AI
         const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
             currentStyleGuide: currentStyleGuide,
             refinementFeedback: scriptRefinementText,
             settings: settings
         });
+
+        // 2. Validate the AI's response before proceeding
+        if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
+            // If the AI response is not what we expect, stop and show an error.
+            // This prevents silent failures.
+            throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
+        }
+
+        // --- If response is valid, proceed to save everything ---
+
         const newStyleGuideText = styleGuideResponse.newStyleGuideText;
 
-        // 2. Create and update the refinement log
+        // 3. Create the new log entry from your feedback
         const today = new Date();
         const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         const newLogEntry = `(${formattedDate}): ${scriptRefinementText}`;
         
         const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
-        const newLog = [newLogEntry, ...currentLog]; // Prepend to keep the latest first
+        const newLog = [newLogEntry, ...currentLog];
 
-        // 3. Persist both the new guide and the new log
-        if (onUpdateSettings && newStyleGuideText) {
+        // 4. Save both the updated style guide text and the new log
+        if (onUpdateSettings) {
             await onUpdateSettings({
                 'knowledgeBases.creator.styleGuideText': newStyleGuideText,
                 'knowledgeBases.creator.styleGuideLog': newLog
             });
         }
 
-        // 4. Create the temporary settings object for this regeneration pass
+        // 5. Prepare the updated settings for the immediate script regeneration
         settingsForRegeneration = JSON.parse(JSON.stringify(settings));
         if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
         if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
         settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
     }
 
+    // This part of the function remains the same
     const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
         `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
     ).join('\n\n');
 
-    // 5. Regenerate the script using the corrected settings
     const scriptResponse = await window.aiUtils.generateFinalScriptAI({
         scriptPlan: currentTaskData.scriptPlan,
         userAnswers: answersText,
