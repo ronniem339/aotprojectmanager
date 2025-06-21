@@ -1,6 +1,6 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos }) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings}) => {
     const { useState, useEffect, useCallback } = React;
     const [openTask, setOpenTask] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
