@@ -848,74 +848,79 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
 // This function handles both refining the script and updating the style guide.
 const handleRefineScript = async (currentTaskData) => {
-    const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
-    let settingsForRegeneration = { ...settings };
+    // Wrap the entire logic in a try...catch block for robust error handling
+    try {
+        const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
+        let settingsForRegeneration = { ...settings };
 
-    if (shouldUpdateStyleGuide && scriptRefinementText) {
-        const currentStyleGuide = settings.knowledgeBases?.creator?.styleGuideText || '';
-        
-        // 1. Get the updated style guide text from the AI
-        const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
-            currentStyleGuide: currentStyleGuide,
-            refinementFeedback: scriptRefinementText,
-            settings: settings
+        if (shouldUpdateStyleGuide && scriptRefinementText) {
+            const currentStyleGuide = settings.knowledgeBases?.creator?.styleGuideText || '';
+            
+            const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
+                currentStyleGuide: currentStyleGuide,
+                refinementFeedback: scriptRefinementText,
+                settings: settings
+            });
+
+            if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
+                throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
+            }
+
+            const newStyleGuideText = styleGuideResponse.newStyleGuideText;
+
+            // --- START OF FIX ---
+            // Change 1: Create a structured log entry object instead of a string.
+            // This is easier for the UI to parse and display correctly.
+            const newLogEntry = {
+                date: new Date().toISOString(),
+                change: scriptRefinementText,
+            };
+            // --- END OF FIX ---
+            
+            const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
+            const newLog = [newLogEntry, ...currentLog];
+
+            if (onUpdateSettings) {
+                await onUpdateSettings({
+                    'knowledgeBases.creator.styleGuideText': newStyleGuideText,
+                    'knowledgeBases.creator.styleGuideLog': newLog
+                });
+            }
+
+            // Update settings for the immediate script regeneration
+            settingsForRegeneration = JSON.parse(JSON.stringify(settings));
+            if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
+            if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
+            settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+        }
+
+        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
+        ).join('\n\n');
+
+        const scriptResponse = await window.aiUtils.generateFinalScriptAI({
+            scriptPlan: currentTaskData.scriptPlan,
+            userAnswers: answersText,
+            videoTitle: video.chosenTitle || video.title,
+            settings: settingsForRegeneration,
+            refinementText: scriptRefinementText,
+            onCameraDescriptions: currentTaskData.onCameraDescriptions
         });
 
-        // 2. Validate the AI's response before proceeding
-        if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
-            // If the AI response is not what we expect, stop and show an error.
-            // This prevents silent failures.
-            throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
+        if (!scriptResponse || typeof scriptResponse.finalScript !== 'string') {
+            throw new Error("The AI failed to refine the script.");
         }
 
-        // --- If response is valid, proceed to save everything ---
+        await onUpdateTask('scripting', 'in-progress', {
+            'script': scriptResponse.finalScript
+        });
 
-        const newStyleGuideText = styleGuideResponse.newStyleGuideText;
-
-        // 3. Create the new log entry from your feedback
-        const today = new Date();
-        const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const newLogEntry = `(${formattedDate}): ${scriptRefinementText}`;
-        
-        const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
-        const newLog = [newLogEntry, ...currentLog];
-
-        // 4. Save both the updated style guide text and the new log
-        if (onUpdateSettings) {
-            await onUpdateSettings({
-                'knowledgeBases.creator.styleGuideText': newStyleGuideText,
-                'knowledgeBases.creator.styleGuideLog': newLog
-            });
-        }
-
-        // 5. Prepare the updated settings for the immediate script regeneration
-        settingsForRegeneration = JSON.parse(JSON.stringify(settings));
-        if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
-        if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
-        settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+    } catch (error) {
+        // This will catch any error that occurs anywhere in the function
+        console.error("Error during script refinement:", error);
+        // You might want to display a user-friendly error message here
+        alert(error.message); 
     }
-
-    // This part of the function remains the same
-    const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
-        `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
-    ).join('\n\n');
-
-    const scriptResponse = await window.aiUtils.generateFinalScriptAI({
-        scriptPlan: currentTaskData.scriptPlan,
-        userAnswers: answersText,
-        videoTitle: video.chosenTitle || video.title,
-        settings: settingsForRegeneration,
-        refinementText: scriptRefinementText,
-        onCameraDescriptions: currentTaskData.onCameraDescriptions
-    });
-
-    if (!scriptResponse || typeof scriptResponse.finalScript !== 'string') {
-        throw new Error("The AI failed to refine the script.");
-    }
-
-    await onUpdateTask('scripting', 'in-progress', {
-        'script': scriptResponse.finalScript
-    });
 };
 
     const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
