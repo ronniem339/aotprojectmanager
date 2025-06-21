@@ -28,31 +28,31 @@ const EngagingLoader = ({ durationInSeconds = 120 }) => {
     const [message, setMessage] = useState("Kicking off the creative process...");
 
     const messages = [
-  { "time": 0, "text": "Powering up the AI's brain cell..." },
-  { "time": 5, "text": "Reading your notes with our one good eye..." },
-  { "time": 10, "text": "Consulting the ghost of a goldfish for ideas..." },
-  { "time": 15, "text": "Untangling the plot spaghetti..." },
-  { "time": 20, "text": "Adding a dramatic plot twist (it involves a squirrel)..." },
-  { "time": 25, "text": "Trying to remember what a 'character arc' is..." },
-  { "time": 30, "text": "Making sure the script is at least 1% better than a cat walking on a keyboard..." },
-  { "time": 35, "text": "Putting the script in a tiny, fancy hat." },
-  { "time": 40, "text": "Convincing the pixels to behave themselves... they're quite rebellious today." },
-  { "time": 45, "text": "Waking up the hamsters on the server wheel... one's on a coffee break." },
-  { "time": 50, "text": "Polishing the loading bar... it's currently reflecting a tiny unicorn." },
-  { "time": 55, "text": "Debating if we should add more lens flare, or perhaps a disco ball." },
-  { "time": 60, "text": "Searching for the 'any' key... last seen eloping with the 'shift' key." },
-  { "time": 65, "text": "Rewriting history, just in case... now Napoleon won the Battle of Waterloo." },
-  { "time": 70, "text": "Teaching the AI to appreciate dad jokes... it's a slow process." },
-  { "time": 75, "text": "Considering a career as a professional napper... the benefits are incredible." },
-  { "time": 80, "text": "Making sure no actual gnomes were harmed in the making of this... just a few garden varieties." },
-  { "time": 85, "text": "Checking for rogue semicolons, and a rogue comma that thinks it's an exclamation mark." },
-  { "time": 90, "text": "Calculating the precise angle of suspense, while juggling rubber chickens." },
-  { "time": 95, "text": "Distracting the office cat from the keyboard with a laser pointer... it's a full-time job." },
-  { "time": 100, "text": "Adding extra sparkle, because why not? And maybe a glitter cannon." },
-  { "time": 105, "text": "Trying to find the 'off' switch for the existential dread... it's under the 'panic' button." },
-  { "time": 110, "text": "Ensuring maximum hilarity and minimum logic, while a flock of geese flies by in formation." },
-  { "time": 115, "text": "Almost there... just fetching the virtual coffee, and a tiny sombrero for it." },
-  { "time": 120, "text": "Ta-da! We're ready, mostly... and the squirrels are planning world domination." }
+        { "time": 0, "text": "Powering up the AI's brain cell..." },
+        { "time": 5, "text": "Reading your notes with our one good eye..." },
+        { "time": 10, "text": "Consulting the ghost of a goldfish for ideas..." },
+        { "time": 15, "text": "Untangling the plot spaghetti..." },
+        { "time": 20, "text": "Adding a dramatic plot twist (it involves a squirrel)..." },
+        { "time": 25, "text": "Trying to remember what a 'character arc' is..." },
+        { "time": 30, "text": "Making sure the script is at least 1% better than a cat walking on a keyboard..." },
+        { "time": 35, "text": "Putting the script in a tiny, fancy hat." },
+        { "time": 40, "text": "Convincing the pixels to behave themselves... they're quite rebellious today." },
+        { "time": 45, "text": "Waking up the hamsters on the server wheel... one's on a coffee break." },
+        { "time": 50, "text": "Polishing the loading bar... it's currently reflecting a tiny unicorn." },
+        { "time": 55, "text": "Debating if we should add more lens flare, or perhaps a disco ball." },
+        { "time": 60, "text": "Searching for the 'any' key... last seen eloping with the 'shift' key." },
+        { "time": 65, "text": "Rewriting history, just in case... now Napoleon won the Battle of Waterloo." },
+        { "time": 70, "text": "Teaching the AI to appreciate dad jokes... it's a slow process." },
+        { "time": 75, "text": "Considering a career as a professional napper... the benefits are incredible." },
+        { "time": 80, "text": "Making sure no actual gnomes were harmed in the making of this... just a few garden varieties." },
+        { "time": 85, "text": "Checking for rogue semicolons, and a rogue comma that thinks it's an exclamation mark." },
+        { "time": 90, "text": "Calculating the precise angle of suspense, while juggling rubber chickens." },
+        { "time": 95, "text": "Distracting the office cat from the keyboard with a laser pointer... it's a full-time job." },
+        { "time": 100, "text": "Adding extra sparkle, because why not? And maybe a glitter cannon." },
+        { "time": 105, "text": "Trying to find the 'off' switch for the existential dread... it's under the 'panic' button." },
+        { "time": 110, "text": "Ensuring maximum hilarity and minimum logic, while a flock of geese flies by in formation." },
+        { "time": 115, "text": "Almost there... just fetching the virtual coffee, and a tiny sombrero for it." },
+        { "time": 120, "text": "Ta-da! We're ready, mostly... and the squirrels are planning world domination." }
     ];
 
     useEffect(() => {
@@ -215,11 +215,6 @@ const ScriptingStepper = (props) => {
 };
 
 
-/**
- * A full-screen modal for the entire multi-step scripting process.
- */
-
-
 const ScriptingWorkspaceModal = ({
     video,
     taskData,
@@ -241,7 +236,6 @@ const ScriptingWorkspaceModal = ({
     const [localTaskData, setLocalTaskData] = useState(taskData);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [shouldUpdateStyleGuide, setShouldUpdateStyleGuide] = useState(false);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -525,57 +519,52 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
             case 'complete':
-case 'full_script_review':
-     if (isLoading) {
-        return <EngagingLoader durationInSeconds={120} />;
-    }
-    return (
-        <div>
-            <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
-            <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
-            <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="25" className="w-full form-textarea leading-relaxed" placeholder="Your final script will appear here." />
-            
-            {/* --- START OF UI CHANGES --- */}
-            <div className="mt-6">
-                <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-md font-semibold text-amber-400">Refinement Instructions</h4>
-                    {/* NEW: Button to quickly access the Style Guide screen */}
-                    <button 
-                        onClick={() => alert("This button needs to be connected to your app's navigation logic to show the 'My Studio' screen.")} 
-                        className="text-sm text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
-                    >
-                        Refine Style Guide ↗
-                    </button>
-                </div>
+            case 'full_script_review':
+                if (isLoading) {
+                    return <EngagingLoader durationInSeconds={120} />;
+                }
+                return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
+                        <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
+                        <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="25" className="w-full form-textarea leading-relaxed" placeholder="Your final script will appear here." />
+                        <div className="mt-6">
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-md font-semibold text-amber-400">Refinement Instructions</h4>
+                                <button
+                                    onClick={() => alert("This button needs to be connected to your app's navigation logic to show the 'My Studio' screen.")}
+                                    className="text-sm text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
+                                >
+                                    Refine Style Guide ↗
+                                </button>
+                            </div>
 
-                <textarea 
-                    value={localTaskData.scriptRefinementText || ''} 
-                    onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)} 
-                    className="form-textarea w-full" 
-                    rows="2" 
-                    placeholder="E.g., Make the conclusion more powerful, be more sarcastic..." 
-                />
-                
-                {/* REMOVED: The checkbox for updating the style guide is gone. */}
-
-                {/* UPDATED: The button now calls onRefineScript with just the task data. */}
-                <button 
-                    onClick={() => handleAction(onRefineScript, localTaskData)} 
-                    disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()} 
-                    className="button-secondary-small mt-3 disabled:opacity-50"
-                >
-                    {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
-                </button>
-            </div>
-            {/* --- END OF UI CHANGES --- */}
-
-            <div className="text-center mt-8">
-                <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                    Save and Complete Task
-                </button>
-            </div>
-        </div>
-    );
+                            <textarea
+                                value={localTaskData.scriptRefinementText || ''}
+                                onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)}
+                                className="form-textarea w-full"
+                                rows="2"
+                                placeholder="E.g., Make the conclusion more powerful, be more sarcastic..."
+                            />
+                            <button
+                                onClick={() => handleAction(onRefineScript, localTaskData)}
+                                disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()}
+                                className="button-secondary-small mt-3 disabled:opacity-50"
+                            >
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
+                            </button>
+                        </div>
+                        <div className="text-center mt-8">
+                            <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                Save and Complete Task
+                            </button>
+                        </div>
+                    </div>
+                );
+            default:
+                return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
@@ -790,14 +779,11 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
 
-    // REPLACE the block of handler functions in ScriptingTask with this
     const handleGenerateRefinementQuestions = async (currentTaskData) => {
-        // Save the current state of the outline, as the user might have edited it.
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptPlan': currentTaskData.scriptPlan
         });
 
-        // Call the AI to generate the detailed, easy-to-answer questions.
         const response = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
@@ -809,15 +795,13 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             throw new Error("The AI failed to generate refinement questions. Please try again.");
         }
 
-        // Save the new questions from the AI and officially move to the Refinement Q&A stage.
         await onUpdateTask('scripting', 'in-progress', {
             'tasks.scriptingStage': 'refinement_qa',
             'tasks.locationQuestions': response.locationQuestions,
-            'tasks.userExperiences': {} // Clear out any old answers to avoid confusion.
+            'tasks.userExperiences': {}
         });
     };
 
-    // This function is now only responsible for moving to the On-Camera QA step.
     const handleProceedToOnCamera = async (currentTaskData) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
 
@@ -833,7 +817,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-    // This function now only handles the backend work for generating the script.
     const handleGenerateFullScript = async (currentTaskData) => {
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
@@ -851,8 +834,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            onCameraDescriptions: onCameraDescriptionsToUse,
-            existingScript: currentTaskData.script 
+            onCameraDescriptions: onCameraDescriptionsToUse
         });
 
         if (!response || typeof response.finalScript !== 'string') {
@@ -865,45 +847,43 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-// This function now ONLY refines the script.
-const handleRefineScript = async (currentTaskData) => {
-    try {
-        const { scriptRefinementText } = currentTaskData;
+    const handleRefineScript = async (currentTaskData) => {
+        try {
+            const { scriptRefinementText, script: existingScript } = currentTaskData;
 
-        if (!scriptRefinementText) {
-            alert("Please enter your feedback to refine the script.");
-            return;
+            if (!scriptRefinementText) {
+                alert("Please enter your feedback to refine the script.");
+                return;
+            }
+
+            const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+                `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
+            ).join('\n\n');
+
+            const scriptResponse = await window.aiUtils.generateFinalScriptAI({
+                scriptPlan: currentTaskData.scriptPlan,
+                userAnswers: answersText,
+                videoTitle: video.chosenTitle || video.title,
+                settings: settings,
+                refinementText: scriptRefinementText,
+                onCameraDescriptions: currentTaskData.onCameraDescriptions,
+                existingScript: existingScript
+            });
+
+            if (!scriptResponse || typeof scriptResponse.finalScript !== 'string') {
+                throw new Error("The AI failed to refine the script.");
+            }
+
+            await onUpdateTask('scripting', 'in-progress', {
+                'script': scriptResponse.finalScript
+            });
+
+        } catch (error) {
+            console.error("Error during script refinement:", error);
+            alert("There was an error refining the script: " + error.message);
         }
+    };
 
-        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
-            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
-        ).join('\n\n');
-
-        // This call now uses the standard 'settings' prop, which will always be the
-        // most up-to-date version managed by the main app state.
-        const scriptResponse = await window.aiUtils.generateFinalScriptAI({
-            scriptPlan: currentTaskData.scriptPlan,
-            userAnswers: answersText,
-            videoTitle: video.chosenTitle || video.title,
-            settings: settings, // Using the standard settings prop
-            refinementText: scriptRefinementText,
-            onCameraDescriptions: currentTaskData.onCameraDescriptions
-        });
-
-        if (!scriptResponse || typeof scriptResponse.finalScript !== 'string') {
-            throw new Error("The AI failed to refine the script.");
-        }
-
-        // This saves the newly generated script to the current task.
-        await onUpdateTask('scripting', 'in-progress', {
-            'script': scriptResponse.finalScript
-        });
-
-    } catch (error) {
-        console.error("Error during script refinement:", error);
-        alert("There was an error refining the script: " + error.message); 
-    }
-};
     const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
@@ -913,7 +893,7 @@ const handleRefineScript = async (currentTaskData) => {
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
-            'tasks.onCameraLocations': localOnCameraLocations,    // Ensure this is using the local state
+            'tasks.onCameraLocations': localOnCameraLocations,
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
             'script': updatedTaskData.script,
         };
@@ -999,7 +979,6 @@ const handleRefineScript = async (currentTaskData) => {
                 document.body
             )}
 
-            {/* MOVED AND WRAPPED THE MODAL IN ITS OWN PORTAL */}
             {locationToModify && ReactDOM.createPortal(
                 <LocationRemovalOptionsModal
                     isOpen={!!locationToModify}
