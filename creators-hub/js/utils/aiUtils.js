@@ -180,18 +180,8 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
 /**
      * NEW: Generates a full blog post based on an approved idea. This is considered a complex task.
      */
+
     generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
-        // Ensure you're passing listicleContent and destinationGuideContent from settings to this function when you call it.
-        // For example, in BlogIdeasDashboard.js when calling this, it would be:
-        // window.aiUtils.generateBlogPostContentAI({
-        //     idea: idea,
-        //     coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-        //     monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-        //     listicleContent: settings.knowledgeBases.blog.listicleContent, // New
-        //     destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent, // New
-        //     settings: settings // Always pass the full settings object
-        // });
-        
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
         let postTypeSpecificKb = '';
@@ -230,6 +220,7 @@ ${monetizationGoals || "Strategically integrate opportunities for affiliate reve
 4.  Weave in the "monetizationOpportunities" as seamlessly as possible. Think about what relevant products, services, or tours could be mentioned naturally. Do not explicitly suggest adding links, just provide the content that would support them.
 5.  Maintain the creator's style and tone.
 6.  The response MUST be a valid JSON object with a single key "blogPostContent" which is a string containing the full blog post formatted in Markdown.
+7.  **CRITICAL FOR JSON PARSING:** Ensure that the value for "blogPostContent" is a **single, valid JSON-escaped string**. All newlines should be `\\n`, and all double quotes within the content should be `\\"`.
 
 Example JSON format:
 {
