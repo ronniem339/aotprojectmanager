@@ -870,42 +870,41 @@ const handleRefineScript = async (currentTaskData) => {
 
             const newStyleGuideText = styleGuideResponse.newStyleGuideText;
 
-            // --- START OF FIX ---
-            // Change 1: Create a structured log entry object instead of a string.
-            // This is easier for the UI to parse and display correctly.
+            // Create a structured log entry object.
             const newLogEntry = {
                 date: new Date().toISOString(),
                 change: scriptRefinementText,
             };
-            // --- END OF FIX ---
             
             const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
             const newLog = [newLogEntry, ...currentLog];
 
             if (onUpdateSettings) {
+                // This updates the data in Firebase.
                 await onUpdateSettings({
                     'knowledgeBases.creator.styleGuideText': newStyleGuideText,
                     'knowledgeBases.creator.styleGuideLog': newLog
                 });
             }
 
-           // --- CORRECTED REGENERATION SETTINGS ---
-// Start with a deep clone of the OLD settings
-settingsForRegeneration = JSON.parse(JSON.stringify(settings));
+           // **Correction**: Manually update the settings object that will be used for regeneration.
+            // Start with a deep clone of the OLD settings.
+            settingsForRegeneration = JSON.parse(JSON.stringify(settings));
 
-// Ensure the path to the creator knowledge base exists
-if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
-if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
+            // Ensure the path to the creator knowledge base exists.
+            if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
+            if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
 
-// Manually update BOTH the text and the log for the next AI call
-settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
-settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog; // This was the missing piece
+            // Manually update BOTH the text and the log for the next AI call.
+            settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+            settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog;
         }
 
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
+        // This call will now use the updated 'settingsForRegeneration' object
         const scriptResponse = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: currentTaskData.scriptPlan,
             userAnswers: answersText,
@@ -919,14 +918,14 @@ settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog; // This w
             throw new Error("The AI failed to refine the script.");
         }
 
+        // This saves the newly generated script.
         await onUpdateTask('scripting', 'in-progress', {
             'script': scriptResponse.finalScript
         });
 
     } catch (error) {
-        // This will catch any error that occurs anywhere in the function
         console.error("Error during script refinement:", error);
-        // You might want to display a user-friendly error message here
+        // Display the error to the user.
         alert(error.message); 
     }
 };
