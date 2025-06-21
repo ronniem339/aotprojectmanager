@@ -976,6 +976,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
                     onRefineScript={handleRefineScript}
                     settings={settings}
                     project={project}
+                    onNavigate={onNavigate}
                 />,
                 document.body
             )}
