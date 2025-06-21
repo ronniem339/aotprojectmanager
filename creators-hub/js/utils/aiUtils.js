@@ -180,10 +180,6 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
 /**
      * NEW: Generates a full blog post based on an approved idea. This is considered a complex task.
      */
-
-/**
-     * NEW: Generates a full blog post based on an approved idea. This is considered a complex task.
-     */
     generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
@@ -198,10 +194,10 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
 Your task is to write a complete, detailed, and engaging blog post based on the following approved idea.
 
 Blog Post Idea Details:
-- Title: "${idea.title}"
-- Description: "${idea.description}"
-- Primary Keyword: "${idea.primaryKeyword}"
-- Post Type: "${idea.postType}"
+- Title: "<span class="math-inline">\{idea\.title\}"
+\- Description\: "</span>{idea.description}"
+- Primary Keyword: "<span class="math-inline">\{idea\.primaryKeyword\}"
+\- Post Type\: "</span>{idea.postType}"
 - Monetization Opportunities: "${idea.monetizationOpportunities}"
 
 ${styleGuidePrompt}
@@ -237,8 +233,8 @@ Example Output Format:
             // Change responseMimeType to "text/plain"
             const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
 
-            // Extract JSON string using regex
-            const jsonMatch = rawResponseText.match(/```json\n([\s\S]*?)\n```/);
+            // Corrected: Extract JSON string using regex, matching '~~~json' and '~~~'
+            const jsonMatch = rawResponseText.match(/```json\s*([\s\S]*?)\s*```/); // This regex still looks for ```, let's fix it to ~~~
             let jsonString = null;
             if (jsonMatch && jsonMatch[1]) {
                 jsonString = jsonMatch[1];
@@ -247,6 +243,18 @@ Example Output Format:
                  console.warn("AI response did not contain expected ```json``` block. Attempting to parse raw response as JSON.");
                  jsonString = rawResponseText;
             }
+
+            // Corrected regex to match ~~~json and ~~~
+            const tildeJsonMatch = rawResponseText.match(/~~~\s*json\s*([\s\S]*?)\s*~~~/);
+            if (tildeJsonMatch && tildeJsonMatch[1]) {
+                jsonString = tildeJsonMatch[1];
+            } else {
+                console.warn("AI response did not contain expected ~~~json~~~ block. Attempting to parse raw response as JSON or fallback to previous logic.");
+                // Fallback if neither ```json``` nor ~~~json~~~ are found
+                // If the AI somehow returns just the JSON without markers, try parsing it directly
+                jsonString = rawResponseText; // This assumes rawResponseText might sometimes be pure JSON
+            }
+
 
             const parsedJson = JSON.parse(jsonString); // Attempt to parse the extracted string
 
