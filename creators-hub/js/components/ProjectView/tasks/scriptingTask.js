@@ -847,35 +847,81 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
 // This function handles both refining the script and updating the style guide.
+// This function handles both refining the script and updating the style guide.
 const handleRefineScript = async (currentTaskData) => {
+    // Wrap the entire logic in a try...catch block for robust error handling
     try {
-        console.log("Running simplified test...");
+        const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
+        let settingsForRegeneration = { ...settings };
 
-        // 1. Create a hard-coded, guaranteed-correct log entry.
-        const newLogEntry = {
-            date: new Date().toISOString(),
-            change: "This is a test log entry.",
-        };
-        const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
-        const newLog = [newLogEntry, ...currentLog];
-
-        // 2. We will just save the log, nothing else.
-        if (onUpdateSettings) {
-            await onUpdateSettings({
-                'knowledgeBases.creator.styleGuideLog': newLog
+        if (shouldUpdateStyleGuide && scriptRefinementText) {
+            const currentStyleGuide = settings.knowledgeBases?.creator?.styleGuideText || '';
+            
+            const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
+                currentStyleGuide: currentStyleGuide,
+                refinementFeedback: scriptRefinementText,
+                settings: settings
             });
-            console.log("Test log sent to be saved.");
-        } else {
-            console.log("onUpdateSettings function not found.");
+
+            if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
+                throw new Error("The AI returned an invalid format for the style guide update.");
+            }
+
+            const newStyleGuideText = styleGuideResponse.newStyleGuideText;
+
+            const newLogEntry = {
+                date: new Date().toISOString(),
+                change: scriptRefinementText,
+            };
+            
+            const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
+            const newLog = [newLogEntry, ...currentLog];
+
+            if (onUpdateSettings) {
+                await onUpdateSettings({
+                    'knowledgeBases.creator.styleGuideText': newStyleGuideText,
+                    'knowledgeBases.creator.styleGuideLog': newLog
+                });
+            }
+
+            // --- CORRECTED REGENERATION SETTINGS ---
+            // Start with a deep clone of the OLD settings
+            settingsForRegeneration = JSON.parse(JSON.stringify(settings));
+
+            // Ensure the path to the creator knowledge base exists
+            if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
+            if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
+
+            // Manually update BOTH the text and the log for the next AI call
+            settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+            settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog;
         }
 
-        // 3. We will NOT try to refine the script in this test.
+        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
+        ).join('\n\n');
 
-        alert("Test complete. Check the Style & Tone page for the test log entry.");
+        const scriptResponse = await window.aiUtils.generateFinalScriptAI({
+            scriptPlan: currentTaskData.scriptPlan,
+            userAnswers: answersText,
+            videoTitle: video.chosenTitle || video.title,
+            settings: settingsForRegeneration,
+            refinementText: scriptRefinementText,
+            onCameraDescriptions: currentTaskData.onCameraDescriptions
+        });
+
+        if (!scriptResponse || typeof scriptResponse.finalScript !== 'string') {
+            throw new Error("The AI failed to refine the script.");
+        }
+
+        await onUpdateTask('scripting', 'in-progress', {
+            'script': scriptResponse.finalScript
+        });
 
     } catch (error) {
-        console.error("Error during simplified test:", error);
-        alert(`Simplified test failed: ${error.message}`);
+        // This will catch any error that occurs anywhere in the function
+        console.error("Error during script refinement:", error);
+        alert(error.message);
     }
 };
 
