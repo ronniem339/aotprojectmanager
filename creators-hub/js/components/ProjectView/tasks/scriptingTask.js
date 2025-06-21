@@ -862,6 +862,7 @@ const handleRefineScript = async (currentTaskData) => {
                 refinementFeedback: scriptRefinementText,
                 settings: settings
             });
+            console.log('AI response for style guide:', styleGuideResponse);
 
             if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
                 throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
@@ -888,11 +889,17 @@ const handleRefineScript = async (currentTaskData) => {
                 });
             }
 
-            // Update settings for the immediate script regeneration
-            settingsForRegeneration = JSON.parse(JSON.stringify(settings));
-            if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
-            if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
-            settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+           // --- CORRECTED REGENERATION SETTINGS ---
+// Start with a deep clone of the OLD settings
+settingsForRegeneration = JSON.parse(JSON.stringify(settings));
+
+// Ensure the path to the creator knowledge base exists
+if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
+if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
+
+// Manually update BOTH the text and the log for the next AI call
+settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog; // This was the missing piece
         }
 
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
