@@ -450,36 +450,46 @@ Now, write the complete voiceover script.`;
 },
 
 // NEW: Function to update the creator's style guide based on feedback.
-updateStyleGuideAI: async ({ currentStyleGuide, refinementFeedback, settings }) => {
-    const prompt = `You are an expert brand strategist and copy editor. Your task is to refine a creator's style guide based on their feedback.
+async function updateStyleGuideAI({ currentStyleGuide, refinementFeedback, settings }) {
+    console.log("AI: Updating Style Guide based on feedback.");
 
-Current Style Guide:
----
-${currentStyleGuide}
----
+    // NEW: Get the current date for the log
+    const today = new Date();
+    const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-Creator's Feedback for Improvement:
+    const prompt = `
+You are an AI assistant helping a content creator refine their personal "Style Guide".
+Your task is to intelligently merge the user's feedback into the existing style guide.
+
+**Critically Important Instructions:**
+1.  Read the "Current Style Guide" and the "Refinement Feedback" carefully.
+2.  Integrate the feedback into the main body of the style guide in a natural and coherent way.
+3.  After updating the guide, you MUST add an entry to the "Refinement Log" section at the very end. If the log section doesn't exist, create it with the header "## Refinement Log".
+4.  The log entry MUST be a single line with the following format: \`(${formattedDate}): [The user's exact feedback]\`
+
 ---
+**Current Style Guide:**
+${currentStyleGuide || "(No existing style guide. Create one based on the feedback below.)"}
+---
+**Refinement Feedback to Incorporate:**
 "${refinementFeedback}"
 ---
 
-Your Instructions:
-1.  Analyze the feedback in the context of the current style guide.
-2.  Incorporate the feedback to create a new, improved, and concise style guide.
-3.  The new style guide should be a clear, actionable set of principles for future content. It should not be a script or a response to the user, but the guide itself.
-4.  Do not just append the feedback. Integrate it holistically. For example, if the guide says "be funny" and the feedback is "be more sarcastic," the new guide might say "be funny and sarcastic." If the guide says "formal tone" and feedback is "make it more casual," the new guide should say "casual and conversational tone."
+Respond with ONLY the complete, updated style guide text in a JSON object, like this:
+{
+  "newStyleGuideText": "..."
+}
+`;
 
-Return your response as a valid JSON object with a single key, "newStyleGuideText".`;
-
-    // CORRECTED: This is a complex task, so the 'isComplex' flag is set to true.
-    const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    
-    if (parsedJson && typeof parsedJson.newStyleGuideText === 'string') {
-        return parsedJson;
-    } else {
-        throw new Error("AI failed to return a valid style guide format.");
+    try {
+        const result = await callGeminiAPI(prompt, settings);
+        console.log("AI Response for Style Guide Update:", result);
+        return result;
+    } catch (error) {
+        console.error("Error updating style guide with AI:", error);
+        throw new Error("AI failed to update the style guide.");
     }
-},
+}
     
     /**
      * Generates keywords. This is a simple task.
