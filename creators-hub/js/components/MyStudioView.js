@@ -3,9 +3,7 @@
 const { useState, useEffect } = React;
 
 window.MyStudioView = ({ settings, onSave, onBack }) => {
-    // --- FIX START ---
     // Initialize the state directly from the settings prop, providing a fallback for each value.
-    // This ensures the inputs are "controlled" from the very first render.
     const [styleInputs, setStyleInputs] = useState({
         myWriting: settings.myWriting || '',
         admiredWriting: settings.admiredWriting || '',
@@ -13,18 +11,14 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
         dosAndDonts: settings.dosAndDonts || '',
         excludedPhrases: settings.excludedPhrases || ''
     });
-    // The main style guide text area, already correctly initialized.
+    
     const [styleGuideText, setStyleGuideText] = useState(settings.knowledgeBases?.creator?.styleGuideText || '');
-    // --- FIX END ---
-
-    // State for the refinement log
     const [styleGuideLog, setStyleGuideLog] = useState(settings.knowledgeBases?.creator?.styleGuideLog || []);
     
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        // This effect now primarily syncs the component if the 'settings' prop itself is replaced.
-        // The initial state is already set correctly above.
+        // This effect syncs the component if the 'settings' prop itself is replaced.
         setStyleGuideText(settings.knowledgeBases?.creator?.styleGuideText || '');
         setStyleGuideLog(settings.knowledgeBases?.creator?.styleGuideLog || []);
         setStyleInputs({
@@ -53,7 +47,6 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
         Synthesize these inputs into a structured style guide covering: Tone, Pacing, Vocabulary, Sentence Structure, and Humor. Also include the explicit Dos/Don'ts and Excluded Phrases. Provide a detailed, actionable description for each category.`;
         
         try {
-            // To ensure this works, let's ask the AI for plain text and not JSON, as the prompt doesn't specify a JSON structure.
             const generatedGuide = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" });
             setStyleGuideText(generatedGuide);
         } catch (e) {
@@ -81,11 +74,10 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     // Correctly get the log for rendering, ensuring it's always an array
     const refinementLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
 
-    // The rest of your JSX rendering code remains the same...
     return (
         <div className="p-4 sm:p-8">
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                 ⬅️ Back to Settings Menu
+                ⬅️ Back to Settings Menu
             </button>
             <h1 className="text-3xl sm:text-4xl font-bold mb-4">🎨 Style & Tone</h1>
             <p className="text-gray-400 mb-8">Train the AI on your unique creative style. The more detail you provide, the better the AI's suggestions will be.</p>
@@ -109,16 +101,21 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
                     <h2 className="text-2xl font-semibold mb-4">Your AI-Powered Style Guide</h2>
                     <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="20" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
                     
-                    {/* --- NEW REFINEMENT HISTORY SECTION --- */}
                     <div className="mt-6">
                         <h3 className="text-xl font-semibold mb-3">Refinement History</h3>
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto">
                             {refinementLog.length > 0 ? (
                                 <ul className="space-y-3">
                                     {refinementLog.map((entry, index) => (
+                                        // --- FINAL FIX START ---
+                                        // Display the 'date' and 'change' properties from the log entry object
                                         <li key={index} className="text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0">
-                                            {entry}
+                                            <span className="block font-semibold text-gray-400 text-xs">
+                                                {new Date(entry.date).toLocaleDateString()}
+                                            </span>
+                                            <p className="mt-1">{entry.change}</p>
                                         </li>
+                                        // --- FINAL FIX END ---
                                     ))}
                                 </ul>
                             ) : (
