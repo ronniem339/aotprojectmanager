@@ -220,8 +220,7 @@ ${monetizationGoals || "Strategically integrate opportunities for affiliate reve
 4.  Weave in the "monetizationOpportunities" as seamlessly as possible. Think about what relevant products, services, or tours could be mentioned naturally. Do not explicitly suggest adding links, just provide the content that would support them.
 5.  Maintain the creator's style and tone.
 6.  The response MUST be a valid JSON object with a single key "blogPostContent" which is a string containing the full blog post formatted in Markdown.
-7.  **CRITICAL FOR JSON PARSING:** Ensure that the value for "blogPostContent" is a **single, valid JSON-escaped string**. All newlines should be `\\n`, and all double quotes within the content should be `\\"`.
-
+7.  CRITICAL FOR JSON PARSING: Ensure that the value for "blogPostContent" is a single, valid JSON-escaped string. All newlines should be `\\n`, and all double quotes within the content should be `\\"`.
 Example JSON format:
 {
   "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n...\\n### Section 1\\n...\\n"
