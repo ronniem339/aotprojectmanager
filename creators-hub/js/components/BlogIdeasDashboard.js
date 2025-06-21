@@ -37,65 +37,76 @@ window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to
     }, [userId, db, appId, sortBy, sortOrder]);
 
     // Effect to process the post generation queue
+// Effect to process the post generation queue
     useEffect(() => {
-        const processQueue = async () => {
-            if (postGenerationQueue.length > 0 && !isGeneratingPost) {
-                setIsGeneratingPost(true);
-                const ideaToProcess = postGenerationQueue[0]; // Get the first idea in queue
-                setProcessingIdeaId(ideaToProcess.id);
+        const processNextInQueue = async () => {
+            // Guard: Only proceed if no post is currently generating AND there are items in the queue
+            if (isGeneratingPost || postGenerationQueue.length === 0) {
+                return;
+            }
 
-                // Update status to 'generating' in Firestore
-                try {
-                    await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
-                        status: 'generating',
-                        generationStartedAt: new Date().toISOString(),
-                        generationError: null // Clear previous errors
-                    });
-                } catch (error) {
-                    console.error("Error updating idea status to generating:", error);
-                    // If Firestore update fails, remove from queue and set generating to false
-                    setPostGenerationQueue(prevQueue => prevQueue.slice(1));
-                    setIsGeneratingPost(false);
-                    setProcessingIdeaId(null);
-                    return; // Stop processing this item
-                }
+            const ideaToProcess = postGenerationQueue[0];
+            
+            // IMPORTANT: Perform state updates synchronously before any await calls.
+            // This prevents race conditions where the effect might re-run before state is updated.
+            setIsGeneratingPost(true); // Mark that a generation process has started
+            setProcessingIdeaId(ideaToProcess.id); // Track the ID of the idea being processed
+            setPostGenerationQueue(prevQueue => prevQueue.slice(1)); // Immediately remove from the local queue
 
-                try {
-                    // Call the AI function to generate the post content
-                    const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
-                        idea: ideaToProcess,
-                        coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-                        monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-                        listicleContent: settings.knowledgeBases.blog.listicleContent, // Pass specific KB
-                        destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent, // Pass specific KB
-                        settings: settings // Always pass the full settings object
-                    });
+            // Now, proceed with asynchronous operations
+            // Update status to 'generating' in Firestore
+            try {
+                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
+                    status: 'generating',
+                    generationStartedAt: new Date().toISOString(),
+                    generationError: null // Clear any previous errors
+                });
+            } catch (error) {
+                console.error("Error updating idea status to generating:", error);
+                // If Firestore update fails, abort this generation and reset flags
+                setIsGeneratingPost(false); // Allow next item to be picked up
+                setProcessingIdeaId(null);
+                return; // Stop processing this item
+            }
 
-                    // Update idea with generated content and status 'generated'
-                    await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
-                        status: 'generated',
-                        blogPostContent: blogPostContent,
-                        generationCompletedAt: new Date().toISOString()
-                    });
+            try {
+                // Call the AI function to generate the post content
+                const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
+                    idea: ideaToProcess,
+                    coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
+                    monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
+                    listicleContent: settings.knowledgeBases.blog.listicleContent,
+                    destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent,
+                    settings: settings // Always pass the full settings object
+                });
 
-                } catch (error) {
-                    console.error("Error generating blog post:", error);
-                    // Update idea status to 'failed' and store error
-                    await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
-                        status: 'failed',
-                        generationError: error.message || 'Unknown error during generation',
-                        generationCompletedAt: new Date().toISOString()
-                    });
-                } finally {
-                    // Remove the processed idea from the queue
-                    setPostGenerationQueue(prevQueue => prevQueue.slice(1));
-                    setIsGeneratingPost(false);
-                    setProcessingIdeaId(null);
-                }
+                // Update idea with generated content and status 'generated'
+                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
+                    status: 'generated',
+                    blogPostContent: blogPostContent,
+                    generationCompletedAt: new Date().toISOString()
+                });
+
+            } catch (error) {
+                console.error("Error generating blog post:", error);
+                // Update idea status to 'failed' and store error
+                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
+                    status: 'failed',
+                    generationError: error.message || 'Unknown error during generation',
+                    generationCompletedAt: new Date().toISOString()
+                });
+            } finally {
+                // Reset processing flags, allowing the next item in queue (if any) to be picked up.
+                // This 'false' will re-trigger the useEffect if postGenerationQueue is not empty.
+                setIsGeneratingPost(false);
+                setProcessingIdeaId(null);
             }
         };
 
-        processQueue();
+        // Call the processing function whenever postGenerationQueue or isGeneratingPost changes.
+        // The internal guard prevents redundant calls if a process is already active or queue is empty.
+        processNextInQueue();
+
     }, [postGenerationQueue, isGeneratingPost, userId, db, appId, settings]);
 
 
