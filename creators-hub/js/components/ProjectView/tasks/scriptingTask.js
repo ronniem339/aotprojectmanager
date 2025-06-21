@@ -28,14 +28,31 @@ const EngagingLoader = ({ durationInSeconds = 120 }) => {
     const [message, setMessage] = useState("Kicking off the creative process...");
 
     const messages = [
-        { time: 0, text: "Powering up the AI's brain cell..." },
-        { time: 10, text: "Reading your notes with our one good eye..." },
-        { time: 25, text: "Consulting the ghost of a goldfish for ideas..." },
-        { time: 40, text: "Untangling the plot spaghetti..." },
-        { time: 60, text: "Adding a dramatic plot twist (it involves a squirrel)..." },
-        { time: 80, text: "Trying to remember what a 'character arc' is..." },
-        { time: 100, text: "Making sure the script is at least 1% better than a cat walking on a keyboard..." },
-        { time: 115, text: "Putting the script in a tiny, fancy hat. It's ready!" }
+  { "time": 0, "text": "Powering up the AI's brain cell..." },
+  { "time": 5, "text": "Reading your notes with our one good eye..." },
+  { "time": 10, "text": "Consulting the ghost of a goldfish for ideas..." },
+  { "time": 15, "text": "Untangling the plot spaghetti..." },
+  { "time": 20, "text": "Adding a dramatic plot twist (it involves a squirrel)..." },
+  { "time": 25, "text": "Trying to remember what a 'character arc' is..." },
+  { "time": 30, "text": "Making sure the script is at least 1% better than a cat walking on a keyboard..." },
+  { "time": 35, "text": "Putting the script in a tiny, fancy hat." },
+  { "time": 40, "text": "Convincing the pixels to behave themselves... they're quite rebellious today." },
+  { "time": 45, "text": "Waking up the hamsters on the server wheel... one's on a coffee break." },
+  { "time": 50, "text": "Polishing the loading bar... it's currently reflecting a tiny unicorn." },
+  { "time": 55, "text": "Debating if we should add more lens flare, or perhaps a disco ball." },
+  { "time": 60, "text": "Searching for the 'any' key... last seen eloping with the 'shift' key." },
+  { "time": 65, "text": "Rewriting history, just in case... now Napoleon won the Battle of Waterloo." },
+  { "time": 70, "text": "Teaching the AI to appreciate dad jokes... it's a slow process." },
+  { "time": 75, "text": "Considering a career as a professional napper... the benefits are incredible." },
+  { "time": 80, "text": "Making sure no actual gnomes were harmed in the making of this... just a few garden varieties." },
+  { "time": 85, "text": "Checking for rogue semicolons, and a rogue comma that thinks it's an exclamation mark." },
+  { "time": 90, "text": "Calculating the precise angle of suspense, while juggling rubber chickens." },
+  { "time": 95, "text": "Distracting the office cat from the keyboard with a laser pointer... it's a full-time job." },
+  { "time": 100, "text": "Adding extra sparkle, because why not? And maybe a glitter cannon." },
+  { "time": 105, "text": "Trying to find the 'off' switch for the existential dread... it's under the 'panic' button." },
+  { "time": 110, "text": "Ensuring maximum hilarity and minimum logic, while a flock of geese flies by in formation." },
+  { "time": 115, "text": "Almost there... just fetching the virtual coffee, and a tiny sombrero for it." },
+  { "time": 120, "text": "Ta-da! We're ready, mostly... and the squirrels are planning world domination." }
     ];
 
     useEffect(() => {
