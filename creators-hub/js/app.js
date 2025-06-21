@@ -37,6 +37,7 @@ window.App = () => { // Exposing App component globally
     const { useState, useEffect, useCallback } = React;
     const [user, setUser] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
+    const [currentView, setCurrentView] = useState('dashboard');
     const [previousView, setPreviousView] = useState('dashboard');
     const [selectedProject, setSelectedProject] = useState(null);
     const [settings, setSettings] = useState({ 
