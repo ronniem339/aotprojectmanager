@@ -2,7 +2,7 @@
 
 const { useState, useEffect } = React;
 
-window.MyStudioView = ({ settings, onSave, onBack }) => {
+window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
     // Initialize the state directly from the settings prop, providing a fallback for each value.
     const [styleInputs, setStyleInputs] = useState({
         myWriting: settings.myWriting || '',
@@ -122,13 +122,20 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
         onSave(updatedSettings);
     };
 
+    const getBackLinkText = () => {
+        if (previousView === 'project') {
+            return 'Back to Project';
+        }
+        return 'Back to Settings Menu'; // Default fallback
+    };
+
     // Correctly get the log for rendering, ensuring it's always an array
     const refinementLog = styleGuideLog || [];
 
     return (
         <div className="p-4 sm:p-8">
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ Back to Settings Menu
+                ⬅️ {getBackLinkText()}
             </button>
             <h1 className="text-3xl sm:text-4xl font-bold mb-4">🎨 Style & Tone</h1>
             <p className="text-gray-400 mb-8">Train the AI on your unique creative style. The more detail you provide, the better the AI's suggestions will be.</p>
