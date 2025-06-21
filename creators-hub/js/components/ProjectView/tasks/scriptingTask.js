@@ -850,6 +850,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 const handleRefineScript = async (currentTaskData) => {
     // Wrap the entire logic in a try...catch block for robust error handling
     try {
+        console.log('Data received by handleRefineScript:', currentTaskData);
         const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
         let settingsForRegeneration = { ...settings };
 
