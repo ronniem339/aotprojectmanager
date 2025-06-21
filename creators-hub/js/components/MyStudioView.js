@@ -57,6 +57,9 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     };
 
     const handleSave = () => {
+        // --- FINAL FIX START ---
+        // The previous version was missing styleGuideLog in the object being saved.
+        // This ensures that when you save changes on this page, the existing log is not erased.
         const updatedSettings = {
             ...settings,
             ...styleInputs,
@@ -64,10 +67,12 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
                 ...settings.knowledgeBases,
                 creator: {
                     ...settings.knowledgeBases?.creator,
-                    styleGuideText: styleGuideText
+                    styleGuideText: styleGuideText,
+                    styleGuideLog: styleGuideLog // This line is critical
                 }
             }
         };
+        // --- FINAL FIX END ---
         onSave(updatedSettings);
     };
 
@@ -107,15 +112,12 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
                             {refinementLog.length > 0 ? (
                                 <ul className="space-y-3">
                                     {refinementLog.map((entry, index) => (
-                                        // --- FINAL FIX START ---
-                                        // Display the 'date' and 'change' properties from the log entry object
                                         <li key={index} className="text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0">
                                             <span className="block font-semibold text-gray-400 text-xs">
                                                 {new Date(entry.date).toLocaleDateString()}
                                             </span>
                                             <p className="mt-1">{entry.change}</p>
                                         </li>
-                                        // --- FINAL FIX END ---
                                     ))}
                                 </ul>
                             ) : (
