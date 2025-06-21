@@ -529,14 +529,14 @@ case 'on_camera_qa':
         }, [location?.place_id, location?.name]);
 
         const summary = placeDetails?.editorial_summary?.overview || 'No description available for this location.';
-        const photoReference = placeDetails?.photos?.[0]?.photo_reference;
+        const photoName = placeDetails?.photos?.[0]?.name; // The new field is called 'name'
 
         // This calls your secure photo function.
-        const imageUrl = isLoading
-            ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
-            : photoReference
-                ? `/.netlify/functions/fetch-place-photo?photoreference=${photoReference}`
-                : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
+const imageUrl = isLoading
+    ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
+    : photoName // Use the new variable here
+        ? `/.netlify/functions/fetch-place-photo?photoName=${photoName}` // Use the new parameter name here
+        : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
 
         return (
             <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
