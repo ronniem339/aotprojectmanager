@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   const { photoreference } = event.queryStringParameters;
 
   // Securely access your API key from the same Netlify environment variable
-  const apiKey = process.env.Maps_API_KEY_SERVER;
+  const apiKey = process.env.VITE_Maps_API_KEY;
 
   if (!photoreference) {
     return { statusCode: 400, body: 'Missing photoreference parameter' };
