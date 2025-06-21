@@ -21,6 +21,8 @@ exports.handler = async (event) => {
   try {
     const response = await fetch(url);
     const data = await response.json();
+      console.log('Response from Google:', JSON.stringify(data, null, 2));
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
