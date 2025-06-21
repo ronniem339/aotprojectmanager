@@ -483,7 +483,7 @@ Respond with ONLY the complete, updated style guide text in a JSON object, like 
         console.error("Error updating style guide with AI:", error);
         throw new Error("AI failed to update the style guide.");
     }
-}
+},
     
     /**
      * Generates keywords. This is a simple task.
