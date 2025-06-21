@@ -2,6 +2,26 @@
 
 const { useState, useEffect, useRef } = React;
 
+// Custom hook to check for media queries
+const useMediaQuery = (query) => {
+    const [matches, setMatches] = useState(false);
+
+    useEffect(() => {
+        const media = window.matchMedia(query);
+        if (media.matches !== matches) {
+            setMatches(media.matches);
+        }
+        const listener = () => {
+            setMatches(media.matches);
+        };
+        media.addListener(listener);
+        return () => media.removeListener(listener);
+    }, [matches, query]);
+
+    return matches;
+};
+
+
 // PASTE THIS CODE AT THE TOP OF THE FILE
 const EngagingLoader = ({ durationInSeconds = 120 }) => {
     const [progress, setProgress] = useState(0);
@@ -99,11 +119,11 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
     );
 };
 // Stepper component for navigation
-const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
+const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
     return (
-        <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
+        <div className="desktop-stepper flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
             {stages.map((stage, index) => {
                 const isUnlocked = index <= highestCompletedIndex;
                 const isCurrent = currentStage === stage.id;
@@ -133,6 +153,48 @@ const ScriptingStepper = ({ stages, currentStage, highestCompletedStageId, onSta
             })}
         </div>
     );
+};
+
+const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
+    const currentStageName = stages.find(s => s.id === currentStage)?.name || 'Menu';
+
+    const handleSelect = (stageId) => {
+        onStageClick(stageId);
+        setIsOpen(false);
+    };
+
+    return (
+        <div className="mobile-stepper relative mb-4 pb-4 border-b border-gray-700">
+            <button onClick={() => setIsOpen(!isOpen)} className="w-full bg-gray-800 text-white font-semibold py-3 px-4 rounded-lg flex justify-between items-center">
+                <span>{currentStageName}</span>
+                <svg className={`w-5 h-5 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            {isOpen && (
+                <div className="mobile-stepper-menu">
+                    {stages.map((stage, index) => {
+                        const isUnlocked = index <= highestCompletedIndex;
+                        const isCurrent = currentStage === stage.id;
+                        if (!isUnlocked) return null; // Or render a disabled state
+                        return (
+                            <button key={stage.id} onClick={() => handleSelect(stage.id)} disabled={!isUnlocked || isCurrent} className="mobile-stepper-item w-full text-left disabled:opacity-50">
+                                <span className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center font-bold mr-3 ${isCurrent ? 'bg-primary-accent text-white' : 'bg-green-600 text-white'}`}>
+                                    {isUnlocked ? '✓' : index + 1}
+                                </span>
+                                <span className="text-gray-200">{stage.name}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ScriptingStepper = (props) => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    return isMobile ? <MobileStepper {...props} /> : <DesktopStepper {...props} />;
 };
 
 
@@ -165,6 +227,9 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [shouldUpdateStyleGuide, setShouldUpdateStyleGuide] = useState(false);
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -173,8 +238,14 @@ const ScriptingWorkspaceModal = ({
     useEffect(() => {
         if (taskData.scriptingStage && taskData.scriptingStage !== currentStage) {
             setCurrentStage(taskData.scriptingStage);
+            setCurrentQuestionIndex(0); // Reset on stage change
         }
     }, [taskData.scriptingStage]);
+    
+    useEffect(() => {
+        setCurrentQuestionIndex(0); // Reset index when stage changes
+    }, [currentStage]);
+
 
     const initiateScriptGeneration = async () => {
         setCurrentStage('full_script_review');
@@ -248,6 +319,58 @@ const ScriptingWorkspaceModal = ({
         { id: 'full_script_review', name: 'Final Script' },
     ];
 
+    const renderPaginatedQuestions = (questions, answers, answerField, onAnswerChange) => {
+        const currentQuestion = questions[currentQuestionIndex];
+        
+        return (
+            <div>
+                <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 min-h-[200px]">
+                    <label className="block text-gray-200 text-md font-medium mb-2">{currentQuestion.question || currentQuestion}</label>
+                    <textarea
+                        value={answers[currentQuestionIndex] || ''}
+                        onChange={(e) => {
+                            const newAnswers = { ...answers, [currentQuestionIndex]: e.target.value };
+                            onAnswerChange(answerField, newAnswers);
+                        }}
+                        rows="5"
+                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                    ></textarea>
+                </div>
+                <div className="mobile-question-navigator">
+                    <button onClick={() => setCurrentQuestionIndex(i => i - 1)} disabled={currentQuestionIndex === 0} className="bg-gray-700 hover:bg-gray-600">Previous</button>
+                    <span className="mobile-question-progress">Question {currentQuestionIndex + 1} of {questions.length}</span>
+                    <button onClick={() => setCurrentQuestionIndex(i => i + 1)} disabled={currentQuestionIndex === questions.length - 1} className="bg-gray-700 hover:bg-gray-600">Next</button>
+                </div>
+            </div>
+        );
+    };
+
+    const renderAllQuestions = (questions, answers, answerField, onAnswerChange, onRemove) => (
+        <div className="space-y-6">
+            {(questions || []).map((item, index) => (
+                <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                     <div className="flex justify-between items-start mb-2">
+                        <label className="block text-gray-200 text-md font-medium flex-grow pr-4">{item.question || item}</label>
+                        {onRemove && (
+                            <button onClick={() => onRemove(index)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0" title="Remove this question">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                            </button>
+                        )}
+                    </div>
+                    <textarea
+                        value={(answers || {})[index] || ''}
+                        onChange={(e) => {
+                            const newAnswers = { ...(answers || {}), [index]: e.target.value };
+                            onAnswerChange(answerField, newAnswers);
+                        }}
+                        rows="3"
+                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                    ></textarea>
+                </div>
+            ))}
+        </div>
+    );
+
     const renderContent = () => {
         switch (currentStage) {
             case 'pending':
@@ -272,31 +395,22 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'initial_qa':
+                const questions = localTaskData.initialQuestions || [];
+                const isLastQuestion = currentQuestionIndex === questions.length - 1;
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Clarify Your Vision</h3>
                         <p className="text-gray-400 mb-6">Let's refine the core idea. Your answers here will guide the entire script structure.</p>
-                        {/* REMOVED max-h and overflow classes */}
-                        <div className="space-y-6">
-                            {(localTaskData.initialQuestions || []).map((question, index) => (
-                                <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-gray-200 text-md font-medium mb-2">{question}</label>
-                                    <textarea
-                                        value={(localTaskData.initialAnswers || {})[index] || ''}
-                                        onChange={(e) => {
-                                            const newAnswers = { ...(localTaskData.initialAnswers || {}), [index]: e.target.value };
-                                            handleDataChange('initialAnswers', newAnswers);
-                                        }}
-                                        rows="3"
-                                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                                    ></textarea>
-                                </div>
-                            ))}
-                        </div>
+                        {isMobile ? 
+                            renderPaginatedQuestions(questions, localTaskData.initialAnswers, 'initialAnswers', handleDataChange) : 
+                            renderAllQuestions(questions, localTaskData.initialAnswers, 'initialAnswers', handleDataChange)
+                        }
                         <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
-                            </button>
+                            {(!isMobile || isLastQuestion) && (
+                                <button onClick={() => handleAction(onGenerateDraftOutline, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Draft Outline'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 );
@@ -328,9 +442,6 @@ const ScriptingWorkspaceModal = ({
                         </div>
                         <div className="flex justify-between items-center mt-8">
                             <button onClick={() => handleStageClick('initial_thoughts')} className="button-secondary">Start Over</button>
-                            {/* THIS IS THE KEY CHANGE.
-                              Replace 'onProceedToOnCamera' with the new 'onGenerateRefinementQuestions' handler.
-                            */}
                             <button onClick={() => handleAction(onGenerateRefinementQuestions, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
                             </button>
@@ -339,42 +450,36 @@ const ScriptingWorkspaceModal = ({
                 );
 
             case 'refinement_qa':
+                const refinementQuestions = localTaskData.locationQuestions || [];
+                const isLastRefinementQuestion = currentQuestionIndex === refinementQuestions.length - 1;
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4: Answer a Few More Questions</h3>
                         <p className="text-gray-400 mb-6">Let's get specific. Your answers here will be woven directly into the final script. You can leave questions blank or remove any that aren't helpful.</p>
-                        {/* REMOVED max-h and overflow classes */}
-                        <div className="space-y-6">
-                            {(localTaskData.locationQuestions || []).map((item, index) => (
-                                 <div key={index} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <label className="block text-gray-200 text-md font-medium flex-grow pr-4">{item.question}</label>
-                                        <button onClick={() => handleRemoveQuestion(index)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-800/50 rounded-full flex-shrink-0" title="Remove this question">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
-                                        </button>
-                                    </div>
-                                    <textarea value={(localTaskData.userExperiences || {})[index] || ''} onChange={(e) => { const newExperiences = { ...(localTaskData.userExperiences || {}), [index]: e.target.value }; handleDataChange('userExperiences', newExperiences); }} rows="4" className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"></textarea>
-                                </div>
-                            ))}
-                        </div>
+                         {isMobile ? 
+                            renderPaginatedQuestions(refinementQuestions, localTaskData.userExperiences, 'userExperiences', handleDataChange) :
+                            renderAllQuestions(refinementQuestions, localTaskData.userExperiences, 'userExperiences', handleDataChange, handleRemoveQuestion)
+                        }
                         <div className="text-center mt-8">
-                             <button 
-                                onClick={async () => {
-                                    const onCameraLocations = (video.locations_featured || []).filter(locName => {
-                                        const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
-                                        return inventoryItem && inventoryItem.onCamera;
-                                    });
-                                    if (onCameraLocations.length > 0) {
-                                        await handleAction(onProceedToOnCamera, localTaskData);
-                                    } else {
-                                        await initiateScriptGeneration();
-                                    }
-                                }} 
-                                disabled={isLoading} 
-                                className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg"
-                            >
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
-                            </button>
+                             {(!isMobile || isLastRefinementQuestion) && (
+                                <button 
+                                    onClick={async () => {
+                                        const onCameraLocations = (video.locations_featured || []).filter(locName => {
+                                            const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+                                            return inventoryItem && inventoryItem.onCamera;
+                                        });
+                                        if (onCameraLocations.length > 0) {
+                                            await handleAction(onProceedToOnCamera, localTaskData);
+                                        } else {
+                                            await initiateScriptGeneration();
+                                        }
+                                    }} 
+                                    disabled={isLoading} 
+                                    className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg"
+                                >
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
+                                </button>
+                             )}
                         </div>
                     </div>
                 );
@@ -384,7 +489,6 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
                         <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
-                        {/* REMOVED max-h and overflow classes */}
                         <div className="space-y-6">
                             {(localTaskData.onCameraLocations || []).map((locationName) => (
                                 <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -414,7 +518,6 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
                         <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
-                        {/* REMOVED h-[50vh] from textarea */}
                         <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="25" className="w-full form-textarea leading-relaxed" placeholder="Your final script will appear here." />
                         <div className="mt-6">
                             <h4 className="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
@@ -439,19 +542,11 @@ const ScriptingWorkspaceModal = ({
         }
     };
 
-    // This is the main modal layout container.
-    // Notice the changes to the classes to allow for a single, main scrollbar.
     return (
-        // MODIFIED: This outer div now creates a solid, full-screen background.
-        // Padding has been removed and the background is now opaque.
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
-            {/* MODIFIED: This inner div is now the main content container.
-              It's been stripped of sizing/margin classes to allow it to fill the screen.
-              Padding has been adjusted for a better full-screen experience.
-            */}
-            <div className="w-full min-h-full p-6 sm:p-12 md:p-16 relative">
-                <button onClick={() => handleClose(true)} className="absolute top-6 right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
-                <h2 className="text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
+            <div className="w-full min-h-full p-4 sm:p-12 md:p-16 relative">
+                <button onClick={() => handleClose(true)} className="absolute top-4 right-4 sm:top-6 sm:right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+                <h2 className="scripting-workspace-title text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
 
                 <ScriptingStepper
                     stages={stages}
