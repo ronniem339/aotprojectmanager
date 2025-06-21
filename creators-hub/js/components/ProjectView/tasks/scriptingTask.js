@@ -528,7 +528,7 @@ case 'on_camera_qa':
             fetchPlaceDetails();
         }, [location?.place_id, location?.name]);
 
-        const summary = placeDetails?.editorial_summary?.overview || 'No description available for this location.';
+        const summary = placeDetails?.shortFormattedAddress || placeDetails?.editorialSummary?.text || 'No description available for this location.';
         const photoName = placeDetails?.photos?.[0]?.name; // The new field is called 'name'
 
         // This calls your secure photo function.
