@@ -1,6 +1,6 @@
 // js/components/BlogIdeasDashboard.js
 
-window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to props
+window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, processingIdeaId }) => { // Add 'onWritePost' and 'processingIdeaId' to props
     const { useState, useEffect, useMemo } = React;
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -9,9 +9,6 @@ window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to
     const [sortOrder, setSortOrder] = useState('desc');
     const [filterTerm, setFilterTerm] = useState('');
     const [filterPostType, setFilterPostType] = useState('All');
-    const [postGenerationQueue, setPostGenerationQueue] = useState([]); // New state for the queue
-    const [isGeneratingPost, setIsGeneratingPost] = useState(false); // New state to track if a post is currently being generated
-    const [processingIdeaId, setProcessingIdeaId] = useState(null); // New state to track which idea is being processed
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
     // Effect to fetch blog ideas
@@ -36,80 +33,6 @@ window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to
         return () => unsubscribe();
     }, [userId, db, appId, sortBy, sortOrder]);
 
-    // Effect to process the post generation queue
-// Effect to process the post generation queue
-    useEffect(() => {
-        const processNextInQueue = async () => {
-            // Guard: Only proceed if no post is currently generating AND there are items in the queue
-            if (isGeneratingPost || postGenerationQueue.length === 0) {
-                return;
-            }
-
-            const ideaToProcess = postGenerationQueue[0];
-            
-            // IMPORTANT: Perform state updates synchronously before any await calls.
-            // This prevents race conditions where the effect might re-run before state is updated.
-            setIsGeneratingPost(true); // Mark that a generation process has started
-            setProcessingIdeaId(ideaToProcess.id); // Track the ID of the idea being processed
-            setPostGenerationQueue(prevQueue => prevQueue.slice(1)); // Immediately remove from the local queue
-
-            // Now, proceed with asynchronous operations
-            // Update status to 'generating' in Firestore
-            try {
-                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
-                    status: 'generating',
-                    generationStartedAt: new Date().toISOString(),
-                    generationError: null // Clear any previous errors
-                });
-            } catch (error) {
-                console.error("Error updating idea status to generating:", error);
-                // If Firestore update fails, abort this generation and reset flags
-                setIsGeneratingPost(false); // Allow next item to be picked up
-                setProcessingIdeaId(null);
-                return; // Stop processing this item
-            }
-
-            try {
-                // Call the AI function to generate the post content
-                const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
-                    idea: ideaToProcess,
-                    coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-                    monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-                    listicleContent: settings.knowledgeBases.blog.listicleContent,
-                    destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent,
-                    settings: settings // Always pass the full settings object
-                });
-
-                // Update idea with generated content and status 'generated'
-                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
-                    status: 'generated',
-                    blogPostContent: blogPostContent,
-                    generationCompletedAt: new Date().toISOString()
-                });
-
-            } catch (error) {
-                console.error("Error generating blog post:", error);
-                // Update idea status to 'failed' and store error
-                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaToProcess.id).update({
-                    status: 'failed',
-                    generationError: error.message || 'Unknown error during generation',
-                    generationCompletedAt: new Date().toISOString()
-                });
-            } finally {
-                // Reset processing flags, allowing the next item in queue (if any) to be picked up.
-                // This 'false' will re-trigger the useEffect if postGenerationQueue is not empty.
-                setIsGeneratingPost(false);
-                setProcessingIdeaId(null);
-            }
-        };
-
-        // Call the processing function whenever postGenerationQueue or isGeneratingPost changes.
-        // The internal guard prevents redundant calls if a process is already active or queue is empty.
-        processNextInQueue();
-
-    }, [postGenerationQueue, isGeneratingPost, userId, db, appId, settings]);
-
-
     const handleRowClick = (id) => {
         setExpandedRow(expandedRow === id ? null : id);
     };
@@ -127,32 +50,10 @@ window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to
         }
     };
 
-    // New: Function to handle writing a post (add to queue)
-const handleWritePost = async (e, idea) => {
-        e.stopPropagation(); // Prevent row expansion
-        if (idea.status === 'queued' || idea.status === 'generating') {
-            // No alert needed, status on dashboard already indicates this
-            return;
-        }
-
-        // Add to local queue state
-        setPostGenerationQueue(prevQueue => [...prevQueue, idea]);
-
-        // Update status in Firestore to 'queued'
-        try {
-            await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(idea.id).update({
-                status: 'queued',
-                generationError: null // Clear any previous errors when re-queueing
-            });
-            // Removed: alert(`"${idea.title}" has been added to the generation queue.`);
-        } catch (error) {
-            console.error("Error adding idea to queue in Firestore:", error);
-            // Optionally remove from local queue if Firestore update fails
-            setPostGenerationQueue(prevQueue => prevQueue.filter(item => item.id !== idea.id));
-            // Removed: alert(`Failed to add "${idea.title}" to the queue. Please try again.`);
-        }
+    const handleWritePost = (e, idea) => {
+        e.stopPropagation();
+        onWritePost(idea); // Call the function passed down from app.js
     };
-
 
     const handleSort = (column) => {
         if (sortBy === column) {
@@ -182,10 +83,7 @@ const handleWritePost = async (e, idea) => {
         if (filterPostType !== 'All') {
             filtered = filtered.filter(idea => idea.postType === filterPostType);
         }
-
-        // Sorting is handled by Firestore query directly in useEffect,
-        // but if more complex client-side sorting is needed based on multiple fields,
-        // it would go here using array.sort(). For now, this is efficient.
+        
         return filtered;
     }, [ideas, filterTerm, filterPostType]);
 
