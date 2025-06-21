@@ -181,6 +181,9 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
      * NEW: Generates a full blog post based on an approved idea. This is considered a complex task.
      */
 
+/**
+     * NEW: Generates a full blog post based on an approved idea. This is considered a complex task.
+     */
     generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
@@ -208,7 +211,7 @@ You MUST adhere to the following foundational knowledge bases for all generated 
 **Core SEO & Content Engine:**
 ${coreSeoEngine || "Focus on user intent and long-tail keywords. Structure with H1, H2, H3 tags. Include internal and external linking opportunities."}
 ---
-${postTypeSpecificKb} // Include the post-type specific knowledge base here
+${postTypeSpecificKb}
 **Monetization & Content Goals:**
 ${monetizationGoals || "Strategically integrate opportunities for affiliate revenue from links naturally within the content. Do NOT explicitly suggest adding links, just provide the content that would support them."}
 ---
@@ -219,15 +222,34 @@ ${monetizationGoals || "Strategically integrate opportunities for affiliate reve
 3.  Naturally integrate the "primaryKeyword" throughout the content.
 4.  Weave in the "monetizationOpportunities" as seamlessly as possible. Think about what relevant products, services, or tours could be mentioned naturally. Do not explicitly suggest adding links, just provide the content that would support them.
 5.  Maintain the creator's style and tone.
-6.  The response MUST be a valid JSON object with a single key "blogPostContent" which is a string containing the full blog post formatted in Markdown.
-7.  CRITICAL FOR JSON PARSING: Ensure that the value for "blogPostContent" is a single, valid JSON-escaped string. All newlines should be \\n, and all double quotes within the content should be \\".Example JSON format:
+6.  Your response MUST contain a single JSON object with a key "blogPostContent". The value of "blogPostContent" should be the full blog post formatted in Markdown.
+7.  **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters. This helps in reliable parsing.
+
+Example Output Format:
+~~~json
 {
   "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n...\\n### Section 1\\n...\\n"
 }
+~~~
 `;
 
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "application/json" }, true);
+            // Change responseMimeType to "text/plain"
+            const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+
+            // Extract JSON string using regex
+            const jsonMatch = rawResponseText.match(/```json\n([\s\S]*?)\n```/);
+            let jsonString = null;
+            if (jsonMatch && jsonMatch[1]) {
+                jsonString = jsonMatch[1];
+            } else {
+                 // Fallback: if ```json``` not found, try to parse the whole response as JSON
+                 console.warn("AI response did not contain expected ```json``` block. Attempting to parse raw response as JSON.");
+                 jsonString = rawResponseText;
+            }
+
+            const parsedJson = JSON.parse(jsonString); // Attempt to parse the extracted string
+
             if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
                 return parsedJson.blogPostContent;
             } else {
