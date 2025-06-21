@@ -89,7 +89,26 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
             // Prepend the new log to the existing log array
             const newLog = [newLogEntry, ...styleGuideLog];
 
-            // Update the local state immediately for a responsive UI
+            // *** FIX STARTS HERE ***
+            // 1. Create the updated settings object to save all current data.
+            const updatedSettings = {
+                ...settings,
+                ...styleInputs,
+                knowledgeBases: {
+                    ...settings.knowledgeBases,
+                    creator: {
+                        ...settings.knowledgeBases?.creator,
+                        styleGuideText: newStyleGuideText, // Use the new guide text
+                        styleGuideLog: newLog // Use the new log
+                    }
+                }
+            };
+
+            // 2. Call onSave to immediately persist the changes.
+            onSave(updatedSettings);
+            // *** FIX ENDS HERE ***
+
+            // Update the local state for a responsive UI
             setStyleGuideText(newStyleGuideText);
             setStyleGuideLog(newLog);
             
