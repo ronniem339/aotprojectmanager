@@ -1,6 +1,6 @@
 // js/components/BlogTool.js
 
-// 1. MODIFIED: Add onWritePost and processingIdeaId to the component's props
+// CHANGE 1 of 2: Add `onWritePost` and `processingIdeaId` to the list of props being received.
 window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db, onWritePost, processingIdeaId }) => {
     const { useState, useEffect } = React;
 
@@ -237,10 +237,10 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db, onWrite
 
                 <div className="glass-card p-6 rounded-lg">
                     <h2 className="text-2xl font-semibold mb-4">3. Approved Ideas Pipeline</h2>
-                    {/* 2. MODIFIED: Pass the props down to the dashboard component */}
-                    <window.BlogIdeasDashboard 
-                        userId={userId} 
-                        db={db} 
+                    {/* CHANGE 2 of 2: Pass the received props down to the BlogIdeasDashboard component. */}
+                    <window.BlogIdeasDashboard
+                        userId={userId}
+                        db={db}
                         settings={settings}
                         onWritePost={onWritePost}
                         processingIdeaId={processingIdeaId}
