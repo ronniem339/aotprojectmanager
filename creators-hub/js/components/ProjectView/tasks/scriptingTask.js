@@ -688,9 +688,6 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     // This function is now only responsible for moving to the On-Camera QA step.
     const handleProceedToOnCamera = async (currentTaskData) => {
-
-    // This function is now only responsible for moving to the On-Camera QA step.
-    const handleProceedToOnCamera = async (currentTaskData) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
 
         const onCameraLocations = (video.locations_featured || []).filter(locName => {
