@@ -408,92 +408,46 @@ Example JSON format:
     },
 
 
-    /**
-     * Generates a detailed script plan and follow-up questions. This is a complex task.
-     */
-    generateScriptPlanAI: async ({ videoTitle, videoConcept, draftOutline, settings, videoTone }) => {
+ // In creators-hub/js/utils/aiUtils.js
+
+generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone, existingScript = '' }) => {
     const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
-    const outline = draftOutline || videoConcept;
+    let prompt;
 
-    const prompt = `You are an experienced YouTube script planner. Your task is to analyze a draft outline and generate specific, easy-to-answer questions to extract the details needed for a full script.
+    // --- START OF NEW LOGIC ---
 
-Video Title: "${videoTitle}"
-Draft Outline:
+    // IF an existing script is provided, the task is REFINEMENT.
+    if (existingScript) {
+        
+        // This is a new, dedicated prompt for editing.
+        prompt = `You are a professional script editor. Your task is to refine the following video script based on the user's specific request.
+You must apply the requested changes directly to the provided script. Do not add or remove sections unless specifically asked to. Preserve the structure and tone of the original script as much as possible, unless the feedback asks you to change it.
+
+USER'S REFINEMENT REQUEST:
 ---
-${outline}
+"${refinementText}"
 ---
 
-${styleGuide}
+EXISTING SCRIPT TO REFINE:
+---
+${existingScript}
+---
 
-**Your Task:**
-1.  **Review the Outline:** Analyze each section of the provided script outline.
-2.  **Generate Specific Questions:** For each section, create 1-3 simple, direct questions. The goal is a balance between practical information and personal experience. Questions should pull out:
-    - **Practical Details:** Key actions, "how-to" steps, important facts, or logistics.
-    - **Personal Details:** Specific memories, sensory details (sight, sound, taste), emotions, and anecdotes.
-    The phrasing of these questions should align with the creator's persona and style.
-    
-    *Good Question Examples:*
-    - "What was the single most surprising thing you discovered at [Location]?"
-    - "What's the #1 practical tip you'd give someone visiting [Place] for the first time?"
-    - "Describe the taste of [Food Item] in just three words."
-    - "What was the first thing you did when you arrived at [Scene]?"
-    - "What's a common mistake people make here?"
+Now, return only the full, complete, and updated script text. Do not add any extra commentary, headers, or speaker names.`;
 
-    *Bad Question Examples (Avoid these):*
-    - "What was your experience?" (Too broad)
-    - "Tell me about the location." (Not specific enough)
-    - "How did this place make you feel on a deep, spiritual level?" (Usually too abstract)
-
-3.  **Return a Refined Plan & Questions:** Your goal is to present the user with their own plan, now enhanced with your clarifying questions.
-
-**Output Format:**
-Your response MUST be a valid JSON object with two keys: "scriptPlan" and "locationQuestions".
-- "scriptPlan": (String) The original outline that was provided to you.
-- "locationQuestions": (Array of Objects) An array where each object has a "question" key containing the string of the question.
-Example: 
-{
-  "scriptPlan": "Intro: Hook the viewer...",
-  "locationQuestions": [
-    {"question": "What's the hook?"},
-    {"question": "What's the key takeaway for the main segment?"}
-  ]
-}
-`;
-
-    const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    if (parsedJson && typeof parsedJson.scriptPlan === 'string' && Array.isArray(parsedJson.locationQuestions)) {
-        return parsedJson;
+    // ELSE, if no existing script is provided, the task is INITIAL GENERATION.
     } else {
-         throw new Error("AI returned an invalid format for script plan.");
-    }
-},
-    
-    /**
-     * MODIFIED: Generates a full script, now aware of on-camera segments. This is a complex task.
-     * The function name is changed to align with the calling component (ScriptingTask.js)
-     */
-    generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone }) => {
-        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-        // Build the prompt section for on-camera descriptions, if they exist
-        let onCameraPromptSection = '';
-        if (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0) {
-            const descriptions = Object.entries(onCameraDescriptions)
-                .filter(([, desc]) => desc && desc.trim() !== '')
-                .map(([loc, desc]) => `- At ${loc}, the creator will be on camera to say/do the following: "${desc}"`)
-                .join('\n');
-            
-            if (descriptions) {
-                onCameraPromptSection = `**On-Camera Segments (CRITICAL CONTEXT):**
+        // This is your original, detailed prompt for creating a new script.
+        const onCameraPromptSection = (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0)
+            ? `**On-Camera Segments (CRITICAL CONTEXT):**
 The creator has already recorded on-camera dialogue/actions. Your most important job is to write a voiceover that works AROUND these segments.
-
 DO NOT repeat information that is already delivered on-camera. Your script should provide the missing context or what's happening between takes, not restate what's already said.
 Your voiceover MUST serve as the bridge between segments. Write smooth transitions that lead INTO and OUT OF these on-camera moments.
 Here is what the creator has noted about their on-camera footage. This is what you must work around:
-${descriptions}
-`;
-            }
-        }
+${Object.entries(onCameraDescriptions).filter(([, desc]) => desc && desc.trim() !== '').map(([loc, desc]) => `- At ${loc}, the creator will be on camera to say/do the following: "${desc}"`).join('\n')}
+`
+            : '';
 
         const answersPromptSection = `
 Creator's Detailed Answers to Questions:
@@ -502,11 +456,14 @@ ${userAnswers}
 ---
 `;
 
+        // Note: The refinementPromptSection is only relevant for the initial generation
+        // in case the user provides feedback at the same time. In our new workflow,
+        // refinementText will usually be for an existing script, handled above.
         const refinementPromptSection = refinementText 
             ? `**Refinement Feedback:** You MUST incorporate this feedback into the new script: "${refinementText}".\n---\n` 
             : '';
 
-        const prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
+        prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
 Video Title: "${videoTitle}"
 ${styleGuide}
 
@@ -525,13 +482,16 @@ Your Final Instructions:
 4. Crucially, you must follow the rules in the "On-Camera Segments" section if it exists. Your script is the glue that holds the on-camera parts and the voiceover together. For example, lead into an on-camera segment with a question ("I had to see if this place lived up to the hype...") and lead out of it with a reflection ("...and it absolutely did. Now, on to the next stop.").
 
 Now, write the complete voiceover script.`;
+    }
+
+    // --- END OF NEW LOGIC ---
         
-        // This is a complex task requiring a plain text response.
-        const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-        
-        // The calling function expects an object, so we wrap the text response.
-        return { finalScript: responseText };
-    },
+    // This part remains the same. It will execute whichever prompt was constructed.
+    const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+    
+    // The calling function expects an object, so we wrap the text response.
+    return { finalScript: responseText };
+},
     
     /**
      * Generates keywords. This is a simple task.
