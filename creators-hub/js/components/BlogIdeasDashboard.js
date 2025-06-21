@@ -117,10 +117,10 @@ window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to
     };
 
     // New: Function to handle writing a post (add to queue)
-    const handleWritePost = async (e, idea) => {
+const handleWritePost = async (e, idea) => {
         e.stopPropagation(); // Prevent row expansion
         if (idea.status === 'queued' || idea.status === 'generating') {
-            alert(`This post is already in the queue or being generated.`);
+            // No alert needed, status on dashboard already indicates this
             return;
         }
 
@@ -133,12 +133,12 @@ window.BlogIdeasDashboard = ({ userId, db, settings }) => { // Add 'settings' to
                 status: 'queued',
                 generationError: null // Clear any previous errors when re-queueing
             });
-            alert(`"${idea.title}" has been added to the generation queue.`);
+            // Removed: alert(`"${idea.title}" has been added to the generation queue.`);
         } catch (error) {
             console.error("Error adding idea to queue in Firestore:", error);
             // Optionally remove from local queue if Firestore update fails
             setPostGenerationQueue(prevQueue => prevQueue.filter(item => item.id !== idea.id));
-            alert(`Failed to add "${idea.title}" to the queue. Please try again.`);
+            // Removed: alert(`Failed to add "${idea.title}" to the queue. Please try again.`);
         }
     };
 
