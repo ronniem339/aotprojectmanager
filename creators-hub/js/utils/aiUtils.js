@@ -229,42 +229,38 @@ Example Output Format:
 ~~~
 `;
 
-        try {
-            // Change responseMimeType to "text/plain"
+       try {
             const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
 
-            // Corrected: Extract JSON string using regex, matching '~~~json' and '~~~'
-            const jsonMatch = rawResponseText.match(/```json\s*([\s\S]*?)\s*```/); // This regex still looks for ```, let's fix it to ~~~
+            // Robust regex to extract JSON block wrapped in '~~~json' and '~~~'
+            // It allows for optional whitespace around 'json' and newlines/whitespace around the JSON content.
+            const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
+            const match = rawResponseText.match(jsonBlockRegex);
+            
             let jsonString = null;
-            if (jsonMatch && jsonMatch[1]) {
-                jsonString = jsonMatch[1];
-            } else {
-                 // Fallback: if ```json``` not found, try to parse the whole response as JSON
-                 console.warn("AI response did not contain expected ```json``` block. Attempting to parse raw response as JSON.");
-                 jsonString = rawResponseText;
-            }
 
-            // Corrected regex to match ~~~json and ~~~
-            const tildeJsonMatch = rawResponseText.match(/~~~\s*json\s*([\s\S]*?)\s*~~~/);
-            if (tildeJsonMatch && tildeJsonMatch[1]) {
-                jsonString = tildeJsonMatch[1];
+            if (match && match[1]) {
+                jsonString = match[1]; // Captured group contains the JSON string
             } else {
-                console.warn("AI response did not contain expected ~~~json~~~ block. Attempting to parse raw response as JSON or fallback to previous logic.");
-                // Fallback if neither ```json``` nor ~~~json~~~ are found
-                // If the AI somehow returns just the JSON without markers, try parsing it directly
-                jsonString = rawResponseText; // This assumes rawResponseText might sometimes be pure JSON
+                console.error("AI response did not contain a valid JSON block within ~~~json~~~ delimiters.");
+                console.error("Raw AI response:", rawResponseText); // Log raw response for debugging
+                throw new Error("AI response did not provide the expected JSON format. Please try again.");
             }
-
 
             const parsedJson = JSON.parse(jsonString); // Attempt to parse the extracted string
 
             if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
                 return parsedJson.blogPostContent;
             } else {
-                throw new Error("AI returned an invalid format for blog post content.");
+                console.error("Parsed JSON missing 'blogPostContent' or it's not a string:", parsedJson);
+                throw new Error("AI returned an invalid format for blog post content (missing 'blogPostContent' field).");
             }
         } catch (error) {
             console.error("Error generating blog post content:", error);
+            // Provide more specific error message if it's a JSON parsing issue
+            if (error instanceof SyntaxError) {
+                throw new Error(`AI failed to generate blog post content: JSON parsing error - ${error.message}`);
+            }
             throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
         }
     },
