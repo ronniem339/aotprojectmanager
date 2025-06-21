@@ -494,31 +494,120 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
-            case 'on_camera_qa':
-                return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
-                        <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
-                        <div className="space-y-6">
-                            {(localTaskData.onCameraLocations || []).map((locationName) => (
-                                <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <label className="block text-gray-200 text-md font-medium">{locationName}</label>
-                                        <button onClick={() => onInitiateRemoveLocation(locationName)} className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0" title={`Update use of ${locationName}`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
-                                    <textarea value={(localTaskData.onCameraDescriptions || {})[locationName] || ''} onChange={(e) => handleOnCameraDescriptionChange(locationName, e.target.value)} rows="3" className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent" placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"></textarea>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-center mt-8">
-                            <button onClick={initiateScriptGeneration} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
-                            </button>
-                        </div>
+case 'on_camera_qa':
+    // A new component to handle fetching and displaying details for a single location.
+    // This keeps the main render logic cleaner.
+    const LocationDetailsCard = ({ location, googleMapsApiKey, onDescriptionChange, onRemove, description }) => {
+        const [placeDetails, setPlaceDetails] = React.useState(null);
+        const [isLoading, setIsLoading] = React.useState(true);
+
+        React.useEffect(() => {
+            const fetchPlaceDetails = async () => {
+                // Ensure we have the necessary data to make a request.
+                if (!location?.place_id || !googleMapsApiKey) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                // IMPORTANT: For security, you should not expose your API key on the client-side.
+                // This request should be proxied through a backend function.
+                // For example, you could create a Netlify function at `/.netlify/functions/fetch-place-details`
+                // that takes a `place_id` and makes the request to the Google API server-side.
+                const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${location.place_id}&fields=name,editorial_summary,photos&key=${googleMapsApiKey}`;
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.result) {
+                        setPlaceDetails(data.result);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching place details for ${location.name}:`, error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            fetchPlaceDetails();
+        }, [location?.place_id, googleMapsApiKey, location?.name]);
+
+        // Extract the description and photo reference from the fetched details.
+        const summary = placeDetails?.editorial_summary?.overview || 'No description available for this location.';
+        const photoReference = placeDetails?.photos?.[0]?.photo_reference;
+
+        // Construct the image URL. Use a placeholder while loading or if no photo is found.
+        const imageUrl = isLoading
+            ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
+            : photoReference
+                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${googleMapsApiKey}`
+                : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
+
+        return (
+            <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                <div className="flex justify-between items-start mb-3">
+                    <label className="block text-gray-200 text-md font-medium">{location.name}</label>
+                    <button onClick={() => onRemove(location.name)} className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0" title={`Update use of ${location.name}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                    <div className="flex-shrink-0">
+                         <img
+                            src={imageUrl}
+                            alt={`Photo of ${location.name}`}
+                            className="w-full sm:w-40 h-auto sm:h-24 object-cover rounded-md border border-gray-600"
+                         />
                     </div>
-                );
+                    <div className="flex-grow">
+                        <h4 className="text-sm font-semibold text-gray-400 mb-1">About this place</h4>
+                        {isLoading ? (
+                             <p className="text-sm text-gray-400">Loading details...</p>
+                        ) : (
+                            <p className="text-sm text-gray-300 leading-relaxed">{summary}</p>
+                        )}
+                    </div>
+                </div>
+
+                <textarea
+                    value={description}
+                    onChange={(e) => onDescriptionChange(location.name, e.target.value)}
+                    rows="3"
+                    className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                    placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
+                ></textarea>
+            </div>
+        );
+    };
+
+    // Find the full location objects from the project data based on the names.
+    const onCameraLocationObjects = (localTaskData.onCameraLocations || [])
+        .map(locationName => project.locations.find(loc => loc.name === locationName))
+        .filter(Boolean); // Filter out any that might not be found
+
+    return (
+        <div>
+            <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
+            <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
+            <div className="space-y-6">
+                {onCameraLocationObjects.map((location) => (
+                    <LocationDetailsCard
+                        key={location.place_id}
+                        location={location}
+                        googleMapsApiKey={settings.googleMapsApiKey}
+                        onDescriptionChange={handleOnCameraDescriptionChange}
+                        onRemove={onInitiateRemoveLocation}
+                        description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
+                    />
+                ))}
+            </div>
+            <div className="text-center mt-8">
+                <button onClick={initiateScriptGeneration} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
+                </button>
+            </div>
+        </div>
+    );
             case 'complete':
             case 'full_script_review':
                 if (isLoading) {
