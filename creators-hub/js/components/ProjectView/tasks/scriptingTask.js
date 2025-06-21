@@ -833,7 +833,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            onCameraDescriptions: onCameraDescriptionsToUse
+            onCameraDescriptions: onCameraDescriptionsToUse,
+            existingScript: currentTaskData.script 
         });
 
         if (!response || typeof response.finalScript !== 'string') {
