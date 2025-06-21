@@ -848,59 +848,36 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
 // This function handles both refining the script and updating the style guide.
 const handleRefineScript = async (currentTaskData) => {
-    // Wrap the entire logic in a try...catch block for robust error handling
     try {
-        console.log('Data received by handleRefineScript:', currentTaskData);
-        const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
-        let settingsForRegeneration = { ...settings };
+        console.log("Running simplified test...");
 
-        if (shouldUpdateStyleGuide && scriptRefinementText) {
-            const currentStyleGuide = settings.knowledgeBases?.creator?.styleGuideText || '';
-            
-            const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
-                currentStyleGuide: currentStyleGuide,
-                refinementFeedback: scriptRefinementText,
-                settings: settings
+        // 1. Create a hard-coded, guaranteed-correct log entry.
+        const newLogEntry = {
+            date: new Date().toISOString(),
+            change: "This is a test log entry.",
+        };
+        const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
+        const newLog = [newLogEntry, ...currentLog];
+
+        // 2. We will just save the log, nothing else.
+        if (onUpdateSettings) {
+            await onUpdateSettings({
+                'knowledgeBases.creator.styleGuideLog': newLog
             });
-            console.log('AI response for style guide:', styleGuideResponse);
-
-            if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
-                throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
-            }
-
-            const newStyleGuideText = styleGuideResponse.newStyleGuideText;
-
-            // --- START OF FIX ---
-            // Change 1: Create a structured log entry object instead of a string.
-            // This is easier for the UI to parse and display correctly.
-            const newLogEntry = {
-                date: new Date().toISOString(),
-                change: scriptRefinementText,
-            };
-            // --- END OF FIX ---
-            
-            const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
-            const newLog = [newLogEntry, ...currentLog];
-
-            if (onUpdateSettings) {
-                await onUpdateSettings({
-                    'knowledgeBases.creator.styleGuideText': newStyleGuideText,
-                    'knowledgeBases.creator.styleGuideLog': newLog
-                });
-            }
-
-           // --- CORRECTED REGENERATION SETTINGS ---
-// Start with a deep clone of the OLD settings
-settingsForRegeneration = JSON.parse(JSON.stringify(settings));
-
-// Ensure the path to the creator knowledge base exists
-if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
-if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
-
-// Manually update BOTH the text and the log for the next AI call
-settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
-settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog; // This was the missing piece
+            console.log("Test log sent to be saved.");
+        } else {
+            console.log("onUpdateSettings function not found.");
         }
+
+        // 3. We will NOT try to refine the script in this test.
+
+        alert("Test complete. Check the Style & Tone page for the test log entry.");
+
+    } catch (error) {
+        console.error("Error during simplified test:", error);
+        alert(`Simplified test failed: ${error.message}`);
+    }
+};
 
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
