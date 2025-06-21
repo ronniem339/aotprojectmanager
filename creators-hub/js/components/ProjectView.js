@@ -1,7 +1,7 @@
 // js/components/ProjectView.js
 
 window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance }) => {
-    const { useState, useEffect, useCallback } = React;
+    const { useState, useEffect, useCallback, onNavigate } = React;
     const [localProject, setLocalProject] = useState(null);
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -393,6 +393,7 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
                                     userId={userId}
                                     db={db}
                                     allVideos={videos} 
+                                    onNavigate={onNavigate}
 
                                 />
                             </main>
