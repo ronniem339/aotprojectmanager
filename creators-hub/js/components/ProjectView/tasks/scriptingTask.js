@@ -231,6 +231,7 @@ const ScriptingWorkspaceModal = ({
     onRefineScript,
     settings,
     project,
+    onNavigate,
 }) => {
     const [currentStage, setCurrentStage] = useState(stageOverride || taskData.scriptingStage || 'initial_thoughts');
     const [localTaskData, setLocalTaskData] = useState(taskData);
@@ -532,7 +533,7 @@ const ScriptingWorkspaceModal = ({
                             <div className="flex justify-between items-center mb-2">
                                 <h4 className="text-md font-semibold text-amber-400">Refinement Instructions</h4>
                                 <button
-                                    onClick={() => alert("This button needs to be connected to your app's navigation logic to show the 'My Studio' screen.")}
+                                    onClick={() => onNavigate('myStudio')}
                                     className="text-sm text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
                                 >
                                     Refine Style Guide ↗
@@ -591,7 +592,7 @@ const ScriptingWorkspaceModal = ({
         </div>
     );
 };
-window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings }) => {
+window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     const [locationToModify, setLocationToModify] = useState(null);
