@@ -82,6 +82,12 @@ window.App = () => { // Exposing App component globally
     const [firebaseDb, setFirebaseDb] = useState(null);
     const [firebaseAuth, setFirebaseAuth] = useState(null);
 
+    // START - ADDED FOR BLOG POST GENERATION QUEUE
+    const [postGenerationQueue, setPostGenerationQueue] = useState([]);
+    const [isGeneratingPost, setIsGeneratingPost] = useState(false);
+    const [processingIdeaId, setProcessingIdeaId] = useState(null);
+    // END - ADDED FOR BLOG POST GENERATION QUEUE
+
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
 
     useEffect(() => {
@@ -186,6 +192,84 @@ window.App = () => { // Exposing App component globally
             return () => unsubscribeSettings();
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
+
+    // START - ADDED FOR BLOG POST GENERATION QUEUE
+    useEffect(() => {
+        const processNextInQueue = async () => {
+            if (isGeneratingPost || postGenerationQueue.length === 0 || !user || !firebaseDb) {
+                return;
+            }
+
+            const ideaToProcess = postGenerationQueue[0];
+            
+            setIsGeneratingPost(true);
+            setProcessingIdeaId(ideaToProcess.id);
+            setPostGenerationQueue(prevQueue => prevQueue.slice(1));
+
+            try {
+                await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaToProcess.id).update({
+                    status: 'generating',
+                    generationStartedAt: new Date().toISOString(),
+                    generationError: null
+                });
+            } catch (error) {
+                console.error("Error updating idea status to generating:", error);
+                setIsGeneratingPost(false);
+                setProcessingIdeaId(null);
+                return;
+            }
+
+            try {
+                const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
+                    idea: ideaToProcess,
+                    coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
+                    monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
+                    listicleContent: settings.knowledgeBases.blog.listicleContent,
+                    destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent,
+                    settings: settings
+                });
+
+                await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaToProcess.id).update({
+                    status: 'generated',
+                    blogPostContent: blogPostContent,
+                    generationCompletedAt: new Date().toISOString()
+                });
+
+            } catch (error) {
+                console.error("Error generating blog post:", error);
+                await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaToProcess.id).update({
+                    status: 'failed',
+                    generationError: error.message || 'Unknown error during generation',
+                    generationCompletedAt: new Date().toISOString()
+                });
+            } finally {
+                setIsGeneratingPost(false);
+                setProcessingIdeaId(null);
+            }
+        };
+
+        processNextInQueue();
+
+    }, [postGenerationQueue, isGeneratingPost, user, firebaseDb, APP_ID, settings]);
+
+    const handleWritePost = async (idea) => {
+        if (idea.status === 'queued' || idea.status === 'generating') {
+            return;
+        }
+
+        setPostGenerationQueue(prevQueue => [...prevQueue, idea]);
+
+        try {
+            await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id).update({
+                status: 'queued',
+                generationError: null
+            });
+        } catch (error) {
+            console.error("Error adding idea to queue in Firestore:", error);
+            setPostGenerationQueue(prevQueue => prevQueue.filter(item => item.id !== idea.id));
+        }
+    };
+    // END - ADDED FOR BLOG POST GENERATION QUEUE
 
 
     const displayNotification = (message) => {
@@ -393,7 +477,17 @@ window.App = () => { // Exposing App component globally
             case 'tools':
                 return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
             case 'blogTool':
-                return <window.BlogTool settings={settings} onBack={() => setCurrentView('tools')} onNavigateToSettings={() => setCurrentView('technicalSettings')} userId={user.uid} db={firebaseDb} />;
+                return <window.BlogTool 
+                            settings={settings} 
+                            onBack={() => setCurrentView('tools')} 
+                            onNavigateToSettings={() => setCurrentView('technicalSettings')} 
+                            userId={user.uid} 
+                            db={firebaseDb}
+                            // START - ADDED FOR BLOG POST GENERATION QUEUE
+                            onWritePost={handleWritePost}
+                            processingIdeaId={processingIdeaId}
+                            // END - ADDED FOR BLOG POST GENERATION QUEUE
+                        />;
             case 'shortsTool':
                  return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             case 'contentLibrary':
