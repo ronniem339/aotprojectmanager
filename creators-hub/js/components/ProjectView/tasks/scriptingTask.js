@@ -494,26 +494,23 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
+// In creators-hub/js/components/ProjectView/tasks/scriptingTask.js
+
 case 'on_camera_qa':
-    // A new component to handle fetching and displaying details for a single location.
-    // This keeps the main render logic cleaner.
-    const LocationDetailsCard = ({ location, googleMapsApiKey, onDescriptionChange, onRemove, description }) => {
+    // A component to handle fetching and displaying details for a single location.
+    const LocationDetailsCard = ({ location, onDescriptionChange, onRemove, description }) => {
         const [placeDetails, setPlaceDetails] = React.useState(null);
         const [isLoading, setIsLoading] = React.useState(true);
 
         React.useEffect(() => {
             const fetchPlaceDetails = async () => {
-                // Ensure we have the necessary data to make a request.
-                if (!location?.place_id || !googleMapsApiKey) {
+                if (!location?.place_id) {
                     setIsLoading(false);
                     return;
                 }
 
-                // IMPORTANT: For security, you should not expose your API key on the client-side.
-                // This request should be proxied through a backend function.
-                // For example, you could create a Netlify function at `/.netlify/functions/fetch-place-details`
-                // that takes a `place_id` and makes the request to the Google API server-side.
-                const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${location.place_id}&fields=name,editorial_summary,photos&key=${googleMapsApiKey}`;
+                // This now calls your secure Netlify function.
+                const url = `/.netlify/functions/fetch-place-details?place_id=${location.place_id}`;
 
                 try {
                     const response = await fetch(url);
@@ -529,17 +526,16 @@ case 'on_camera_qa':
             };
 
             fetchPlaceDetails();
-        }, [location?.place_id, googleMapsApiKey, location?.name]);
+        }, [location?.place_id, location?.name]);
 
-        // Extract the description and photo reference from the fetched details.
         const summary = placeDetails?.editorial_summary?.overview || 'No description available for this location.';
         const photoReference = placeDetails?.photos?.[0]?.photo_reference;
 
-        // Construct the image URL. Use a placeholder while loading or if no photo is found.
+        // This calls your secure photo function.
         const imageUrl = isLoading
             ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
             : photoReference
-                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${googleMapsApiKey}`
+                ? `/.netlify/functions/fetch-place-photo?photoreference=${photoReference}`
                 : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
 
         return (
@@ -580,10 +576,9 @@ case 'on_camera_qa':
         );
     };
 
-    // Find the full location objects from the project data based on the names.
     const onCameraLocationObjects = (localTaskData.onCameraLocations || [])
         .map(locationName => project.locations.find(loc => loc.name === locationName))
-        .filter(Boolean); // Filter out any that might not be found
+        .filter(Boolean);
 
     return (
         <div>
@@ -594,7 +589,7 @@ case 'on_camera_qa':
                     <LocationDetailsCard
                         key={location.place_id}
                         location={location}
-                        googleMapsApiKey={settings.googleMapsApiKey}
+                        // Note that the `googleMapsApiKey` prop has been removed here.
                         onDescriptionChange={handleOnCameraDescriptionChange}
                         onRemove={onInitiateRemoveLocation}
                         description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
