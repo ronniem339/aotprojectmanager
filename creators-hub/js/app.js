@@ -298,6 +298,7 @@ window.App = () => { // Exposing App component globally
     const handleShowTechnicalSettings = () => setCurrentView('technicalSettings');
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
+const handleNavigate = (view) => setCurrentView(view);
 
 const handleSaveSettings = async (updater) => {
     if (!user || !firebaseDb) return;
@@ -473,7 +474,7 @@ const handleSaveSettings = async (updater) => {
 
         switch (currentView) {
             case 'project':
-                return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} onUpdateSettings={handleSaveSettings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} />;
+    return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} onUpdateSettings={handleSaveSettings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} onNavigate={handleNavigate} />; // Add onNavigate={handleNavigate} here
             case 'settingsMenu':
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
             case 'technicalSettings':
