@@ -308,30 +308,20 @@ const handleNavigate = (view) => {
     setPreviousView(currentView);
     setCurrentView(view);
 };
-const handleSaveSettings = async (updater) => {
+const handleSaveSettings = async (updatedSettingsObject) => {
     if (!user || !firebaseDb) return;
 
     const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
 
     try {
-        // --- NEW READ-MODIFY-WRITE LOGIC ---
+        // Use .set() with { merge: true } to safely update the document in Firestore.
+        // This updates only the fields in our object, creating the document if it doesn't exist.
+        await settingsDocRef.set(updatedSettingsObject, { merge: true });
 
-        // 1. Get the latest settings directly from Firestore.
-        const currentDoc = await settingsDocRef.get();
-        const currentSettings = currentDoc.exists() ? currentDoc.data() : {};
+        // Update the application's local state with the newly saved data.
+        setSettings(updatedSettingsObject);
 
-        // 2. Apply the requested changes to the settings object.
-        //    The 'updater' is a function that we will define in the next step.
-        const newSettings = updater(currentSettings);
-
-        // 3. Write the entire, newly-merged settings object back.
-        //    Using .set() here overwrites the old document with the complete new one.
-        await settingsDocRef.set(newSettings);
-
-        // 4. Update the application's local state with the saved data.
-        setSettings(newSettings);
-        
-        console.log('Settings successfully saved with new read-modify-write method.');
+        console.log('Settings successfully saved to Firestore.');
 
     } catch (error) {
         console.error('A critical error occurred while saving settings:', error);
