@@ -846,85 +846,27 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         });
     };
 
-// This function handles both refining the script and updating the style guide.
+// This function now ONLY refines the script.
 const handleRefineScript = async (currentTaskData) => {
-    // Wrap the entire logic in a try...catch block for robust error handling
     try {
-        console.log('Data received by handleRefineScript:', currentTaskData);
-        const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
-        let settingsForRegeneration = { ...settings };
+        const { scriptRefinementText } = currentTaskData;
 
-        if (shouldUpdateStyleGuide && scriptRefinementText) {
-            const currentStyleGuide = settings.knowledgeBases?.creator?.styleGuideText || '';
-            
-            const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
-                currentStyleGuide: currentStyleGuide,
-                refinementFeedback: scriptRefinementText,
-                settings: settings
-            });
-            console.log('AI response for style guide:', styleGuideResponse);
-
-            if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
-                throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
-            }
-
-            const newStyleGuideText = styleGuideResponse.newStyleGuideText;
-
-            // Create a structured log entry object.
-            const newLogEntry = {
-                date: new Date().toISOString(),
-                change: scriptRefinementText,
-            };
-
-            // --- START OF RECOMMENDED CHANGE ---
-            // The call to onUpdateSettings is now wrapped in a function,
-            // which is the robust "read-modify-write" pattern.
-            if (onUpdateSettings) {
-                // This function will be executed by handleSaveSettings in app.js
-                await onUpdateSettings((latestSettings) => {
-                    // Start with a clean copy of the latest settings from the database
-                    const newSettings = JSON.parse(JSON.stringify(latestSettings));
-
-                    // Ensure the nested structure exists to avoid errors
-                    if (!newSettings.knowledgeBases) newSettings.knowledgeBases = {};
-                    if (!newSettings.knowledgeBases.creator) newSettings.knowledgeBases.creator = {};
-
-                    // Get the latest log and add the new entry
-                    const currentLog = newSettings.knowledgeBases.creator.styleGuideLog || [];
-                    
-                    // Merge the new style guide text and the new log entry
-                    newSettings.knowledgeBases.creator.styleGuideText = newStyleGuideText;
-                    newSettings.knowledgeBases.creator.styleGuideLog = [newLogEntry, ...currentLog];
-
-                    // Return the complete, updated settings object to be saved
-                    return newSettings;
-                });
-            }
-            // --- END OF RECOMMENDED CHANGE ---
-
-            // Manually update the settings object that will be used for regeneration.
-            // This ensures the script is regenerated with the new style guide immediately,
-            // without waiting for the state to update through the entire app.
-            settingsForRegeneration = JSON.parse(JSON.stringify(settings));
-
-            if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
-            if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
-
-            const currentLogForRegen = settingsForRegeneration.knowledgeBases.creator.styleGuideLog || [];
-            settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
-            settingsForRegeneration.knowledgeBases.creator.styleGuideLog = [newLogEntry, ...currentLogForRegen];
+        if (!scriptRefinementText) {
+            alert("Please enter your feedback to refine the script.");
+            return;
         }
 
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // This call will now use the updated 'settingsForRegeneration' object
+        // This call now uses the standard 'settings' prop, which will always be the
+        // most up-to-date version managed by the main app state.
         const scriptResponse = await window.aiUtils.generateFinalScriptAI({
             scriptPlan: currentTaskData.scriptPlan,
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
-            settings: settingsForRegeneration,
+            settings: settings, // Using the standard settings prop
             refinementText: scriptRefinementText,
             onCameraDescriptions: currentTaskData.onCameraDescriptions
         });
@@ -933,18 +875,16 @@ const handleRefineScript = async (currentTaskData) => {
             throw new Error("The AI failed to refine the script.");
         }
 
-        // This saves the newly generated script.
+        // This saves the newly generated script to the current task.
         await onUpdateTask('scripting', 'in-progress', {
             'script': scriptResponse.finalScript
         });
 
     } catch (error) {
         console.error("Error during script refinement:", error);
-        // Display the error to the user.
-        alert(error.message); 
+        alert("There was an error refining the script: " + error.message); 
     }
 };
-
     const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
