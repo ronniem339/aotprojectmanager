@@ -416,11 +416,14 @@ generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, r
 
     // --- START OF NEW LOGIC ---
 
-    // IF an existing script is provided, the task is REFINEMENT.
-    if (existingScript) {
+   // This is the NEW, corrected code
+if (existingScript) {
         
-        // This is a new, dedicated prompt for editing.
-        prompt = `You are a professional script editor. Your task is to refine the following video script based on the user's specific request.
+    // This is a new, dedicated prompt for editing.
+    prompt = `You are a professional script editor. Your task is to refine the following video script based on the user's specific request AND their style guide.
+
+${styleGuide}
+
 You must apply the requested changes directly to the provided script. Do not add or remove sections unless specifically asked to. Preserve the structure and tone of the original script as much as possible, unless the feedback asks you to change it.
 
 USER'S REFINEMENT REQUEST:
@@ -434,7 +437,6 @@ ${existingScript}
 ---
 
 Now, return only the full, complete, and updated script text. Do not add any extra commentary, headers, or speaker names.`;
-
     // ELSE, if no existing script is provided, the task is INITIAL GENERATION.
     } else {
 
