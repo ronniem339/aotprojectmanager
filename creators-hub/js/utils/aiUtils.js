@@ -2,7 +2,7 @@
 
 /**
  * This is the central AI utility object for the Creator's Hub application.
- * It handles all interactions with the Google Gemini API.f
+ * It handles all interactions with the Google Gemini API.
  */
 window.aiUtils = {
     /**
@@ -33,18 +33,18 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
      * @returns {Promise<object|string>} - A promise that resolves to the parsed JSON response or plain text from the API.
      * @throws {Error} If the API key is not set or if the API response is not OK.
      */
-callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
-        if (!settings || !settings.geminiApiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-        const apiKey = settings.geminiApiKey;
+    callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
+        if (!settings || !settings.geminiApiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+        const apiKey = settings.geminiApiKey;
 
-        const usePro = isComplex && settings.useProModelForComplexTasks;
-        const modelName = usePro
-            ? (settings.proModelName || 'gemini-1.5-pro-latest')
-            : (settings.flashModelName || 'gemini-1.5-flash-latest');
+        const usePro = isComplex && settings.useProModelForComplexTasks;
+        const modelName = usePro
+            ? (settings.proModelName || 'gemini-1.5-pro-latest')
+            : (settings.flashModelName || 'gemini-1.5-flash-latest');
 
-        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
 
         // --- START OF NEW CODE ---
         // This rule will now be added to every prompt sent to the AI.
@@ -53,66 +53,66 @@ callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false
         const finalPrompt = `${diacriticsRule}\n\n--- ORIGINAL PROMPT BEGINS ---\n${prompt}`;
         // --- END OF NEW CODE ---
 
-        const finalGenerationConfig = {
-            responseMimeType: "application/json",
-            ...generationConfig
-        };
+        const finalGenerationConfig = {
+            responseMimeType: "application/json",
+            ...generationConfig
+        };
 
-        const payload = {
+        const payload = {
             // Use the modified prompt with the added rule
-            contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-            generationConfig: finalGenerationConfig
-        };
+            contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+            generationConfig: finalGenerationConfig
+        };
 
-const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    // Added a 30-second timeout for the fetch request.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+        // Added a 30-second timeout for the fetch request.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
 
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: controller.signal // Link the abort controller to the fetch request
-        });
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal // Link the abort controller to the fetch request
+            });
 
-        clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+            clearTimeout(timeoutId); // Clear the timeout if the request succeeds
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err?.error?.message || `API Error (${response.status})`);
-        }
-
-        const result = await response.json();
-
-        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
-            console.error("Unexpected AI response structure:", result);
-            throw new Error("AI returned an unexpected or empty response.");
-        }
-
-        const responseText = result.candidates[0].content.parts[0].text;
-        
-        if (finalGenerationConfig.responseMimeType === "application/json") {
-            try {
-                return JSON.parse(responseText);
-            } catch (e) {
-                console.error("Failed to parse AI response as JSON:", responseText, e);
-                throw new Error("AI response was expected to be valid JSON but wasn't.");
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err?.error?.message || `API Error (${response.status})`);
             }
-        } else {
-            return responseText;
+
+            const result = await response.json();
+
+            if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
+                console.error("Unexpected AI response structure:", result);
+                throw new Error("AI returned an unexpected or empty response.");
+            }
+
+            const responseText = result.candidates[0].content.parts[0].text;
+            
+            if (finalGenerationConfig.responseMimeType === "application/json") {
+                try {
+                    return JSON.parse(responseText);
+                } catch (e) {
+                    console.error("Failed to parse AI response as JSON:", responseText, e);
+                    throw new Error("AI response was expected to be valid JSON but wasn't.");
+                }
+            } else {
+                return responseText;
+            }
+        } catch (error) {
+            clearTimeout(timeoutId); // Also clear timeout on error
+            if (error.name === 'AbortError') {
+                throw new Error('API call timed out after 30 seconds.');
+            }
+            // Re-throw other network or parsing errors
+            throw error;
         }
-    } catch (error) {
-        clearTimeout(timeoutId); // Also clear timeout on error
-        if (error.name === 'AbortError') {
-            throw new Error('API call timed out after 30 seconds.');
-        }
-        // Re-throw other network or parsing errors
-        throw error;
-    }
-},
+    },
 
     /**
      * Generates blog post ideas. This is considered a complex task.
@@ -220,11 +220,11 @@ Example JSON format:
      */
     generateInitialQuestionsAI: async (params) => {
     // 1. Add 'storytellingKnowledge' here
-        const { initialThoughts, locations, description, storytellingKnowledge, settings } = params; 
+        const { initialThoughts, locations, description, storytellingKnowledge, settings } = params; 
 
-        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-        const prompt = `You are an expert video scriptwriter and storyteller. Your role is to be the creative guide for a user.
+        const prompt = `You are an expert video scriptwriter and storyteller. Your role is to be the creative guide for a user.
 
         **Your Internal Guide: Core Storytelling Principles**
         Read and internalize these principles. This is your expert knowledge for how to build a good story.
@@ -260,55 +260,53 @@ Example JSON format:
 
         **Output Format:**
         Your response MUST be a valid JSON object with a single key "questions".
-        "questions" must be an array of strings.
+        "questions" must be an array of strings.
 `;
 
-        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    },
+        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+    },
 
     /**
      * Generates a draft outline from raw text. This is a complex task.
      */
-generateDraftOutlineAI: async (params) => {
-    // All the parameters and helper variables remain the same
-    const { videoTitle, videoConcept, initialThoughts, initialAnswers, storytellingKnowledge, settings, refinementText, videoTone } = params;
-    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    generateDraftOutlineAI: async (params) => {
+        // All the parameters and helper variables remain the same
+        const { videoTitle, videoConcept, initialThoughts, initialAnswers, storytellingKnowledge, settings, refinementText, videoTone } = params;
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-    const initialAnswersPrompt = initialAnswers
-        ? `**Creator's Answers to Initial Questions:**\n${initialAnswers}\n`
-        : '';
+        const initialAnswersPrompt = initialAnswers
+            ? `**Creator's Answers to Initial Questions:**\n${initialAnswers}\n`
+            : '';
 
-    const refinementPrompt = refinementText 
-        ? `**Refinement Feedback:** The user has reviewed a previous version and provided these instructions that you MUST follow: "${refinementText}".` 
-        : '';
+        const refinementPrompt = refinementText 
+            ? `**Refinement Feedback:** The user has reviewed a previous version and provided these instructions that you MUST follow: "${refinementText}".` 
+            : '';
 
-    // The prompt is the only part that changes
-    const prompt = `You are a master scriptwriter and storyteller. Your task is to create a compelling, clean, and easy-to-read draft outline for a video.
+        // The prompt is the only part that changes
+        const prompt = `You are a master scriptwriter and storyteller. Your task is to create a compelling, clean, and easy-to-read draft outline for a video.
 
-        **Your Internal Guide: Core Storytelling Principles**
-        You MUST use these principles to structure the outline. This is your expert knowledge.
-        \`\`\`
-        ${storytellingKnowledge}
-        \`\`\`
+        **Your Internal Guide: Core Storytelling Principles**
+        You MUST use these principles to structure the outline. This is your expert knowledge.
+        \`\`\`
+        ${storytellingKnowledge}
+        \`\`\`
 
-        **Project Information:**
-        {/* --- START OF CORRECTIONS --- */}
-        - Video Title: "${videoTitle}"
+        **Project Information:**
+        - Video Title: "${videoTitle}"
         - Video Concept: "${videoConcept}"
-        - Creator's Raw Notes: \`\`\`
+        - Creator's Raw Notes: \`\`\`
         ${initialThoughts}
         \`\`\`
-        {/* --- END OF CORRECTIONS --- */}
-        ${initialAnswersPrompt}
-        ${refinementPrompt}
+        ${initialAnswersPrompt}
+        ${refinementPrompt}
 
-        ${styleGuidePrompt}
+        ${styleGuidePrompt}
 
-        **Your Task & Output Instructions:**
-        1.  Read all the provided information and synthesize it.
-        2.  Use your "Internal Guide" to structure the user's information into a clear narrative outline.
-        3.  For each part of the outline, write a brief, engaging description of the content and the narrative focus in a way that is easy for anyone to understand. The tone must match the creator's style.
-        4.  **Critically Important:** Your final output MUST NOT contain the names of the storytelling principles or any other technical jargon. Do not write "(The Hook)", "(Rising Action)", "(Act I)", etc. in the outline you produce. You are the expert; you do the structural work and present a clean, inspiring outline to the user.
+        **Your Task & Output Instructions:**
+        1.  Read all the provided information and synthesize it.
+        2.  Use your "Internal Guide" to structure the user's information into a clear narrative outline.
+        3.  For each part of the outline, write a brief, engaging description of the content and the narrative focus in a way that is easy for anyone to understand. The tone must match the creator's style.
+        4.  **Critically Important:** Your final output MUST NOT contain the names of the storytelling principles or any other technical jargon. Do not write "(The Hook)", "(Rising Action)", "(Act I)", etc. in the outline you produce. You are the expert; you do the structural work and present a clean, inspiring outline to the user.
         
         **Output Formatting Instructions:**
         - You MUST use Markdown for all formatting.
@@ -317,11 +315,11 @@ generateDraftOutlineAI: async (params) => {
         - Use a single dash (-) for all bullet points.
         - Use a triple dash "---" as a separator between each major part.
         
-        Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the clean, formatted outline.
-    `;
+        Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the clean, formatted outline.
+    `;
 
-    return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-},
+    return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+    },
 
 
     /**
@@ -388,19 +386,19 @@ Example:
      * MODIFIED: Generates a full script, now aware of on-camera segments. This is a complex task.
      * The function name is changed to align with the calling component (ScriptingTask.js)
      */
-generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone }) => {
-    const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone }) => {
+        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
 
-    // Build the prompt section for on-camera descriptions, if they exist
-    let onCameraPromptSection = '';
-    if (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0) {
-        const descriptions = Object.entries(onCameraDescriptions)
-            .filter(([, desc]) => desc && desc.trim() !== '')
-            .map(([loc, desc]) => `- At ${loc}, the creator will be on camera to say/do the following: "${desc}"`)
-            .join('\n');
-        
-        if (descriptions) {
-            onCameraPromptSection = `**On-Camera Segments (CRITICAL CONTEXT):**
+        // Build the prompt section for on-camera descriptions, if they exist
+        let onCameraPromptSection = '';
+        if (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0) {
+            const descriptions = Object.entries(onCameraDescriptions)
+                .filter(([, desc]) => desc && desc.trim() !== '')
+                .map(([loc, desc]) => `- At ${loc}, the creator will be on camera to say/do the following: "${desc}"`)
+                .join('\n');
+            
+            if (descriptions) {
+                onCameraPromptSection = `**On-Camera Segments (CRITICAL CONTEXT):**
 The creator has already recorded on-camera dialogue/actions. Your most important job is to write a voiceover that works AROUND these segments.
 
 DO NOT repeat information that is already delivered on-camera. Your script should provide the missing context or what's happening between takes, not restate what's already said.
@@ -408,21 +406,21 @@ Your voiceover MUST serve as the bridge between segments. Write smooth transitio
 Here is what the creator has noted about their on-camera footage. This is what you must work around:
 ${descriptions}
 `;
+            }
         }
-    }
 
-    const answersPromptSection = `
+        const answersPromptSection = `
 Creator's Detailed Answers to Questions:
 ---
 ${userAnswers}
 ---
 `;
 
-    const refinementPromptSection = refinementText 
-        ? `**Refinement Feedback:** You MUST incorporate this feedback into the new script: "${refinementText}".\n---\n` 
-        : '';
+        const refinementPromptSection = refinementText 
+            ? `**Refinement Feedback:** You MUST incorporate this feedback into the new script: "${refinementText}".\n---\n` 
+            : '';
 
-    const prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
+        const prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
 Video Title: "${videoTitle}"
 ${styleGuide}
 
@@ -441,19 +439,19 @@ Your Final Instructions:
 4. Crucially, you must follow the rules in the "On-Camera Segments" section if it exists. Your script is the glue that holds the on-camera parts and the voiceover together. For example, lead into an on-camera segment with a question ("I had to see if this place lived up to the hype...") and lead out of it with a reflection ("...and it absolutely did. Now, on to the next stop.").
 
 Now, write the complete voiceover script.`;
-    
-    // This is a complex task requiring a plain text response.
-    const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-    
-    // The calling function expects an object, so we wrap the text response.
-    return { finalScript: responseText };
-},
+        
+        // This is a complex task requiring a plain text response.
+        const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+        
+        // The calling function expects an object, so we wrap the text response.
+        return { finalScript: responseText };
+    },
 
-// NEW: Function to update the creator's style guide based on feedback.
-async function updateStyleGuideAI({ currentStyleGuide, refinementFeedback, settings }) {
-    console.log("AI: Updating Style Guide based on feedback.");
+    // NEW: Function to update the creator's style guide based on feedback.
+    updateStyleGuideAI: async function({ currentStyleGuide, refinementFeedback, settings }) {
+        console.log("AI: Updating Style Guide based on feedback.");
 
-    const prompt = `
+        const prompt = `
 You are an AI assistant helping a content creator refine their personal "Style Guide".
 Your task is to intelligently merge the user's feedback into the existing style guide.
 
@@ -475,15 +473,15 @@ Respond with ONLY the complete, updated style guide text in a JSON object, like 
 }
 `;
 
-    try {
-        const result = await callGeminiAPI(prompt, settings);
-        console.log("AI Response for Style Guide Update:", result);
-        return result;
-    } catch (error) {
-        console.error("Error updating style guide with AI:", error);
-        throw new Error("AI failed to update the style guide.");
-    }
-},
+        try {
+            const result = await window.aiUtils.callGeminiAPI(prompt, settings);
+            console.log("AI Response for Style Guide Update:", result);
+            return result;
+        } catch (error) {
+            console.error("Error updating style guide with AI:", error);
+            throw new Error("AI failed to update the style guide.");
+        }
+    },
     
     /**
      * Generates keywords. This is a simple task.
