@@ -101,6 +101,19 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
             return;
         }
         const { localId, ...ideaData } = ideaToApprove;
+              // Add project and video IDs/titles if the idea originated from them
+        if (generationSource === 'project' && selectedProjectId) {
+            const project = projects.find(p => p.id === selectedProjectId);
+            ideaData.relatedProjectId = selectedProjectId;
+            ideaData.relatedProjectTitle = project ? project.playlistTitle : null;
+        } else if (generationSource === 'video' && selectedVideoId) {
+            const project = projects.find(p => p.id === selectedProjectId);
+            const video = videos.find(v => v.id === selectedVideoId);
+            ideaData.relatedProjectId = selectedProjectId;
+            ideaData.relatedProjectTitle = project ? project.playlistTitle : null;
+            ideaData.relatedVideoId = selectedVideoId;
+            ideaData.relatedVideoTitle = video ? video.title : null;
+        }
         
         try {
             const ideasCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`);
