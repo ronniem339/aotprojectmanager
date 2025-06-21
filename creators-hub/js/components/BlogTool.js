@@ -236,7 +236,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
                 
                 <div className="glass-card p-6 rounded-lg">
                     <h2 className="text-2xl font-semibold mb-4">3. Approved Ideas Pipeline</h2>
-                    <window.BlogIdeasDashboard userId={userId} db={db} />
+                    <window.BlogIdeasDashboard userId={userId} db={db} settings={settings}/>
                 </div>
             </div>
         </div>
