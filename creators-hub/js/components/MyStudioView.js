@@ -56,25 +56,22 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
         }
     };
 
-    const handleSave = () => {
-        // --- FINAL FIX START ---
-        // The previous version was missing styleGuideLog in the object being saved.
-        // This ensures that when you save changes on this page, the existing log is not erased.
-        const updatedSettings = {
-            ...settings,
-            ...styleInputs,
-            knowledgeBases: {
-                ...settings.knowledgeBases,
-                creator: {
-                    ...settings.knowledgeBases?.creator,
-                    styleGuideText: styleGuideText,
-                    styleGuideLog: styleGuideLog // This line is critical
-                }
+const handleSave = () => {
+    // This object now correctly includes the existing log to prevent it from being overwritten.
+    const updatedSettings = {
+        ...settings,
+        ...styleInputs,
+        knowledgeBases: {
+            ...settings.knowledgeBases,
+            creator: {
+                ...settings.knowledgeBases?.creator,
+                styleGuideText: styleGuideText,
+                styleGuideLog: styleGuideLog // Ensure this line is present
             }
-        };
-        // --- FINAL FIX END ---
-        onSave(updatedSettings);
+        }
     };
+    onSave(updatedSettings);
+};
 
     // Correctly get the log for rendering, ensuring it's always an array
     const refinementLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
