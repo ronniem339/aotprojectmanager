@@ -1,43 +1,49 @@
-// File: netlify/functions/fetch-place-details.js
+// In netlify/functions/fetch-place-details.js
 
 const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
-   // --- NEW DEBUGGING LINES ---
-  console.log('--- STARTING DIAGNOSTIC TEST ---');
-  console.log('ATTEMPTING TO READ VARIABLE:', 'process.env.Maps_API_KEY_SERVER');
-  console.log('VARIABLE VALUE IS:', process.env.Maps_API_KEY_SERVER);
-  // --- END OF DEBUGGING LINES ---
+    const { place_id } = event.queryStringParameters;
+    const apiKey = process.env.GOOGLEAPIKEY; // Using the key without underscores as a test
 
-  const { place_id } = event.queryStringParameters;
+    if (!place_id) {
+        return { statusCode: 400, body: 'Missing place_id parameter' };
+    }
 
-  // Securely access your API key from a Netlify environment variable
-  const apiKey = process.env.GOOGLEAPIKEY;
+    if (!apiKey) {
+        return { statusCode: 500, body: 'API key not configured on the server.' };
+    }
 
-  if (!place_id) {
-    return { statusCode: 400, body: 'Missing place_id parameter' };
-  }
+    // --- NEW URL for the "Places API (New)" ---
+    const url = `https://places.googleapis.com/v1/places/${place_id}`;
 
-  if (!apiKey) {
-    return { statusCode: 500, body: 'API key not configured on the server.' };
-  }
-
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=<span class="math-inline">\{place\_id\}&fields\=name,editorial\_summary,photos&key\=</span>{apiKey}`;
-
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-      console.log('Response from Google:', JSON.stringify(data, null, 2));
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+    // --- NEW: Headers are required to specify which fields you want ---
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'displayName,editorialSummary,photos' // Corresponds to name, editorial_summary, and photos
     };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to fetch place details' }),
-    };
-  }
+
+    try {
+        const response = await fetch(url, { method: 'GET', headers: headers });
+        const data = await response.json();
+
+        // The new API nests the summary differently
+        const result = {
+            name: data.displayName,
+            editorial_summary: data.editorialSummary,
+            photos: data.photos
+        };
+
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ result: result }), // Re-nesting to match the old structure for our front-end
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to fetch place details' }),
+        };
+    }
 };
