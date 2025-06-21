@@ -219,7 +219,13 @@ window.App = () => { // Exposing App component globally
         if (!user || !firebaseDb) return;
         const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
         try {
-            await settingsDocRef.set(newSettings, { merge: true });
+            // --- START OF FIX ---
+            // Changed .set() with merge to .update().
+            // .update() correctly handles dot notation for updating nested fields,
+            // which is how the style guide and log are being saved.
+            await settingsDocRef.update(newSettings);
+            // --- END OF FIX ---
+
             displayNotification('Settings saved successfully!');
             if (['technicalSettings', 'myStudio', 'knowledgeBases'].includes(currentView)) {
                  setCurrentView('settingsMenu');
