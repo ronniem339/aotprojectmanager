@@ -480,7 +480,7 @@ const handleSaveSettings = async (updater) => {
             case 'technicalSettings':
                 return <window.TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'myStudio':
-                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} previousView={previousView} />;
             case 'importProject':
                 return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
             case 'knowledgeBases':
