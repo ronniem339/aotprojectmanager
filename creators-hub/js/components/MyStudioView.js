@@ -3,18 +3,19 @@
 const { useState, useEffect, useRef } = React;
 
 window.MyStudioView = ({ settings, onSave, onBack }) => {
-    const [styleInputs, setStyleInputs] = useState({
-        myWriting: settings.myWriting || '',
-        admiredWriting: settings.admiredWriting || '',
-        keywords: settings.keywords || '', // These are style keywords, not SEO keywords
-        dosAndDonts: settings.dosAndDonts || '',
-        excludedPhrases: settings.excludedPhrases || ''
-    });
-    const [styleGuideText, setStyleGuideText] = useState(settings.styleGuideText || '');
+    // State for the input fields
+    const [styleInputs, setStyleInputs] = useState({});
+    // State for the main style guide text area
+    const [styleGuideText, setStyleGuideText] = useState('');
+    // State for the refinement log
+    const [styleGuideLog, setStyleGuideLog] = useState([]);
+    
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        setStyleGuideText(settings.styleGuideText || '');
+        // This effect ensures the component's state is updated if the settings prop changes.
+        setStyleGuideText(settings.knowledgeBases?.creator?.styleGuideText || '');
+        setStyleGuideLog(settings.knowledgeBases?.creator?.styleGuideLog || []);
         setStyleInputs({
             myWriting: settings.myWriting || '',
             admiredWriting: settings.admiredWriting || '',
@@ -25,14 +26,9 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     }, [settings]);
 
     const handleAnalyzeStyle = async () => {
-        const apiKey = settings.geminiApiKey || "";
-        if (!apiKey) {
-            console.error("Please set your Gemini API Key in Settings first.");
-            return;
-        }
         setIsLoading(true);
-
-        const whoAmIKb = settings.knowledgeBases?.youtube?.whoAmI || '';
+        // This function now correctly references the nested knowledgeBases object
+        const whoAmIKb = settings.knowledgeBases?.creator?.whoAmI || '';
 
         const prompt = `Analyze the following inputs to define a detailed YouTube creator's style guide.
         
@@ -45,12 +41,10 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
         5.  **Excluded Phrases:** "${styleInputs.excludedPhrases}"
 
         Synthesize these inputs into a structured style guide covering: Tone, Pacing, Vocabulary, Sentence Structure, and Humor. Also include the explicit Dos/Don'ts and Excluded Phrases. Provide a detailed, actionable description for each category.`;
+        
         try {
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) { const err = await response.json(); throw new Error(err?.error?.message || 'API Error'); }
-            const result = await response.json();
+            // Note: The callGeminiAPI function is now centralized in aiUtils.js
+            const result = await window.aiUtils.callGeminiAPI(prompt, settings);
             const generatedGuide = result.candidates[0].content.parts[0].text;
             setStyleGuideText(generatedGuide);
         } catch (e) {
@@ -61,17 +55,35 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     };
 
     const handleSave = () => {
-        onSave({ ...settings, ...styleInputs, styleGuideText: styleGuideText });
+        // This function now saves the style guide text into the correct nested object structure.
+        const updatedSettings = {
+            ...settings,
+            ...styleInputs,
+            knowledgeBases: {
+                ...settings.knowledgeBases,
+                creator: {
+                    ...settings.knowledgeBases?.creator,
+                    styleGuideText: styleGuideText
+                    // Note: We don't save the log from here, it's read-only in this view
+                }
+            }
+        };
+        onSave(updatedSettings);
     };
 
+    // Correctly get the log for rendering, ensuring it's always an array
+    const refinementLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
+
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ Back to Settings Menu {/* Updated back button text */}
+                ⬅️ Back to Settings Menu
             </button>
-            <h1 className="text-4xl font-bold mb-4">🎨 Style & Tone</h1> {/* Updated title */}
+            <h1 className="text-3xl sm:text-4xl font-bold mb-4">🎨 Style & Tone</h1>
             <p className="text-gray-400 mb-8">Train the AI on your unique creative style. The more detail you provide, the better the AI's suggestions will be.</p>
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Column 1: Style Inputs */}
                 <div>
                     <h2 className="text-2xl font-semibold mb-4">Style Inputs</h2>
                     <div className="space-y-4">
@@ -83,11 +95,32 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
                         <button onClick={handleAnalyzeStyle} disabled={isLoading} className="w-full px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🧬 Analyze & Create Style Guide'}</button>
                     </div>
                 </div>
+
+                {/* Column 2: Style Guide and new Refinement History */}
                 <div>
                     <h2 className="text-2xl font-semibold mb-4">Your AI-Powered Style Guide</h2>
-                    <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="32" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
+                    <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="20" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
+                    
+                    {/* --- NEW REFINEMENT HISTORY SECTION --- */}
+                    <div className="mt-6">
+                        <h3 className="text-xl font-semibold mb-3">Refinement History</h3>
+                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto">
+                            {refinementLog.length > 0 ? (
+                                <ul className="space-y-3">
+                                    {refinementLog.map((entry, index) => (
+                                        <li key={index} className="text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0">
+                                            {entry}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-gray-400 text-sm italic">No refinement history yet. Your feedback from the script editor's "Refine Script" button will appear here.</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div className="mt-8 text-right">
                 <button onClick={handleSave} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save My Style</button>
             </div>
