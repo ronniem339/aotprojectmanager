@@ -153,6 +153,7 @@ const ScriptingWorkspaceModal = ({
     onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onRefineOutline,
+    onGenerateRefinementQuestions,
     onProceedToOnCamera,
     onGenerateFullScript,
     onRefineScript,
