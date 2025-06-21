@@ -847,10 +847,10 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
     };
 
 // This function handles both refining the script and updating the style guide.
-// This function handles both refining the script and updating the style guide.
 const handleRefineScript = async (currentTaskData) => {
     // Wrap the entire logic in a try...catch block for robust error handling
     try {
+        console.log('Data received by handleRefineScript:', currentTaskData);
         const { shouldUpdateStyleGuide, scriptRefinementText } = currentTaskData;
         let settingsForRegeneration = { ...settings };
 
@@ -862,17 +862,22 @@ const handleRefineScript = async (currentTaskData) => {
                 refinementFeedback: scriptRefinementText,
                 settings: settings
             });
+            console.log('AI response for style guide:', styleGuideResponse);
 
             if (!styleGuideResponse || typeof styleGuideResponse.newStyleGuideText !== 'string') {
-                throw new Error("The AI returned an invalid format for the style guide update.");
+                throw new Error("The AI returned an invalid format for the style guide update. Your feedback was not saved. Please try again.");
             }
 
             const newStyleGuideText = styleGuideResponse.newStyleGuideText;
 
+            // --- START OF FIX ---
+            // Change 1: Create a structured log entry object instead of a string.
+            // This is easier for the UI to parse and display correctly.
             const newLogEntry = {
                 date: new Date().toISOString(),
                 change: scriptRefinementText,
             };
+            // --- END OF FIX ---
             
             const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
             const newLog = [newLogEntry, ...currentLog];
@@ -884,46 +889,18 @@ const handleRefineScript = async (currentTaskData) => {
                 });
             }
 
-            // --- CORRECTED REGENERATION SETTINGS ---
-            // Start with a deep clone of the OLD settings
-            settingsForRegeneration = JSON.parse(JSON.stringify(settings));
+           // --- CORRECTED REGENERATION SETTINGS ---
+// Start with a deep clone of the OLD settings
+settingsForRegeneration = JSON.parse(JSON.stringify(settings));
 
-            // Ensure the path to the creator knowledge base exists
-            if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
-            if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
+// Ensure the path to the creator knowledge base exists
+if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
+if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
 
-            // Manually update BOTH the text and the log for the next AI call
-            settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
-            settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog;
+// Manually update BOTH the text and the log for the next AI call
+settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog; // This was the missing piece
         }
-
-        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
-            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
-        ).join('\n\n');
-
-        const scriptResponse = await window.aiUtils.generateFinalScriptAI({
-            scriptPlan: currentTaskData.scriptPlan,
-            userAnswers: answersText,
-            videoTitle: video.chosenTitle || video.title,
-            settings: settingsForRegeneration,
-            refinementText: scriptRefinementText,
-            onCameraDescriptions: currentTaskData.onCameraDescriptions
-        });
-
-        if (!scriptResponse || typeof scriptResponse.finalScript !== 'string') {
-            throw new Error("The AI failed to refine the script.");
-        }
-
-        await onUpdateTask('scripting', 'in-progress', {
-            'script': scriptResponse.finalScript
-        });
-
-    } catch (error) {
-        // This will catch any error that occurs anywhere in the function
-        console.error("Error during script refinement:", error);
-        alert(error.message);
-    }
-};
 
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
