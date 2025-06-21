@@ -1,8 +1,9 @@
 // js/components/BlogTool.js
 
-window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
+// 1. MODIFIED: Add onWritePost and processingIdeaId to the component's props
+window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db, onWritePost, processingIdeaId }) => {
     const { useState, useEffect } = React;
-    
+
     const isConnected = settings?.wordpress?.url && settings?.wordpress?.username && settings?.wordpress?.applicationPassword;
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -13,7 +14,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [videos, setVideos] = useState([]);
     const [selectedVideoId, setSelectedVideoId] = useState('');
-    
+
     const [generatedIdeas, setGeneratedIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -55,7 +56,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
             monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
             settings: settings, // Pass the whole settings object
         };
-        
+
         if (generationSource === 'topic') {
             if (!topic.trim()) {
                 setError("Please enter a destination or topic.");
@@ -114,7 +115,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
             ideaData.relatedVideoId = selectedVideoId;
             ideaData.relatedVideoTitle = video ? video.title : null;
         }
-        
+
         try {
             const ideasCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`);
             await ideasCollectionRef.add({
@@ -128,7 +129,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
             setError("Failed to save the approved idea.");
         }
     };
-    
+
     const handleRejectIdea = (localId) => {
         setGeneratedIdeas(prev => prev.filter(idea => idea.localId !== localId));
     };
@@ -211,7 +212,7 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
                     </div>
                     {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
                 </div>
-                
+
                 {generatedIdeas.length > 0 && (
                     <div className="glass-card p-6 rounded-lg">
                         <h2 className="text-2xl font-semibold mb-4">2. Review New Suggestions</h2>
@@ -233,10 +234,17 @@ window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db }) => {
                         </div>
                     </div>
                 )}
-                
+
                 <div className="glass-card p-6 rounded-lg">
                     <h2 className="text-2xl font-semibold mb-4">3. Approved Ideas Pipeline</h2>
-                    <window.BlogIdeasDashboard userId={userId} db={db} settings={settings}/>
+                    {/* 2. MODIFIED: Pass the props down to the dashboard component */}
+                    <window.BlogIdeasDashboard 
+                        userId={userId} 
+                        db={db} 
+                        settings={settings}
+                        onWritePost={onWritePost}
+                        processingIdeaId={processingIdeaId}
+                    />
                 </div>
             </div>
         </div>
