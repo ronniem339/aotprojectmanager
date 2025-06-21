@@ -218,9 +218,7 @@ const ScriptingStepper = (props) => {
 /**
  * A full-screen modal for the entire multi-step scripting process.
  */
-// REPLACE the start of your ScriptingWorkspaceModal with this
 
-// REPLACE the existing ScriptingWorkspaceModal component with this one.
 
 const ScriptingWorkspaceModal = ({
     video,
@@ -527,37 +525,57 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
             case 'complete':
-            case 'full_script_review':
-                 if (isLoading) {
-                    return <EngagingLoader durationInSeconds={120} />;
-                }
-                return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
-                        <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
-                        <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="25" className="w-full form-textarea leading-relaxed" placeholder="Your final script will appear here." />
-                        <div className="mt-6">
-                            <h4 className="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
-                            <textarea value={localTaskData.scriptRefinementText || ''} onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)} className="form-textarea w-full" rows="2" placeholder="E.g., Make the conclusion more powerful, be more sarcastic..." />
-                            <div className="flex items-center mt-3">
-                                <input type="checkbox" id="updateStyleGuide" className="h-4 w-4 rounded bg-gray-700 border-gray-600 text-primary-accent focus:ring-primary-accent" checked={shouldUpdateStyleGuide} onChange={(e) => setShouldUpdateStyleGuide(e.target.checked)} />
-                                <label htmlFor="updateStyleGuide" className="ml-2 text-sm text-gray-300">Update my Style Guide with this feedback for all future scripts</label>
-                            </div>
-                            <button onClick={() => handleAction(onRefineScript, { ...localTaskData, shouldUpdateStyleGuide })} disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()} className="button-secondary-small mt-3 disabled:opacity-50">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
-                            </button>
-                        </div>
-                        <div className="text-center mt-8">
-                            <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                Save and Complete Task
-                            </button>
-                        </div>
-                    </div>
-                );
-            default:
-                return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
-        }
-    };
+case 'full_script_review':
+     if (isLoading) {
+        return <EngagingLoader durationInSeconds={120} />;
+    }
+    return (
+        <div>
+            <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
+            <p className="text-gray-400 mb-4">Here is the complete script. You can edit it directly, or use the refinement box to ask for changes.</p>
+            <textarea value={localTaskData.script} onChange={e => handleDataChange('script', e.target.value)} rows="25" className="w-full form-textarea leading-relaxed" placeholder="Your final script will appear here." />
+            
+            {/* --- START OF UI CHANGES --- */}
+            <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-md font-semibold text-amber-400">Refinement Instructions</h4>
+                    {/* NEW: Button to quickly access the Style Guide screen */}
+                    <button 
+                        onClick={() => alert("This button needs to be connected to your app's navigation logic to show the 'My Studio' screen.")} 
+                        className="text-sm text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
+                    >
+                        Refine Style Guide ↗
+                    </button>
+                </div>
+
+                <textarea 
+                    value={localTaskData.scriptRefinementText || ''} 
+                    onChange={(e) => handleDataChange('scriptRefinementText', e.target.value)} 
+                    className="form-textarea w-full" 
+                    rows="2" 
+                    placeholder="E.g., Make the conclusion more powerful, be more sarcastic..." 
+                />
+                
+                {/* REMOVED: The checkbox for updating the style guide is gone. */}
+
+                {/* UPDATED: The button now calls onRefineScript with just the task data. */}
+                <button 
+                    onClick={() => handleAction(onRefineScript, localTaskData)} 
+                    disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()} 
+                    className="button-secondary-small mt-3 disabled:opacity-50"
+                >
+                    {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
+                </button>
+            </div>
+            {/* --- END OF UI CHANGES --- */}
+
+            <div className="text-center mt-8">
+                <button onClick={handleSaveAndComplete} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                    Save and Complete Task
+                </button>
+            </div>
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
