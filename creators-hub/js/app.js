@@ -283,7 +283,10 @@ window.App = () => { // Exposing App component globally
         setSelectedProject(project);
         setCurrentView('project');
     };
-
+const handleBackToDashboard = () => {
+    setSelectedProject(null);
+    setCurrentView('dashboard');
+};
 const handleNavigateBack = () => {
     setCurrentView(previousView);
 };
@@ -296,7 +299,10 @@ const handleNavigateBack = () => {
         if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
     };
     const handleShowTechnicalSettings = () => setCurrentView('technicalSettings');
-    const handleShowStyleAndTone = () => setCurrentView('myStudio');
+const handleShowStyleAndTone = () => {
+    setPreviousView(currentView);
+    setCurrentView('myStudio');
+};
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
 const handleNavigate = (view) => {
     setPreviousView(currentView);
