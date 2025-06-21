@@ -875,29 +875,44 @@ const handleRefineScript = async (currentTaskData) => {
                 date: new Date().toISOString(),
                 change: scriptRefinementText,
             };
-            
-            const currentLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
-            const newLog = [newLogEntry, ...currentLog];
 
+            // --- START OF RECOMMENDED CHANGE ---
+            // The call to onUpdateSettings is now wrapped in a function,
+            // which is the robust "read-modify-write" pattern.
             if (onUpdateSettings) {
-                // This updates the data in Firebase.
-                await onUpdateSettings({
-                    'knowledgeBases.creator.styleGuideText': newStyleGuideText,
-                    'knowledgeBases.creator.styleGuideLog': newLog
+                // This function will be executed by handleSaveSettings in app.js
+                await onUpdateSettings((latestSettings) => {
+                    // Start with a clean copy of the latest settings from the database
+                    const newSettings = JSON.parse(JSON.stringify(latestSettings));
+
+                    // Ensure the nested structure exists to avoid errors
+                    if (!newSettings.knowledgeBases) newSettings.knowledgeBases = {};
+                    if (!newSettings.knowledgeBases.creator) newSettings.knowledgeBases.creator = {};
+
+                    // Get the latest log and add the new entry
+                    const currentLog = newSettings.knowledgeBases.creator.styleGuideLog || [];
+                    
+                    // Merge the new style guide text and the new log entry
+                    newSettings.knowledgeBases.creator.styleGuideText = newStyleGuideText;
+                    newSettings.knowledgeBases.creator.styleGuideLog = [newLogEntry, ...currentLog];
+
+                    // Return the complete, updated settings object to be saved
+                    return newSettings;
                 });
             }
+            // --- END OF RECOMMENDED CHANGE ---
 
-           // **Correction**: Manually update the settings object that will be used for regeneration.
-            // Start with a deep clone of the OLD settings.
+            // Manually update the settings object that will be used for regeneration.
+            // This ensures the script is regenerated with the new style guide immediately,
+            // without waiting for the state to update through the entire app.
             settingsForRegeneration = JSON.parse(JSON.stringify(settings));
 
-            // Ensure the path to the creator knowledge base exists.
             if (!settingsForRegeneration.knowledgeBases) settingsForRegeneration.knowledgeBases = {};
             if (!settingsForRegeneration.knowledgeBases.creator) settingsForRegeneration.knowledgeBases.creator = {};
 
-            // Manually update BOTH the text and the log for the next AI call.
+            const currentLogForRegen = settingsForRegeneration.knowledgeBases.creator.styleGuideLog || [];
             settingsForRegeneration.knowledgeBases.creator.styleGuideText = newStyleGuideText;
-            settingsForRegeneration.knowledgeBases.creator.styleGuideLog = newLog;
+            settingsForRegeneration.knowledgeBases.creator.styleGuideLog = [newLogEntry, ...currentLogForRegen];
         }
 
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
