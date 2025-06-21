@@ -453,19 +453,13 @@ Now, write the complete voiceover script.`;
 async function updateStyleGuideAI({ currentStyleGuide, refinementFeedback, settings }) {
     console.log("AI: Updating Style Guide based on feedback.");
 
-    // NEW: Get the current date for the log
-    const today = new Date();
-    const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
     const prompt = `
 You are an AI assistant helping a content creator refine their personal "Style Guide".
 Your task is to intelligently merge the user's feedback into the existing style guide.
 
-**Critically Important Instructions:**
+**Instructions:**
 1.  Read the "Current Style Guide" and the "Refinement Feedback" carefully.
-2.  Integrate the feedback into the main body of the style guide in a natural and coherent way.
-3.  After updating the guide, you MUST add an entry to the "Refinement Log" section at the very end. If the log section doesn't exist, create it with the header "## Refinement Log".
-4.  The log entry MUST be a single line with the following format: \`(${formattedDate}): [The user's exact feedback]\`
+2.  Integrate the feedback into the main body of the style guide in a natural and coherent way. Do not add any extra commentary or sections. Just update the guide.
 
 ---
 **Current Style Guide:**
