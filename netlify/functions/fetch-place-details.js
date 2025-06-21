@@ -3,6 +3,12 @@
 const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
+   // --- NEW DEBUGGING LINES ---
+  console.log('--- STARTING DIAGNOSTIC TEST ---');
+  console.log('ATTEMPTING TO READ VARIABLE:', 'process.env.Maps_API_KEY_SERVER');
+  console.log('VARIABLE VALUE IS:', process.env.Maps_API_KEY_SERVER);
+  // --- END OF DEBUGGING LINES ---
+
   const { place_id } = event.queryStringParameters;
 
   // Securely access your API key from a Netlify environment variable
