@@ -17,6 +17,10 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
     
     const [isLoading, setIsLoading] = useState(false);
 
+    // NEW: State for the AI refinement input and its loading state.
+    const [refinementText, setRefinementText] = useState('');
+    const [isRefining, setIsRefining] = useState(false);
+
     useEffect(() => {
         // This effect syncs the component if the 'settings' prop itself is replaced.
         setStyleGuideText(settings.knowledgeBases?.creator?.styleGuideText || '');
@@ -56,25 +60,70 @@ window.MyStudioView = ({ settings, onSave, onBack }) => {
         }
     };
 
-const handleSave = () => {
-    // This object now correctly includes the existing log to prevent it from being overwritten.
-    const updatedSettings = {
-        ...settings,
-        ...styleInputs,
-        knowledgeBases: {
-            ...settings.knowledgeBases,
-            creator: {
-                ...settings.knowledgeBases?.creator,
-                styleGuideText: styleGuideText,
-                styleGuideLog: styleGuideLog // Ensure this line is present
+    // NEW: Handler for the "Refine with AI" button.
+    const handleRefineWithAI = async () => {
+        if (!refinementText) {
+            alert("Please enter your feedback for the AI to refine the style guide.");
+            return;
+        }
+
+        setIsRefining(true);
+        try {
+            const styleGuideResponse = await window.aiUtils.updateStyleGuideAI({
+                currentStyleGuide: styleGuideText,
+                refinementFeedback: refinementText,
+                settings: settings
+            });
+
+            if (!styleGuideResponse?.newStyleGuideText) {
+                throw new Error("The AI did not return a valid response.");
             }
+            
+            const newStyleGuideText = styleGuideResponse.newStyleGuideText;
+
+            const newLogEntry = {
+                date: new Date().toISOString(),
+                change: refinementText,
+            };
+            
+            // Prepend the new log to the existing log array
+            const newLog = [newLogEntry, ...styleGuideLog];
+
+            // Update the local state immediately for a responsive UI
+            setStyleGuideText(newStyleGuideText);
+            setStyleGuideLog(newLog);
+            
+            // Clear the input field after success
+            setRefinementText('');
+
+        } catch (error) {
+            console.error("Error refining style guide:", error);
+            alert("There was an error refining the style guide: " + error.message);
+        } finally {
+            setIsRefining(false);
         }
     };
-    onSave(updatedSettings);
-};
+
+
+    const handleSave = () => {
+        // This object now correctly includes the existing log to prevent it from being overwritten.
+        const updatedSettings = {
+            ...settings,
+            ...styleInputs,
+            knowledgeBases: {
+                ...settings.knowledgeBases,
+                creator: {
+                    ...settings.knowledgeBases?.creator,
+                    styleGuideText: styleGuideText,
+                    styleGuideLog: styleGuideLog
+                }
+            }
+        };
+        onSave(updatedSettings);
+    };
 
     // Correctly get the log for rendering, ensuring it's always an array
-    const refinementLog = settings.knowledgeBases?.creator?.styleGuideLog || [];
+    const refinementLog = styleGuideLog || [];
 
     return (
         <div className="p-4 sm:p-8">
@@ -101,8 +150,33 @@ const handleSave = () => {
                 {/* Column 2: Style Guide and new Refinement History */}
                 <div>
                     <h2 className="text-2xl font-semibold mb-4">Your AI-Powered Style Guide</h2>
-                    <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="20" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
+                    <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="12" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
                     
+                    {/* NEW: AI Refinement Section */}
+                    <div className="mt-6 pt-6 border-t border-gray-700">
+                        <h3 className="text-lg font-medium text-gray-200">Refine Style Guide with AI</h3>
+                        <p className="mt-1 text-sm text-gray-400">Provide feedback below and let the AI rewrite your style guide.</p>
+                        <div className="mt-4">
+                            <textarea
+                                rows="3"
+                                className="form-textarea"
+                                placeholder="e.g., 'Make the tone more professional' or 'Always use bullet points for lists.'"
+                                value={refinementText}
+                                onChange={(e) => setRefinementText(e.target.value)}
+                            ></textarea>
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleRefineWithAI}
+                                disabled={isRefining}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                            >
+                                {isRefining ? 'Refining...' : 'Refine with AI'}
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="mt-6">
                         <h3 className="text-xl font-semibold mb-3">Refinement History</h3>
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto">
@@ -118,7 +192,8 @@ const handleSave = () => {
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="text-gray-400 text-sm italic">No refinement history yet. Your feedback from the script editor's "Refine Script" button will appear here.</p>
+                                // NEW: Updated placeholder text
+                                <p className="text-gray-400 text-sm italic">No refinement history yet. Use the "Refine with AI" feature above to track changes.</p>
                             )}
                         </div>
                     </div>
