@@ -446,42 +446,6 @@ Now, write the complete voiceover script.`;
         // The calling function expects an object, so we wrap the text response.
         return { finalScript: responseText };
     },
-
-    // NEW: Function to update the creator's style guide based on feedback.
-    updateStyleGuideAI: async function({ currentStyleGuide, refinementFeedback, settings }) {
-        console.log("AI: Updating Style Guide based on feedback.");
-
-        const prompt = `
-You are an AI assistant helping a content creator refine their personal "Style Guide".
-Your task is to intelligently merge the user's feedback into the existing style guide.
-
-**Instructions:**
-1.  Read the "Current Style Guide" and the "Refinement Feedback" carefully.
-2.  Integrate the feedback into the main body of the style guide in a natural and coherent way. Do not add any extra commentary or sections. Just update the guide.
-
----
-**Current Style Guide:**
-${currentStyleGuide || "(No existing style guide. Create one based on the feedback below.)"}
----
-**Refinement Feedback to Incorporate:**
-"${refinementFeedback}"
----
-
-Respond with ONLY the complete, updated style guide text in a JSON object, like this:
-{
-  "newStyleGuideText": "..."
-}
-`;
-
-        try {
-            const result = await window.aiUtils.callGeminiAPI(prompt, settings);
-            console.log("AI Response for Style Guide Update:", result);
-            return result;
-        } catch (error) {
-            console.error("Error updating style guide with AI:", error);
-            throw new Error("AI failed to update the style guide.");
-        }
-    },
     
     /**
      * Generates keywords. This is a simple task.
@@ -683,7 +647,7 @@ Your response MUST be a valid JSON object with a single key "shortsIdeas" which 
     /**
      * Generates metadata for a YouTube Short. This is a simple task.
      */
-    generateShortsMetadataAI: async ({
+generateShortsMetadataAI: async ({
         videoTitle,
         shortsIdea,
         settings,
@@ -726,6 +690,43 @@ Your response MUST be a valid JSON object with the following structure:
         } catch (error) {
             console.error("Error generating shorts metadata:", error);
             throw new Error(`AI failed to generate shorts metadata: ${error.message || error}`);
+        }
+    },
+
+    // NEW: Function to update the creator's style guide based on feedback.
+    updateStyleGuideAI: async function({ currentStyleGuide, refinementFeedback, settings }) {
+        console.log("AI: Updating Style Guide based on feedback.");
+
+        const prompt = `
+You are an AI assistant helping a content creator refine their personal "Style Guide".
+Your task is to intelligently merge the user's feedback into the existing style guide.
+
+**Instructions:**
+1.  Read the "Current Style Guide" and the "Refinement Feedback" carefully.
+2.  Integrate the feedback into the main body of the style guide in a natural and coherent way. Do not add any extra commentary or sections. Just update the guide.
+
+---
+**Current Style Guide:**
+${currentStyleGuide || "(No existing style guide. Create one based on the feedback below.)"}
+---
+**Refinement Feedback to Incorporate:**
+"${refinementFeedback}"
+---
+
+Respond with ONLY the complete, updated style guide text in a JSON object, like this:
+{
+  "newStyleGuideText": "..."
+}
+`;
+
+        try {
+            // Correct the call to use the object's own method
+            const result = await window.aiUtils.callGeminiAPI(prompt, settings);
+            console.log("AI Response for Style Guide Update:", result);
+            return result;
+        } catch (error) {
+            console.error("Error updating style guide with AI:", error);
+            throw new Error("AI failed to update the style guide.");
         }
     }
 };
