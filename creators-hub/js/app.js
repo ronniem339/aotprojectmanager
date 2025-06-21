@@ -299,26 +299,36 @@ window.App = () => { // Exposing App component globally
     const handleShowStyleAndTone = () => setCurrentView('myStudio');
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
 
-    const handleSaveSettings = async (newSettings) => {
-        if (!user || !firebaseDb) return;
-        const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
-        try {
-            // --- START OF FIX ---
-            // Changed .set() with merge to .update().
-            // .update() correctly handles dot notation for updating nested fields,
-            // which is how the style guide and log are being saved.
-            await settingsDocRef.update(newSettings);
-            // --- END OF FIX ---
+const handleSaveSettings = async (updater) => {
+    if (!user || !firebaseDb) return;
 
-            displayNotification('Settings saved successfully!');
-            if (['technicalSettings', 'myStudio', 'knowledgeBases'].includes(currentView)) {
-                 setCurrentView('settingsMenu');
-            }
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            displayNotification(`Error: ${error.message}`);
-        }
-    };
+    const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
+
+    try {
+        // --- NEW READ-MODIFY-WRITE LOGIC ---
+
+        // 1. Get the latest settings directly from Firestore.
+        const currentDoc = await settingsDocRef.get();
+        const currentSettings = currentDoc.exists() ? currentDoc.data() : {};
+
+        // 2. Apply the requested changes to the settings object.
+        //    The 'updater' is a function that we will define in the next step.
+        const newSettings = updater(currentSettings);
+
+        // 3. Write the entire, newly-merged settings object back.
+        //    Using .set() here overwrites the old document with the complete new one.
+        await settingsDocRef.set(newSettings);
+
+        // 4. Update the application's local state with the saved data.
+        setSettings(newSettings);
+        
+        console.log('Settings successfully saved with new read-modify-write method.');
+
+    } catch (error) {
+        console.error('A critical error occurred while saving settings:', error);
+        alert('There was a critical error saving your style guide. Please try again.');
+    }
+};
     
     const handleShowDeleteConfirm = (project) => setProjectToDelete(project);
     
