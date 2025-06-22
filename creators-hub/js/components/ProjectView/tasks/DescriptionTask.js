@@ -4,25 +4,31 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
     const { useState, useEffect } = React;
     const [description, setDescription] = useState(video.metadata?.description || '');
     const [styleGuide, setStyleGuide] = useState('');
-    const [refinementPrompt, setRefinementPrompt] = useState(''); // State for the refinement input
-    const [generating, setGenerating] = useState(false); // For the main "Generate" button
-    const [isRefining, setIsRefining] = useState(false); // For the "Refine" button
+    const [refinementPrompt, setRefinementPrompt] = useState('');
+    const [generating, setGenerating] = useState(false);
+    const [isRefining, setIsRefining] = useState(false);
     const [error, setError] = useState('');
 
     // Fetch studio details (including the style guide) when the component mounts
     useEffect(() => {
         const fetchStudioDetails = async () => {
-            try {
-                const details = await window.electron.getStudioDetails();
-                if (details && details.styleGuide) {
-                    setStyleGuide(details.styleGuide);
+            // FIX: Check if window.electron and the function exist before calling them.
+            if (window.electron && typeof window.electron.getStudioDetails === 'function') {
+                try {
+                    const details = await window.electron.getStudioDetails();
+                    if (details && details.styleGuide) {
+                        setStyleGuide(details.styleGuide);
+                    }
+                } catch (err) {
+                    // This log is more informative than the previous crash.
+                    console.error("Failed to load studio details:", err);
                 }
-            } catch (err) {
-                console.error("Failed to load studio details:", err);
+            } else {
+                console.warn("`window.electron.getStudioDetails` is not available. Style guide will not be loaded.");
             }
         };
         fetchStudioDetails();
-    }, []);
+    }, []); // Runs once on mount
 
     // When the video data changes, update the description in the textarea
     useEffect(() => {
