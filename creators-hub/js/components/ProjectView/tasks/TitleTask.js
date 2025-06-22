@@ -113,16 +113,25 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
             {/* AI Refinement Section */}
             <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
                  <label className="block text-sm font-medium text-gray-300">Refine Current Title</label>
-                 <textarea
-                    className="form-textarea-small"
-                    placeholder="Refinement instructions (e.g., make it shorter, add a question)"
-                    value={titleRefinement}
-                    onChange={(e) => setTitleRefinement(e.target.value)}
-                    rows="2"
-                />
-                <button onClick={handleRefineTitle} disabled={generating || !titleRefinement} className="button-secondary-small w-full justify-center">
-                     {generating ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine'}
-                </button>
+                 {/* This container will hold the input and button on the same line */}
+                 <div className="flex items-center gap-2">
+                    {/* The input field now uses form-input and flex-grow */}
+                    <input
+                        type="text"
+                        className="form-input flex-grow" // Corrected class
+                        placeholder="Refinement instructions (e.g., make it shorter)"
+                        value={titleRefinement}
+                        onChange={(e) => setTitleRefinement(e.target.value)}
+                    />
+                    {/* The button is now next to it */}
+                    <button 
+                        onClick={handleRefineTitle} 
+                        disabled={generating || !titleRefinement} 
+                        className="button-secondary-small flex-shrink-0" // Removed w-full
+                    >
+                        {generating ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine'}
+                    </button>
+                 </div>
             </div>
             
             {/* Final Save Button */}
