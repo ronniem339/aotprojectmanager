@@ -14,6 +14,9 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
+    // --- START: ADD THIS NEW STATE ---
+    const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
+    // --- END: ADD THIS NEW STATE ---
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -213,7 +216,7 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
 
     // Firebase Update
     try {
-        const videoRef = db.collection(`artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/projects/${localProject.id}/videos`).doc(videoId);
+        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
         await videoRef.update(updatePayload);
 
         if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
@@ -322,6 +325,7 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
 
     return (
         <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white">
+             {/* --- START: UPDATE THIS COMPONENT --- */}
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
@@ -330,7 +334,10 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 hideDescription={isSingleVideoProject}
                 onAddVideo={() => setShowNewVideoWizard(true)}
+                isRightSidebarVisible={isRightSidebarVisible}
+                onToggleRightSidebar={() => setIsRightSidebarVisible(v => !v)}
             />
+            {/* --- END: UPDATE THIS COMPONENT --- */}
 
             <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
 
@@ -380,11 +387,11 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
                         />
                     </div>
                 )}
-
+                {/* --- START: UPDATE THIS LAYOUT SECTION --- */}
                 <div className={`flex-1 flex flex-col lg:flex-row gap-4 ${isSidebarOpen && !isSingleVideoProject ? 'hidden' : 'flex'} lg:flex`}>
                     {activeVideo ? (
                         <>
-                            <main className={`flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-2/3' : ''}`}>
+                            <main className="flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card">
                                 <window.VideoWorkspace
                                     video={activeVideo}
                                     settings={settings}
@@ -394,16 +401,17 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
                                     db={db}
                                     allVideos={videos} 
                                     onNavigate={onNavigate}
-
                                 />
                             </main>
-                            <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : 'hidden lg:block'}`}>
-                                <window.VideoDetailsSidebar
-                                    video={activeVideo}
-                                    projectLocations={localProject?.locations}
-                                    projectFootageInventory={localProject?.footageInventory}
-                                />
-                            </aside>
+                            {isRightSidebarVisible && (
+                                <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : 'hidden lg:block'}`}>
+                                    <window.VideoDetailsSidebar
+                                        video={activeVideo}
+                                        projectLocations={localProject?.locations}
+                                        projectFootageInventory={localProject?.footageInventory}
+                                    />
+                                </aside>
+                            )}
                         </>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center h-full glass-card rounded-lg">
@@ -416,6 +424,7 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
                         </div>
                     )}
                 </div>
+                {/* --- END: UPDATE THIS LAYOUT SECTION --- */}
             </div>
 
             {showEditProjectModal && (
