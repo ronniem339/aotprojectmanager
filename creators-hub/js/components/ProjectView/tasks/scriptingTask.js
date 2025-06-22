@@ -329,6 +329,7 @@ const ScriptingWorkspaceModal = ({
         { id: 'refinement_qa', name: 'Refinement Q&A' },
         { id: 'on_camera_qa', name: 'On-Camera Notes' },
         { id: 'full_script_review', name: 'Final Script' },
+        { id: 'complete', name: 'Complete' }
     ];
 
     const renderPaginatedQuestions = (questions, answers, answerField, onAnswerChange) => {
@@ -757,38 +758,26 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
 
     // creators-hub/js/components/ProjectView/tasks/scriptingTask.js
 
-    const handleOpenWorkspace = async (startStage = null) => {
+const handleOpenWorkspace = async (startStage = null) => {
         setWorkspaceStageOverride(null);
         let stageToOpen = startStage;
-        const allStages = ['initial_thoughts', 'initial_qa', 'draft_outline_review', 'refinement_qa', 'on_camera_qa', 'full_script_review', 'complete'];
-        const currentStage = video.tasks?.scriptingStage || 'pending';
+        const scriptingStatus = video.tasks?.scripting;
+        const currentSavedStage = video.tasks?.scriptingStage || 'pending';
 
-        // --- Start of Targeted Change ---
+        if (scriptingStatus === 'complete') {
+            stageToOpen = 'complete';
+        } else if (!stageToOpen) {
+            stageToOpen = (currentSavedStage === 'pending' || !currentSavedStage) ? 'initial_thoughts' : currentSavedStage;
+        }
 
-        // This block is now the single source of truth for what locations to display.
-        // It derives the list on-the-fly, rather than reading a saved list.
-
-        // 1. Get the master list of all on-camera locations from the project inventory.
         const freshOnCameraLocations = (video.locations_featured || []).filter(locName => {
             const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
             return inventoryItem && inventoryItem.onCamera;
         });
-
-        // 2. Get our new "flag" list of locations the user has specifically removed for this script.
         const removedLocations = video.tasks?.scripting_locations_removed || [];
         const removedSet = new Set(removedLocations);
-
-        // 3. The correct list to display is the master list MINUS the removed list.
         const derivedOnCameraLocations = freshOnCameraLocations.filter(loc => !removedSet.has(loc));
-
-        // 4. Set the component's local state with this freshly calculated list.
         setLocalOnCameraLocations(derivedOnCameraLocations);
-
-        // --- End of Targeted Change ---
-
-        if (!stageToOpen) {
-            stageToOpen = (currentStage === 'pending' || !currentStage) ? 'initial_thoughts' : currentStage;
-        }
 
         setWorkspaceStageOverride(stageToOpen);
         setShowWorkspace(true);
