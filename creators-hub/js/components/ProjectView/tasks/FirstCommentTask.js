@@ -9,33 +9,28 @@ window.FirstCommentTask = ({ video, onUpdate, onCompletion, project, settings })
     const handleGenerateComment = async () => {
         setGenerating(true);
         setError('');
-        const prompt = `
-            **Knowledge Base: Best Practices for First Pinned Comments on YouTube**
 
-            * **Objective:** Encourage engagement, provide value, and set a positive tone for the comments section.
-            * **Key Elements:**
-                * **Call to Action (CTA):** Ask a direct question related to the video's content to spark discussion.
-                * **Add Value:** Provide a link to a resource mentioned in the video, a correction, a timestamp for a key moment, or extra context.
-                * **Set the Tone:** Use a friendly and approachable tone.
-                * **Be Concise:** Keep the comment relatively short and easy to read.
-            * **Examples:**
-                * "What was your favorite part of the video? Let me know in the replies! 👇"
-                * "Here's the link to the [resource I mentioned](link). What other topics would you like me to cover?"
-                * "I made a mistake at 2:35! It should be 'xyz', not 'abc'. Thanks for understanding!"
+        // --- CHANGE START ---
+        // Dynamically get the knowledge base from the settings object.
+        // Provide a default value if it's not set.
+        const firstCommentKB = settings.knowledgeBases?.youtube?.firstPinnedCommentExpert 
+            || 'You are a YouTube channel manager. Your task is to write the first "pinned" comment for a new video. The comment should be engaging, ask a question to spark conversation, and provide extra value (e.g., a link, a correction, or extra context).';
+
+        const prompt = `
+            **Your Expert Role:**
+            ${firstCommentKB}
 
             **Video Context:**
-
             * **Video Title:** "${video.chosenTitle || video.title}"
             * **Video Description:** "${video.metadata?.description || video.concept}"
 
             **Your Task:**
-
-            You are a YouTube channel manager. Based on the knowledge base and the video context, write a compelling first pinned comment for this video.
+            Based on your expert role and the provided video context, write a compelling first pinned comment.
             Return a JSON object like: {"comment": "The text of the first comment..."}.
         `;
+        // --- CHANGE END ---
 
         try {
-            // FIXED: Pass the 'settings' object
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             setComment(parsedJson.comment || '');
         } catch (err) {
