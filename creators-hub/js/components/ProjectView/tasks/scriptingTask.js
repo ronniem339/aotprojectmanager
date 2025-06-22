@@ -139,18 +139,12 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
 const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
-    console.log("--- DesktopStepper ---");
-    console.log("isComplete:", isComplete);
-    console.log("highestCompletedStageId:", highestCompletedStageId);
-    console.log("highestCompletedIndex:", highestCompletedIndex);
-
     return (
         <div className="desktop-stepper flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
             {stages.map((stage, index) => {
                 const isUnlocked = isComplete || index <= highestCompletedIndex;
                 const isCurrent = currentStage === stage.id;
                 const isClickable = isUnlocked && !isCurrent;
-                console.log(`Desktop Stage '${stage.name}' (index ${index}): isUnlocked = ${isUnlocked}`);
 
                 return (
                     <React.Fragment key={stage.id}>
@@ -183,11 +177,6 @@ const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageC
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
     const currentStageName = stages.find(s => s.id === currentStage)?.name || 'Menu';
 
-    console.log("--- MobileStepper ---");
-    console.log("isComplete:", isComplete);
-    console.log("highestCompletedStageId:", highestCompletedStageId);
-    console.log("highestCompletedIndex:", highestCompletedIndex);
-
     const handleSelect = (stageId) => {
         onStageClick(stageId);
         setIsOpen(false);
@@ -204,8 +193,7 @@ const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageC
                     {stages.map((stage, index) => {
                         const isUnlocked = isComplete || index <= highestCompletedIndex;
                         const isCurrent = currentStage === stage.id;
-                        console.log(`Mobile Stage '${stage.name}' (index ${index}): isUnlocked = ${isUnlocked}`);
-                        if (!isUnlocked) return null;
+                        if (!isUnlocked) return null; // Or render a disabled state
                         return (
                             <button key={stage.id} onClick={() => handleSelect(stage.id)} disabled={!isUnlocked || isCurrent} className="mobile-stepper-item w-full text-left disabled:opacity-50">
                                 <span className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center font-bold mr-3 ${isCurrent ? 'bg-primary-accent text-white' : 'bg-green-600 text-white'}`}>
@@ -254,12 +242,6 @@ const ScriptingWorkspaceModal = ({
 
     const isMobile = useMediaQuery('(max-width: 768px)');
     const isComplete = currentStage === 'complete';
-
-    console.log("--- ScriptingWorkspaceModal ---");
-    console.log("currentStage:", currentStage);
-    console.log("isComplete:", isComplete);
-    console.log("taskData.scriptingStage:", taskData.scriptingStage);
-
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -514,104 +496,115 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 
-            case 'on_camera_qa':
-                const LocationDetailsCard = ({ location, onDescriptionChange, onRemove, description }) => {
-                    const [placeDetails, setPlaceDetails] = React.useState(null);
-                    const [isLoading, setIsLoading] = React.useState(true);
+// In creators-hub/js/components/ProjectView/tasks/scriptingTask.js
 
-                    React.useEffect(() => {
-                        const fetchPlaceDetails = async () => {
-                            if (!location?.place_id) {
-                                setIsLoading(false);
-                                return;
-                            }
-                            const url = `/.netlify/functions/fetch-place-details?place_id=${location.place_id}`;
-                            try {
-                                const response = await fetch(url);
-                                const data = await response.json();
-                                if (data.result) {
-                                    setPlaceDetails(data.result);
-                                }
-                            } catch (error) {
-                                console.error(`Error fetching place details for ${location.name}:`, error);
-                            } finally {
-                                setIsLoading(false);
-                            }
-                        };
-                        fetchPlaceDetails();
-                    }, [location?.place_id, location?.name]);
+case 'on_camera_qa':
+    // A component to handle fetching and displaying details for a single location.
+    const LocationDetailsCard = ({ location, onDescriptionChange, onRemove, description }) => {
+        const [placeDetails, setPlaceDetails] = React.useState(null);
+        const [isLoading, setIsLoading] = React.useState(true);
 
-                    const summary = placeDetails?.shortFormattedAddress || placeDetails?.editorialSummary?.text || 'No description available for this location.';
-                    const photoName = placeDetails?.photos?.[0]?.name;
-                    const imageUrl = isLoading
-                        ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
-                        : photoName
-                            ? `/.netlify/functions/fetch-place-photo?photoName=${photoName}`
-                            : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
+        React.useEffect(() => {
+            const fetchPlaceDetails = async () => {
+                if (!location?.place_id) {
+                    setIsLoading(false);
+                    return;
+                }
 
-                    return (
-                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                            <div className="flex justify-between items-start mb-3">
-                                <label className="block text-gray-200 text-md font-medium">{location.name}</label>
-                                <button onClick={() => onRemove(location.name)} className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0" title={`Update use of ${location.name}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                                <div className="flex-shrink-0">
-                                     <img
-                                        src={imageUrl}
-                                        alt={`Photo of ${location.name}`}
-                                        className="w-full sm:w-40 h-auto sm:h-24 object-cover rounded-md border border-gray-600"
-                                     />
-                                </div>
-                                <div className="flex-grow">
-                                    <h4 className="text-sm font-semibold text-gray-400 mb-1">About this place</h4>
-                                    {isLoading ? (
-                                         <p className="text-sm text-gray-400">Loading details...</p>
-                                    ) : (
-                                        <p className="text-sm text-gray-300 leading-relaxed">{summary}</p>
-                                    )}
-                                </div>
-                            </div>
-                            <textarea
-                                value={description}
-                                onChange={(e) => onDescriptionChange(location.name, e.target.value)}
-                                rows="3"
-                                className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                                placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
-                            ></textarea>
-                        </div>
-                    );
-                };
+                // This now calls your secure Netlify function.
+                const url = `/.netlify/functions/fetch-place-details?place_id=${location.place_id}`;
 
-                const onCameraLocationObjects = (localTaskData.onCameraLocations || [])
-                    .map(locationName => project.locations.find(loc => loc.name === locationName))
-                    .filter(Boolean);
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.result) {
+                        setPlaceDetails(data.result);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching place details for ${location.name}:`, error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
 
-                return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
-                        <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
-                        <div className="space-y-6">
-                            {onCameraLocationObjects.map((location) => (
-                                <LocationDetailsCard
-                                    key={location.place_id}
-                                    location={location}
-                                    onDescriptionChange={handleOnCameraDescriptionChange}
-                                    onRemove={onInitiateRemoveLocation}
-                                    description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
-                                />
-                            ))}
-                        </div>
-                        <div className="text-center mt-8">
-                            <button onClick={initiateScriptGeneration} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
-                            </button>
-                        </div>
+            fetchPlaceDetails();
+        }, [location?.place_id, location?.name]);
+
+        const summary = placeDetails?.shortFormattedAddress || placeDetails?.editorialSummary?.text || 'No description available for this location.';
+        const photoName = placeDetails?.photos?.[0]?.name; // The new field is called 'name'
+
+        // This calls your secure photo function.
+const imageUrl = isLoading
+    ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
+    : photoName // Use the new variable here
+        ? `/.netlify/functions/fetch-place-photo?photoName=${photoName}` // Use the new parameter name here
+        : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
+
+        return (
+            <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                <div className="flex justify-between items-start mb-3">
+                    <label className="block text-gray-200 text-md font-medium">{location.name}</label>
+                    <button onClick={() => onRemove(location.name)} className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0" title={`Update use of ${location.name}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                    <div className="flex-shrink-0">
+                         <img
+                            src={imageUrl}
+                            alt={`Photo of ${location.name}`}
+                            className="w-full sm:w-40 h-auto sm:h-24 object-cover rounded-md border border-gray-600"
+                         />
                     </div>
-                );
+                    <div className="flex-grow">
+                        <h4 className="text-sm font-semibold text-gray-400 mb-1">About this place</h4>
+                        {isLoading ? (
+                             <p className="text-sm text-gray-400">Loading details...</p>
+                        ) : (
+                            <p className="text-sm text-gray-300 leading-relaxed">{summary}</p>
+                        )}
+                    </div>
+                </div>
 
+                <textarea
+                    value={description}
+                    onChange={(e) => onDescriptionChange(location.name, e.target.value)}
+                    rows="3"
+                    className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                    placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
+                ></textarea>
+            </div>
+        );
+    };
+
+    const onCameraLocationObjects = (localTaskData.onCameraLocations || [])
+        .map(locationName => project.locations.find(loc => loc.name === locationName))
+        .filter(Boolean);
+
+    return (
+        <div>
+            <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
+            <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
+            <div className="space-y-6">
+                {onCameraLocationObjects.map((location) => (
+                    <LocationDetailsCard
+                        key={location.place_id}
+                        location={location}
+                        // Note that the `googleMapsApiKey` prop has been removed here.
+                        onDescriptionChange={handleOnCameraDescriptionChange}
+                        onRemove={onInitiateRemoveLocation}
+                        description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
+                    />
+                ))}
+            </div>
+            <div className="text-center mt-8">
+                <button onClick={initiateScriptGeneration} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
+                </button>
+            </div>
+        </div>
+    );
             case 'complete':
             case 'full_script_review':
                 if (isLoading) {
@@ -659,11 +652,12 @@ const ScriptingWorkspaceModal = ({
                 return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
         }
     };
-    return (
+return (
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
             <div className="w-full min-h-full p-4 sm:p-12 md:p-16 relative">
                 <button onClick={() => handleClose(true)} className="absolute top-4 right-4 sm:top-6 sm:right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
                 <h2 className="scripting-workspace-title text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
+
                 <ScriptingStepper
                     stages={stages}
                     currentStage={currentStage}
@@ -671,11 +665,14 @@ const ScriptingWorkspaceModal = ({
                     onStageClick={handleStageClick}
                     isComplete={isComplete}
                 />
+
                 <div className="">
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     {renderContent()}
                 </div>
+                
                 <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
+                    {/* Footer can go here if needed */}
                 </div>
             </div>
         </div>
