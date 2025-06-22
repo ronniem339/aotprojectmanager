@@ -410,71 +410,21 @@ Example JSON format:
 /**
      * Generates refinement questions based on a draft outline. This is a complex task.
      */
-    generateScriptPlanAI: async ({ videoTitle, videoConcept, draftOutline, settings }) => {
-        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
-
-        const prompt = `
-        You are an expert video producer and storyteller. Your goal is to help a creator flesh out their video by asking insightful questions.
-        You have been given the draft outline for an upcoming video. Your task is to generate a set of questions for the creator to answer. These questions should be designed to extract personal experiences, feelings, and specific details about the locations mentioned in the outline, which will make the final script more engaging and authentic.
-
-        **Video Title:** "${videoTitle}"
-        **Video Concept:** "${videoConcept}"
-        ${styleGuidePrompt}
-
-        **Draft Outline to Analyze:**
-        ---
-        ${draftOutline}
-        ---
-
-        **Your Task:**
-        Based on the outline, generate 5-7 targeted questions. Focus on:
-        - Eliciting emotional responses or personal reflections about places.
-        - Uncovering specific, sensory details (what did it look, sound, smell, feel like?).
-        - Probing for unexpected challenges or surprises during their journey.
-        - Encouraging the creator to share a unique opinion or "insider tip".
-
-        **Output Format:**
-        Your response MUST be a valid JSON object with a single key "locationQuestions".
-        "locationQuestions" must be an array of objects, where each object has a single key "question" containing the question string.
-
-        **Example JSON Output:**
-        {
-          "locationQuestions": [
-            { "question": "What was the single most unexpected thing you discovered at the Eiffel Tower?" },
-            { "question": "As you walked through the Louvre, what was one piece of art that genuinely stopped you in your tracks, and why?" }
-          ]
-        }
-        `;
-
-        // This is a creative task, so we should consider it complex.
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-
-        if (parsedJson && Array.isArray(parsedJson.locationQuestions)) {
-            return parsedJson;
-        } else {
-            console.error("AI returned an invalid format for script plan questions.", parsedJson);
-            throw new Error("AI returned an invalid format for script plan questions.");
-        }
-    },
- // In creators-hub/js/utils/aiUtils.js
+// In creators-hub/js/utils/aiUtils.js
 
 generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone, existingScript = '' }) => {
     const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
     let prompt;
 
-    // --- START OF NEW LOGIC ---
-
-   // This is the NEW, corrected code
-if (existingScript) {
-        
-    // This is a new, dedicated prompt for editing.
-    prompt = `You are a professional script editor. Your task is to refine the following video script based on the user's specific request AND their style guide.
+    if (existingScript) {
+        // This is the prompt for refining an existing script. We'll add the same "same person" emphasis here.
+        prompt = `You are a professional script editor. Your task is to refine the following video script based on my specific request AND my style guide.
 
 ${styleGuide}
 
-You must apply the requested changes directly to the provided script. Do not add or remove sections unless specifically asked to. Preserve the structure and tone of the original script as much as possible, unless the feedback asks you to change it.
+You must apply the requested changes directly to the provided script. The voiceover and any on-camera dialogue are from the SAME PERSON (me). Preserve the structure and tone of the original script as much as possible, unless the feedback asks you to change it.
 
-USER'S REFINEMENT REQUEST:
+MY REFINEMENT REQUEST:
 ---
 "${refinementText}"
 ---
@@ -485,19 +435,24 @@ ${existingScript}
 ---
 
 Now, return only the full, complete, and updated script text. Do not add any extra commentary, headers, or speaker names.`;
-    // ELSE, if no existing script is provided, the task is INITIAL GENERATION.
+    
     } else {
-
-        // This is your original, detailed prompt for creating a new script.
+        // This is the prompt for generating a new script.
+        
+        // --- START OF MODIFICATION ---
+        // We are rephrasing this section to be more direct and personal.
         const onCameraPromptSection = (onCameraDescriptions && Object.keys(onCameraDescriptions).length > 0)
             ? `**On-Camera Segments (CRITICAL CONTEXT):**
-The creator has already recorded on-camera dialogue/actions. Your most important job is to write a voiceover that works AROUND these segments.
-DO NOT repeat information that is already delivered on-camera. Your script should provide the missing context or what's happening between takes, not restate what's already said.
-Your voiceover MUST serve as the bridge between segments. Write smooth transitions that lead INTO and OUT OF these on-camera moments.
-Here is what the creator has noted about their on-camera footage. This is what you must work around:
-${Object.entries(onCameraDescriptions).filter(([, desc]) => desc && desc.trim() !== '').map(([loc, desc]) => `- At ${loc}, the creator will be on camera to say/do the following: "${desc}"`).join('\n')}
+At certain points in the video, I (the creator) will be speaking directly to the camera. Your most important job is to write a voiceover script that seamlessly integrates with these on-camera moments.
+- **The voiceover and on-camera dialogue are from the SAME PERSON.** The voiceover is my continued narration or internal thoughts.
+- **DO NOT** repeat information I've already said on-camera. Your script should provide the missing context or what's happening between these on-camera segments.
+- Your script **MUST** serve as a natural bridge. Write smooth transitions that lead INTO and OUT OF these on-camera moments.
+
+Here are my notes on what I say/do when I'm on camera. This is what you must write around:
+${Object.entries(onCameraDescriptions).filter(([, desc]) => desc && desc.trim() !== '').map(([loc, desc]) => `- At ${loc}, I am on camera to say/do the following: "${desc}"`).join('\n')}
 `
             : '';
+        // --- END OF MODIFICATION ---
 
         const answersPromptSection = `
 Creator's Detailed Answers to Questions:
@@ -506,14 +461,11 @@ ${userAnswers}
 ---
 `;
 
-        // Note: The refinementPromptSection is only relevant for the initial generation
-        // in case the user provides feedback at the same time. In our new workflow,
-        // refinementText will usually be for an existing script, handled above.
         const refinementPromptSection = refinementText 
             ? `**Refinement Feedback:** You MUST incorporate this feedback into the new script: "${refinementText}".\n---\n` 
             : '';
 
-        prompt = `You are a professional scriptwriter for YouTube. Your task is to write the complete, final voiceover script based on all provided materials.
+        prompt = `You are a professional scriptwriter for YouTube. Your task is to write my complete, final voiceover script based on all the provided materials.
 Video Title: "${videoTitle}"
 ${styleGuide}
 
@@ -524,22 +476,22 @@ ${scriptPlan}
 ${onCameraPromptSection}
 ${answersPromptSection}
 ${refinementPromptSection}
+
+// --- START OF MODIFICATION ---
+// We are making the final instructions clearer and more personal.
 Your Final Instructions:
 
 1. Write the final, complete video script.
-2. The output must be ONLY the spoken voiceover dialogue, ready for the creator to record.
+2. The output must be ONLY my spoken voiceover dialogue, ready for me to record.
 3. Do not include scene numbers, camera directions (e.g., "[B-ROLL]"), speaker names, or any text that isn't part of the dialogue.
-4. Crucially, you must follow the rules in the "On-Camera Segments" section if it exists. Your script is the glue that holds the on-camera parts and the voiceover together. For example, lead into an on-camera segment with a question ("I had to see if this place lived up to the hype...") and lead out of it with a reflection ("...and it absolutely did. Now, on to the next stop.").
+4. **Crucially, you must treat the voiceover and the on-camera segments as a single, continuous monologue from me.** The voiceover should feel like my internal thoughts or narration that bridges the on-camera parts. For example, lead into an on-camera segment with a thought ("I had to see if this place lived up to the hype...") and lead out of it with a reflection ("...and it absolutely did. Now, on to the next stop.").
 
-Now, write the complete voiceover script.`;
+Now, write my complete voiceover script.`;
+// --- END OF MODIFICATION ---
     }
-
-    // --- END OF NEW LOGIC ---
         
-    // This part remains the same. It will execute whichever prompt was constructed.
     const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
     
-    // The calling function expects an object, so we wrap the text response.
     return { finalScript: responseText };
 },
     
