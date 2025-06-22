@@ -92,7 +92,8 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
             return;
         }
         setError('');
-        onUpdateTask('thumbnail', 'complete', { thumbnailBrief: finalDesignBrief });
+        // FIX: The task ID was incorrect. It should be 'thumbnailsGenerated' to match the app's task pipeline.
+        onUpdateTask('thumbnailsGenerated', 'complete', { 'tasks.thumbnailBrief': finalDesignBrief });
     };
 
     if (isLocked) {
