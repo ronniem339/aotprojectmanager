@@ -3,56 +3,84 @@
 window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
     const [finalDesignBrief, setFinalDesignBrief] = useState(video.thumbnailBrief || '');
-    // --- START: NEW AND UPDATED STATE ---
-    const [imageDescription, setImageDescription] = useState('');
-    const [ideas, setIdeas] = useState([]);
-    // --- END: NEW AND UPDATED STATE ---
+    
+    // --- START: UPDATED STATE FOR THREE IMAGES ---
+    const [imageDescriptions, setImageDescriptions] = useState({
+        image1: '',
+        image2: '',
+        image3: ''
+    });
+    const [ideas, setIdeas] = useState({ ideas1: [], ideas2: [], ideas3: [] });
+    // --- END: UPDATED STATE ---
+
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // Pre-fill the brief from video data if it exists
         setFinalDesignBrief(video.thumbnailBrief || '');
     }, [video.thumbnailBrief]);
 
-    // --- START: UPDATED AI HANDLER FUNCTION ---
+    const handleDescriptionChange = (key, value) => {
+        setImageDescriptions(prev => ({ ...prev, [key]: value }));
+    };
+
+    // --- START: UPDATED AI HANDLER FOR A/B TESTING ---
     const handleGenerateIdeas = async () => {
-        if (!imageDescription) {
-            setError('Please describe the image you plan to use before generating ideas.');
+        if (!imageDescriptions.image1 || !imageDescriptions.image2 || !imageDescriptions.image3) {
+            setError('Please describe all three images before generating ideas.');
             return;
         }
 
         setGenerating(true);
         setError('');
-        setIdeas([]); // Clear previous ideas
+        setIdeas({ ideas1: [], ideas2: [], ideas3: [] }); // Clear previous ideas
 
         const prompt = `
-            You are an expert YouTube thumbnail designer known for creating viral thumbnails.
-            A user has provided a description of the image they plan to use. Your task is to suggest compelling text and graphical elements to overlay on this image. Do NOT suggest new images.
+            You are an expert YouTube thumbnail designer creating variations for an A/B test.
+            A user has provided descriptions for three different images they want to use for the same video.
+            Your task is to generate distinct and compelling text and graphical element suggestions for EACH of the three images. The goal is to create three unique thumbnail concepts that can be tested against each other.
 
             Video Title: "${video.title}"
             Video Concept: "${video.concept}"
-            User's Image Description: "${imageDescription}"
 
-            Based on this, provide 3 distinct and powerful ideas for the thumbnail's text and on-screen elements.
-            Focus on creating high-contrast, emotionally engaging, and curiosity-driven text.
-            The text should be very concise (ideally under 7 words).
+            ---
+            Image 1 Description: "${imageDescriptions.image1}"
+            ---
+            Image 2 Description: "${imageDescriptions.image2}"
+            ---
+            Image 3 Description: "${imageDescriptions.image3}"
+            ---
 
-            Return the result as a JSON object with a single key "ideas" containing an array of strings. Each string should be a complete suggestion describing the text and elements.
+            For each image, provide two distinct text/element ideas.
+            Focus on high-contrast, emotionally engaging, and curiosity-driven text. Text should be very concise (ideally under 7 words).
+
+            Return the result as a single JSON object. The object must have three keys: "thumbnail_1_ideas", "thumbnail_2_ideas", and "thumbnail_3_ideas".
+            Each key must contain an array of strings, where each string is a complete suggestion for that thumbnail.
 
             Example format:
             {
-                "ideas": [
-                    "Text Idea 1: 'THE HIDDEN TRUTH' in a bold, impactful font. Elements: A glowing outline around the text and a subtle red arrow pointing towards the main subject of the image.",
-                    "Text Idea 2: 'IS THIS THE END?' in a distressed, gritty font. Elements: A vignetting effect to darken the edges of the image to create drama.",
-                    "Text Idea 3: 'I CAN'T BELIEVE IT!' with a shocking face emoji (😮). Elements: Bright yellow text with a thick black stroke for maximum readability."
+                "thumbnail_1_ideas": [
+                    "Suggestion 1 for Image 1...",
+                    "Suggestion 2 for Image 1..."
+                ],
+                "thumbnail_2_ideas": [
+                    "Suggestion 1 for Image 2...",
+                    "Suggestion 2 for Image 2..."
+                ],
+                "thumbnail_3_ideas": [
+                    "Suggestion 1 for Image 3...",
+                    "Suggestion 2 for Image 3..."
                 ]
             }
         `;
 
         try {
             const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
-            setIdeas(result.ideas || []);
+            setIdeas({
+                ideas1: result.thumbnail_1_ideas || [],
+                ideas2: result.thumbnail_2_ideas || [],
+                ideas3: result.thumbnail_3_ideas || [],
+            });
         } catch (err) {
             console.error("Error generating thumbnail ideas:", err);
             setError(`Failed to generate ideas: ${err.message}`);
@@ -60,7 +88,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
             setGenerating(false);
         }
     };
-    // --- END: UPDATED AI HANDLER FUNCTION ---
+    // --- END: UPDATED AI HANDLER ---
 
     const handleSaveBrief = () => {
         if (!finalDesignBrief.trim()) {
@@ -75,66 +103,81 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
         return <p className="text-gray-400 text-center py-2 text-sm">Please complete the previous steps first.</p>;
     }
 
+    const areAllDescriptionsFilled = imageDescriptions.image1 && imageDescriptions.image2 && imageDescriptions.image3;
+    const haveIdeasBeenGenerated = ideas.ideas1.length > 0 || ideas.ideas2.length > 0 || ideas.ideas3.length > 0;
+
     // --- START: UPDATED COMPONENT UI ---
     return (
         <div className="task-content space-y-4">
-            <div className="space-y-2">
-                 <label htmlFor="imageDesc" className="block text-sm font-medium text-gray-300">
-                    First, describe the image you want to use for the thumbnail:
-                </label>
-                <textarea
-                    id="imageDesc"
-                    value={imageDescription}
-                    onChange={(e) => setImageDescription(e.target.value)}
-                    placeholder="e.g., A close-up shot of me looking surprised, with a picture of a historic castle in the background."
-                    className="form-textarea"
-                    rows={3}
-                    disabled={generating}
-                />
+            <div className="space-y-4">
+                <p className="text-sm font-medium text-gray-300">Describe the three images you want to use for A/B testing:</p>
+                
+                {Object.keys(imageDescriptions).map((key, index) => (
+                    <div key={key} className="space-y-1">
+                        <label htmlFor={key} className="block text-sm font-semibold text-gray-400">
+                            Image {index + 1} Description:
+                        </label>
+                        <textarea
+                            id={key}
+                            value={imageDescriptions[key]}
+                            onChange={(e) => handleDescriptionChange(key, e.target.value)}
+                            placeholder={`e.g., A wide shot of the entire building with a clear blue sky.`}
+                            className="form-textarea"
+                            rows={2}
+                            disabled={generating}
+                        />
+                    </div>
+                ))}
             </div>
 
             <button
                 onClick={handleGenerateIdeas}
-                disabled={generating || !imageDescription}
+                disabled={generating || !areAllDescriptionsFilled}
                 className="button-primary-small w-full justify-center"
             >
-                {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Text & Element Ideas'}
+                {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate A/B Test Ideas'}
             </button>
 
             {error && <p className="error-message">{error}</p>}
 
-            {ideas.length > 0 && (
-                <div className="space-y-3 mt-4">
-                    <h4 className="text-lg font-semibold text-white">Suggestions:</h4>
-                    {ideas.map((idea, index) => (
-                        <div key={index} className="glass-card-light p-3 rounded-lg flex justify-between items-start gap-4">
-                            <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
-                            <button
-                                onClick={() => {
-                                    setFinalDesignBrief(idea);
-                                    setError('');
-                                }}
-                                className="button-secondary-small flex-shrink-0"
-                                title="Use this idea for the brief"
-                            >
-                                Use Idea
-                            </button>
-                        </div>
+            {haveIdeasBeenGenerated && (
+                <div className="space-y-4 mt-4">
+                    {Object.entries(ideas).map(([key, ideaList], index) => (
+                        ideaList.length > 0 && (
+                            <div key={key} className="space-y-3">
+                                <h4 className="text-lg font-semibold text-white">Suggestions for Image {index + 1}:</h4>
+                                {ideaList.map((idea, ideaIndex) => (
+                                    <div key={ideaIndex} className="glass-card-light p-3 rounded-lg flex justify-between items-start gap-4">
+                                        <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
+                                        <button
+                                            onClick={() => {
+                                                setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
+                                                setError('');
+                                            }}
+                                            className="button-secondary-small flex-shrink-0"
+                                            title="Add this idea to the brief"
+                                        >
+                                            Use Idea
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )
                     ))}
                 </div>
             )}
 
             <div className="space-y-2 pt-4 border-t border-gray-700">
                 <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
-                    Final Thumbnail Design Brief:
+                    Final Thumbnail Design Brief (for all 3 versions):
                 </label>
                 <textarea
                     id="designBrief"
                     value={finalDesignBrief}
                     onChange={(e) => setFinalDesignBrief(e.target.value)}
-                    placeholder="Describe the final thumbnail design here. You can use one of the suggestions above or write your own."
+                    placeholder="Describe the final designs for all three thumbnails here. Use the ideas above or write your own."
                     className="form-textarea"
-                    rows={4}
+                    rows={6}
                 />
             </div>
 
