@@ -142,7 +142,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             case 'descriptionGenerated':
                 return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} studioDetails={studioDetails} />;
             case 'chaptersGenerated':
-                return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.ChaptersTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
             case 'tagsGenerated':
                 return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'thumbnailsGenerated':
