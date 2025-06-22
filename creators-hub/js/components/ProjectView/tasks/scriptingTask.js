@@ -136,7 +136,7 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
     );
 };
 // Stepper component for navigation
-const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
+const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
     return (
@@ -172,7 +172,7 @@ const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStage
     );
 };
 
-const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick }) => {
+const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
     const [isOpen, setIsOpen] = useState(false);
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
     const currentStageName = stages.find(s => s.id === currentStage)?.name || 'Menu';
@@ -211,7 +211,8 @@ const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageC
 
 const ScriptingStepper = (props) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
-    return isMobile ? <MobileStepper {...props} /> : <DesktopStepper {...props} />;
+    const isComplete = props.currentStage === 'complete';
+    return isMobile ? <MobileStepper {...props} isComplete={isComplete} /> : <DesktopStepper {...props} isComplete={isComplete} />;
 };
 
 
@@ -240,6 +241,7 @@ const ScriptingWorkspaceModal = ({
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const isComplete = currentStage === 'complete';
 
     useEffect(() => {
         setLocalTaskData(taskData);
