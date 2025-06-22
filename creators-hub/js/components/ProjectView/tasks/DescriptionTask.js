@@ -38,23 +38,35 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
     const handleGenerateDescription = async () => {
         setGenerating(true);
         setError('');
-        // The prompt is improved to include project context and the new style guide
-        const prompt = `You are a YouTube SEO expert. Your primary goal is to write an engaging and SEO-optimized YouTube description.
-        It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
 
-        As a secondary goal, adhere to the following style guide:
-        --- STYLE GUIDE ---
-        ${styleGuide || 'No style guide provided.'}
-        --- END STYLE GUIDE ---
+        // Construct the identity context from the passed-in studioDetails prop.
+        let whoAmIContext = 'Remember to write from the perspective of a solo creator. Use "I", "my", and "me". Avoid "we" and "our".';
+        if (studioDetails) {
+            whoAmIContext = `
+                **My Identity:**
+                - Channel Name: ${studioDetails.channelName || 'N/A'}
+                - Channel Description: ${studioDetails.channelDescription || 'N/A'}
+                - Target Audience: ${studioDetails.targetAudience || 'N/A'}
+                - General Style Guide: ${studioDetails.styleGuide || 'N/A'}
+                - Based on this, adopt the persona of a solo creator. Always write from my perspective, using "I", "my", and "me". Avoid using "we", "our", or "us".
+            `;
+        }
 
-        Here is the video information:
-        Video Title: "${video.chosenTitle || video.title}"
-        Video Concept: "${video.concept}"
-        Locations Featured: ${(video.locations_featured || []).join(', ')}
-        Keywords: ${(video.targeted_keywords || []).join(', ')}
-        Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
+        const prompt = `${whoAmIContext}
 
-        Return the description as a JSON object like: {"description": "The full text of the description..."}.`;
+---
+
+You are a YouTube SEO expert. Your primary goal is to write an engaging and SEO-optimized YouTube description based on the identity provided above.
+It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
+
+Here is the video information:
+Video Title: "${video.chosenTitle || video.title}"
+Video Concept: "${video.concept}"
+Locations Featured: ${(video.locations_featured || []).join(', ')}
+Keywords: ${(video.targeted_keywords || []).join(', ')}
+Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
+
+Return the description as a JSON object like: {"description": "The full text of the description..."}.`;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
