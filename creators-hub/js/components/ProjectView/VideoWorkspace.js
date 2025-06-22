@@ -109,15 +109,22 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     }, [updateTask, video.title, video.metadata]);
 
 
-    const isTaskLocked = (index) => {
-        if (index === 0) return false;
-        const previousTaskId = taskPipeline[index - 1].id;
-        return video.tasks?.[previousTaskId] !== 'complete';
+    // **UPDATED**: This function now checks the `dependsOn` array from the config.
+    const isTaskLocked = (task) => {
+        // A task is locked if it has dependencies that are not yet complete.
+        if (!task.dependsOn || task.dependsOn.length === 0) {
+            return false; // No dependencies means it's never locked.
+        }
+    
+        // It checks if EVERY task in the 'dependsOn' array has a status of 'complete'.
+        // If even one is not complete, the task remains locked.
+        return !task.dependsOn.every(dependencyId => 
+            video.tasks?.[dependencyId] === 'complete'
+        );
     };
 
     const renderTaskComponent = (task, index) => {
-        const status = video.tasks?.[task.id] || 'pending';
-        const locked = isTaskLocked(index);
+        const locked = isTaskLocked(task); // Pass the entire task object
 
         // ** THIS IS THE FIX **
         // The 'project={project}' prop is now correctly passed down to all task components that need it for context.
@@ -156,7 +163,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
                         status = 'in-progress';
                     }
-                    const locked = isTaskLocked(index);
+                    const locked = isTaskLocked(task); // Use the updated function
 
                     return (
                         <window.Accordion
