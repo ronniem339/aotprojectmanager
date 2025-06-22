@@ -1,34 +1,15 @@
 // creators-hub/js/components/ProjectView/tasks/DescriptionTask.js
 
-window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
+// The component now correctly receives `studioDetails` as a prop.
+window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, studioDetails }) => {
     const { useState, useEffect } = React;
     const [description, setDescription] = useState(video.metadata?.description || '');
-    const [styleGuide, setStyleGuide] = useState('');
     const [refinementPrompt, setRefinementPrompt] = useState('');
     const [generating, setGenerating] = useState(false);
     const [isRefining, setIsRefining] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch studio details (including the style guide) when the component mounts
-    useEffect(() => {
-        const fetchStudioDetails = async () => {
-            // FIX: Check if window.electron and the function exist before calling them.
-            if (window.electron && typeof window.electron.getStudioDetails === 'function') {
-                try {
-                    const details = await window.electron.getStudioDetails();
-                    if (details && details.styleGuide) {
-                        setStyleGuide(details.styleGuide);
-                    }
-                } catch (err) {
-                    // This log is more informative than the previous crash.
-                    console.error("Failed to load studio details:", err);
-                }
-            } else {
-                console.warn("`window.electron.getStudioDetails` is not available. Style guide will not be loaded.");
-            }
-        };
-        fetchStudioDetails();
-    }, []); // Runs once on mount
+    // The problematic useEffect that tried to fetch studioDetails has been removed.
 
     // When the video data changes, update the description in the textarea
     useEffect(() => {
@@ -39,34 +20,35 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
         setGenerating(true);
         setError('');
 
-        // Construct the identity context from the passed-in studioDetails prop.
-        let whoAmIContext = 'Remember to write from the perspective of a solo creator. Use "I", "my", and "me". Avoid "we" and "our".';
-        if (studioDetails) {
-            whoAmIContext = `
-                **My Identity:**
-                - Channel Name: ${studioDetails.channelName || 'N/A'}
-                - Channel Description: ${studioDetails.channelDescription || 'N/A'}
-                - Target Audience: ${studioDetails.targetAudience || 'N/A'}
-                - General Style Guide: ${studioDetails.styleGuide || 'N/A'}
-                - Based on this, adopt the persona of a solo creator. Always write from my perspective, using "I", "my", and "me". Avoid using "we", "our", or "us".
-            `;
-        }
+        // 1. Get the "Who Am I" knowledge base from the main app settings.
+        const whoAmI = settings?.knowledgeBases?.youtube?.whoAmI || 'I am a solo creator.';
 
-        const prompt = `${whoAmIContext}
+        // 2. Get the "Style Guide" from the separate studio details.
+        const styleGuide = studioDetails?.styleGuide || 'No specific style guide provided.';
 
----
+        // 3. Construct the prompt with clear separation of contexts.
+        const prompt = `
+            **CONTEXT 1: MY IDENTITY**
+            ${whoAmI}
+            Based on this identity, you must write from a first-person singular perspective (I, my, me). Do not use "we" or "our".
 
-You are a YouTube SEO expert. Your primary goal is to write an engaging and SEO-optimized YouTube description based on the identity provided above.
-It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
+            **CONTEXT 2: MY STYLE GUIDE**
+            ${styleGuide}
 
-Here is the video information:
-Video Title: "${video.chosenTitle || video.title}"
-Video Concept: "${video.concept}"
-Locations Featured: ${(video.locations_featured || []).join(', ')}
-Keywords: ${(video.targeted_keywords || []).join(', ')}
-Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
+            ---
 
-Return the description as a JSON object like: {"description": "The full text of the description..."}.`;
+            **YOUR TASK**
+            You are a YouTube SEO expert. Using the identity and style guide provided in the contexts above, write an engaging and SEO-optimized YouTube description for the following video.
+            It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
+
+            **VIDEO DETAILS**
+            - Video Title: "${video.chosenTitle || video.title}"
+            - Video Concept: "${video.concept}"
+            - Keywords: ${(video.targeted_keywords || []).join(', ')}
+            - Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
+
+            Return the description as a JSON object like: {"description": "The full text of the description..."}.
+        `;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
