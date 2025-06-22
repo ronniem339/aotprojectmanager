@@ -3,8 +3,10 @@
 window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
     const { useState, useEffect } = React;
     const [description, setDescription] = useState(video.metadata?.description || '');
-    const [styleGuide, setStyleGuide] = useState(''); // State to hold the fetched style guide
-    const [generating, setGenerating] = useState(false);
+    const [styleGuide, setStyleGuide] = useState('');
+    const [refinementPrompt, setRefinementPrompt] = useState(''); // State for the refinement input
+    const [generating, setGenerating] = useState(false); // For the main "Generate" button
+    const [isRefining, setIsRefining] = useState(false); // For the "Refine" button
     const [error, setError] = useState('');
 
     // Fetch studio details (including the style guide) when the component mounts
@@ -17,11 +19,10 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
                 }
             } catch (err) {
                 console.error("Failed to load studio details:", err);
-                // Optionally set an error state here
             }
         };
         fetchStudioDetails();
-    }, []); // Empty dependency array means this runs once on mount
+    }, []);
 
     // When the video data changes, update the description in the textarea
     useEffect(() => {
@@ -31,7 +32,7 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
     const handleGenerateDescription = async () => {
         setGenerating(true);
         setError('');
-        // The prompt now includes the style guide fetched from studio details
+        // The prompt is improved to include project context and the new style guide
         const prompt = `You are a YouTube SEO expert. Your primary goal is to write an engaging and SEO-optimized YouTube description.
         It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
 
@@ -50,10 +51,9 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
         Return the description as a JSON object like: {"description": "The full text of the description..."}.`;
 
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true); // Complex task
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
             const generatedDescription = parsedJson.description || '';
             setDescription(generatedDescription);
-            // This updates the database immediately after generation and sets the task status to 'in-progress'
             onUpdateTask('descriptionGenerated', 'in-progress', { 'metadata.description': generatedDescription });
         } catch (err) {
             setError(`Failed to generate description: ${err.message}`);
@@ -63,35 +63,94 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
         }
     };
 
+    // Function to handle refining the description
+    const handleRefineDescription = async () => {
+        if (!refinementPrompt) return;
+        setIsRefining(true);
+        setError('');
+
+        const prompt = `You are a YouTube copy editor. Refine the following YouTube description based on the user's instructions.
+        Current Description:
+        ---
+        ${description}
+        ---
+        Instructions: "${refinementPrompt}"
+
+        Return only the refined description in a JSON object like: {"refinedDescription": "The full text of the refined description..."}.`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+            const refinedDescription = parsedJson.refinedDescription || '';
+            if (refinedDescription) {
+                setDescription(refinedDescription);
+                onUpdateTask('descriptionGenerated', 'in-progress', { 'metadata.description': refinedDescription });
+                setRefinementPrompt(''); // Clear input on success
+            } else {
+                 setError('The AI did not return a refined description. Please try again.');
+            }
+        } catch (err) {
+            setError(`Failed to refine description: ${err.message}`);
+            console.error(err);
+        } finally {
+            setIsRefining(false);
+        }
+    };
+
     const handleSave = () => {
-        // This marks the task as complete
         onUpdateTask('descriptionGenerated', 'complete', { 'metadata.description': description });
     };
 
-    // This checks if the previous task is complete before allowing interaction
     if (isLocked) {
         return <p className="text-gray-400 text-center py-2 text-sm">Please finalize the title first.</p>;
     }
 
+    const anyLoading = generating || isRefining;
+
     return (
         <div className="task-container">
             <div className="task-content space-y-4">
-                {/* The user-input textarea for the style guide has been removed. */}
-                <button onClick={handleGenerateDescription} disabled={generating} className="button-primary-small w-full justify-center">
+                <button onClick={handleGenerateDescription} disabled={anyLoading} className="button-primary-small w-full justify-center">
                     {generating ? <window.LoadingSpinner isButton={true}/> : '🤖 Generate Description'}
                 </button>
                 {error && <p className="error-message">{error}</p>}
+
                 <textarea
                     className="form-textarea h-64"
                     value={description}
-                    onChange={(e) => {
-                        setDescription(e.target.value);
-                    }}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onBlur={() => onUpdateTask('descriptionGenerated', 'in-progress', { 'metadata.description': description })}
                     placeholder="Write or generate the video description here..."
+                    disabled={anyLoading}
                 />
-                <button onClick={handleSave} className="button-secondary-small w-full justify-center">
-                    Save and Mark Complete
-                </button>
+
+                {/* Refinement UI Section */}
+                <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
+                    <label className="block text-sm font-medium text-gray-300">Refine Description</label>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            className="form-input flex-grow"
+                            placeholder="e.g., make it more casual, add emojis"
+                            value={refinementPrompt}
+                            onChange={(e) => setRefinementPrompt(e.target.value)}
+                            disabled={anyLoading}
+                        />
+                        <button
+                            onClick={handleRefineDescription}
+                            disabled={anyLoading || !refinementPrompt}
+                            className="button-secondary-small flex-shrink-0"
+                        >
+                            {isRefining ? <window.LoadingSpinner isButton={true}/> : '✍️ Refine'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Final Save Button */}
+                <div className="pt-6 border-t border-gray-700 text-center">
+                    <button onClick={handleSave} disabled={anyLoading} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white">
+                        Confirm Description & Mark Complete
+                    </button>
+                </div>
             </div>
         </div>
     );
