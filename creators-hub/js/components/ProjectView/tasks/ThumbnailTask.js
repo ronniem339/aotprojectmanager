@@ -38,7 +38,11 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
 
         const thumbnailKnowledgeBase = settings?.knowledgeBases?.youtube?.thumbnailIdeas || 'Design compelling, high-CTR thumbnails.';
         
-        // The prompt is updated to ask for the new, more detailed JSON structure.
+        // Get the primary location to include in the prompt.
+        const mainLocation = video.locations_featured && video.locations_featured.length > 0
+            ? video.locations_featured[0]
+            : 'the destination';
+
         const prompt = `
             **CONTEXT: THUMBNAIL BEST PRACTICES**
             ${thumbnailKnowledgeBase}
@@ -49,12 +53,13 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
             You are a viral YouTube thumbnail designer. Generate 3 distinct, compelling thumbnail ideas.
             For each idea, provide these 5 pieces of information:
             1. background: A concise description of the background image.
-            2. text: The exact text for the overlay.
+            2. text: The exact text for the overlay. By default, you should try to include the Main Location in the text.
             3. composition: The layout principle (e.g., 'split-screen', 'close-up on face', 'rule of thirds').
             4. color_mood: The suggested color palette and emotional mood (e.g., 'High-contrast with warm colors, exciting mood').
             5. key_elements: Any specific objects or focal points to include (e.g., 'A person pointing at a map').
 
             **VIDEO DETAILS**
+            - Main Location: "${mainLocation}"
             - Video Title: "${video.chosenTitle || video.title}"
             - Video Concept: "${video.concept}"
 
@@ -130,7 +135,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
             </div>
             {error && <p className="error-message">{error}</p>}
             
-            {/* Accepted Ideas Section */}
             <div className="space-y-4">
                 <h4 className="text-xl font-semibold text-white">Accepted Ideas ({acceptedIdeas.length} / 3)</h4>
                 {acceptedIdeas.length < 3 && <p className="text-sm text-gray-400">Accept 3 ideas to complete this step.</p>}
@@ -155,7 +159,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
                 </div>
             </div>
 
-            {/* Idea Generation Section */}
             {conceptIdeas.length > 0 && (
                 <div className="space-y-4 pt-6 border-t border-gray-700">
                     <h4 className="text-xl font-semibold text-white">Generated Ideas</h4>
