@@ -233,6 +233,7 @@ const ScriptingWorkspaceModal = ({
     settings,
     project,
     onNavigate,
+    onUpdateTask,
 }) => {
     const [currentStage, setCurrentStage] = useState(stageOverride || taskData.scriptingStage || 'initial_thoughts');
     const [localTaskData, setLocalTaskData] = useState(taskData);
