@@ -314,7 +314,9 @@ const ScriptingWorkspaceModal = ({
     };
 
     const handleStageClick = (targetStage) => {
-        onClose(localTaskData, false);
+        if (taskData.scriptingStage !== 'complete') {
+            onClose(localTaskData, false);
+        }
         setCurrentStage(targetStage);
     };
 
@@ -960,7 +962,13 @@ const handleOpenWorkspace = async (startStage = null) => {
         }
     };
 
-    const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
+const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
+        if (video.tasks?.scripting === 'complete' && !shouldClose) {
+            // If the task is already complete and we are not explicitly closing the modal,
+            // (i.e., just clicking between stages), do not save any changes.
+            return;
+        }
+
         const fieldsToUpdate = {
             'tasks.scriptingStage': updatedTaskData.scriptingStage,
             'tasks.initialThoughts': updatedTaskData.initialThoughts,
@@ -973,9 +981,11 @@ const handleOpenWorkspace = async (startStage = null) => {
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
             'script': updatedTaskData.script,
         };
+
         if (video.tasks?.scripting !== 'complete') {
             onUpdateTask('scripting', 'in-progress', fieldsToUpdate);
         }
+
         if (shouldClose) {
             setShowWorkspace(false);
             setLocalOnCameraLocations(null);
