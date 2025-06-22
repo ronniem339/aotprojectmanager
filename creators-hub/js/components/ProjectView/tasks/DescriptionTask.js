@@ -1,13 +1,29 @@
-// js/components/ProjectView/tasks/DescriptionTask.js
+// creators-hub/js/components/ProjectView/tasks/DescriptionTask.js
 
 window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
     const { useState, useEffect } = React;
-    // Use the description from video.metadata, which is the single source of truth
     const [description, setDescription] = useState(video.metadata?.description || '');
+    const [styleGuide, setStyleGuide] = useState(''); // State to hold the fetched style guide
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
 
-    // When the video changes, update the description in the textarea
+    // Fetch studio details (including the style guide) when the component mounts
+    useEffect(() => {
+        const fetchStudioDetails = async () => {
+            try {
+                const details = await window.electron.getStudioDetails();
+                if (details && details.styleGuide) {
+                    setStyleGuide(details.styleGuide);
+                }
+            } catch (err) {
+                console.error("Failed to load studio details:", err);
+                // Optionally set an error state here
+            }
+        };
+        fetchStudioDetails();
+    }, []); // Empty dependency array means this runs once on mount
+
+    // When the video data changes, update the description in the textarea
     useEffect(() => {
         setDescription(video.metadata?.description || '');
     }, [video.metadata?.description]);
@@ -15,15 +31,22 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
     const handleGenerateDescription = async () => {
         setGenerating(true);
         setError('');
-        // The prompt is improved to include project context for better results
-        const prompt = `You are a YouTube SEO expert. Write an engaging and SEO-optimized YouTube description.
-        It should be around 200-300 words. Include keywords naturally.
-        The first 2-3 sentences are the most important for CTR.
+        // The prompt now includes the style guide fetched from studio details
+        const prompt = `You are a YouTube SEO expert. Your primary goal is to write an engaging and SEO-optimized YouTube description.
+        It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
+
+        As a secondary goal, adhere to the following style guide:
+        --- STYLE GUIDE ---
+        ${styleGuide || 'No style guide provided.'}
+        --- END STYLE GUIDE ---
+
+        Here is the video information:
         Video Title: "${video.chosenTitle || video.title}"
         Video Concept: "${video.concept}"
         Locations Featured: ${(video.locations_featured || []).join(', ')}
         Keywords: ${(video.targeted_keywords || []).join(', ')}
         Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
+
         Return the description as a JSON object like: {"description": "The full text of the description..."}.`;
 
         try {
@@ -52,20 +75,21 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings }) 
 
     return (
         <div className="task-container">
-            <div className="task-content">
+            <div className="task-content space-y-4">
+                {/* The user-input textarea for the style guide has been removed. */}
                 <button onClick={handleGenerateDescription} disabled={generating} className="button-primary-small w-full justify-center">
                     {generating ? <window.LoadingSpinner isButton={true}/> : '🤖 Generate Description'}
                 </button>
                 {error && <p className="error-message">{error}</p>}
                 <textarea
-                    className="form-textarea mt-4 h-64"
+                    className="form-textarea h-64"
                     value={description}
                     onChange={(e) => {
                         setDescription(e.target.value);
                     }}
                     placeholder="Write or generate the video description here..."
                 />
-                <button onClick={handleSave} className="button-secondary-small mt-4 w-full justify-center">
+                <button onClick={handleSave} className="button-secondary-small w-full justify-center">
                     Save and Mark Complete
                 </button>
             </div>
