@@ -96,11 +96,13 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
             
             if (finalGenerationConfig.responseMimeType === "application/json") {
                 try {
-                    return JSON.parse(responseText);
-                } catch (e) {
-                    console.error("Failed to parse AI response as JSON:", responseText, e);
-                    throw new Error("AI response was expected to be valid JSON but wasn't.");
-                }
+    // Clean the response to remove newlines and other characters that can break JSON.parse
+    const cleanedResponse = responseText.replace(/[\n\r]/g, '');
+    return JSON.parse(cleanedResponse);
+} catch (e) {
+    console.error("Failed to parse AI response as JSON:", responseText, e);
+    throw new Error("AI response was expected to be valid JSON but wasn't.");
+}
             } else {
                 return responseText;
             }
