@@ -2,7 +2,9 @@
 
 const { useState } = React;
 
-window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress, onManageFootage, hideDescription, onAddVideo }) => { // Added onAddVideo
+// --- START: ADD NEW PROPS ---
+window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgress, onManageFootage, hideDescription, onAddVideo, onToggleRightSidebar, isRightSidebarVisible }) => {
+// --- END: ADD NEW PROPS ---
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
 
     // Only show the toggle button if description is not explicitly hidden
@@ -61,6 +63,23 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgr
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-2m3 2v-2M9 9H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2v-2m0-4h4a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2h4a2 2 0 012 2v.5m-4 10.5H12"></path>
                         </svg>
                     </button>
+
+                    {/* --- START: ADD THIS BUTTON --- */}
+                    <button
+                        onClick={onToggleRightSidebar}
+                        className={`flex-shrink-0 p-2 rounded-full transition-colors ${isRightSidebarVisible ? 'bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white' : 'bg-primary-accent hover:bg-primary-accent-darker text-gray-900'}`}
+                        title={isRightSidebarVisible ? 'Hide Details Sidebar' : 'Show Details Sidebar'}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            {isRightSidebarVisible ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7" />
+                            ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7" />
+                            )}
+                        </svg>
+                    </button>
+                    {/* --- END: ADD THIS BUTTON --- */}
+
 
                     {/* NEW: Add Video Button */}
                     {onAddVideo && ( // Only render if onAddVideo prop is provided
