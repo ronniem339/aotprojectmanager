@@ -14,9 +14,9 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
-    // --- START: ADD THIS NEW STATE ---
+    // --- START: ENSURE THIS STATE IS PRESENT ---
     const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
-    // --- END: ADD THIS NEW STATE ---
+    // --- END: ENSURE THIS STATE IS PRESENT ---
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
@@ -180,54 +180,53 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         }
     }, [updateVideo, scriptPlanData]);
 
-const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => {
-    if (!db || !localProject?.id || !activeVideo?.id) return;
+    const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => {
+        if (!db || !localProject?.id || !activeVideo?.id) return;
 
-    const videoId = activeVideo.id; // Use the active video's ID
-    const updatePayload = { [`tasks.${taskName}`]: status, ...data };
+        const videoId = activeVideo.id; // Use the active video's ID
+        const updatePayload = { [`tasks.${taskName}`]: status, ...data };
 
-    // Optimistic UI Update
-    setVideos(currentVideos => currentVideos.map(v => {
-        if (v.id === videoId) {
-            // Deep clone to avoid direct state mutation
-            const newVideo = JSON.parse(JSON.stringify(v));
-            if (!newVideo.tasks) {
-                newVideo.tasks = {};
-            }
-
-            // Safely update nested data properties
-            for (const key in data) {
-                if (Object.prototype.hasOwnProperty.call(data, key)) {
-                    const keys = key.split('.');
-                    let current = newVideo;
-                    for (let i = 0; i < keys.length - 1; i++) {
-                        // Ensure nested objects exist
-                        current[keys[i]] = current[keys[i]] || {};
-                        current = current[keys[i]];
-                    }
-                    current[keys[keys.length - 1]] = data[key];
+        // Optimistic UI Update
+        setVideos(currentVideos => currentVideos.map(v => {
+            if (v.id === videoId) {
+                // Deep clone to avoid direct state mutation
+                const newVideo = JSON.parse(JSON.stringify(v));
+                if (!newVideo.tasks) {
+                    newVideo.tasks = {};
                 }
+
+                // Safely update nested data properties
+                for (const key in data) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        const keys = key.split('.');
+                        let current = newVideo;
+                        for (let i = 0; i < keys.length - 1; i++) {
+                            // Ensure nested objects exist
+                            current[keys[i]] = current[keys[i]] || {};
+                            current = current[keys[i]];
+                        }
+                        current[keys[keys.length - 1]] = data[key];
+                    }
+                }
+                newVideo.tasks[taskName] = status;
+                return newVideo;
             }
-            newVideo.tasks[taskName] = status;
-            return newVideo;
-        }
-        return v;
-    }));
+            return v;
+        }));
 
-    // Firebase Update
-    try {
-        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
-        await videoRef.update(updatePayload);
+        // Firebase Update
+        try {
+            const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
+            await videoRef.update(updatePayload);
 
-        if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
-            setTaskBeingEdited(null);
+            if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
+                setTaskBeingEdited(null);
+            }
+        } catch (e) {
+            console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
+            setError(`Failed to update task status: ${e.message}`);
         }
-    } catch (e) {
-        console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
-        setError(`Failed to update task status: ${e.message}`);
-        // Note: You might want to add logic here to revert the optimistic update on failure
-    }
-}, [userId, localProject?.id, appId, taskBeingEdited, db, activeVideo]); // Added activeVideo to dependency array
+    }, [userId, localProject?.id, appId, taskBeingEdited, db, activeVideo]); // Added activeVideo to dependency array
 
     const handleSaveNewVideo = useCallback(async (newVideoData) => {
         setLoading(true);
@@ -325,7 +324,7 @@ const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => 
 
     return (
         <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white">
-             {/* --- START: UPDATE THIS COMPONENT --- */}
+            {/* --- START: UPDATE THIS COMPONENT --- */}
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
