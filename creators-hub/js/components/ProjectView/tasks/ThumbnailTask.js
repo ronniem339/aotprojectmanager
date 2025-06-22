@@ -6,19 +6,16 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
 
-    // State for the different idea lists
     const [conceptIdeas, setConceptIdeas] = useState(video.tasks?.thumbnailConcepts || []);
     const [acceptedIdeas, setAcceptedIdeas] = useState(video.tasks?.acceptedThumbnails || []);
     const [rejectedIdeas, setRejectedIdeas] = useState(video.tasks?.rejectedThumbnails || []);
 
-    // Effect to update local state if the video prop changes from elsewhere
     useEffect(() => {
         setConceptIdeas(video.tasks?.thumbnailConcepts || []);
         setAcceptedIdeas(video.tasks?.acceptedThumbnails || []);
         setRejectedIdeas(video.tasks?.rejectedThumbnails || []);
     }, [video.tasks]);
 
-    // Effect to automatically manage the completion status
     useEffect(() => {
         const isComplete = acceptedIdeas.length === 3;
         const currentStatus = video.tasks?.thumbnailsGenerated;
@@ -40,21 +37,31 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
         setError('');
 
         const thumbnailKnowledgeBase = settings?.knowledgeBases?.youtube?.thumbnailIdeas || 'Design compelling, high-CTR thumbnails.';
+        
+        // The prompt is updated to ask for the new, more detailed JSON structure.
         const prompt = `
             **CONTEXT: THUMBNAIL BEST PRACTICES**
             ${thumbnailKnowledgeBase}
 
+            ---
+
             **YOUR TASK**
-            You are a viral YouTube thumbnail designer. Following the best practices, generate 3 new, distinct, compelling thumbnail ideas for the following video.
-            
+            You are a viral YouTube thumbnail designer. Generate 3 distinct, compelling thumbnail ideas.
+            For each idea, provide these 5 pieces of information:
+            1. background: A concise description of the background image.
+            2. text: The exact text for the overlay.
+            3. composition: The layout principle (e.g., 'split-screen', 'close-up on face', 'rule of thirds').
+            4. color_mood: The suggested color palette and emotional mood (e.g., 'High-contrast with warm colors, exciting mood').
+            5. key_elements: Any specific objects or focal points to include (e.g., 'A person pointing at a map').
+
             **VIDEO DETAILS**
             - Video Title: "${video.chosenTitle || video.title}"
             - Video Concept: "${video.concept}"
 
             **DO NOT SUGGEST IDEAS SIMILAR TO THESE REJECTED ONES:**
-            ${rejectedIdeas.length > 0 ? rejectedIdeas.map(r => `- ${r}`).join('\n') : 'N/A'}
+            ${rejectedIdeas.length > 0 ? rejectedIdeas.map(r => `- Background: ${r.background}, Text: ${r.text}`).join('\n') : 'N/A'}
 
-            Return a valid JSON object like: {"ideas": ["Detailed description of idea 1...", "Detailed description of idea 2...", ...]}.
+            Return a valid JSON object. The "ideas" key should be an array of objects, with each object containing all five keys: "background", "text", "composition", "color_mood", and "key_elements".
         `;
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
@@ -135,7 +142,13 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
                 <div className="space-y-3">
                     {acceptedIdeas.map((idea, index) => (
                         <div key={index} className="glass-card-light p-4 flex justify-between items-start">
-                            <p className="text-sm pr-4">{idea}</p>
+                            <div className="pr-4 space-y-2 text-sm">
+                                <p><strong className="font-semibold text-gray-300 block">Background:</strong> {idea.background}</p>
+                                <p><strong className="font-semibold text-gray-300 block">Text:</strong> {idea.text}</p>
+                                <p><strong className="font-semibold text-gray-300 block">Composition:</strong> {idea.composition}</p>
+                                <p><strong className="font-semibold text-gray-300 block">Color & Mood:</strong> {idea.color_mood}</p>
+                                <p><strong className="font-semibold text-gray-300 block">Key Elements:</strong> {idea.key_elements}</p>
+                            </div>
                             <button onClick={() => handleRemoveAccepted(index)} className="button-secondary-small flex-shrink-0">Remove</button>
                         </div>
                     ))}
@@ -149,7 +162,13 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) =>
                     <div className="space-y-3">
                          {conceptIdeas.map((idea, index) => (
                             <div key={index} className="glass-card p-4 flex justify-between items-start">
-                                <p className="text-sm pr-4">{idea}</p>
+                                <div className="pr-4 space-y-2 text-sm">
+                                    <p><strong className="font-semibold text-gray-300 block">Background:</strong> {idea.background}</p>
+                                    <p><strong className="font-semibold text-gray-300 block">Text:</strong> {idea.text}</p>
+                                    <p><strong className="font-semibold text-gray-300 block">Composition:</strong> {idea.composition}</p>
+                                    <p><strong className="font-semibold text-gray-300 block">Color & Mood:</strong> {idea.color_mood}</p>
+                                    <p><strong className="font-semibold text-gray-300 block">Key Elements:</strong> {idea.key_elements}</p>
+                                </div>
                                 <div className="flex gap-2 flex-shrink-0">
                                     <button onClick={() => handleRejectIdea(index)} disabled={generating} className="button-danger-small">Reject</button>
                                     <button onClick={() => handleAcceptIdea(index)} disabled={generating || acceptedIdeas.length >= 3} className="button-primary-small">Accept</button>
