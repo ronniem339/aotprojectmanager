@@ -103,9 +103,9 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const haveIdeasBeenGenerated = ideas.ideas1.length > 0 || ideas.ideas2.length > 0 || ideas.ideas3.length > 0;
 
     return (
-        <div className="task-content space-y-4">
-            {/* --- TOP PART - ALWAYS VISIBLE --- */}
-            <div className="space-y-4">
+        <div className="task-content flex flex-col" style={{ height: 'calc(100% - 1rem)' }}>
+            {/* --- TOP PART (FIXED) --- */}
+            <div className="flex-shrink-0 space-y-4">
                 <p className="text-sm font-medium text-gray-300">Describe the three images you want to use for A/B testing:</p>
                 {Object.keys(imageDescriptions).map((key, index) => (
                     <div key={key} className="space-y-1">
@@ -113,18 +113,16 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                         <textarea id={key} value={imageDescriptions[key]} onChange={(e) => handleDescriptionChange(key, e.target.value)} placeholder={`e.g., A wide shot of the entire building with a clear blue sky.`} className="form-textarea" rows={2} disabled={generating} />
                     </div>
                 ))}
+                <button onClick={handleGenerateIdeas} disabled={generating || !areAllDescriptionsFilled} className="button-primary-small w-full justify-center">
+                    {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate A/B Test Ideas'}
+                </button>
+                {error && <p className="error-message">{error}</p>}
             </div>
 
-            <button onClick={handleGenerateIdeas} disabled={generating || !areAllDescriptionsFilled} className="button-primary-small w-full justify-center">
-                {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate A/B Test Ideas'}
-            </button>
-
-            {error && <p className="error-message">{error}</p>}
-            
-            {/* --- SCROLLABLE CONTAINER FOR DYNAMIC CONTENT AND FINAL ACTIONS --- */}
-            <div className="space-y-4 max-h-[40rem] overflow-y-auto pr-2 custom-scrollbar">
+            {/* --- MIDDLE PART (SCROLLABLE) --- */}
+            <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 mt-4 space-y-4">
                 {haveIdeasBeenGenerated && (
-                    <div className="space-y-4 mt-4">
+                    <div className="space-y-4">
                         {Object.entries(ideas).map(([key, ideaList], index) => (
                             ideaList.length > 0 && (
                                 <div key={key} className="space-y-3">
@@ -156,9 +154,11 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                         ))}
                     </div>
                 )}
+            </div>
 
-                {/* --- FINAL BRIEF AND SAVE BUTTON ARE NOW INSIDE SCROLLABLE AREA --- */}
-                <div className="space-y-2 pt-4 border-t border-gray-700">
+            {/* --- BOTTOM PART (FIXED) --- */}
+            <div className="flex-shrink-0 pt-4 border-t border-gray-700 space-y-4">
+                <div className="space-y-2">
                     <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
                         Final Thumbnail Design Brief (for all 3 versions):
                     </label>
@@ -168,11 +168,10 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                         onChange={(e) => setFinalDesignBrief(e.target.value)}
                         placeholder="Describe the final designs for all three thumbnails here. Use the ideas above or write your own."
                         className="form-textarea"
-                        rows={6}
+                        rows={5}
                     />
                 </div>
-
-                <div className="text-center pt-4 pb-4">
+                <div className="text-center">
                      <button
                         onClick={handleSaveBrief}
                         disabled={generating || !finalDesignBrief}
