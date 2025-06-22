@@ -12,9 +12,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const [ideas, setIdeas] = useState({ ideas1: [], ideas2: [], ideas3: [] });
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
-    // --- START: NEW STATE FOR BUTTON FEEDBACK ---
     const [copiedIdeaId, setCopiedIdeaId] = useState(null);
-    // --- END: NEW STATE FOR BUTTON FEEDBACK ---
 
     useEffect(() => {
         setFinalDesignBrief(video.thumbnailBrief || '');
@@ -106,95 +104,83 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     return (
         <div className="task-content space-y-4">
+            {/* --- TOP PART - ALWAYS VISIBLE --- */}
             <div className="space-y-4">
                 <p className="text-sm font-medium text-gray-300">Describe the three images you want to use for A/B testing:</p>
-                
                 {Object.keys(imageDescriptions).map((key, index) => (
                     <div key={key} className="space-y-1">
-                        <label htmlFor={key} className="block text-sm font-semibold text-gray-400">
-                            Image {index + 1} Description:
-                        </label>
-                        <textarea
-                            id={key}
-                            value={imageDescriptions[key]}
-                            onChange={(e) => handleDescriptionChange(key, e.target.value)}
-                            placeholder={`e.g., A wide shot of the entire building with a clear blue sky.`}
-                            className="form-textarea"
-                            rows={2}
-                            disabled={generating}
-                        />
+                        <label htmlFor={key} className="block text-sm font-semibold text-gray-400">Image {index + 1} Description:</label>
+                        <textarea id={key} value={imageDescriptions[key]} onChange={(e) => handleDescriptionChange(key, e.target.value)} placeholder={`e.g., A wide shot of the entire building with a clear blue sky.`} className="form-textarea" rows={2} disabled={generating} />
                     </div>
                 ))}
             </div>
 
-            <button
-                onClick={handleGenerateIdeas}
-                disabled={generating || !areAllDescriptionsFilled}
-                className="button-primary-small w-full justify-center"
-            >
+            <button onClick={handleGenerateIdeas} disabled={generating || !areAllDescriptionsFilled} className="button-primary-small w-full justify-center">
                 {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate A/B Test Ideas'}
             </button>
 
             {error && <p className="error-message">{error}</p>}
             
-            {/* --- START: UI FIX FOR OVERFLOW AND FEEDBACK --- */}
-            {haveIdeasBeenGenerated && (
-                <div className="space-y-4 mt-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                    {Object.entries(ideas).map(([key, ideaList], index) => (
-                        ideaList.length > 0 && (
-                            <div key={key} className="space-y-3">
-                                <h4 className="text-lg font-semibold text-white">Suggestions for Image {index + 1}:</h4>
-                                {ideaList.map((idea, ideaIndex) => {
-                                    const ideaId = `${index}-${ideaIndex}`;
-                                    const isCopied = copiedIdeaId === ideaId;
-                                    return (
-                                        <div key={ideaIndex} className="glass-card-light p-3 rounded-lg flex justify-between items-start gap-4">
-                                            <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
-                                            <button
-                                                onClick={() => {
-                                                    setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
-                                                    setError('');
-                                                    setCopiedIdeaId(ideaId);
-                                                    setTimeout(() => setCopiedIdeaId(null), 2000);
-                                                }}
-                                                className={`button-secondary-small flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                                                title="Add this idea to the brief"
-                                                disabled={isCopied}
-                                            >
-                                                {isCopied ? 'Copied!' : 'Use Idea'}
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )
-                    ))}
+            {/* --- SCROLLABLE CONTAINER FOR DYNAMIC CONTENT AND FINAL ACTIONS --- */}
+            <div className="space-y-4 max-h-[40rem] overflow-y-auto pr-2 custom-scrollbar">
+                {haveIdeasBeenGenerated && (
+                    <div className="space-y-4 mt-4">
+                        {Object.entries(ideas).map(([key, ideaList], index) => (
+                            ideaList.length > 0 && (
+                                <div key={key} className="space-y-3">
+                                    <h4 className="text-lg font-semibold text-white">Suggestions for Image {index + 1}:</h4>
+                                    {ideaList.map((idea, ideaIndex) => {
+                                        const ideaId = `${index}-${ideaIndex}`;
+                                        const isCopied = copiedIdeaId === ideaId;
+                                        return (
+                                            <div key={ideaIndex} className={`glass-card-light p-3 rounded-lg flex justify-between items-start gap-4 transition-colors duration-300 ${isCopied ? 'bg-green-900/60' : ''}`}>
+                                                <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
+                                                <button
+                                                    onClick={() => {
+                                                        setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
+                                                        setError('');
+                                                        setCopiedIdeaId(ideaId);
+                                                        setTimeout(() => setCopiedIdeaId(null), 2000);
+                                                    }}
+                                                    className={`button-secondary-small flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                                                    title="Add this idea to the brief"
+                                                    disabled={isCopied}
+                                                >
+                                                    {isCopied ? 'Copied!' : 'Use Idea'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )
+                        ))}
+                    </div>
+                )}
+
+                {/* --- FINAL BRIEF AND SAVE BUTTON ARE NOW INSIDE SCROLLABLE AREA --- */}
+                <div className="space-y-2 pt-4 border-t border-gray-700">
+                    <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
+                        Final Thumbnail Design Brief (for all 3 versions):
+                    </label>
+                    <textarea
+                        id="designBrief"
+                        value={finalDesignBrief}
+                        onChange={(e) => setFinalDesignBrief(e.target.value)}
+                        placeholder="Describe the final designs for all three thumbnails here. Use the ideas above or write your own."
+                        className="form-textarea"
+                        rows={6}
+                    />
                 </div>
-            )}
-            {/* --- END: UI FIX FOR OVERFLOW AND FEEDBACK --- */}
 
-            <div className="space-y-2 pt-4 border-t border-gray-700">
-                <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
-                    Final Thumbnail Design Brief (for all 3 versions):
-                </label>
-                <textarea
-                    id="designBrief"
-                    value={finalDesignBrief}
-                    onChange={(e) => setFinalDesignBrief(e.target.value)}
-                    placeholder="Describe the final designs for all three thumbnails here. Use the ideas above or write your own."
-                    className="form-textarea"
-                    rows={6}
-                />
-            </div>
-
-            <div className="text-center pt-4">
-                 <button
-                    onClick={handleSaveBrief}
-                    disabled={generating || !finalDesignBrief}
-                    className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
-                >
-                    Confirm Brief & Mark Complete
-                </button>
+                <div className="text-center pt-4 pb-4">
+                     <button
+                        onClick={handleSaveBrief}
+                        disabled={generating || !finalDesignBrief}
+                        className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    >
+                        Confirm Brief & Mark Complete
+                    </button>
+                </div>
             </div>
         </div>
     );
