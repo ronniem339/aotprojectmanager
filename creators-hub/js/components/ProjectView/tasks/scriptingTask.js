@@ -652,8 +652,7 @@ const imageUrl = isLoading
                 return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
         }
     };
-
-    return (
+return (
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
             <div className="w-full min-h-full p-4 sm:p-12 md:p-16 relative">
                 <button onClick={() => handleClose(true)} className="absolute top-4 right-4 sm:top-6 sm:right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
