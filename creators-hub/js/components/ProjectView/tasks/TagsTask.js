@@ -127,7 +127,11 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
 
                 {/* Final Save Button */}
                 <div className="pt-6 border-t border-gray-700 text-center">
-                    <button onClick={handleSave} disabled={generating} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white">
+                    <button 
+                        onClick={handleSave} 
+                        disabled={generating || tags.length === 0} 
+                        className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    >
                         Confirm Tags & Mark Complete
                     </button>
                 </div>
