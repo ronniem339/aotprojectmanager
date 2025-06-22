@@ -1,6 +1,6 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails }) => {
     const { useState, useEffect, useCallback } = React;
     const [openTask, setOpenTask] = useState(null);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -136,7 +136,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             case 'titleGenerated':
                 return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
             case 'descriptionGenerated':
-                return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
+                return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} studioDetails={studioDetails} />;
             case 'chaptersGenerated':
                 return <window.ChaptersTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
             case 'tagsGenerated':
