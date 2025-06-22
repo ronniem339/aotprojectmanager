@@ -142,7 +142,7 @@ const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStage
     return (
         <div className="desktop-stepper flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto">
             {stages.map((stage, index) => {
-                const isUnlocked = index <= highestCompletedIndex;
+                const isUnlocked = isComplete || index <= highestCompletedIndex;
                 const isCurrent = currentStage === stage.id;
                 const isClickable = isUnlocked && !isCurrent;
 
@@ -191,7 +191,7 @@ const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageC
             {isOpen && (
                 <div className="mobile-stepper-menu">
                     {stages.map((stage, index) => {
-                        const isUnlocked = index <= highestCompletedIndex;
+                        const isUnlocked = isComplete || index <= highestCompletedIndex;
                         const isCurrent = currentStage === stage.id;
                         if (!isUnlocked) return null; // Or render a disabled state
                         return (
@@ -664,6 +664,7 @@ const imageUrl = isLoading
                     currentStage={currentStage}
                     highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
                     onStageClick={handleStageClick}
+                    isComplete={isComplete}
                 />
 
                 <div className="">
