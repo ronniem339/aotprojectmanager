@@ -4,17 +4,17 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
     const [finalDesignBrief, setFinalDesignBrief] = useState(video.thumbnailBrief || '');
     
-    // --- START: UPDATED STATE FOR THREE IMAGES ---
     const [imageDescriptions, setImageDescriptions] = useState({
         image1: '',
         image2: '',
         image3: ''
     });
     const [ideas, setIdeas] = useState({ ideas1: [], ideas2: [], ideas3: [] });
-    // --- END: UPDATED STATE ---
-
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
+    // --- START: NEW STATE FOR BUTTON FEEDBACK ---
+    const [copiedIdeaId, setCopiedIdeaId] = useState(null);
+    // --- END: NEW STATE FOR BUTTON FEEDBACK ---
 
     useEffect(() => {
         setFinalDesignBrief(video.thumbnailBrief || '');
@@ -24,7 +24,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
         setImageDescriptions(prev => ({ ...prev, [key]: value }));
     };
 
-    // --- START: UPDATED AI HANDLER FOR A/B TESTING ---
     const handleGenerateIdeas = async () => {
         if (!imageDescriptions.image1 || !imageDescriptions.image2 || !imageDescriptions.image3) {
             setError('Please describe all three images before generating ideas.');
@@ -33,7 +32,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
         setGenerating(true);
         setError('');
-        setIdeas({ ideas1: [], ideas2: [], ideas3: [] }); // Clear previous ideas
+        setIdeas({ ideas1: [], ideas2: [], ideas3: [] });
 
         const prompt = `
             You are an expert YouTube thumbnail designer creating variations for an A/B test.
@@ -88,7 +87,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
             setGenerating(false);
         }
     };
-    // --- END: UPDATED AI HANDLER ---
 
     const handleSaveBrief = () => {
         if (!finalDesignBrief.trim()) {
@@ -106,7 +104,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const areAllDescriptionsFilled = imageDescriptions.image1 && imageDescriptions.image2 && imageDescriptions.image3;
     const haveIdeasBeenGenerated = ideas.ideas1.length > 0 || ideas.ideas2.length > 0 || ideas.ideas3.length > 0;
 
-    // --- START: UPDATED COMPONENT UI ---
     return (
         <div className="task-content space-y-4">
             <div className="space-y-4">
@@ -140,34 +137,41 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
             {error && <p className="error-message">{error}</p>}
             
-            {/* --- OVERFLOW FIX IS HERE --- */}
+            {/* --- START: UI FIX FOR OVERFLOW AND FEEDBACK --- */}
             {haveIdeasBeenGenerated && (
                 <div className="space-y-4 mt-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                     {Object.entries(ideas).map(([key, ideaList], index) => (
                         ideaList.length > 0 && (
                             <div key={key} className="space-y-3">
                                 <h4 className="text-lg font-semibold text-white">Suggestions for Image {index + 1}:</h4>
-                                {ideaList.map((idea, ideaIndex) => (
-                                    <div key={ideaIndex} className="glass-card-light p-3 rounded-lg flex justify-between items-start gap-4">
-                                        <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
-                                        <button
-                                            onClick={() => {
-                                                setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
-                                                setError('');
-                                            }}
-                                            className="button-secondary-small flex-shrink-0"
-                                            title="Add this idea to the brief"
-                                        >
-                                            Use Idea
-                                        </button>
-                                    </div>
-                                ))}
+                                {ideaList.map((idea, ideaIndex) => {
+                                    const ideaId = `${index}-${ideaIndex}`;
+                                    const isCopied = copiedIdeaId === ideaId;
+                                    return (
+                                        <div key={ideaIndex} className="glass-card-light p-3 rounded-lg flex justify-between items-start gap-4">
+                                            <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
+                                            <button
+                                                onClick={() => {
+                                                    setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
+                                                    setError('');
+                                                    setCopiedIdeaId(ideaId);
+                                                    setTimeout(() => setCopiedIdeaId(null), 2000);
+                                                }}
+                                                className={`button-secondary-small flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                                                title="Add this idea to the brief"
+                                                disabled={isCopied}
+                                            >
+                                                {isCopied ? 'Copied!' : 'Use Idea'}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )
                     ))}
                 </div>
             )}
-            {/* --- END OF OVERFLOW FIX --- */}
+            {/* --- END: UI FIX FOR OVERFLOW AND FEEDBACK --- */}
 
             <div className="space-y-2 pt-4 border-t border-gray-700">
                 <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
@@ -183,7 +187,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 />
             </div>
 
-            <div className="text-center">
+            <div className="text-center pt-4">
                  <button
                     onClick={handleSaveBrief}
                     disabled={generating || !finalDesignBrief}
@@ -194,5 +198,4 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
             </div>
         </div>
     );
-    // --- END: UPDATED COMPONENT UI ---
 };
