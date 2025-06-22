@@ -6,6 +6,8 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
     // Initialize chapters from video data if they exist, otherwise empty array.
     const [chapters, setChapters] = useState(video.chapters || []);
     const [generating, setGenerating] = useState(false);
+    const [refining, setRefining] = useState(false);
+    const [refinePrompt, setRefinePrompt] = useState('');
     const [error, setError] = useState('');
 
     // Effect to update chapters if the video prop changes.
@@ -73,6 +75,58 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         }
     };
 
+    const handleRefineChapters = async () => {
+        if (chapters.length === 0 || !refinePrompt) {
+            setError("Please generate chapters and enter a refinement prompt first.");
+            return;
+        }
+        setRefining(true);
+        setError('');
+
+        const currentTitles = chapters.map(c => c.title);
+
+        const prompt = `
+            You are an expert in video content and titling.
+            You have been given a list of chapter titles for a video.
+            Your task is to refine these titles based on the user's instructions.
+            Do not change the number of chapters.
+            Return the result as a JSON object with a single key "chapters" containing an array of the refined strings.
+
+            Original Chapter Titles:
+            ---
+            ${JSON.stringify(currentTitles)}
+            ---
+
+            User's Refinement Instructions:
+            ---
+            ${refinePrompt}
+            ---
+        `;
+
+        try {
+            const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
+            const refinedTitles = result.chapters || [];
+
+            if (refinedTitles.length === chapters.length) {
+                const refinedChapters = chapters.map((chapter, index) => ({
+                    ...chapter,
+                    title: refinedTitles[index]
+                }));
+                setChapters(refinedChapters);
+                setRefinePrompt(''); // Clear the prompt after successful refinement
+            } else {
+                throw new Error("The number of refined chapters does not match the original count.");
+            }
+
+        } catch (err) {
+            console.error("Error refining chapters:", err);
+            setError(`Failed to refine chapters: ${err.message}`);
+        } finally {
+            setRefining(false);
+        }
+    };
+
+
     const handleChapterChange = (index, field, value) => {
         const newChapters = [...chapters];
         newChapters[index][field] = value;
@@ -114,13 +168,13 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 return `${formattedTime} - ${ch.title}`;
             })
             .join('\n');
-            
+
         // 3. Get the current description safely.
         const currentMetadata = (typeof video.metadata === 'string' && video.metadata)
             ? JSON.parse(video.metadata)
             : video.metadata || {};
         const currentDescription = currentMetadata.description || '';
-        
+
         // 4. Append the formatted chapters to the description.
         const chapterHeader = "\n\n--- CHAPTERS ---\n";
         let newDescription;
@@ -137,7 +191,7 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         // 5. Update the database with both the structured chapters and the updated description text.
         onUpdateTask('chaptersGenerated', 'complete', {
             chapters: chapters,
-            'metadata.description': newDescription 
+            'metadata.description': newDescription
         });
     };
 
@@ -152,6 +206,26 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
             </button>
             {!video.script && <p className="text-yellow-400 text-sm text-center">A finalized script is needed to generate chapter suggestions.</p>}
             {error && <p className="error-message">{error}</p>}
+
+            {chapters.length > 0 && (
+                <div className="flex items-center gap-3 mt-4">
+                    <input
+                        type="text"
+                        placeholder="e.g., Make titles shorter and more exciting"
+                        value={refinePrompt}
+                        onChange={(e) => setRefinePrompt(e.target.value)}
+                        className="form-input flex-grow"
+                        disabled={refining}
+                    />
+                    <button
+                        onClick={handleRefineChapters}
+                        disabled={refining || !refinePrompt}
+                        className="button-secondary-small flex-shrink-0"
+                    >
+                        {refining ? <window.LoadingSpinner isButton={true} /> : 'Refine Titles'}
+                    </button>
+                </div>
+            )}
 
             <div className="space-y-3 mt-4">
                 {chapters.map((chapter, index) => (
