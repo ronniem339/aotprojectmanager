@@ -5,12 +5,10 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
     const [tags, setTags] = useState([]);
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
-    const [copySuccess, setCopySuccess] = useState(''); // For "Copied!" feedback
+    const [copySuccess, setCopySuccess] = useState('');
 
-    // Load existing tags from metadata when the component loads or video changes.
     useEffect(() => {
         try {
-            // FIX: Check if metadata is a string before parsing.
             const metadata = (typeof video.metadata === 'string' && video.metadata)
                 ? JSON.parse(video.metadata)
                 : video.metadata || {};
@@ -28,23 +26,36 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
         setError('');
         setCopySuccess('');
 
-        // Re-applying the metadata parsing fix here as well to be safe.
         const currentMetadata = (typeof video.metadata === 'string' && video.metadata)
             ? JSON.parse(video.metadata)
             : video.metadata || {};
         const description = currentMetadata.description || '';
 
-        const prompt = `You are a YouTube SEO expert. Based on the video title and description, generate a list of 15-20 relevant SEO tags.
-        Include a mix of broad and specific long-tail keywords.
-        Video Title: "${video.chosenTitle || video.title}"
-        Video Description: "${description}"
-        Return the tags as a JSON array like: {"tags": ["tag1", "tag2", "tag3", ...]}.`;
+        // Get the YouTube Tags knowledge base from the settings prop.
+        const tagsKnowledgeBase = settings?.knowledgeBases?.youtube?.videoTags || 'Generate relevant SEO tags.';
+
+        // The prompt is updated to include the knowledge base as context.
+        const prompt = `
+            **CONTEXT: TAGGING BEST PRACTICES**
+            ${tagsKnowledgeBase}
+
+            ---
+
+            **YOUR TASK**
+            You are a YouTube SEO expert. Following the best practices outlined in the context above, generate a list of 15-20 relevant SEO tags for the following video.
+            Include a mix of broad and specific long-tail keywords.
+
+            **VIDEO DETAILS**
+            - Video Title: "${video.chosenTitle || video.title}"
+            - Video Description: "${description}"
+
+            Return the tags as a JSON array like: {"tags": ["tag1", "tag2", "tag3", ...]}.
+        `;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {});
             if (parsedJson.tags && Array.isArray(parsedJson.tags)) {
                 setTags(parsedJson.tags);
-                // Also update the task status to in-progress when tags are generated.
                 onUpdateTask('tagsGenerated', 'in-progress', { 'metadata.tags': parsedJson.tags });
             }
         } catch (err) {
@@ -55,20 +66,17 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
         }
     };
 
-    // NEW: Function to remove a tag.
     const handleRemoveTag = (indexToRemove) => {
         const newTags = tags.filter((_, index) => index !== indexToRemove);
         setTags(newTags);
-        // Persist the change immediately.
         onUpdateTask('tagsGenerated', 'in-progress', { 'metadata.tags': newTags });
     };
 
-    // NEW: Function to copy all tags to the clipboard.
     const handleCopyTags = () => {
         const tagsString = tags.join(', ');
         navigator.clipboard.writeText(tagsString).then(() => {
             setCopySuccess('Copied!');
-            setTimeout(() => setCopySuccess(''), 2000); // Reset after 2 seconds
+            setTimeout(() => setCopySuccess(''), 2000);
         }, (err) => {
             console.error('Could not copy tags: ', err);
             setCopySuccess('Failed!');
@@ -92,7 +100,6 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
                 </button>
                 {error && <p className="error-message">{error}</p>}
                 
-                {/* NEW: UI for displaying and managing tags */}
                 {tags.length > 0 && (
                     <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
                         <div className="flex flex-wrap gap-2">
