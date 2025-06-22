@@ -1,186 +1,153 @@
 // creators-hub/js/components/ProjectView/tasks/ThumbnailTask.js
 
-window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
+window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
-
+    const [finalDesignBrief, setFinalDesignBrief] = useState(video.thumbnailBrief || '');
+    // --- START: NEW AND UPDATED STATE ---
+    const [imageDescription, setImageDescription] = useState('');
+    const [ideas, setIdeas] = useState([]);
+    // --- END: NEW AND UPDATED STATE ---
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState('');
 
-    const [conceptIdeas, setConceptIdeas] = useState(video.tasks?.thumbnailConcepts || []);
-    const [acceptedIdeas, setAcceptedIdeas] = useState(video.tasks?.acceptedThumbnails || []);
-    const [rejectedIdeas, setRejectedIdeas] = useState(video.tasks?.rejectedThumbnails || []);
-
     useEffect(() => {
-        setConceptIdeas(video.tasks?.thumbnailConcepts || []);
-        setAcceptedIdeas(video.tasks?.acceptedThumbnails || []);
-        setRejectedIdeas(video.tasks?.rejectedThumbnails || []);
-    }, [video.tasks]);
+        // Pre-fill the brief from video data if it exists
+        setFinalDesignBrief(video.thumbnailBrief || '');
+    }, [video.thumbnailBrief]);
 
-    useEffect(() => {
-        const isComplete = acceptedIdeas.length === 3;
-        const currentStatus = video.tasks?.thumbnailsGenerated;
-
-        if (isComplete && currentStatus !== 'complete') {
-            onUpdateTask('thumbnailsGenerated', 'complete', {
-                'tasks.thumbnailConcepts': conceptIdeas,
-                'tasks.acceptedThumbnails': acceptedIdeas,
-                'tasks.rejectedThumbnails': rejectedIdeas,
-            });
-        } else if (!isComplete && currentStatus === 'complete') {
-            onUpdateTask('thumbnailsGenerated', 'in-progress', {});
-        }
-    }, [acceptedIdeas, video.tasks?.thumbnailsGenerated, onUpdateTask, conceptIdeas, rejectedIdeas]);
-
-
+    // --- START: UPDATED AI HANDLER FUNCTION ---
     const handleGenerateIdeas = async () => {
+        if (!imageDescription) {
+            setError('Please describe the image you plan to use before generating ideas.');
+            return;
+        }
+
         setGenerating(true);
         setError('');
-
-        const thumbnailKnowledgeBase = settings?.knowledgeBases?.youtube?.thumbnailIdeas || 'Design compelling, high-CTR thumbnails.';
-        
-        // Get the primary location to include in the prompt.
-        const mainLocation = video.locations_featured && video.locations_featured.length > 0
-            ? video.locations_featured[0]
-            : 'the destination';
+        setIdeas([]); // Clear previous ideas
 
         const prompt = `
-            **CONTEXT: THUMBNAIL BEST PRACTICES**
-            ${thumbnailKnowledgeBase}
+            You are an expert YouTube thumbnail designer known for creating viral thumbnails.
+            A user has provided a description of the image they plan to use. Your task is to suggest compelling text and graphical elements to overlay on this image. Do NOT suggest new images.
 
-            ---
+            Video Title: "${video.title}"
+            Video Concept: "${video.concept}"
+            User's Image Description: "${imageDescription}"
 
-            **YOUR TASK**
-            You are a viral YouTube thumbnail designer. Generate 3 distinct, compelling thumbnail ideas.
-            For each idea, provide these 5 pieces of information:
-            1. background: A concise description of the background image.
-            2. text: The exact text for the overlay. By default, you should try to include the Main Location in the text.
-            3. composition: The layout principle (e.g., 'split-screen', 'close-up on face', 'rule of thirds').
-            4. color_mood: The suggested color palette and emotional mood (e.g., 'High-contrast with warm colors, exciting mood').
-            5. key_elements: Any specific objects or focal points to include (e.g., 'A person pointing at a map').
+            Based on this, provide 3 distinct and powerful ideas for the thumbnail's text and on-screen elements.
+            Focus on creating high-contrast, emotionally engaging, and curiosity-driven text.
+            The text should be very concise (ideally under 7 words).
 
-            **VIDEO DETAILS**
-            - Main Location: "${mainLocation}"
-            - Video Title: "${video.chosenTitle || video.title}"
-            - Video Concept: "${video.concept}"
+            Return the result as a JSON object with a single key "ideas" containing an array of strings. Each string should be a complete suggestion describing the text and elements.
 
-            **DO NOT SUGGEST IDEAS SIMILAR TO THESE REJECTED ONES:**
-            ${rejectedIdeas.length > 0 ? rejectedIdeas.map(r => `- Background: ${r.background}, Text: ${r.text}`).join('\n') : 'N/A'}
-
-            Return a valid JSON object. The "ideas" key should be an array of objects, with each object containing all five keys: "background", "text", "composition", "color_mood", and "key_elements".
+            Example format:
+            {
+                "ideas": [
+                    "Text Idea 1: 'THE HIDDEN TRUTH' in a bold, impactful font. Elements: A glowing outline around the text and a subtle red arrow pointing towards the main subject of the image.",
+                    "Text Idea 2: 'IS THIS THE END?' in a distressed, gritty font. Elements: A vignetting effect to darken the edges of the image to create drama.",
+                    "Text Idea 3: 'I CAN'T BELIEVE IT!' with a shocking face emoji (😮). Elements: Bright yellow text with a thick black stroke for maximum readability."
+                ]
+            }
         `;
+
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
-            const generatedIdeas = parsedJson.ideas || [];
-            setConceptIdeas(generatedIdeas);
-            onUpdateTask('thumbnailsGenerated', 'in-progress', { 'tasks.thumbnailConcepts': generatedIdeas });
+            const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
+            setIdeas(result.ideas || []);
         } catch (err) {
+            console.error("Error generating thumbnail ideas:", err);
             setError(`Failed to generate ideas: ${err.message}`);
         } finally {
             setGenerating(false);
         }
     };
+    // --- END: UPDATED AI HANDLER FUNCTION ---
 
-    const handleAcceptIdea = (index) => {
-        const ideaToAccept = conceptIdeas[index];
-        const newConcepts = conceptIdeas.filter((_, i) => i !== index);
-        const newAccepted = [...acceptedIdeas, ideaToAccept];
-        
-        setConceptIdeas(newConcepts);
-        setAcceptedIdeas(newAccepted);
-
-        onUpdateTask('thumbnailsGenerated', 'in-progress', {
-            'tasks.thumbnailConcepts': newConcepts,
-            'tasks.acceptedThumbnails': newAccepted,
-        });
-    };
-
-    const handleRejectIdea = (index) => {
-        const ideaToReject = conceptIdeas[index];
-        const newConcepts = conceptIdeas.filter((_, i) => i !== index);
-        const newRejected = [...rejectedIdeas, ideaToReject];
-
-        setConceptIdeas(newConcepts);
-        setRejectedIdeas(newRejected);
-        
-        onUpdateTask('thumbnailsGenerated', 'in-progress', {
-            'tasks.thumbnailConcepts': newConcepts,
-            'tasks.rejectedThumbnails': newRejected,
-        });
-    };
-
-    const handleRemoveAccepted = (index) => {
-        const ideaToUnaccept = acceptedIdeas[index];
-        const newAccepted = acceptedIdeas.filter((_, i) => i !== index);
-        const newConcepts = [ideaToUnaccept, ...conceptIdeas];
-
-        setAcceptedIdeas(newAccepted);
-        setConceptIdeas(newConcepts);
-
-        onUpdateTask('thumbnailsGenerated', 'in-progress', {
-            'tasks.thumbnailConcepts': newConcepts,
-            'tasks.acceptedThumbnails': newAccepted,
-        });
+    const handleSaveBrief = () => {
+        if (!finalDesignBrief.trim()) {
+            setError('The design brief cannot be empty. Please choose an idea or write your own.');
+            return;
+        }
+        setError('');
+        onUpdateTask('thumbnail', 'complete', { thumbnailBrief: finalDesignBrief });
     };
 
     if (isLocked) {
         return <p className="text-gray-400 text-center py-2 text-sm">Please complete the previous steps first.</p>;
     }
 
+    // --- START: UPDATED COMPONENT UI ---
     return (
-        <div className="task-content space-y-6">
-            <div className="flex gap-4">
-                <button onClick={handleGenerateIdeas} disabled={generating} className="button-primary-small w-full justify-center">
-                    {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate New Ideas'}
-                </button>
+        <div className="task-content space-y-4">
+            <div className="space-y-2">
+                 <label htmlFor="imageDesc" className="block text-sm font-medium text-gray-300">
+                    First, describe the image you want to use for the thumbnail:
+                </label>
+                <textarea
+                    id="imageDesc"
+                    value={imageDescription}
+                    onChange={(e) => setImageDescription(e.target.value)}
+                    placeholder="e.g., A close-up shot of me looking surprised, with a picture of a historic castle in the background."
+                    className="form-textarea"
+                    rows={3}
+                    disabled={generating}
+                />
             </div>
+
+            <button
+                onClick={handleGenerateIdeas}
+                disabled={generating || !imageDescription}
+                className="button-primary-small w-full justify-center"
+            >
+                {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Text & Element Ideas'}
+            </button>
+
             {error && <p className="error-message">{error}</p>}
-            
-            <div className="space-y-4">
-                <h4 className="text-xl font-semibold text-white">Accepted Ideas ({acceptedIdeas.length} / 3)</h4>
-                {acceptedIdeas.length < 3 && <p className="text-sm text-gray-400">Accept 3 ideas to complete this step.</p>}
-                {acceptedIdeas.length === 3 && (
-                     <div className="p-4 text-center bg-green-900/50 border border-green-500 rounded-lg">
-                         <p className="font-semibold text-green-300">✓ Task Complete! You have 3 accepted thumbnail ideas.</p>
-                     </div>
-                )}
-                <div className="space-y-3">
-                    {acceptedIdeas.map((idea, index) => (
-                        <div key={index} className="glass-card-light p-4 flex justify-between items-start">
-                            <div className="pr-4 space-y-2 text-sm">
-                                <p><strong className="font-semibold text-gray-300 block">Background:</strong> {idea.background}</p>
-                                <p><strong className="font-semibold text-gray-300 block">Text:</strong> {idea.text}</p>
-                                <p><strong className="font-semibold text-gray-300 block">Composition:</strong> {idea.composition}</p>
-                                <p><strong className="font-semibold text-gray-300 block">Color & Mood:</strong> {idea.color_mood}</p>
-                                <p><strong className="font-semibold text-gray-300 block">Key Elements:</strong> {idea.key_elements}</p>
-                            </div>
-                            <button onClick={() => handleRemoveAccepted(index)} className="button-secondary-small flex-shrink-0">Remove</button>
+
+            {ideas.length > 0 && (
+                <div className="space-y-3 mt-4">
+                    <h4 className="text-lg font-semibold text-white">Suggestions:</h4>
+                    {ideas.map((idea, index) => (
+                        <div key={index} className="glass-card-light p-3 rounded-lg flex justify-between items-start gap-4">
+                            <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
+                            <button
+                                onClick={() => {
+                                    setFinalDesignBrief(idea);
+                                    setError('');
+                                }}
+                                className="button-secondary-small flex-shrink-0"
+                                title="Use this idea for the brief"
+                            >
+                                Use Idea
+                            </button>
                         </div>
                     ))}
                 </div>
+            )}
+
+            <div className="space-y-2 pt-4 border-t border-gray-700">
+                <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
+                    Final Thumbnail Design Brief:
+                </label>
+                <textarea
+                    id="designBrief"
+                    value={finalDesignBrief}
+                    onChange={(e) => setFinalDesignBrief(e.target.value)}
+                    placeholder="Describe the final thumbnail design here. You can use one of the suggestions above or write your own."
+                    className="form-textarea"
+                    rows={4}
+                />
             </div>
 
-            {conceptIdeas.length > 0 && (
-                <div className="space-y-4 pt-6 border-t border-gray-700">
-                    <h4 className="text-xl font-semibold text-white">Generated Ideas</h4>
-                    <div className="space-y-3">
-                         {conceptIdeas.map((idea, index) => (
-                            <div key={index} className="glass-card p-4 flex justify-between items-start">
-                                <div className="pr-4 space-y-2 text-sm">
-                                    <p><strong className="font-semibold text-gray-300 block">Background:</strong> {idea.background}</p>
-                                    <p><strong className="font-semibold text-gray-300 block">Text:</strong> {idea.text}</p>
-                                    <p><strong className="font-semibold text-gray-300 block">Composition:</strong> {idea.composition}</p>
-                                    <p><strong className="font-semibold text-gray-300 block">Color & Mood:</strong> {idea.color_mood}</p>
-                                    <p><strong className="font-semibold text-gray-300 block">Key Elements:</strong> {idea.key_elements}</p>
-                                </div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                    <button onClick={() => handleRejectIdea(index)} disabled={generating} className="button-danger-small">Reject</button>
-                                    <button onClick={() => handleAcceptIdea(index)} disabled={generating || acceptedIdeas.length >= 3} className="button-primary-small">Accept</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            <div className="text-center">
+                 <button
+                    onClick={handleSaveBrief}
+                    disabled={generating || !finalDesignBrief}
+                    className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                >
+                    Confirm Brief & Mark Complete
+                </button>
+            </div>
         </div>
     );
+    // --- END: UPDATED COMPONENT UI ---
 };
