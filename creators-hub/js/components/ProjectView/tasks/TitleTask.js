@@ -3,14 +3,11 @@
 window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
     const { useState, useEffect } = React;
     const [generating, setGenerating] = useState(false);
-    // Use the 'chosenTitle' if it exists, otherwise fall back to the original video title.
     const [editableTitle, setEditableTitle] = useState(video.chosenTitle || video.title);
     const [titleSuggestions, setTitleSuggestions] = useState([]);
     const [error, setError] = useState('');
     const [titleRefinement, setTitleRefinement] = useState('');
 
-    // When the video data changes from the parent, this effect ensures the local state is updated.
-    // This is important if another part of the app updates the title.
     useEffect(() => {
         setEditableTitle(video.chosenTitle || video.title);
     }, [video.chosenTitle, video.title]);
@@ -18,13 +15,34 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
     const handleGenerateSuggestions = async () => {
         setGenerating(true);
         setError('');
-        const prompt = `Act as a YouTube title expert. Based on the video concept, generate 5 clickable, SEO-friendly titles.
-        Video Concept: "${video.concept}"
-        Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
-        Your response must be a JSON object like: {"suggestions": ["Title 1", "Title 2", ...]}.`;
+
+        // Get the Video Titles knowledge base from the settings prop.
+        const titlesKnowledgeBase = settings?.knowledgeBases?.youtube?.videoTitles || 'Craft clickable, SEO-friendly titles.';
+
+        // The prompt is updated to prioritize the knowledge base and demote the project context.
+        const prompt = `
+            **PRIMARY CONTEXT: TITLE BEST PRACTICES**
+            ${titlesKnowledgeBase}
+
+            ---
+
+            **YOUR TASK**
+            You are a YouTube title expert. Following the best practices outlined in the primary context above, generate 5 clickable, SEO-friendly titles for the following video.
+
+            **VIDEO DETAILS**
+            - Core Video Concept: "${video.concept}"
+
+            **BACKGROUND CONTEXT (Less Important):**
+            - The video is part of a series called "${project.playlistTitle}", which is about "${project.playlistDescription}".
+
+            Return the titles as a JSON object like: {"suggestions": ["Title 1", "Title 2", ...]}.
+        `;
+
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
-            setTitleSuggestions(parsedJson.suggestions || []);
+            if (parsedJson.suggestions) {
+                setTitleSuggestions(parsedJson.suggestions);
+            }
         } catch (err) {
             setError(`Failed to generate titles: ${err.message}`);
         } finally {
@@ -44,8 +62,7 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
             if (parsedJson.newTitle) {
                 const newTitle = parsedJson.newTitle;
                 setEditableTitle(newTitle);
-                setTitleRefinement(''); // Clear refinement input on success
-                // Update the database immediately to save the new title and mark the task as in-progress.
+                setTitleRefinement('');
                 onUpdateTask('titleGenerated', 'in-progress', { chosenTitle: newTitle });
             }
         } catch (err) {
@@ -57,12 +74,10 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
 
     const selectSuggestion = (suggestion) => {
         setEditableTitle(suggestion);
-        // Save the chosen suggestion to the database immediately and mark the task as in-progress.
         onUpdateTask('titleGenerated', 'in-progress', { chosenTitle: suggestion });
     };
 
     const handleSave = () => {
-        // This finalizes the choice and marks the task as complete.
         onUpdateTask('titleGenerated', 'complete', { chosenTitle: editableTitle });
     };
 
@@ -72,7 +87,6 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
 
     return (
         <div className="space-y-6">
-            {/* Main Title Input - The Single Source of Truth */}
             <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Final Video Title</label>
                 <input
@@ -85,7 +99,6 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
                 />
             </div>
 
-            {/* AI Generation and Suggestions */}
             <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
                 <button onClick={handleGenerateSuggestions} disabled={generating} className="button-primary-small w-full justify-center">
                     {generating && !titleSuggestions.length ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Suggestions'}
@@ -110,31 +123,26 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
                 )}
             </div>
 
-            {/* AI Refinement Section */}
             <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
                  <label className="block text-sm font-medium text-gray-300">Refine Current Title</label>
-                 {/* This container will hold the input and button on the same line */}
                  <div className="flex items-center gap-2">
-                    {/* The input field now uses form-input and flex-grow */}
                     <input
                         type="text"
-                        className="form-input flex-grow" // Corrected class
+                        className="form-input flex-grow"
                         placeholder="Refinement instructions (e.g., make it shorter)"
                         value={titleRefinement}
                         onChange={(e) => setTitleRefinement(e.target.value)}
                     />
-                    {/* The button is now next to it */}
                     <button 
                         onClick={handleRefineTitle} 
                         disabled={generating || !titleRefinement} 
-                        className="button-secondary-small flex-shrink-0" // Removed w-full
+                        className="button-secondary-small flex-shrink-0"
                     >
                         {generating ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine'}
                     </button>
                  </div>
             </div>
             
-            {/* Final Save Button */}
             <div className="pt-6 border-t border-gray-700 text-center">
                 <button onClick={handleSave} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white">
                     Confirm Title & Mark Complete
