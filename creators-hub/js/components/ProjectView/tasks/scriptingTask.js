@@ -239,7 +239,7 @@ const ScriptingWorkspaceModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-
+    const [showDebugMenu, setShowDebugMenu] = useState(false);
     const isMobile = useMediaQuery('(max-width: 768px)');
     const isComplete = currentStage === 'complete';
 
@@ -322,6 +322,13 @@ const ScriptingWorkspaceModal = ({
 
     const handleSaveAndComplete = () => {
         onSave(localTaskData);
+    };
+
+    const handleJumpToStage = (targetStage) => {
+        // Manually set the current stage and save it to the database
+        setCurrentStage(targetStage);
+        onUpdateTask('scripting', 'in-progress', { 'tasks.scriptingStage': targetStage });
+        setShowDebugMenu(false);
     };
 
     const stages = [
@@ -659,6 +666,25 @@ return (
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
             <div className="w-full min-h-full p-4 sm:p-12 md:p-16 relative">
                 <button onClick={() => handleClose(true)} className="absolute top-4 right-4 sm:top-6 sm:right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+    <div className="absolute top-4 left-4 z-10">
+                    <button onClick={() => setShowDebugMenu(!showDebugMenu)} className="bg-gray-700 text-white px-3 py-1 rounded-lg text-xs hover:bg-gray-600">
+                        Debug
+                    </button>
+                    {showDebugMenu && (
+                        <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-600 rounded-lg p-2 shadow-lg">
+                            <p className="text-white font-semibold mb-2">Jump to Stage:</p>
+                            {stages.map(stage => (
+                                <button
+                                    key={stage.id}
+                                    onClick={() => handleJumpToStage(stage.id)}
+                                    className="block w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+                                >
+                                    {stage.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
                 <h2 className="scripting-workspace-title text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
 
                 <ScriptingStepper
@@ -1062,6 +1088,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
                     settings={settings}
                     project={project}
                     onNavigate={onNavigate}
+                    onUpdateTask={onUpdateTask}
                 />,
                 document.body
             )}
