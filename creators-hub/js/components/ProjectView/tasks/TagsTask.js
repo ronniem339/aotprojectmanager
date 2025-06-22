@@ -1,19 +1,23 @@
 // js/components/ProjectView/tasks/TagsTask.js
 
-window.TagsTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
+window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
     const { useState, useEffect } = React;
+    const [tags, setTags] = useState([]);
     const [generating, setGenerating] = useState(false);
-    const [tags, setTags] = useState('');
     const [error, setError] = useState('');
 
-    // This hook properly parses the tags from the video's metadata JSON string
     useEffect(() => {
         try {
-            const currentMeta = video.metadata ? JSON.parse(video.metadata) : {};
-            setTags(currentMeta.tags || '');
+            // FIX: Check if metadata is a string before parsing. If it's an object, use it directly.
+            const metadata = (typeof video.metadata === 'string' && video.metadata)
+                ? JSON.parse(video.metadata)
+                : video.metadata || {};
+
+            if (metadata.tags && Array.isArray(metadata.tags)) {
+                setTags(metadata.tags);
+            }
         } catch (e) {
             console.error("Failed to parse video metadata for tags:", e);
-            setTags('');
         }
     }, [video.metadata]);
 
