@@ -1,6 +1,6 @@
 // js/components/ProjectView/tasks/FirstCommentTask.js
 
-window.FirstCommentTask = ({ video, onUpdate, onCompletion, project, settings }) => {
+window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
     const { useState } = React;
     const [generating, setGenerating] = useState(false);
     const [comment, setComment] = useState(video.metadata?.firstComment || '');
@@ -9,12 +9,8 @@ window.FirstCommentTask = ({ video, onUpdate, onCompletion, project, settings })
     const handleGenerateComment = async () => {
         setGenerating(true);
         setError('');
-
-        // --- CHANGE START ---
-        // Dynamically get the knowledge base from the settings object.
-        // Provide a default value if it's not set.
         const firstCommentKB = settings.knowledgeBases?.youtube?.firstPinnedCommentExpert 
-            || 'You are a YouTube channel manager. Your task is to write the first "pinned" comment for a new video. The comment should be engaging, ask a question to spark conversation, and provide extra value (e.g., a link, a correction, or extra context).';
+            || 'You are a YouTube channel manager tasked with writing the first "pinned" comment for a new video. The comment should be engaging, ask a question to spark conversation, and provide extra value (e.g., a link, a correction, or extra context).';
 
         const prompt = `
             **Your Expert Role:**
@@ -28,7 +24,6 @@ window.FirstCommentTask = ({ video, onUpdate, onCompletion, project, settings })
             Based on your expert role and the provided video context, write a compelling first pinned comment.
             Return a JSON object like: {"comment": "The text of the first comment..."}.
         `;
-        // --- CHANGE END ---
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
@@ -40,10 +35,20 @@ window.FirstCommentTask = ({ video, onUpdate, onCompletion, project, settings })
         }
     };
     
+    // --- FIX START ---
     const handleSave = () => {
-        onUpdate({ ...video, metadata: { ...video.metadata, firstComment: comment }});
-        onCompletion(true);
+        // Prepare the data payload with the new comment.
+        const updatedData = {
+            metadata: {
+                ...video.metadata,
+                firstComment: comment
+            }
+        };
+        // Call the onUpdateTask function with the correct arguments:
+        // task ID, new status, and the data payload.
+        onUpdateTask('firstCommentGenerated', 'complete', updatedData);
     };
+    // --- FIX END ---
 
     return (
         <div className="task-container">
@@ -59,7 +64,8 @@ window.FirstCommentTask = ({ video, onUpdate, onCompletion, project, settings })
                     value={comment}
                     onChange={(e) => {
                         setComment(e.target.value);
-                        onCompletion(false);
+                        // This onCompletion is not passed, so we can remove it or make the parent aware
+                        // For now, we assume the main save button handles completion status.
                     }}
                     placeholder="Write or generate the first comment to pin on the video..."
                 />
