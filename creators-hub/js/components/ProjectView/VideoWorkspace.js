@@ -87,12 +87,16 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             case 'chaptersGenerated':
                  dataToReset = { 'tasks.chaptersFinalized': false };
                  break;
-            case 'tagsGenerated':
-                 // When resetting tags, just clear the tags part of the metadata
-                 const currentMeta = JSON.parse(video.metadata || '{}');
-                 delete currentMeta.tags;
-                 dataToReset = { metadata: JSON.stringify(currentMeta) };
-                 break;
+            case 'tagsGenerated': { // Scoping the constant to the case
+                // FIX: Safely handle metadata whether it's an object or a string.
+                const currentMeta = (typeof video.metadata === 'string' && video.metadata)
+                    ? JSON.parse(video.metadata)
+                    : video.metadata || {};
+
+                delete currentMeta.tags;
+                dataToReset = { metadata: JSON.stringify(currentMeta) };
+                break;
+            }
             case 'thumbnailsGenerated':
                 dataToReset = {
                     'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
