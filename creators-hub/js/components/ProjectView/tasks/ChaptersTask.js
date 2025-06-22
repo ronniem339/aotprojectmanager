@@ -1,139 +1,142 @@
-// js/components/ProjectView/tasks/ChaptersTask.js
+// creators-hub/js/components/ProjectVew/tasks/ChaptersTask.js
 
-window.ChaptersTask = ({ video, onUpdateTask, isLocked }) => {
-    const { useState, useEffect, useMemo, useRef } = React;
-    const [chapters, setChapters] = useState([]);
-    const dragItem = useRef();
-    const dragOverItem = useRef();
+window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
+    const { useState, useEffect } = React;
 
-    const metadata = useMemo(() => {
-        try {
-            return video.metadata ? JSON.parse(video.metadata) : null;
-        } catch { return null; }
-    }, [video.metadata]);
-    
+    // Initialize chapters from video data if they exist, otherwise empty array.
+    const [chapters, setChapters] = useState(video.chapters || []);
+    const [generating, setGenerating] = useState(false);
+    const [error, setError] = useState('');
+
+    // Effect to update chapters if the video prop changes.
     useEffect(() => {
-        const initialChapters = (video.chapters || metadata?.chapters || []).map((chap, i) => ({...chap, id: `chap-${i}-${Date.now()}`}));
-        setChapters(initialChapters);
-    }, [video.id, video.chapters, metadata]);
+        setChapters(video.chapters || []);
+    }, [video.chapters]);
 
-    const handleAddChapter = () => {
-        const newChapter = { timestamp: '0:00', title: '', id: `temp-${Date.now()}` };
-        setChapters([...chapters, newChapter]);
-    };
 
-    const handleDeleteChapter = (idToDelete) => {
-        setChapters(chapters.filter(chap => chap.id !== idToDelete));
-    };
+    const handleGenerateChapters = async () => {
+        if (!video.script) {
+            setError('A video script is required to generate chapters.');
+            return;
+        }
+        setGenerating(true);
+        setError('');
 
-    const handleChapterChange = (id, field, value) => {
-        const newChapters = chapters.map(chap => chap.id === id ? { ...chap, [field]: value } : chap);
-        setChapters(newChapters);
-    };
+        const prompt = `
+            Analyze the following video script and identify the main sections.
+            Based on these sections, generate a list of concise chapter titles.
+            The first chapter should always be "Intro".
+            Return the result as a JSON object with a single key "chapters" containing an array of strings.
+            Example: {"chapters": ["Intro", "First Main Point", "Second Main Point", "Conclusion"]}
 
-    const handleDragStart = (e, position) => {
-        dragItem.current = position;
-    };
+            SCRIPT:
+            ---
+            ${video.script}
+            ---
+        `;
 
-    const handleDragEnter = (e, position) => {
-        dragOverItem.current = position;
-        const list = e.currentTarget.closest('.chapter-list');
-        if (list) {
-            const children = Array.from(list.children);
-            children.forEach(item => item.classList.remove('drag-over-indicator'));
-            e.currentTarget.classList.add('drag-over-indicator');
+        try {
+            const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
+            const suggestedTitles = result.chapters || [];
+            // Transform the array of strings into the state structure { time: '', title: '' }
+            const newChapters = suggestedTitles.map((title, index) => ({
+                time: index === 0 ? '00:00' : '', // Default the first chapter to 00:00
+                title: title
+            }));
+            setChapters(newChapters);
+        } catch (err) {
+            console.error("Error generating chapters:", err);
+            setError(`Failed to generate chapters: ${err.message}`);
+        } finally {
+            setGenerating(false);
         }
     };
-    
-    const handleDrop = (e) => {
+
+    const handleChapterChange = (index, field, value) => {
         const newChapters = [...chapters];
-        const dragItemContent = newChapters[dragItem.current];
-        newChapters.splice(dragItem.current, 1);
-        newChapters.splice(dragOverItem.current, 0, dragItemContent);
-        dragItem.current = null;
-        dragOverItem.current = null;
+        newChapters[index][field] = value;
         setChapters(newChapters);
     };
 
-    const applyTimestampsAndComplete = () => {
-        const requiresPadding = chapters.some(chap => {
-            const parts = chap.timestamp.split(':');
-            if (parts.length === 2) return parseInt(parts[0], 10) >= 10;
-            if (parts.length === 3) return true;
-            return false;
-        });
+    const handleAddChapter = () => {
+        setChapters([...chapters, { time: '', title: '' }]);
+    };
 
-        const formatTimestamp = (timestamp, forcePadding) => {
-            if (!forcePadding) return timestamp;
-            const parts = timestamp.split(':');
-            if (parts.length === 2) {
-                let [minutes, seconds] = parts;
-                if (minutes.length === 1) minutes = '0' + minutes;
-                if (seconds.length === 1) seconds = '0' + seconds;
-                return `${minutes}:${seconds}`;
+    const handleRemoveChapter = (indexToRemove) => {
+        setChapters(chapters.filter((_, index) => index !== indexToRemove));
+    };
+
+    const handleSave = () => {
+        // Validate that all timestamps and titles are filled
+        for (const chapter of chapters) {
+            // A simple regex to check for MM:SS or H:MM:SS format
+            if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(chapter.time) || !chapter.title) {
+                setError('All chapters must have a valid title and timestamp (e.g., 01:23 or 1:01:23). Please review your chapters.');
+                return;
             }
-            if (parts.length === 3) {
-                let [hours, minutes, seconds] = parts;
-                if (minutes.length === 1) minutes = '0' + minutes;
-                if (seconds.length === 1) seconds = '0' + seconds;
-                return `${hours}:${minutes}:${seconds}`;
-            }
-            return timestamp;
-        };
+        }
+         // Validate that the first chapter starts at 00:00
+        if (chapters.length > 0 && chapters[0].time !== '00:00') {
+            setError('The first chapter must start at 00:00.');
+            return;
+        }
+        setError('');
 
-        const finalChapters = chapters.map(({ id, ...rest }) => ({
-            ...rest,
-            timestamp: formatTimestamp(rest.timestamp, requiresPadding)
-        }));
-
-        const chapterText = finalChapters.map(c => `${c.timestamp} - ${c.title}`).join('\n');
-        const finalDescription = (metadata?.description || '').replace('{{CHAPTERS}}', chapterText);
-        const finalMetadata = { ...(metadata || {}), description: finalDescription, chapters: finalChapters };
-        
-        onUpdateTask('chaptersGenerated', 'complete', { 
-            metadata: JSON.stringify(finalMetadata), 
-            chapters: finalChapters
-        });
+        // The 'chapters' object array is saved directly.
+        // It will be formatted into the final string only when needed (e.g., in the Upload task).
+        onUpdateTask('chaptersGenerated', 'complete', { chapters: chapters });
     };
 
     if (isLocked) {
-        return <p className="text-gray-400 text-center py-2 text-sm">Please finalize the description first.</p>;
-    }
-    
-     if (video.tasks?.chaptersGenerated === 'complete') {
-        return <p className="text-gray-400 text-center py-2 text-sm">Chapters have been finalized.</p>;
+        return <p className="text-gray-400 text-center py-2 text-sm">Please complete the previous steps first.</p>;
     }
 
     return (
-        <div className="space-y-4">
-             <style>{`.drag-over-indicator { border-top: 2px solid #00BFFF; }`}</style>
-             <div className="space-y-2 chapter-list" onDragOver={(e) => e.preventDefault()}>
-                {chapters.map((chap, i) => (
-                    <div 
-                        key={chap.id}
-                        className="flex items-center gap-2 p-1 rounded-md bg-gray-800/50 chapter-item"
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, i)}
-                        onDragEnter={(e) => handleDragEnter(e, i)}
-                        onDragEnd={() => dragOverItem.current = null}
-                        onDrop={handleDrop}
-                    >
-                        <span className="cursor-grab text-gray-500 p-1" title="Drag to reorder">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M2 10a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM2 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
-                        </span>
-                        <input type="text" value={chap.timestamp} onChange={(e) => handleChapterChange(chap.id, 'timestamp', e.target.value)} className="form-input w-24" placeholder="0:00"/> 
-                        <input type="text" value={chap.title} onChange={(e) => handleChapterChange(chap.id, 'title', e.target.value)} className="form-input flex-grow" />
-                        <button onClick={() => handleDeleteChapter(chap.id)} className="p-2 text-red-400 hover:text-red-300 rounded-full flex-shrink-0" title="Delete Chapter">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+        <div className="task-content space-y-4">
+            <button onClick={handleGenerateChapters} disabled={generating || !video.script} className="button-primary-small w-full justify-center">
+                {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Suggested Chapters'}
+            </button>
+            {!video.script && <p className="text-yellow-400 text-sm text-center">A finalized script is needed to generate chapter suggestions.</p>}
+            {error && <p className="error-message">{error}</p>}
+
+            <div className="space-y-3 mt-4">
+                {chapters.map((chapter, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                        <input
+                            type="text"
+                            placeholder="00:00"
+                            value={chapter.time}
+                            onChange={(e) => handleChapterChange(index, 'time', e.target.value)}
+                            className="form-input w-28 text-center"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Chapter Title"
+                            value={chapter.title}
+                            onChange={(e) => handleChapterChange(index, 'title', e.target.value)}
+                            className="form-input flex-grow"
+                        />
+                        <button onClick={() => handleRemoveChapter(index)} className="button-danger-small flex-shrink-0">
+                            Remove
                         </button>
                     </div>
                 ))}
             </div>
-             <div className="mt-2">
-                <button onClick={handleAddChapter} className="text-sm text-primary-accent hover:underline">+ Add Chapter</button>
+
+            <div className="mt-4 flex justify-start">
+                <button onClick={handleAddChapter} className="button-secondary-small">
+                    + Add Chapter
+                </button>
             </div>
-            <div className="pt-4 border-t border-gray-700 text-right">
-                <button onClick={applyTimestampsAndComplete} className="px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg">Apply Timestamps & Finalize</button>
+
+            <div className="pt-6 border-t border-gray-700 text-center mt-6">
+                <button
+                    onClick={handleSave}
+                    disabled={generating || chapters.length === 0}
+                    className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                >
+                    Confirm Chapters & Mark Complete
+                </button>
             </div>
         </div>
     );
