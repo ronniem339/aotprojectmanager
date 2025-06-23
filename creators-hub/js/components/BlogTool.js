@@ -7,8 +7,34 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
-    const ideasCollectionRef = useMemo(() => db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`), [db, APP_ID, userId]);
+const ideasCollectionRef = useMemo(() => {
+    if (!userId) return null; // This line is crucial
+    return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
+}, [db, APP_ID, userId]);
+    // --- MODIFIED CODE BLOCK ---
+    useEffect(() => {
+        // FIX: Add a guard to prevent Firestore calls with an invalid userId or collection reference
+        if (!ideasCollectionRef) {
+            setIsLoading(false);
+            setIdeas([]);
+            return; // Do not proceed if the reference is null
+        }
 
+        const unsubscribe = ideasCollectionRef.onSnapshot(
+            snapshot => {
+                const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                fetchedIdeas.sort((a, b) => (a.createdAt?.seconds || 0) < (b.createdAt?.seconds || 0) ? 1 : -1);
+                setIdeas(fetchedIdeas);
+                setIsLoading(false);
+            },
+            err => {
+                // This is where the error you saw in the console is being caught
+                console.error("Error fetching blog ideas:", err);
+                setIsLoading(false);
+            }
+        );
+        return () => unsubscribe();
+    }, [ideasCollectionRef]); // The dependency array correctly watches for changes to the reference
     useEffect(() => {
         const unsubscribe = ideasCollectionRef.onSnapshot(
             snapshot => {
