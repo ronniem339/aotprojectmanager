@@ -136,6 +136,7 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
     );
 };
 
+
 // Moved LocationDetailsCard outside of ScriptingWorkspaceModal
 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
     const [localDescription, setLocalDescription] = useState(description);
@@ -297,6 +298,14 @@ const ScriptingWorkspaceModal = ({
     useEffect(() => {
         setCurrentQuestionIndex(0); // Reset index when stage changes
     }, [currentStage]);
+
+    // ADDED: Moved the onCameraLocationObjects useMemo to the top level of the component
+    const onCameraLocationObjects = useMemo(() => {
+        const uniqueLocationNames = Array.from(new Set(localTaskData.onCameraLocations || []));
+        return uniqueLocationNames
+            .map(locationName => project.locations.find(loc => loc.name === locationName))
+            .filter(Boolean);
+    }, [localTaskData.onCameraLocations, project.locations]);
 
 
     const initiateScriptGeneration = async () => {
@@ -549,14 +558,6 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
             case 'on_camera_qa':
-                // Memoize the onCameraLocationObjects array to prevent unnecessary re-creation
-            const onCameraLocationObjects = useMemo(() => {
-                    const uniqueLocationNames = Array.from(new Set(localTaskData.onCameraLocations || [])); // New line to ensure uniqueness
-                    return uniqueLocationNames // Now mapping over the unique names
-                        .map(locationName => project.locations.find(loc => loc.name === locationName))
-                        .filter(Boolean);
-                }, [localTaskData.onCameraLocations, project.locations]);
-
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
