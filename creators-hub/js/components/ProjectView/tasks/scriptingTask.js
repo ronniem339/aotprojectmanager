@@ -1,6 +1,6 @@
 // js/components/ProjectView/tasks/ScriptingTask.js
 
-const { useState, useEffect, useRef, useMemo, useCallback } = React; // Added useCallback
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 // Custom hook to check for media queries
 const useMediaQuery = (query) => {
@@ -512,44 +512,45 @@ const ScriptingWorkspaceModal = ({
             case 'on_camera_qa':
                 // A component to handle fetching and displaying details for a single location.
                 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
-                    const [placeDetails, setPlaceDetails] = React.useState(null);
-                    const [isLoading, setIsLoading] = React.useState(true);
+                    // Removed fetching logic and related state for `placeDetails` and `isLoading`
+                    // const [placeDetails, setPlaceDetails] = React.useState(null);
+                    // const [isLoading, setIsLoading] = React.useState(true);
 
-                    React.useEffect(() => {
-                        const fetchPlaceDetails = async () => {
-                            if (!location?.place_id) {
-                                setIsLoading(false);
-                                return;
-                            }
+                    // React.useEffect(() => {
+                    //     const fetchPlaceDetails = async () => {
+                    //         if (!location?.place_id) {
+                    //             setIsLoading(false);
+                    //             return;
+                    //         }
 
-                            // This now calls your secure Netlify function.
-                            const url = `/.netlify/functions/fetch-place-details?place_id=${location.place_id}`;
+                    //         const url = `/.netlify/functions/fetch-place-details?place_id=${location.place_id}`;
 
-                            try {
-                                const response = await fetch(url);
-                                const data = await response.json();
-                                if (data.result) {
-                                    setPlaceDetails(data.result);
-                                }
-                            } catch (error) {
-                                console.error(`Error fetching place details for ${location.name}:`, error);
-                            } finally {
-                                setIsLoading(false);
-                            }
-                        };
+                    //         try {
+                    //             const response = await fetch(url);
+                    //             const data = await response.json();
+                    //             if (data.result) {
+                    //                 setPlaceDetails(data.result);
+                    //             }
+                    //         } catch (error) {
+                    //             console.error(`Error fetching place details for ${location.name}:`, error);
+                    //         } finally {
+                    //             setIsLoading(false);
+                    //         }
+                    //     };
 
-                        fetchPlaceDetails();
-                    }, [location?.place_id, location?.name]);
+                    //     fetchPlaceDetails();
+                    // }, [location?.place_id, location?.name]);
 
-                    const summary = placeDetails?.shortFormattedAddress || placeDetails?.editorialSummary?.text || 'No description available for this location.';
-                    const photoName = placeDetails?.photos?.[0]?.name; // The new field is called 'name'
+                    // Removed related variables
+                    // const summary = placeDetails?.shortFormattedAddress || placeDetails?.editorialSummary?.text || 'No description available for this location.';
+                    // const photoName = placeDetails?.photos?.[0]?.name;
 
-                    // This calls your secure photo function.
-            const imageUrl = isLoading
-                ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
-                : photoName // Use the new variable here
-                    ? `/.netlify/functions/fetch-place-photo?photoName=${photoName}` // Use the new parameter name here
-                    : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
+                    // Removed image URL generation
+                    // const imageUrl = isLoading
+                    //     ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
+                    //     : photoName
+                    //         ? `/.netlify/functions/fetch-place-photo?photoName=${photoName}`
+                    //         : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
 
                     return (
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -560,7 +561,8 @@ const ScriptingWorkspaceModal = ({
                                 </button>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                            {/* Removed image and description display */}
+                            {/* <div className="flex flex-col sm:flex-row gap-4 mb-4">
                                 <div className="flex-shrink-0">
                                      <img
                                         src={imageUrl}
@@ -576,7 +578,7 @@ const ScriptingWorkspaceModal = ({
                                         <p className="text-sm text-gray-300 leading-relaxed">{summary}</p>
                                     )}
                                 </div>
-                            </div>
+                            </div> */}
 
                             <textarea
                                 value={description}
@@ -617,7 +619,6 @@ const ScriptingWorkspaceModal = ({
                                 <LocationDetailsCard
                                     key={location.place_id}
                                     location={location}
-                                    // Note that the `googleMapsApiKey` prop has been removed here.
                                     onDescriptionChange={handleOnCameraDescriptionChange}
                                     onRemove={onInitiateRemoveLocation}
                                     description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
