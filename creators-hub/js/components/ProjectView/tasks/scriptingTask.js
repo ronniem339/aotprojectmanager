@@ -512,15 +512,6 @@ const ScriptingWorkspaceModal = ({
             case 'on_camera_qa':
                 // A component to handle fetching and displaying details for a single location.
                 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
-                    const textareaRef = useRef(null); // Ref for the textarea
-
-                    // This useEffect will attempt to re-focus the textarea if its value changes
-                    // and it's not already focused, which implies focus was lost during a re-render.
-                    useEffect(() => {
-                        if (textareaRef.current && document.activeElement !== textareaRef.current) {
-                            textareaRef.current.focus();
-                        }
-                    }, [description]); // Dependency on description to trigger on value change
 
                     return (
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -532,7 +523,6 @@ const ScriptingWorkspaceModal = ({
                             </div>
 
                             <textarea
-                                ref={textareaRef} // Attach the ref to the textarea
                                 value={description}
                                 onChange={(e) => onDescriptionChange(location.name, e.target.value)}
                                 rows="3"
