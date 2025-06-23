@@ -72,7 +72,7 @@ window.ImageComponent = ({ src, alt, className }) => {
 
 
 // Updated LoginScreen component for email/password authentication
-window.LoginScreen = ({ onLogin }) => {
+window.LoginScreen = ({ onLogin, firebaseAuth }) => {
     const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -85,14 +85,12 @@ window.LoginScreen = ({ onLogin }) => {
         setIsLoading(true);
         try {
             if (isRegister) {
-                // Register new user with email and password
-                await auth.createUserWithEmailAndPassword(email, password);
+                // Use the firebaseAuth prop for registration
+                await firebaseAuth.createUserWithEmailAndPassword(email, password);
             } else {
-                // Sign in existing user with email and password
-                await auth.signInWithEmailAndPassword(email, password);
+                // Use the firebaseAuth prop for sign-in
+                await firebaseAuth.signInWithEmailAndPassword(email, password);
             }
-            // onLogin is likely just setting a state to hide this screen,
-            // Firebase's onAuthStateChanged will handle actual user state
             onLogin();
         } catch (err) {
             console.error("Authentication error:", err);
