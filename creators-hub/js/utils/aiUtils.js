@@ -1,111 +1,111 @@
 // js/utils/aiUtils.js
 
 /**
- * This is the central AI utility object for the Creator's Hub application.
- * It handles all interactions with the Google Gemini API.
- */
+* This is the central AI utility object for the Creator's Hub application.
+* It handles all interactions with the Google Gemini API.
+*/
 window.aiUtils = {
-    /**
-     * Helper function to gather and format the creator's style guide information.
-     */
-    getStyleGuidePrompt: (settings, videoTone) => {
-        const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
-        const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
-        const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
+  /**
+  * Helper function to gather and format the creator's style guide information.
+  */
+  getStyleGuidePrompt: (settings, videoTone) => {
+    const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
+    const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
+    const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
 
-        return `**Creator Style Guide & Context:**
+    return `**Creator Style Guide & Context:**
 Creator Persona (Who AmI): "${whoAmI}"
 Creator Style Guide: "${styleGuideText}"${toneText}`;
-    },
+  },
 
-    /**
-     * The core, centralized function to call the Gemini API.
-     */
-    callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
-        if (!settings || !settings.geminiApiKey) {
-            throw new Error("Gemini API Key is not set. Please set it in the settings.");
-        }
-        const apiKey = settings.geminiApiKey;
+  /**
+  * The core, centralized function to call the Gemini API.
+  */
+  callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
+    if (!settings || !settings.geminiApiKey) {
+      throw new Error("Gemini API Key is not set. Please set it in the settings.");
+    }
+    const apiKey = settings.geminiApiKey;
 
-        const usePro = isComplex && settings.useProModelForComplexTasks;
-        const modelName = usePro
-            ? (settings.proModelName || 'gemini-1.5-pro-latest')
-            : (settings.flashModelName || 'gemini-1.5-flash-latest');
+    const usePro = isComplex && settings.useProModelForComplexTasks;
+    const modelName = usePro
+      ? (settings.proModelName || 'gemini-1.5-pro-latest')
+      : (settings.flashModelName || 'gemini-1.5-flash-latest');
 
-        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+    console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
 
-        const diacriticsRule = `CRITICAL RULE: For all text you generate (titles, keywords, descriptions, names, script content, etc.), you MUST NOT use diacritics (e.g., use 'cafe' instead of 'café', 'Cordoba' instead of 'Córdoba'). This is for SEO and searchability for an English-speaking audience.`;
+    const diacriticsRule = `CRITICAL RULE: For all text you generate (titles, keywords, descriptions, names, script content, etc.), you MUST NOT use diacritics (e.g., use 'cafe' instead of 'café', 'Cordoba' instead of 'Córdoba'). This is for SEO and searchability for an English-speaking audience.`;
 
-        const finalPrompt = `${diacriticsRule}\n\n--- ORIGINAL PROMPT BEGINS ---\n${prompt}`;
-        
-        const finalGenerationConfig = {
-            responseMimeType: "application/json",
-            ...generationConfig
-        };
+    const finalPrompt = `${diacriticsRule}\n\n--- ORIGINAL PROMPT BEGINS ---\n${prompt}`;
+    
+    const finalGenerationConfig = {
+      responseMimeType: "application/json",
+      ...generationConfig
+    };
 
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-            generationConfig: finalGenerationConfig
-        };
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+      generationConfig: finalGenerationConfig
+    };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); 
 
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: controller.signal
-            });
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
 
-            clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err?.error?.message || `API Error (${response.status})`);
-            }
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err?.error?.message || `API Error (${response.status})`);
+      }
 
-            const result = await response.json();
+      const result = await response.json();
 
-            if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
-                console.error("Unexpected AI response structure:", result);
-                throw new Error("AI returned an unexpected or empty response.");
-            }
+      if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
+        console.error("Unexpected AI response structure:", result);
+        throw new Error("AI returned an unexpected or empty response.");
+      }
 
-            const responseText = result.candidates[0].content.parts[0].text;
-            
-            if (finalGenerationConfig.responseMimeType === "application/json") {
-                try {
+      const responseText = result.candidates[0].content.parts[0].text;
+     
+      if (finalGenerationConfig.responseMimeType === "application/json") {
+        try {
                     const cleanedResponse = responseText.replace(/[\n\r]/g, '');
                     return JSON.parse(cleanedResponse);
                 } catch (e) {
                     console.error("Failed to parse AI response as JSON:", responseText, e);
                     throw new Error("AI response was expected to be valid JSON but wasn't.");
                 }
-            } else {
-                return responseText;
-            }
-        } catch (error) {
-            clearTimeout(timeoutId); 
-            if (error.name === 'AbortError') {
-                throw new Error('API call timed out after 2 minutes.');
-            }
-            throw error;
-        }
-    },
+      } else {
+        return responseText;
+      }
+    } catch (error) {
+      clearTimeout(timeoutId); 
+      if (error.name === 'AbortError') {
+        throw new Error('API call timed out after 2 minutes.');
+      }
+      throw error;
+    }
+  },
 
-    /**
-     * Generates blog post ideas.
-     */
-    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
-        let context = '';
-        if (destination) {
-            context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
-        } else if (project && video) {
-            context = `A user wants blog post ideas based on a specific video from their travels.
+  /**
+  * Generates blog post ideas.
+  */
+  generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+    let context = '';
+    if (destination) {
+      context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
+    } else if (project && video) {
+      context = `A user wants blog post ideas based on a specific video from their travels.
 Project Title: "${project.playlistTitle}"
 Video Title: "${video.title}"
 Video Concept: "${video.concept}"
@@ -113,18 +113,18 @@ Video Locations: "${(video.locations_featured || []).join(', ')}"
 Video Keywords: "${(video.targeted_keywords || []).join(', ')}"
 
 Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
-        } else if (project) {
-            context = `A user wants blog post ideas for an entire travel project.
+    } else if (project) {
+      context = `A user wants blog post ideas for an entire travel project.
 Project Title: "${project.playlistTitle}"
 Project Description: "${project.playlistDescription}"
 Project Locations: "${(project.locations || []).map(l => l.name).join(', ')}"
 
 Based on the overall project, generate 10 diverse blog post ideas.`;
-        } else {
-            throw new Error("No valid context provided for idea generation (topic, project, or video).");
-        }
+    } else {
+      throw new Error("No valid context provided for idea generation (topic, project, or video).");
+    }
 
-        const prompt = `You are an expert SEO and content strategist for a travel blog.
+    const prompt = `You are an expert SEO and content strategist for a travel blog.
 ${context}
 
 You MUST adhere to the following foundational knowledge bases for all generated content:
@@ -148,33 +148,33 @@ For each idea, provide the following in a valid JSON object:
 
 Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
 
-        try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-            if (parsedJson && Array.isArray(parsedJson.ideas)) {
-                return parsedJson.ideas;
-            } else {
-                throw new Error("AI returned an invalid format for blog post ideas.");
-            }
-        } catch (error) {
-            console.error("Error generating blog post ideas:", error);
-            throw new Error(`AI failed to generate ideas: ${error.message || error}`);
-        }
-    },
+    try {
+      const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+      if (parsedJson && Array.isArray(parsedJson.ideas)) {
+        return parsedJson.ideas;
+      } else {
+        throw new Error("AI returned an invalid format for blog post ideas.");
+      }
+    } catch (error) {
+      console.error("Error generating blog post ideas:", error);
+      throw new Error(`AI failed to generate ideas: ${error.message || error}`);
+    }
+  },
 
     /**
-     * Generates a full blog post based on an approved idea.
-     */
-    generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
-        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+  * Generates a full blog post based on an approved idea.
+  */
+  generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-        let postTypeSpecificKb = '';
-        if (idea.postType === 'Listicle Post' && settings.knowledgeBases.blog.listicleContent) {
-            postTypeSpecificKb = `**Listicle Post Knowledge Base:**\n${settings.knowledgeBases.blog.listicleContent}\n---`;
-        } else if (idea.postType === 'Destination Guide' && settings.knowledgeBases.blog.destinationGuideContent) {
-            postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${settings.knowledgeBases.blog.destinationGuideContent}\n---`;
-        }
+    let postTypeSpecificKb = '';
+    if (idea.postType === 'Listicle Post' && settings.knowledgeBases.blog.listicleContent) {
+      postTypeSpecificKb = `**Listicle Post Knowledge Base:**\n${settings.knowledgeBases.blog.listicleContent}\n---`;
+    } else if (idea.postType === 'Destination Guide' && settings.knowledgeBases.blog.destinationGuideContent) {
+      postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${settings.knowledgeBases.blog.destinationGuideContent}\n---`;
+    }
 
-        const prompt = `You are an expert blog post writer for a travel blog.
+    const prompt = `You are an expert blog post writer for a travel blog.
 Your task is to write a complete, detailed, and engaging blog post based on the following approved idea.
 
 Blog Post Idea Details:
@@ -197,47 +197,47 @@ ${monetizationGoals || "Strategically integrate opportunities for affiliate reve
 ---
 
 **Your Task & Output Instructions:**
-1.  Write a comprehensive blog post.
-2.  Structure the post logically with an engaging introduction, several body sections using H2 and H3 headings, and a clear conclusion/call to action.
-3.  Naturally integrate the "primaryKeyword" throughout the content.
-4.  Weave in the "monetizationOpportunities" as seamlessly as possible.
-5.  Maintain the creator's style and tone.
-6.  Your response MUST contain a single JSON object with a key "blogPostContent". The value should be the full blog post formatted in Markdown.
-7.  **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
+1. Write a comprehensive blog post.
+2. Structure the post logically with an engaging introduction, several body sections using H2 and H3 headings, and a clear conclusion/call to action.
+3. Naturally integrate the "primaryKeyword" throughout the content.
+4. Weave in the "monetizationOpportunities" as seamlessly as possible.
+5. Maintain the creator's style and tone.
+6. Your response MUST contain a single JSON object with a key "blogPostContent". The value should be the full blog post formatted in Markdown.
+7. **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
 
 Example Output Format:
 ~~~json
 {
-  "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n..."
+ "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n..."
 }
 ~~~
 `;
 
-       try {
-            const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-            const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
-            const match = rawResponseText.match(jsonBlockRegex);
-            let jsonString = null;
+   try {
+      const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+      const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
+      const match = rawResponseText.match(jsonBlockRegex);
+      let jsonString = null;
 
-            if (match && match[1]) {
-                jsonString = match[1];
-            } else {
+      if (match && match[1]) {
+        jsonString = match[1];
+      } else {
                 console.error("AI response did not contain a valid JSON block.", rawResponseText);
-                throw new Error("AI response did not provide the expected JSON format. Please try again.");
-            }
+        throw new Error("AI response did not provide the expected JSON format. Please try again.");
+      }
 
-            const parsedJson = JSON.parse(jsonString);
+      const parsedJson = JSON.parse(jsonString);
 
-            if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
-                return parsedJson.blogPostContent;
-            } else {
-                throw new Error("AI returned an invalid format for blog post content.");
-            }
-        } catch (error) {
-            console.error("Error generating blog post content:", error);
-            throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
-        }
-    },
+      if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
+        return parsedJson.blogPostContent;
+      } else {
+        throw new Error("AI returned an invalid format for blog post content.");
+      }
+    } catch (error) {
+      console.error("Error generating blog post content:", error);
+      throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
+    }
+  },
 
     /**
      * Generates a full blog post in HTML format, ready for WordPress.
@@ -292,13 +292,13 @@ ${styleGuidePrompt}
         }
     },
 
-    /**
-     * Finds points of interest.
-     */
-    findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
-        const existingLocationNames = currentLocations.map(l => l.name).join(', ');
+  /**
+  * Finds points of interest.
+  */
+  findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
+    const existingLocationNames = currentLocations.map(l => l.name).join(', ');
 
-        const prompt = `You are a creative travel planner. Based on the main location "${mainLocationName}", suggest up to 50 specific, popular, and interesting points of interest. Avoid suggesting general areas or cities that are already in the existing list of locations: ${existingLocationNames}.
+    const prompt = `You are a creative travel planner. Based on the main location "${mainLocationName}", suggest up to 50 specific, popular, and interesting points of interest. Avoid suggesting general areas or cities that are already in the existing list of locations: ${existingLocationNames}.
 
 Return your answer as a JSON array of objects. Each object must have four keys:
 1. "name" (a string for the place name).
@@ -310,28 +310,28 @@ Ensure the latitude and longitude are accurate. Do not include any locations fro
 
 Example JSON format:
 [
-  {"name": "Eiffel Tower", "description": "Iconic iron tower offering breathtaking panoramic views of Paris.", "lat": 48.8584, "lng": 2.2945},
-  {"name": "Louvre Museum", "description": "Home to masterpieces like the Mona Lisa and Venus de Milo.", "lat": 48.8606, "lng": 2.3376}
+ {"name": "Eiffel Tower", "description": "Iconic iron tower offering breathtaking panoramic views of Paris.", "lat": 48.8584, "lng": 2.2945},
+ {"name": "Louvre Museum", "description": "Home to masterpieces like the Mona Lisa and Venus de Milo.", "lat": 48.8606, "lng": 2.3376}
 ]`;
 
-        try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
-            if (!Array.isArray(parsedJson)) {
-                const key = Object.keys(parsedJson).find(k => Array.isArray(parsedJson[k]));
-                if (key) {
-                    return parsedJson[key];
-                }
-                throw new Error("AI response was not a valid JSON array.");
-            }
-            return parsedJson;
-        } catch (error) {
-            console.error("Error finding points of interest:", error);
-            throw new Error(`AI failed to find locations: ${error.message || error}`);
-        }
-    },
+    try {
+      const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
+      if (!Array.isArray(parsedJson)) {
+        const key = Object.keys(parsedJson).find(k => Array.isArray(parsedJson[k]));
+        if (key) {
+          return parsedJson[key];
+        }
+        throw new Error("AI response was not a valid JSON array.");
+      }
+      return parsedJson;
+    } catch (error) {
+      console.error("Error finding points of interest:", error);
+      throw new Error(`AI failed to find locations: ${error.message || error}`);
+    }
+  },
     
     generateInitialQuestionsAI: async (params) => {
-        const { initialThoughts, locations, description, storytellingKnowledge, settings } = params; 
+        const { initialThoughts, locations, description, storytellingKnowledge, settings } = params;
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
         const prompt = `You are an expert video scriptwriter and storyteller.
         **Your Internal Guide: Core Storytelling Principles**
