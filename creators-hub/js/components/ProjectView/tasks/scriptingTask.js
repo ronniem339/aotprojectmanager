@@ -512,6 +512,13 @@ const ScriptingWorkspaceModal = ({
             case 'on_camera_qa':
                 // A component to handle fetching and displaying details for a single location.
                 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
+                    // Add these two lines for local state management
+                    const [localDescription, setLocalDescription] = useState(description);
+
+                    // Sync local state with prop (for external updates)
+                    useEffect(() => {
+                        setLocalDescription(description);
+                    }, [description]);
 
                     return (
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -523,9 +530,10 @@ const ScriptingWorkspaceModal = ({
                             </div>
 
                             <textarea
-                                key={`on-camera-notes-${location.place_id}`} // Add this line
-                                value={description}
-                                onChange={(e) => onDescriptionChange(location.name, e.target.value)}
+                                key={`on-camera-notes-${location.place_id}`}
+                                value={localDescription} // Change this line to use local state
+                                onChange={(e) => setLocalDescription(e.target.value)} // Change this line to update local state
+                                onBlur={(e) => onDescriptionChange(location.name, e.target.value)} // Add this line to update parent on blur
                                 rows="3"
                                 className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
                                 placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
@@ -536,6 +544,7 @@ const ScriptingWorkspaceModal = ({
                     return (
                         prevProps.location?.place_id === nextProps.location?.place_id &&
                         prevProps.location?.name === nextProps.location?.name &&
+                        prevProps.description === nextProps.description && // Keep this line as is
                         prevProps.onDescriptionChange === nextProps.onDescriptionChange &&
                         prevProps.onRemove === nextProps.onRemove
                     );
