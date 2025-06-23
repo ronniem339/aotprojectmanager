@@ -259,7 +259,12 @@ const ScriptingWorkspaceModal = ({
         setCurrentQuestionIndex(0); // Reset index when stage changes
     }, [currentStage]);
 
-
+ const onCameraLocationObjects = useMemo(() => {
+        return (localTaskData.onCameraLocations || [])
+            .map(locationName => project.locations.find(loc => loc.name === locationName))
+            .filter(Boolean);
+    }, [localTaskData.onCameraLocations, project.locations]); // Dependencies for useMemo
+    
     const initiateScriptGeneration = async () => {
         setCurrentStage('full_script_review');
         await handleAction(onGenerateFullScript, localTaskData);
