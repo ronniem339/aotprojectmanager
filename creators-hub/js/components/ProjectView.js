@@ -15,7 +15,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
     // --- START: ENSURE THIS STATE IS PRESENT ---
-    const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
+    const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(false);
     // --- END: ENSURE THIS STATE IS PRESENT ---
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
