@@ -3,13 +3,15 @@ window.TaskQueue = ({ tasks, onView }) => {
     const { useEffect, useState } = React;
     const [visible, setVisible] = useState(false);
 
+    // Ensure tasks is always an array to prevent .map() errors.
+    const safeTasks = Array.isArray(tasks) ? tasks : [];
+
     useEffect(() => {
         // Only show the queue if there are tasks
-        setVisible(tasks && tasks.length > 0);
-    }, [tasks]);
+        setVisible(safeTasks.length > 0);
+    }, [safeTasks]);
 
-    // Add a guard clause to prevent rendering if not visible or if tasks is not an array
-    if (!visible || !Array.isArray(tasks) || tasks.length === 0) {
+    if (!visible) {
         return null;
     }
 
@@ -31,7 +33,7 @@ window.TaskQueue = ({ tasks, onView }) => {
                 <h4 className="font-bold text-base">Task Queue</h4>
             </div>
             <div className="p-1 max-h-60 overflow-y-auto">
-                {tasks.map(task => (
+                {safeTasks.map(task => (
                     <div key={task.id} className="flex items-center justify-between p-2 border-b border-gray-700 last:border-b-0 text-sm">
                         <div className="flex items-center truncate">
                             <div className="mr-3 w-5 text-center flex-shrink-0">{getStatusIcon(task.status)}</div>
