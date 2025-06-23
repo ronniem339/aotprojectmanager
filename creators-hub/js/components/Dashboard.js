@@ -180,7 +180,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
     };
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
             <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <div className="w-full flex justify-between items-center md:hidden">
                     <h1 className="text-2xl font-bold text-white">Creator's Hub</h1>
@@ -222,7 +222,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
             {loading ? <window.LoadingSpinner text="Loading Projects..." /> : (
                 <>
                     <h2 className="text-2xl font-bold text-white mb-4">Active Projects</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12" ref={projectCardsRef}>
+                    <div className="dashboard-grid gap-6 mb-12" ref={projectCardsRef}>
                         {activeProjects.length === 0 ? (
                             <p className="text-gray-400 text-center col-span-full py-8">No active projects found.</p>
                         ) : (
