@@ -104,11 +104,11 @@ window.LoginScreen = ({ onLogin }) => {
 
     return (
         <div className="min-h-screen flex flex-col justify-center items-center bg-gray-900 text-white p-4">
-            <h1 className="text-5xl font-bold mb-4">Creator's Hub</h1>
-            <p className="text-xl text-gray-400 mb-8">Your AI-Powered Content Co-Pilot</p>
+            <h1 className="text-4xl sm:text-5xl font-bold mb-4 text-center">Creator's Hub</h1>
+            <p className="text-lg sm:text-xl text-gray-400 mb-8 text-center">Your AI-Powered Content Co-Pilot</p>
 
-            <div className="glass-card p-8 rounded-lg w-full max-w-md">
-                <h2 className="text-3xl font-bold text-center mb-6">
+            <div className="glass-card p-6 sm:p-8 rounded-lg w-full max-w-md">
+                <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">
                     {isRegister ? 'Register' : 'Login'}
                 </h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
