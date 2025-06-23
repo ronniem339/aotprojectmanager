@@ -523,6 +523,7 @@ const ScriptingWorkspaceModal = ({
                             </div>
 
                             <textarea
+                                key={`on-camera-notes-${location.place_id}`} // Add this line
                                 value={description}
                                 onChange={(e) => onDescriptionChange(location.name, e.target.value)}
                                 rows="3"
