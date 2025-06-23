@@ -35,10 +35,13 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
             // Handle image upload if a new, non-Firebase URL is pasted
             if (finalCoverImageUrl && !finalCoverImageUrl.includes('firebasestorage.googleapis.com')) {
                 try {
-                    const fileExtensionMatch = finalCoverImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
-                    const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
-                    const path = `project_thumbnails/${project.id}_${Date.now()}${fileExtension}`;
-                    finalCoverImageUrl = await downloadAndUploadImage(finalCoverImageUrl, path);
+                    // UPDATED: Using the centralized downloadAndUploadImage utility
+                    finalCoverImageUrl = await window.uploadUtils.downloadAndUploadImage(
+                        finalCoverImageUrl,
+                        'project_thumbnails', // storageFolderPath
+                        project.id,           // filePrefix
+                        storage               // storageInstance
+                    );
                     // Update state directly as this won't be in debounced state yet
                     setCoverImageUrl(finalCoverImageUrl);
                 } catch (error) {
@@ -110,31 +113,20 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
         });
     }, [locations]);
 
-    const downloadAndUploadImage = async (imageUrl, uploadPath) => {
-        if (!imageUrl || !storage) return '';
-        const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
-        try {
-            const response = await fetch(fetchUrl);
-            if (!response.ok) throw new Error(await response.text());
-            const blob = await response.blob();
-            const storageRef = storage.ref(uploadPath);
-            await storageRef.put(blob);
-            return await storageRef.getDownloadURL();
-        } catch (error) {
-            console.error(`Error downloading or uploading image:`, error);
-            return '';
-        }
-    };
+    // REMOVED: Old local downloadAndUploadImage function
     
     const handleImageFileChange = async (e) => {
         if (e.target.files && e.target.files[0] && storage) {
             const file = e.target.files[0];
             setSaveStatus('saving');
             try {
-                const path = `project_thumbnails/${project.id}_${Date.now()}_${file.name}`;
-                const storageRef = storage.ref(path);
-                await storageRef.put(file);
-                const newUrl = await storageRef.getDownloadURL();
+                // UPDATED: Using the centralized uploadFile utility
+                const newUrl = await window.uploadUtils.uploadFile(
+                    file,
+                    'project_thumbnails', // storageFolderPath
+                    project.id,           // filePrefix
+                    storage               // storageInstance
+                );
                 setCoverImageUrl(newUrl); // This change will be picked up by the debounced auto-save
             } catch (error) {
                 console.error("Error uploading new image file:", error);
