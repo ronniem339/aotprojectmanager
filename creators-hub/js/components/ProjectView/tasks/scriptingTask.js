@@ -536,7 +536,6 @@ const ScriptingWorkspaceModal = ({
                     return (
                         prevProps.location?.place_id === nextProps.location?.place_id &&
                         prevProps.location?.name === nextProps.location?.name &&
-                        prevProps.description === nextProps.description &&
                         prevProps.onDescriptionChange === nextProps.onDescriptionChange &&
                         prevProps.onRemove === nextProps.onRemove
                     );
