@@ -266,6 +266,336 @@ Example Output Format:
             throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
         }
     },
+
+    // js/utils/aiUtils.js
+
+/**
+ * This is the central AI utility object for the Creator's Hub application.
+ * It handles all interactions with the Google Gemini API.
+ */
+window.aiUtils = {
+    /**
+     * Helper function to gather and format the creator's style guide information.
+     * @param {object} settings - The application's complete settings object.
+     * @param {string} [videoTone] - The specific tone of the current video, if available.
+     * @returns {string} - A formatted string containing the style guide prompt.
+     */
+    getStyleGuidePrompt: (settings, videoTone) => {
+        const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
+        const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
+        const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
+
+        return `**Creator Style Guide & Context:**
+Creator Persona (Who AmI): "${whoAmI}"
+Creator Style Guide: "${styleGuideText}"${toneText}`;
+    },
+
+    /**
+     * The core, centralized function to call the Gemini API.
+     * It now dynamically selects the model (Flash or Pro) based on the user's settings and the complexity of the task.
+     * All other helper functions in this file will call this central function.
+     *
+     * @param {string} prompt - The text prompt for the API.
+     * @param {object} settings - The application's complete settings object, containing API keys and model preferences.
+     * @param {object} [generationConfig={}] - Optional generation configuration for the API.
+     * @param {boolean} [isComplex=false] - A flag to determine if the Pro model should be used for this specific task.
+     * @returns {Promise<object|string>} - A promise that resolves to the parsed JSON response or plain text from the API.
+     * @throws {Error} If the API key is not set or if the API response is not OK.
+     */
+    callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
+        if (!settings || !settings.geminiApiKey) {
+            throw new Error("Gemini API Key is not set. Please set it in the settings.");
+        }
+        const apiKey = settings.geminiApiKey;
+
+        const usePro = isComplex && settings.useProModelForComplexTasks;
+        const modelName = usePro
+            ? (settings.proModelName || 'gemini-1.5-pro-latest')
+            : (settings.flashModelName || 'gemini-1.5-flash-latest');
+
+        console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+
+        // --- START OF NEW CODE ---
+        // This rule will now be added to every prompt sent to the AI.
+        const diacriticsRule = `CRITICAL RULE: For all text you generate (titles, keywords, descriptions, names, script content, etc.), you MUST NOT use diacritics (e.g., use 'cafe' instead of 'café', 'Cordoba' instead of 'Córdoba'). This is for SEO and searchability for an English-speaking audience.`;
+
+        const finalPrompt = `${diacriticsRule}\n\n--- ORIGINAL PROMPT BEGINS ---\n${prompt}`;
+        // --- END OF NEW CODE ---
+
+        const finalGenerationConfig = {
+            responseMimeType: "application/json",
+            ...generationConfig
+        };
+
+        const payload = {
+            // Use the modified prompt with the added rule
+            contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+            generationConfig: finalGenerationConfig
+        };
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        // Added a 30-second timeout for the fetch request.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal // Link the abort controller to the fetch request
+            });
+
+            clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err?.error?.message || `API Error (${response.status})`);
+            }
+
+            const result = await response.json();
+
+            if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts) {
+                console.error("Unexpected AI response structure:", result);
+                throw new Error("AI returned an unexpected or empty response.");
+            }
+
+            const responseText = result.candidates[0].content.parts[0].text;
+            
+            if (finalGenerationConfig.responseMimeType === "application/json") {
+                try {
+    // Clean the response to remove newlines and other characters that can break JSON.parse
+    const cleanedResponse = responseText.replace(/[\n\r]/g, '');
+    return JSON.parse(cleanedResponse);
+} catch (e) {
+    console.error("Failed to parse AI response as JSON:", responseText, e);
+    throw new Error("AI response was expected to be valid JSON but wasn't.");
+}
+            } else {
+                return responseText;
+            }
+        } catch (error) {
+            clearTimeout(timeoutId); // Also clear timeout on error
+            if (error.name === 'AbortError') {
+                throw new Error('API call timed out after 30 seconds.');
+            }
+            // Re-throw other network or parsing errors
+            throw error;
+        }
+    },
+
+    /**
+     * Generates blog post ideas. This is considered a complex task.
+     */
+    generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+        let context = '';
+        if (destination) {
+            context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
+        } else if (project && video) {
+            context = `A user wants blog post ideas based on a specific video from their travels.
+Project Title: "${project.playlistTitle}"
+Video Title: "${video.title}"
+Video Concept: "${video.concept}"
+Video Locations: "${(video.locations_featured || []).join(', ')}"
+Video Keywords: "${(video.targeted_keywords || []).join(', ')}"
+
+Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
+        } else if (project) {
+            context = `A user wants blog post ideas for an entire travel project.
+Project Title: "${project.playlistTitle}"
+Project Description: "${project.playlistDescription}"
+Project Locations: "${(project.locations || []).map(l => l.name).join(', ')}"
+
+Based on the overall project, generate 10 diverse blog post ideas.`;
+        } else {
+            throw new Error("No valid context provided for idea generation (topic, project, or video).");
+        }
+
+        const prompt = `You are an expert SEO and content strategist for a travel blog.
+${context}
+
+You MUST adhere to the following foundational knowledge bases for all generated content:
+---
+**Core SEO & Content Engine:**
+${coreSeoEngine || "Focus on user intent and long-tail keywords."}
+---
+**Monetization & Content Goals:**
+${monetizationGoals || "The goal is to generate affiliate revenue from links."}
+---
+**Blog Post Idea Generation Framework:**
+${ideaGenerationKb || "Generate ideas for different content types like guides, listicles, and comparison posts."}
+---
+
+For each idea, provide the following in a valid JSON object:
+- "title": (string) A catchy, SEO-friendly headline.
+- "description": (string) A brief (1-2 sentence) summary of the post's content and target audience.
+- "primaryKeyword": (string) The main search term this post should rank for.
+- "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
+- "monetizationOpportunities": (string) A brief (1-2 sentence) explanation of the specific monetization opportunities (e.g., affiliate links for hotels, tours, gear) and how it aligns with the user's content goals.
+
+Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
+
+        try {
+            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+            if (parsedJson && Array.isArray(parsedJson.ideas)) {
+                return parsedJson.ideas;
+            } else {
+                throw new Error("AI returned an invalid format for blog post ideas.");
+            }
+        } catch (error) {
+            console.error("Error generating blog post ideas:", error);
+            throw new Error(`AI failed to generate ideas: ${error.message || error}`);
+        }
+    },
+    /**
+     * Generates a full blog post based on an approved idea. This is considered a complex task.
+     */
+    generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+
+        let postTypeSpecificKb = '';
+        if (idea.postType === 'Listicle Post' && settings.knowledgeBases.blog.listicleContent) {
+            postTypeSpecificKb = `**Listicle Post Knowledge Base:**\n${settings.knowledgeBases.blog.listicleContent}\n---`;
+        } else if (idea.postType === 'Destination Guide' && settings.knowledgeBases.blog.destinationGuideContent) {
+            postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${settings.knowledgeBases.blog.destinationGuideContent}\n---`;
+        }
+
+        const prompt = `You are an expert blog post writer for a travel blog.
+Your task is to write a complete, detailed, and engaging blog post based on the following approved idea.
+
+Blog Post Idea Details:
+- Title: "${idea.title}"
+- Description: "${idea.description}"
+- Primary Keyword: "${idea.primaryKeyword}"
+- Post Type: "${idea.postType}"
+- Monetization Opportunities: "${idea.monetizationOpportunities}"
+
+${styleGuidePrompt}
+
+You MUST adhere to the following foundational knowledge bases for all generated content:
+---
+**Core SEO & Content Engine:**
+${coreSeoEngine || "Focus on user intent and long-tail keywords. Structure with H1, H2, H3 tags. Include internal and external linking opportunities."}
+---
+${postTypeSpecificKb}
+**Monetization & Content Goals:**
+${monetizationGoals || "Strategically integrate opportunities for affiliate revenue from links naturally within the content. Do NOT explicitly suggest adding links, just provide the content that would support them."}
+---
+
+**Your Task & Output Instructions:**
+1.  Write a comprehensive blog post (around 1000-1500 words is ideal, but focus on quality and completeness).
+2.  Structure the post logically with an engaging introduction, several body sections using H2 and H3 headings, and a clear conclusion/call to action.
+3.  Naturally integrate the "primaryKeyword" throughout the content.
+4.  Weave in the "monetizationOpportunities" as seamlessly as possible. Think about what relevant products, services, or tours could be mentioned naturally. Do not explicitly suggest adding links, just provide the content that would support them.
+5.  Maintain the creator's style and tone.
+6.  Your response MUST contain a single JSON object with a key "blogPostContent". The value of "blogPostContent" should be the full blog post formatted in Markdown.
+7.  **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters. This helps in reliable parsing.
+
+Example Output Format:
+~~~json
+{
+  "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n...\\n### Section 1\\n...\\n"
+}
+~~~
+`;
+
+       try {
+            const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+
+            const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
+            const match = rawResponseText.match(jsonBlockRegex);
+            
+            let jsonString = null;
+
+            if (match && match[1]) {
+                jsonString = match[1];
+            } else {
+                console.error("AI response did not contain a valid JSON block within ~~~json~~~ delimiters.");
+                console.error("Raw AI response:", rawResponseText);
+                throw new Error("AI response did not provide the expected JSON format. Please try again.");
+            }
+
+            const parsedJson = JSON.parse(jsonString);
+
+            if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
+                return parsedJson.blogPostContent;
+            } else {
+                console.error("Parsed JSON missing 'blogPostContent' or it's not a string:", parsedJson);
+                throw new Error("AI returned an invalid format for blog post content (missing 'blogPostContent' field).");
+            }
+        } catch (error) {
+            console.error("Error generating blog post content:", error);
+            if (error instanceof SyntaxError) {
+                throw new Error(`AI failed to generate blog post content: JSON parsing error - ${error.message}`);
+            }
+            throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
+        }
+    },
+
+    // --- ADD THIS NEW FUNCTION ---
+    /**
+     * Generates a full blog post in HTML format, ready for WordPress.
+     * This is a complex task designed to use the "pro" model.
+     * @param {object} params - The parameters for the AI call.
+     * @param {object} params.idea - The blog post idea object (containing title, keywords).
+     * @param {object} params.settings - The application's settings object.
+     * @param {string} params.tone - The desired tone for the blog post.
+     * @returns {Promise<string>} - A promise that resolves to the generated HTML content as a string.
+     */
+    generateWordPressPostHTMLAI: async ({ idea, settings, tone }) => {
+        const { title, primaryKeyword } = idea;
+        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
+
+        const prompt = `
+You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress editor.
+
+${styleGuidePrompt}
+
+**Blog Post Details:**
+- **Title:** ${title}
+- **Primary Keyword:** ${primaryKeyword}
+- **Desired Tone:** ${tone}
+
+**Instructions:**
+1.  Create a compelling and engaging blog post.
+2.  The structure should be logical with a clear introduction, body, and conclusion. Use H2 and H3 tags for headings.
+3.  Strategically place placeholders for images and YouTube videos where they would be most effective.
+    * **Image Placeholder:** Use \`<div class="placeholder-image" style="height:300px; background:#ccc; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the image">Image Placeholder: [add descriptive keywords here]</div>\`
+    * **YouTube Placeholder:** Use \`<div class="placeholder-youtube" style="height:300px; background:#333; color:white; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the video">YouTube Placeholder: [add descriptive keywords here]</div>\`
+4.  Ensure the primary keyword is naturally integrated into the text.
+5.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output should be only the content that goes inside the WordPress editor.
+6.  Your entire response should be only the raw HTML content. Do not wrap it in JSON or Markdown code blocks.`;
+
+        try {
+            // Call the central API function. This is a complex task.
+            // We expect a plain text response (the HTML).
+            const htmlContent = await window.aiUtils.callGeminiAPI(
+                prompt,
+                settings,
+                { responseMimeType: "text/plain" }, // We want raw text, not JSON
+                true // This is a complex task, use Pro model if available
+            );
+
+            // Sometimes the model might still wrap the response in ```html ... ```, so we clean it up.
+            let cleanedHtml = htmlContent.trim();
+            if (cleanedHtml.startsWith('```html')) {
+                cleanedHtml = cleanedHtml.substring(7);
+            } else if (cleanedHtml.startsWith('```')) {
+                 cleanedHtml = cleanedHtml.substring(3);
+            }
+            if (cleanedHtml.endsWith('```')) {
+                cleanedHtml = cleanedHtml.slice(0, -3);
+            }
+
+            return cleanedHtml.trim();
+
+        } catch (error) {
+            console.error("Error generating WordPress Post HTML:", error);
+            throw new Error(`AI failed to generate WordPress HTML: ${error.message || error}`);
+        }
+    },
+
     /**
      * Finds points of interest. This is a simple task.
      */
