@@ -81,10 +81,10 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, o
 
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-6 md:p-8">
             <div ref={modalRef} className="glass-card rounded-lg w-full max-w-4xl relative flex flex-col max-h-[90vh]">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none z-10">&times;</button>
-                <div className="overflow-y-auto p-8">
+                <div className="overflow-y-auto p-6 sm:p-8">
                     <h2 className="text-3xl font-bold mb-2 text-center">Start a New Project</h2>
                     <p className="text-gray-400 mb-8 text-center">How would you like to begin?</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -110,12 +110,12 @@ window.ProjectSelection = ({ onSelectWorkflow, onClose, userId, onResumeDraft, o
                             drafts.length > 0 ? (
                                 <div className="space-y-3 pr-2">
                                     {drafts.map(draft => (
-                                        <div key={draft.id} className="glass-card p-4 rounded-lg flex justify-between items-center transition-all hover:bg-gray-700/50">
+                                        <div key={draft.id} className="glass-card p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center transition-all hover:bg-gray-700/50">
                                             <div>
                                                 <p className="font-semibold text-primary-accent">{draft.inputs?.location || 'Untitled Draft'}</p>
                                                 <p className="text-xs text-gray-400 mt-1">Last updated: {getDraftDate(draft)}</p>
                                             </div>
-                                            <div className="flex gap-2">
+                                            <div className="flex gap-2 mt-4 sm:mt-0">
                                                 <button onClick={() => onResumeDraft(draft.id)} className="px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">Resume</button>
                                                 <button onClick={() => onDeleteDraft(draft.id)} className="px-3 py-2 text-sm bg-red-800/80 hover:bg-red-700 text-white rounded-lg">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
