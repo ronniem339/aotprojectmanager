@@ -512,45 +512,15 @@ const ScriptingWorkspaceModal = ({
             case 'on_camera_qa':
                 // A component to handle fetching and displaying details for a single location.
                 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
-                    // Removed fetching logic and related state for `placeDetails` and `isLoading`
-                    // const [placeDetails, setPlaceDetails] = React.useState(null);
-                    // const [isLoading, setIsLoading] = React.useState(true);
+                    const textareaRef = useRef(null); // Ref for the textarea
 
-                    // React.useEffect(() => {
-                    //     const fetchPlaceDetails = async () => {
-                    //         if (!location?.place_id) {
-                    //             setIsLoading(false);
-                    //             return;
-                    //         }
-
-                    //         const url = `/.netlify/functions/fetch-place-details?place_id=${location.place_id}`;
-
-                    //         try {
-                    //             const response = await fetch(url);
-                    //             const data = await response.json();
-                    //             if (data.result) {
-                    //                 setPlaceDetails(data.result);
-                    //             }
-                    //         } catch (error) {
-                    //             console.error(`Error fetching place details for ${location.name}:`, error);
-                    //         } finally {
-                    //             setIsLoading(false);
-                    //         }
-                    //     };
-
-                    //     fetchPlaceDetails();
-                    // }, [location?.place_id, location?.name]);
-
-                    // Removed related variables
-                    // const summary = placeDetails?.shortFormattedAddress || placeDetails?.editorialSummary?.text || 'No description available for this location.';
-                    // const photoName = placeDetails?.photos?.[0]?.name;
-
-                    // Removed image URL generation
-                    // const imageUrl = isLoading
-                    //     ? `https://placehold.co/150x100/1f2937/4d5b76?text=Loading...`
-                    //     : photoName
-                    //         ? `/.netlify/functions/fetch-place-photo?photoName=${photoName}`
-                    //         : `https://placehold.co/150x100/1f2937/00bfff?text=${encodeURIComponent(location.name)}`;
+                    // This useEffect will attempt to re-focus the textarea if its value changes
+                    // and it's not already focused, which implies focus was lost during a re-render.
+                    useEffect(() => {
+                        if (textareaRef.current && document.activeElement !== textareaRef.current) {
+                            textareaRef.current.focus();
+                        }
+                    }, [description]); // Dependency on description to trigger on value change
 
                     return (
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -561,26 +531,8 @@ const ScriptingWorkspaceModal = ({
                                 </button>
                             </div>
 
-                            {/* Removed image and description display */}
-                            {/* <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                                <div className="flex-shrink-0">
-                                     <img
-                                        src={imageUrl}
-                                        alt={`Photo of ${location.name}`}
-                                        className="w-full sm:w-40 h-auto sm:h-24 object-cover rounded-md border border-gray-600"
-                                     />
-                                </div>
-                                <div className="flex-grow">
-                                    <h4 className="text-sm font-semibold text-gray-400 mb-1">About this place</h4>
-                                    {isLoading ? (
-                                        <p className="text-sm text-gray-400">Loading details...</p>
-                                    ) : (
-                                        <p className="text-sm text-gray-300 leading-relaxed">{summary}</p>
-                                    )}
-                                </div>
-                            </div> */}
-
                             <textarea
+                                ref={textareaRef} // Attach the ref to the textarea
                                 value={description}
                                 onChange={(e) => onDescriptionChange(location.name, e.target.value)}
                                 rows="3"
@@ -590,9 +542,6 @@ const ScriptingWorkspaceModal = ({
                         </div>
                     );
                 }, (prevProps, nextProps) => {
-                    // Custom comparison function for React.memo
-                    // Only re-render if location's key properties or the description change.
-                    // Callbacks (onDescriptionChange, onRemove) should be stable due to useCallback in parent.
                     return (
                         prevProps.location?.place_id === nextProps.location?.place_id &&
                         prevProps.location?.name === nextProps.location?.name &&
@@ -607,7 +556,7 @@ const ScriptingWorkspaceModal = ({
                     return (localTaskData.onCameraLocations || [])
                         .map(locationName => project.locations.find(loc => loc.name === locationName))
                         .filter(Boolean);
-                }, [localTaskData.onCameraLocations, project.locations]); // Dependencies for useMemo
+                }, [localTaskData.onCameraLocations, project.locations]);
 
 
                 return (
