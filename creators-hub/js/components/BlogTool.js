@@ -1,252 +1,264 @@
-// js/components/BlogTool.js
+// creators-hub/js/components/BlogTool.js
 
-// CHANGE 1 of 2: Add `onWritePost` and `processingIdeaId` to the list of props being received.
-window.BlogTool = ({ settings, onBack, onNavigateToSettings, userId, db, onWritePost, processingIdeaId }) => {
-    const { useState, useEffect } = React;
+const BlogTool = {
+    selectedIdeas: [],
 
-    const isConnected = settings?.wordpress?.url && settings?.wordpress?.username && settings?.wordpress?.applicationPassword;
-    const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+    init: function() {
+        const container = document.getElementById('blog-tool-container');
+        if (!container) return;
 
-    // State for idea generation
-    const [generationSource, setGenerationSource] = useState('topic'); // 'topic', 'project', or 'video'
-    const [topic, setTopic] = useState('');
-    const [projects, setProjects] = useState([]);
-    const [selectedProjectId, setSelectedProjectId] = useState('');
-    const [videos, setVideos] = useState([]);
-    const [selectedVideoId, setSelectedVideoId] = useState('');
+        this.render();
+        this.postRender();
+    },
+    
+    postRender: function() {
+        const container = document.getElementById('blog-tool-container');
+        if (!container) return;
 
-    const [generatedIdeas, setGeneratedIdeas] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    // Fetch all projects for the dropdown
-    useEffect(() => {
-        if (!userId || !db) return;
-        const projectsRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("createdAt", "desc");
-        const unsubscribe = projectsRef.onSnapshot(snapshot => {
-            setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
-        return () => unsubscribe();
-    }, [userId, db, appId]);
-
-    // Fetch videos for the selected project
-    useEffect(() => {
-        if (!selectedProjectId) {
-            setVideos([]);
-            setSelectedVideoId('');
-            return;
-        }
-        const videosRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProjectId}/videos`).orderBy("order");
-        const unsubscribe = videosRef.onSnapshot(snapshot => {
-            setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
-        return () => unsubscribe();
-    }, [selectedProjectId, userId, db, appId]);
-
-
-    const handleGenerateIdeas = async () => {
-        setIsLoading(true);
-        setError('');
-        setGeneratedIdeas([]);
-
-        // FIXED: Pass the entire settings object
-        let generationParams = {
-            coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-            ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration,
-            monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-            settings: settings, // Pass the whole settings object
-        };
-
-        if (generationSource === 'topic') {
-            if (!topic.trim()) {
-                setError("Please enter a destination or topic.");
-                setIsLoading(false);
-                return;
-            }
-            generationParams.destination = topic;
-        } else if (generationSource === 'project') {
-             if (!selectedProjectId) {
-                setError("Please select a project.");
-                setIsLoading(false);
-                return;
-            }
-            const project = projects.find(p => p.id === selectedProjectId);
-            generationParams.project = project;
-        } else if (generationSource === 'video') {
-             if (!selectedVideoId) {
-                setError("Please select a video.");
-                setIsLoading(false);
-                return;
-            }
-            const project = projects.find(p => p.id === selectedProjectId);
-            const video = videos.find(v => v.id === selectedVideoId);
-            generationParams.project = project;
-            generationParams.video = video;
-        }
-
-        try {
-            const ideas = await window.aiUtils.generateBlogPostIdeasAI(generationParams);
-            const ideasWithIds = ideas.map(idea => ({ ...idea, localId: Math.random().toString(36).substr(2, 9) }));
-            setGeneratedIdeas(ideasWithIds);
-        } catch (err) {
-            console.error("Error generating blog ideas:", err);
-            setError(`Failed to generate ideas: ${err.message}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleApproveIdea = async (ideaToApprove) => {
-        if (!userId || !db) {
-            setError("Cannot save idea: user not authenticated.");
-            return;
-        }
-        const { localId, ...ideaData } = ideaToApprove;
-              // Add project and video IDs/titles if the idea originated from them
-        if (generationSource === 'project' && selectedProjectId) {
-            const project = projects.find(p => p.id === selectedProjectId);
-            ideaData.relatedProjectId = selectedProjectId;
-            ideaData.relatedProjectTitle = project ? project.playlistTitle : null;
-        } else if (generationSource === 'video' && selectedVideoId) {
-            const project = projects.find(p => p.id === selectedProjectId);
-            const video = videos.find(v => v.id === selectedVideoId);
-            ideaData.relatedProjectId = selectedProjectId;
-            ideaData.relatedProjectTitle = project ? project.playlistTitle : null;
-            ideaData.relatedVideoId = selectedVideoId;
-            ideaData.relatedVideoTitle = video ? video.title : null;
-        }
-
-        try {
-            const ideasCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`);
-            await ideasCollectionRef.add({
-                ...ideaData,
-                status: 'approved',
-                createdAt: new Date().toISOString()
+        const ideaForm = document.getElementById('blog-idea-form');
+        if (ideaForm) {
+            ideaForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleGenerateIdeas();
             });
-            setGeneratedIdeas(prev => prev.filter(idea => idea.localId !== localId));
-        } catch(err) {
-            console.error("Error approving idea:", err);
-            setError("Failed to save the approved idea.");
         }
-    };
+        
+        container.addEventListener('click', (e) => {
+            const approveBtn = e.target.closest('.approve-idea-btn');
+            const deleteBtn = e.target.closest('.delete-idea-btn');
+            const generateBtn = e.target.closest('.generate-post-btn');
+            const viewBtn = e.target.closest('.view-post-btn');
+            const publishBtn = e.target.closest('#publish-to-wp-btn');
+            const confirmPublishBtn = e.target.closest('#confirm-wp-publish');
+            const cancelPublishBtn = e.target.closest('#cancel-wp-publish');
 
-    const handleRejectIdea = (localId) => {
-        setGeneratedIdeas(prev => prev.filter(idea => idea.localId !== localId));
-    };
+            if (approveBtn) this.handleApproveIdea(approveBtn.dataset.ideaId);
+            else if (deleteBtn) this.handleDeleteIdea(deleteBtn.dataset.ideaId);
+            else if (generateBtn) this.handleGenerateSinglePost(generateBtn.dataset.ideaId);
+            else if (viewBtn) this.handleViewPost(viewBtn.dataset.ideaId);
+            else if (publishBtn) this.handlePublishClick();
+            else if (confirmPublishBtn) {
+                const selectedCategoryId = document.getElementById('wp-category-select').value;
+                this.confirmPublish(selectedCategoryId);
+            }
+            else if (cancelPublishBtn) this.cancelPublish();
+        });
 
-    if (!isConnected) {
-        return (
-             <div className="p-8">
-                <header className="flex justify-between items-center mb-8">
-                    <h1 className="text-4xl font-bold text-white">✍️ Blog Content Tool</h1>
-                    <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                        Back to Tools
-                    </button>
-                </header>
-                <div className="glass-card p-12 rounded-lg text-center flex flex-col items-center">
-                    <span className="text-5xl mb-4">🔌</span>
-                    <h2 className="text-2xl font-bold text-amber-400">WordPress Not Connected</h2>
-                    <p className="text-gray-300 mt-2 max-w-md">To use the Blog Tool, you first need to connect your WordPress site in the settings.</p>
-                    <button onClick={onNavigateToSettings} className="mt-6 px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold transition-colors">Go to Technical Settings</button>
+        container.addEventListener('change', (e) => {
+            if (e.target.classList.contains('blog-idea-checkbox')) {
+                this.handleCheckboxChange(e.target);
+            }
+        });
+    },
+
+    handleGenerateIdeas: async function() {
+        const topic = document.getElementById('idea-topic').value;
+        const tone = document.getElementById('idea-tone').value;
+        const generateBtn = document.getElementById('generate-ideas-btn');
+        if (!topic) {
+            alert("Please enter a topic.");
+            return;
+        }
+
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+        try {
+            const ideas = await window.aiUtils.generateBlogIdeas(topic, tone);
+            const newIdeas = ideas.map(idea => ({
+                id: `idea-${Date.now()}-${Math.random()}`,
+                title: idea.title,
+                keywords: idea.keywords,
+                tone: tone,
+                status: 'New',
+                content: ''
+            }));
+            window.app.blogIdeas = [...newIdeas, ...window.app.blogIdeas];
+            window.app.saveBlogIdeas();
+            this.init(); // Re-initialize to render changes
+        } catch (error) {
+            console.error("Failed to generate blog ideas:", error);
+            alert("There was an error generating ideas. Please check the console.");
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Ideas';
+        }
+    },
+    
+    handleGenerateSinglePost: function(ideaId) {
+        const idea = window.app.blogIdeas.find(i => i.id === ideaId);
+        if (!idea) return;
+
+        const task = {
+            id: `generate-${ideaId}`,
+            name: `Generating post: "${idea.title}"`,
+            type: 'generateBlogContent',
+            status: 'pending',
+            data: { ideaId: ideaId }
+        };
+        
+        window.app.addTask(task);
+    },
+    
+    handleViewPost: function(ideaId) {
+        const idea = window.app.blogIdeas.find(i => i.id === ideaId);
+        if (idea && idea.content) {
+            window.app.showGeneratedPostModal(idea.content);
+        }
+    },
+    
+    handleApproveIdea: function(ideaId) {
+        const idea = window.app.blogIdeas.find(i => i.id === ideaId);
+        if (idea) {
+            idea.status = 'Approved';
+            window.app.saveBlogIdeas();
+            this.init();
+        }
+    },
+    
+    handleDeleteIdea: function(ideaId) {
+        window.app.blogIdeas = window.app.blogIdeas.filter(i => i.id !== ideaId);
+        window.app.saveBlogIdeas();
+        this.init();
+    },
+
+    handleCheckboxChange: function(checkbox) {
+        const ideaId = checkbox.dataset.ideaId;
+        if (checkbox.checked) {
+            if (!this.selectedIdeas.includes(ideaId)) {
+                this.selectedIdeas.push(ideaId);
+            }
+        } else {
+            this.selectedIdeas = this.selectedIdeas.filter(id => id !== ideaId);
+        }
+        
+        const publishBtn = document.getElementById('publish-to-wp-btn');
+        if(publishBtn) {
+            publishBtn.disabled = this.selectedIdeas.length === 0;
+        }
+    },
+    
+    handlePublishClick: function() {
+        const ideasToPublish = window.app.blogIdeas.filter(idea => this.selectedIdeas.includes(idea.id));
+        
+        const publisherContainer = document.getElementById('wordpress-publisher-container');
+        publisherContainer.innerHTML = WordpressPublisher(
+            ideasToPublish,
+            (categoryId) => this.confirmPublish(categoryId),
+            () => this.cancelPublish()
+        );
+    },
+    
+    confirmPublish: function(categoryId) {
+         this.selectedIdeas.forEach(ideaId => {
+            const idea = window.app.blogIdeas.find(i => i.id === ideaId);
+            if(idea && ['Approved', 'Generated'].includes(idea.status)) {
+                const task = {
+                    id: `publish-${ideaId}`,
+                    name: `Publishing: "${idea.title}"`,
+                    type: 'publishToWordPress',
+                    status: 'pending',
+                    data: { ideaId: ideaId, categoryId: categoryId }
+                };
+                window.app.addTask(task);
+            }
+        });
+        
+        this.selectedIdeas = [];
+        this.cancelPublish();
+        this.init();
+    },
+
+    cancelPublish: function() {
+        const publisherContainer = document.getElementById('wordpress-publisher-container');
+        if (publisherContainer) {
+            publisherContainer.innerHTML = '';
+        }
+    },
+
+    render: function() {
+        const container = document.getElementById('blog-tool-container');
+        if (!container) return;
+
+        const { blogIdeas } = window.app;
+        const newIdeas = blogIdeas.filter(i => i.status === 'New');
+        const processedIdeas = blogIdeas.filter(i => ['Approved', 'Generated', 'Published'].includes(i.status));
+
+        const renderIdea = (idea, isNewList) => {
+            const isChecked = this.selectedIdeas.includes(idea.id);
+            const canBeSelected = ['Approved', 'Generated'].includes(idea.status);
+            
+            return `
+            <div class="flex items-center p-3 border-b border-gray-700 last:border-b-0">
+                ${!isNewList ? `<div class="flex-shrink-0 w-8 text-center">
+                     <input type="checkbox" class="blog-idea-checkbox form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-blue-500 focus:ring-blue-500" data-idea-id="${idea.id}" ${isChecked ? 'checked' : ''} ${!canBeSelected ? 'disabled' : ''}>
+                </div>` : '<div class="w-8"></div>'}
+                <div class="flex-grow ml-2">
+                    <h4 class="font-bold">${idea.title}</h4>
+                    <p class="text-sm text-gray-400">${idea.keywords}</p>
+                </div>
+                <div class="flex-shrink-0 flex items-center space-x-2">
+                     <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full ${
+                        {'New': 'text-yellow-600 bg-yellow-200', 'Approved': 'text-blue-600 bg-blue-200', 'Generated': 'text-green-600 bg-green-200', 'Published': 'text-purple-600 bg-purple-200'}[idea.status]
+                     }">${idea.status}</span>
+    
+                    ${idea.status === 'Approved' ? `<button class="generate-post-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded text-xs" data-idea-id="${idea.id}">Generate</button>`: ''}
+                    ${idea.status === 'Generated' ? `<button class="view-post-btn bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-xs" data-idea-id="${idea.id}" data-task-id="generate-${idea.id}">View</button>`: ''}
+                    ${idea.status === 'Published' ? `<a href="${idea.wordpressLink}" target="_blank" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1 px-2 rounded text-xs">View on WP</a>`: ''}
+                    ${isNewList ? `<button class="approve-idea-btn text-green-400 hover:text-green-300" data-idea-id="${idea.id}"><i class="fas fa-check"></i></button>` : ''}
+                     <button class="delete-idea-btn text-red-400 hover:text-red-300" data-idea-id="${idea.id}"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
-        );
-    }
-
-    const renderGenerationSourceInput = () => {
-        switch(generationSource) {
-            case 'project':
-                return (
-                    <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full form-input">
-                        <option value="" disabled>Select a project</option>
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle}</option>)}
-                    </select>
-                );
-            case 'video':
-                 return (
-                    <div className="flex gap-4">
-                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-1/2 form-input">
-                            <option value="" disabled>Select a project</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle}</option>)}
-                        </select>
-                        <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} className="w-1/2 form-input" disabled={!selectedProjectId || videos.length === 0}>
-                             <option value="" disabled>{!selectedProjectId ? 'First select a project' : (videos.length === 0 ? 'No videos in project' : 'Select a video')}</option>
-                             {videos.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
-                        </select>
-                    </div>
-                );
-            case 'topic':
-            default:
-                 return <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} className="w-full form-input" placeholder="e.g., Cyprus, Tokyo, Scottish Highlands"/>;
-        }
-    }
-
-    return (
-        <div className="p-8">
-            <header className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold text-white">✍️ Blog Content Tool</h1>
-                <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                    Back to Tools
-                </button>
-            </header>
-
-            <div className="space-y-8">
-                <div className="glass-card p-6 rounded-lg">
-                    <h2 className="text-2xl font-semibold mb-4">1. Generate Ideas</h2>
-                    <div className="mb-4 border-b border-gray-700">
-                        <nav className="flex space-x-4">
-                            <button onClick={() => setGenerationSource('topic')} className={`py-2 px-1 text-sm font-medium transition-colors ${generationSource === 'topic' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}>From Topic</button>
-                            <button onClick={() => setGenerationSource('project')} className={`py-2 px-1 text-sm font-medium transition-colors ${generationSource === 'project' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}>From Project</button>
-                            <button onClick={() => setGenerationSource('video')} className={`py-2 px-1 text-sm font-medium transition-colors ${generationSource === 'video' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}>From Video</button>
-                        </nav>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="md:col-span-2">{renderGenerationSourceInput()}</div>
+        `};
+        
+        container.innerHTML = `
+        <div id="blog-ideas-dashboard" class="p-4 sm:p-6">
+            <h2 class="text-2xl font-bold mb-6">Blog Post Idea Manager</h2>
+    
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
+                <form id="blog-idea-form">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <button onClick={handleGenerateIdeas} disabled={isLoading} className="w-full px-5 py-2.5 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 flex items-center justify-center gap-2">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : '💡 Generate Blog Ideas'}
-                            </button>
+                            <label for="idea-topic" class="block text-sm font-medium text-gray-300 mb-2">Topic / Keyword</label>
+                            <input type="text" id="idea-topic" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="e.g., Best beaches in Thailand">
+                        </div>
+                        <div>
+                            <label for="idea-tone" class="block text-sm font-medium text-gray-300 mb-2">Tone of Voice</label>
+                            <select id="idea-tone" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                <option>Adventurous</option>
+                                <option>Luxury</option>
+                                <option>Budget-conscious</option>
+                                <option>Funny</option>
+                                <option>Informative</option>
+                            </select>
                         </div>
                     </div>
-                    {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
+                    <div class="mt-6 text-right">
+                        <button type="submit" id="generate-ideas-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">Generate Ideas</button>
+                    </div>
+                </form>
+            </div>
+    
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4">New Ideas</h3>
+                    <div class="bg-gray-800 rounded-lg shadow-lg max-h-[40rem] overflow-y-auto">
+                        ${newIdeas.length > 0 ? newIdeas.map(idea => renderIdea(idea, true)).join('') : '<p class="p-4 text-gray-400">No new ideas yet.</p>'}
+                    </div>
                 </div>
-
-                {generatedIdeas.length > 0 && (
-                    <div className="glass-card p-6 rounded-lg">
-                        <h2 className="text-2xl font-semibold mb-4">2. Review New Suggestions</h2>
-                        <div className="space-y-3">
-                            {generatedIdeas.map(idea => (
-                                <div key={idea.localId} className="p-3 bg-gray-800/60 rounded-lg border border-gray-700">
-                                    <p className="font-semibold text-white">{idea.title}</p>
-                                    <p className="text-sm text-gray-400 mt-1">{idea.description}</p>
-                                    <div className="mt-2 p-2 bg-green-900/20 border-l-2 border-green-500">
-                                        <p className="text-xs font-bold text-green-400">Monetization Angle:</p>
-                                        <p className="text-sm text-green-300/90 italic">{idea.monetizationOpportunities}</p>
-                                    </div>
-                                    <div className="flex justify-end gap-2 mt-2">
-                                        <button onClick={() => handleRejectIdea(idea.localId)} className="px-3 py-1 text-xs bg-red-800/70 hover:bg-red-700 rounded-md">Reject</button>
-                                        <button onClick={() => handleApproveIdea(idea)} className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 rounded-md">Approve</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+    
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold">Approved & Published</h3>
+                         <button id="publish-to-wp-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed" ${this.selectedIdeas.length === 0 ? 'disabled' : ''}>Publish to WordPress</button>
                     </div>
-                )}
-
-                <div className="glass-card p-6 rounded-lg">
-                    <h2 className="text-2xl font-semibold mb-4">3. Approved Ideas Pipeline</h2>
-                    {/* CHANGE 2 of 2: Pass the received props down to the BlogIdeasDashboard component. */}
-                    <window.BlogIdeasDashboard
-                        userId={userId}
-                        db={db}
-                        settings={settings}
-                        onWritePost={onWritePost}
-                        processingIdeaId={processingIdeaId}
-                    />
+                    <div class="bg-gray-800 rounded-lg shadow-lg max-h-[40rem] overflow-y-auto">
+                        ${processedIdeas.length > 0 ? processedIdeas.map(idea => renderIdea(idea, false)).join('') : '<p class="p-4 text-gray-400">No approved ideas yet.</p>'}
+                    </div>
                 </div>
             </div>
         </div>
-    );
+        <div id="wordpress-publisher-container"></div>
+        `;
+    }
 };
