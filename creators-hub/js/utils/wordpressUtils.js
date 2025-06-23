@@ -18,8 +18,10 @@ async function postToWordPress(postData, wordpressConfig) {
     const { title, htmlContent, excerpt, categoryId } = postData;
     const { url, username, applicationPassword } = wordpressConfig;
 
-    const endpoint = `${url}/wp-json/wp/v2/posts`;
-    // The token is a base64 encoding of "username:applicationPassword".
+    // FIX: Trim trailing slashes from the URL to prevent double slashes.
+    const cleanedUrl = url.replace(/\/+$/, '');
+
+    const endpoint = `${cleanedUrl}/wp-json/wp/v2/posts`;
     const token = btoa(`${username}:${applicationPassword}`);
 
     const headers = {
@@ -31,7 +33,7 @@ async function postToWordPress(postData, wordpressConfig) {
         title: title,
         content: htmlContent,
         excerpt: excerpt,
-        status: 'draft', // Always post as a draft
+        status: 'draft',
         categories: categoryId ? [categoryId] : []
     });
 
@@ -42,13 +44,14 @@ async function postToWordPress(postData, wordpressConfig) {
             body: body
         });
 
+        const responseData = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json();
-            console.error('WordPress API Error Response:', errorData);
-            throw new Error(`WordPress API Error: ${errorData.message || response.statusText}`);
+            console.error('WordPress API Error Response:', responseData);
+            throw new Error(`WordPress API Error: ${responseData.message || response.statusText}`);
         }
 
-        return await response.json();
+        return responseData;
     } catch (error) {
         console.error('Failed to post to WordPress:', error);
         throw error;
@@ -64,25 +67,34 @@ async function postToWordPress(postData, wordpressConfig) {
 async function getWordPressCategories(wordpressConfig) {
     const { url, username, applicationPassword } = wordpressConfig;
     if (!url || !username || !applicationPassword) {
-        console.log('WordPress settings not configured for fetching categories.');
-        return [];
+        throw new Error('WordPress settings are not fully configured.');
     }
-    const endpoint = `${url}/wp-json/wp/v2/categories?per_page=100`;
+
+    // FIX: Trim trailing slashes from the URL to prevent double slashes.
+    const cleanedUrl = url.replace(/\/+$/, '');
+    
+    const endpoint = `${cleanedUrl}/wp-json/wp/v2/categories?per_page=100`;
     const token = btoa(`${username}:${applicationPassword}`);
+    
     const headers = {
         'Authorization': `Basic ${token}`
     };
 
     try {
         const response = await fetch(endpoint, { headers });
+        const responseData = await response.json();
+        
         if (!response.ok) {
-            console.error('Failed to fetch WordPress categories. Status:', response.status);
-            return []; // Return empty array on error
+            console.error('WordPress API Error Response:', responseData);
+            throw new Error(`Failed to fetch categories: ${responseData.message || response.statusText}`);
         }
-        return await response.json();
+        
+        // Filter out "Uncategorized" category if it exists
+        return responseData.filter(cat => cat.slug !== 'uncategorized');
+
     } catch (error) {
         console.error('Error fetching WordPress categories:', error);
-        return []; // Return empty array on error
+        throw error; // Re-throw the error to be handled by the calling component
     }
 }
 
