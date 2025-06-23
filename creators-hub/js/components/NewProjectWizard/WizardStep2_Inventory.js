@@ -26,8 +26,8 @@ window.WizardStep2_Inventory = ({
                     <h3 className="text-lg font-semibold text-amber-300 mb-3">Project Locations</h3>
                     {googleMapsLoaded
                         ? <window.LocationSearchInput 
-                              onLocationsChange={onLocationsUpdate} 
-                              existingLocations={locations} />
+                                onLocationsChange={onLocationsUpdate} 
+                                existingLocations={locations} />
                         : <p className="text-gray-400 text-center">Loading location search...</p>
                     }
                 </div>
