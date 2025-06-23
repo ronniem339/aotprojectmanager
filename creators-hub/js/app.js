@@ -26,7 +26,7 @@ window.loadGoogleMapsScript = (apiKey, callback) => {
 
     // Create the script element and append it to the document head
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&v=beta&callback=initMap`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
