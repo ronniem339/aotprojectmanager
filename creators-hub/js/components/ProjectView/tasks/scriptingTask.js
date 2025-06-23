@@ -550,8 +550,9 @@ const ScriptingWorkspaceModal = ({
                 );
             case 'on_camera_qa':
                 // Memoize the onCameraLocationObjects array to prevent unnecessary re-creation
-                const onCameraLocationObjects = useMemo(() => {
-                    return (localTaskData.onCameraLocations || [])
+            const onCameraLocationObjects = useMemo(() => {
+                    const uniqueLocationNames = Array.from(new Set(localTaskData.onCameraLocations || [])); // New line to ensure uniqueness
+                    return uniqueLocationNames // Now mapping over the unique names
                         .map(locationName => project.locations.find(loc => loc.name === locationName))
                         .filter(Boolean);
                 }, [localTaskData.onCameraLocations, project.locations]);
