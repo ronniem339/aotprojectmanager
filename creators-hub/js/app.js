@@ -84,9 +84,11 @@ window.App = () => { // Exposing App component globally
     const [firebaseAuth, setFirebaseAuth] = useState(null);
 
     // START - ADDED FOR BLOG POST GENERATION QUEUE
-    const [postGenerationQueue, setPostGenerationQueue] = useState([]);
-    const [isGeneratingPost, setIsGeneratingPost] = useState(false);
-    const [processingIdeaId, setProcessingIdeaId] = useState(null);
+const [taskQueue, setTaskQueue] = useState([]);
+const [isTaskQueueProcessing, setIsTaskQueueProcessing] = useState(false);
+const [showPublisherModal, setShowPublisherModal] = useState(false);
+const [ideasToPublish, setIdeasToPublish] = useState([]);
+const [contentToView, setContentToView] = useState(null); // For viewing generated content
     // END - ADDED FOR BLOG POST GENERATION QUEUE
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
@@ -194,83 +196,184 @@ window.App = () => { // Exposing App component globally
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
 
-    // START - ADDED FOR BLOG POST GENERATION QUEUE
-    useEffect(() => {
-        const processNextInQueue = async () => {
-            if (isGeneratingPost || postGenerationQueue.length === 0 || !user || !firebaseDb) {
-                return;
+    // --- START: New Unified Task Queue Engine ---
+
+const addTask = useCallback((task) => {
+    setTaskQueue(prevQueue => {
+        // Avoid adding duplicate tasks
+        if (prevQueue.some(t => t.id === task.id)) {
+            console.log(`Task ${task.id} is already in the queue.`);
+            return prevQueue;
+        }
+        return [...prevQueue, task];
+    });
+}, []);
+
+const updateTaskStatus = (taskId, status, result = null) => {
+    setTaskQueue(prevQueue => prevQueue.map(task => {
+        if (task.id === taskId) {
+            return { ...task, status, result };
+        }
+        return task;
+    }));
+};
+
+useEffect(() => {
+    const processTaskQueue = async () => {
+        if (isTaskQueueProcessing) return;
+
+        const nextTask = taskQueue.find(t => t.status === 'pending');
+        if (!nextTask) {
+            // Optional: Clear completed tasks after a delay
+            if (taskQueue.length > 0 && taskQueue.every(t => t.status === 'completed' || t.status === 'failed')) {
+                setTimeout(() => setTaskQueue([]), 15000);
             }
-
-            const ideaToProcess = postGenerationQueue[0];
-            
-            setIsGeneratingPost(true);
-            setProcessingIdeaId(ideaToProcess.id);
-            setPostGenerationQueue(prevQueue => prevQueue.slice(1));
-
-            try {
-                await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaToProcess.id).update({
-                    status: 'generating',
-                    generationStartedAt: new Date().toISOString(),
-                    generationError: null
-                });
-            } catch (error) {
-                console.error("Error updating idea status to generating:", error);
-                setIsGeneratingPost(false);
-                setProcessingIdeaId(null);
-                return;
-            }
-
-            try {
-                const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
-                    idea: ideaToProcess,
-                    coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-                    monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-                    listicleContent: settings.knowledgeBases.blog.listicleContent,
-                    destinationGuideContent: settings.knowledgeBases.blog.destinationGuideContent,
-                    settings: settings
-                });
-
-                await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaToProcess.id).update({
-                    status: 'generated',
-                    blogPostContent: blogPostContent,
-                    generationCompletedAt: new Date().toISOString()
-                });
-
-            } catch (error) {
-                console.error("Error generating blog post:", error);
-                await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaToProcess.id).update({
-                    status: 'failed',
-                    generationError: error.message || 'Unknown error during generation',
-                    generationCompletedAt: new Date().toISOString()
-                });
-            } finally {
-                setIsGeneratingPost(false);
-                setProcessingIdeaId(null);
-            }
-        };
-
-        processNextInQueue();
-
-    }, [postGenerationQueue, isGeneratingPost, user, firebaseDb, APP_ID, settings]);
-
-    const handleWritePost = async (idea) => {
-        if (idea.status === 'queued' || idea.status === 'generating') {
             return;
         }
 
-        setPostGenerationQueue(prevQueue => [...prevQueue, idea]);
+        setIsTaskQueueProcessing(true);
+        updateTaskStatus(nextTask.id, 'in-progress');
 
         try {
-            await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id).update({
-                status: 'queued',
-                generationError: null
-            });
+            let result;
+            switch (nextTask.type) {
+                case 'generateBlogContent':
+                    result = await executeGenerateBlogContent(nextTask.data);
+                    break;
+                case 'publishToWordPress':
+                    result = await executePublishToWordPress(nextTask.data);
+                    break;
+            }
+            updateTaskStatus(nextTask.id, 'completed', result);
         } catch (error) {
-            console.error("Error adding idea to queue in Firestore:", error);
-            setPostGenerationQueue(prevQueue => prevQueue.filter(item => item.id !== idea.id));
+            console.error(`Task ${nextTask.id} failed:`, error);
+            updateTaskStatus(nextTask.id, 'failed', { error: error.message });
+        } finally {
+            setIsTaskQueueProcessing(false);
         }
     };
-    // END - ADDED FOR BLOG POST GENERATION QUEUE
+
+    processTaskQueue();
+}, [taskQueue, isTaskQueueProcessing]); // Reruns whenever the queue changes or a task finishes
+
+const executeGenerateBlogContent = async (data) => {
+    const { ideaId } = data;
+    if (!user || !firebaseDb) throw new Error("User or database not available.");
+
+    const ideaRef = firebaseDb.collection(`artifacts/<span class="math-inline">\{APP\_ID\}/users/</span>{user.uid}/blogIdeas`).doc(ideaId);
+
+    await ideaRef.update({ status: 'generating', generationError: null });
+
+    const ideaSnap = await ideaRef.get();
+    const idea = ideaSnap.data();
+
+    const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
+        idea: idea,
+        coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
+        monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
+        settings: settings
+    });
+
+    await ideaRef.update({
+        status: 'generated',
+        blogPostContent: blogPostContent,
+        generationCompletedAt: new Date().toISOString()
+    });
+
+    return { content: blogPostContent, viewable: true };
+};
+
+const executePublishToWordPress = async (data) => {
+    const { ideaId, categoryId } = data;
+    if (!user || !firebaseDb) throw new Error("User or database not available.");
+
+    const ideaRef = firebaseDb.collection(`artifacts/<span class="math-inline">\{APP\_ID\}/users/</span>{user.uid}/blogIdeas`).doc(ideaId);
+
+    await ideaRef.update({ status: 'publishing', generationError: null });
+
+    const ideaSnap = await ideaRef.get();
+    const idea = ideaSnap.data();
+
+    // Step 1: Generate the full HTML for WordPress
+    const htmlContent = await window.aiUtils.generateWordPressPostHTMLAI({
+        idea: idea,
+        settings: settings,
+        tone: idea.tone || 'Informative'
+    });
+
+    // Step 2: Post to WordPress
+    const wordpressConfig = settings.wordpress;
+    if (!wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
+        throw new Error("WordPress settings are not fully configured.");
+    }
+
+    const postData = {
+        title: idea.title,
+        htmlContent: htmlContent,
+        excerpt: idea.blogPostContent ? idea.blogPostContent.substring(0, 250) + '...' : idea.description,
+        categoryId: categoryId,
+    };
+
+    const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
+
+    // Step 3: Update the idea in Firestore with the final status and WordPress link
+    await ideaRef.update({
+        status: 'published',
+        wordpressId: response.id,
+        wordpressLink: response.link,
+        publishedAt: new Date().toISOString()
+    });
+
+    return { link: response.link };
+};
+
+// --- END: New Unified Task Queue Engine ---
+
+    const handleGeneratePostTask = useCallback((idea) => {
+    addTask({
+        id: `generate-${idea.id}`,
+        name: `Generating post: "${idea.title}"`,
+        type: 'generateBlogContent',
+        status: 'pending',
+        data: { ideaId: idea.id }
+    });
+}, [addTask]);
+
+const handlePublishPostsTask = useCallback((selectedIdeas, categoryId) => {
+    selectedIdeas.forEach(idea => {
+        addTask({
+            id: `publish-${idea.id}`,
+            name: `Publishing: "${idea.title}"`,
+            type: 'publishToWordPress',
+            status: 'pending',
+            data: { ideaId: idea.id, categoryId: categoryId }
+        });
+    });
+    setShowPublisherModal(false);
+    setIdeasToPublish([]);
+}, [addTask]);
+
+const handleOpenPublisher = useCallback((selectedIdeas) => {
+    setIdeasToPublish(selectedIdeas);
+    setShowPublisherModal(true);
+}, []);
+
+const handleViewGeneratedPost = useCallback(async (taskId) => {
+    const task = taskQueue.find(t => t.id === taskId);
+    if (task && task.result && task.result.content) {
+        setContentToView(task.result.content);
+        return;
+    }
+    // Fallback for viewing content not in the current queue (from a previous session)
+    const ideaId = taskId.replace('generate-', '');
+    const ideaRef = firebaseDb.collection(`artifacts/<span class="math-inline">\{APP\_ID\}/users/</span>{user.uid}/blogIdeas`).doc(ideaId);
+    const doc = await ideaRef.get();
+    if (doc.exists && doc.data().blogPostContent) {
+        setContentToView(doc.data().blogPostContent);
+    } else {
+        displayNotification("Could not find generated content for this post.");
+    }
+}, [taskQueue, user, firebaseDb, APP_ID]);
 
 
     const displayNotification = (message) => {
@@ -486,17 +589,18 @@ const handleSaveSettings = async (updatedSettingsObject) => {
             case 'tools':
                 return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
             case 'blogTool':
-                return <window.BlogTool 
-                             settings={settings} 
-                             onBack={() => setCurrentView('tools')} 
-                             onNavigateToSettings={() => setCurrentView('technicalSettings')} 
-                             userId={user.uid} 
-                             db={firebaseDb}
-                             // START - ADDED FOR BLOG POST GENERATION QUEUE
-                             onWritePost={handleWritePost}
-                             processingIdeaId={processingIdeaId}
-                             // END - ADDED FOR BLOG POST GENERATION QUEUE
-                         />;
+    return <window.BlogTool
+        settings={settings}
+        onBack={() => setCurrentView('tools')}
+        onNavigateToSettings={() => setCurrentView('technicalSettings')}
+        userId={user.uid}
+        db={firebaseDb}
+        // Pass new handlers
+        onGeneratePost={handleGeneratePostTask}
+        onPublishPosts={handleOpenPublisher}
+        taskQueue={taskQueue} // Pass the queue to show status
+        onViewPost={handleViewGeneratedPost}
+    />;
             case 'shortsTool':
                  return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             case 'contentLibrary':
@@ -514,7 +618,22 @@ const handleSaveSettings = async (updatedSettingsObject) => {
             {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={() => handleConfirmDeleteDraft(draftToDelete)} onCancel={() => setDraftToDelete(null)} />}
             {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} db={firebaseDb} auth={firebaseAuth} />}
-            <main className="p-4 sm:p-6 lg:p-8">{renderView()}</main>
+            {showPublisherModal && (
+    <window.WordpressPublisher
+        ideas={ideasToPublish}
+        settings={settings}
+        onPublish={handlePublishPostsTask}
+        onCancel={() => setShowPublisherModal(false)}
+    />
+)}
+{contentToView && (
+    <window.GeneratedPostViewer
+        content={contentToView}
+        onClose={() => setContentToView(null)}
+    />
+)}
+<window.TaskQueue tasks={taskQueue} onView={handleViewGeneratedPost} />
+                <main className="p-4 sm:p-6 lg:p-8">{renderView()}</main>
         </div>
     );
 }
