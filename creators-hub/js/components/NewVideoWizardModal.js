@@ -298,8 +298,8 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
     const totalSteps = 2;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-2xl h-5/6 flex flex-col relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-6 md:p-8">
+            <div className="glass-card rounded-lg p-6 sm:p-8 w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col relative" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-3xl font-bold text-white mb-6 text-center">Add New Video</h2>
 
@@ -309,19 +309,19 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
 
                 {error && <p className="text-red-400 mt-4 text-sm bg-red-900/50 p-3 rounded-lg">{error}</p>}
 
-                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700 flex justify-between items-center">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-white">Cancel</button>
-                    <div className="flex gap-4">
+                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <button onClick={onClose} className="w-full sm:w-auto px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-white">Cancel</button>
+                    <div className="flex gap-4 w-full sm:w-auto">
                         {step > 0 && (
-                            <button onClick={handlePrev} className="px-6 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold text-white">Back</button>
+                            <button onClick={handlePrev} className="w-full sm:w-auto px-6 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold text-white">Back</button>
                         )}
                         {step < totalSteps && step > 0 && (
-                            <button onClick={handleNext} disabled={isLoading} className="px-6 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-white disabled:opacity-75">
+                            <button onClick={handleNext} disabled={isLoading} className="w-full sm:w-auto px-6 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-white disabled:opacity-75">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Next'}
                             </button>
                         )}
                         {step === totalSteps && (
-                            <button onClick={handleSaveVideo} disabled={isLoading} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:opacity-75">
+                            <button onClick={handleSaveVideo} disabled={isLoading} className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white disabled:opacity-75">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Create Video'}
                             </button>
                         )}
