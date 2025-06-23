@@ -1,19 +1,18 @@
-// js/components/ProjectView/ShortsIdeasToolModal.js
+// creators-hub/js/components/ProjectView/ShortsIdeasToolModal.js
 
 /**
  * ShortsIdeasToolModal Component
- * A modal tool for generating YouTube Shorts ideas based on video and project context.
+ * A tool for generating YouTube Shorts ideas based on video and project context, designed to be embedded.
  *
  * @param {object} props - The component props.
  * @param {object} props.video - The current video object.
  * @param {object} props.project - The current project object.
  * @param {object} props.settings - User settings, including AI API key and knowledge bases.
- * @param {function} props.onClose - Callback to close the modal.
  * @param {function} props.onSaveShortsIdea - Callback to save a new shorts idea to Firestore.
  * @param {function} props.onDeleteShortsIdea - Callback to delete a shorts idea from Firestore.
  * @param {function} props.onGenerateShortsMetadata - Callback to generate metadata for a shorts idea.
  */
-window.ShortsIdeasToolModal = ({ video, project, settings, onClose, onSaveShortsIdea, onDeleteShortsIdea, onGenerateShortsMetadata }) => {
+window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onDeleteShortsIdea, onGenerateShortsMetadata }) => {
     const { useState, useEffect } = React;
 
     const [generatedIdeas, setGeneratedIdeas] = useState([]);
@@ -119,29 +118,29 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onClose, onSaveShorts
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full max-w-3xl h-5/6 flex flex-col relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <h2 className="text-3xl font-bold text-white mb-6 text-center">Generate YouTube Shorts Ideas</h2>
+        <div className="w-full h-full flex flex-col"> {/* Removed fixed positioning and overlay; added flex-col */}
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 text-center">Generate YouTube Shorts Ideas</h2> {/* Adjusted text size for responsiveness */}
 
-                <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
-                    <p className="text-gray-400 mb-6">Generate quick, engaging ideas for YouTube Shorts based on your video content and project details.</p>
-                    
-                    <div className="text-center mb-6">
-                        <button onClick={handleGenerateIdeas} disabled={isLoadingIdeas} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center mx-auto gap-2">
-                            {isLoadingIdeas ? <window.LoadingSpinner isButton={true} /> : '⚡ Generate Shorts Ideas'}
-                        </button>
+            <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
+                <p className="text-gray-400 mb-6 text-center">Generate quick, engaging ideas for YouTube Shorts based on your video content and project details.</p>
+                
+                <div className="text-center mb-6">
+                    <button onClick={handleGenerateIdeas} disabled={isLoadingIdeas} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center mx-auto gap-2">
+                        {isLoadingIdeas ? <window.LoadingSpinner isButton={true} /> : '⚡ Generate Shorts Ideas'}
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm mb-4">
+                        {error}
                     </div>
+                )}
 
-                    {error && (
-                        <div className="bg-red-900/50 text-red-400 p-3 rounded-lg text-sm mb-4">
-                            {error}
-                        </div>
-                    )}
-
+                {/* Main content area for ideas - using a flex container for responsiveness */}
+                <div className="flex flex-col lg:flex-row gap-6"> {/* Added responsive flex layout */}
                     {/* Display Saved Shorts Ideas */}
-                    {shortsIdeas.length > 0 && (
-                        <div className="mb-8 border-b border-gray-700 pb-6">
+                    {(shortsIdeas.length > 0 || generatedIdeas.length > 0) && ( // Only show section if there are ideas
+                        <div className={`flex-1 ${shortsIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}> {/* Conditional display for smaller screens */}
                             <h3 className="text-xl font-bold text-white mb-4">Saved Shorts Ideas ({shortsIdeas.length})</h3>
                             <div className="space-y-4">
                                 {shortsIdeas.map((idea, index) => (
@@ -184,8 +183,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onClose, onSaveShorts
                     )}
 
                     {/* Display Newly Generated Ideas */}
-                    {generatedIdeas.length > 0 && (
-                        <div>
+                    {(generatedIdeas.length > 0 || shortsIdeas.length > 0) && ( // Only show section if there are ideas
+                        <div className={`flex-1 ${generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}> {/* Conditional display for smaller screens */}
                             <h3 className="text-xl font-bold text-white mb-4">New Suggestions ({generatedIdeas.length})</h3>
                             <div className="space-y-4">
                                 {generatedIdeas.map((idea, index) => (
@@ -204,11 +203,16 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onClose, onSaveShorts
                         </div>
                     )}
                 </div>
+                
+                {/* Message when no ideas are present */}
+                {shortsIdeas.length === 0 && generatedIdeas.length === 0 && (
+                    <div className="text-center text-gray-500 mt-8">
+                        No Shorts ideas saved or generated yet. Click "Generate Shorts Ideas" to get started!
+                    </div>
+                )}
 
-                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700 text-right">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-white">Close</button>
-                </div>
             </div>
+            {/* The 'Close' button is now handled by ShortsTool.js if needed at that level. */}
         </div>
     );
 };
