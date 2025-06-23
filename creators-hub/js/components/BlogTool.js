@@ -4,18 +4,16 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const [isLoading, setIsLoading] = useState(true);
     const [selectedIdeas, setSelectedIdeas] = useState([]);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
 
-    // Creates the Firestore reference, but only if the userId is valid.
     const ideasCollectionRef = useMemo(() => {
         if (!userId) return null; 
         return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
     }, [db, APP_ID, userId]);
 
-    // Sets up the Firestore listener. This is the single, corrected version.
     useEffect(() => {
-        // Guard: Prevents running if the reference is not yet valid.
         if (!ideasCollectionRef) {
             setIsLoading(false);
             setIdeas([]);
@@ -40,11 +38,13 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const handleGenerateIdeas = async (e) => {
         e.preventDefault();
         const destination = e.target.elements.destination.value;
-        if (!destination) { alert("Please provide a destination or topic."); return; }
+        if (!destination) { 
+            // Replace alert with a more modern notification if available
+            console.warn("Please provide a destination or topic.");
+            return; 
+        }
         
-        const generateBtn = e.target.querySelector('button[type="submit"]');
-        generateBtn.disabled = true;
-        generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+        setIsGenerating(true);
 
         try {
             const newIdeas = await window.aiUtils.generateBlogPostIdeasAI({
@@ -61,10 +61,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             });
             await batch.commit();
         } catch (err) {
-            alert(`Failed to generate ideas: ${err.message}`);
+            console.error(`Failed to generate ideas: ${err.message}`);
+             // Replace alert with a more modern notification
         } finally {
-            generateBtn.disabled = false;
-            generateBtn.textContent = 'Generate Ideas';
+            setIsGenerating(false);
         }
     };
 
@@ -103,9 +103,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         const colorMap = { new: 'bg-yellow-200 text-yellow-800', approved: 'bg-blue-200 text-blue-800', generating: 'bg-indigo-200 text-indigo-800 animate-pulse', 'in-progress': 'bg-indigo-200 text-indigo-800 animate-pulse', generated: 'bg-green-200 text-green-800', publishing: 'bg-purple-200 text-purple-800 animate-pulse', published: 'bg-teal-200 text-teal-800', failed: 'bg-red-300 text-red-900' };
         
         return (
-            <div key={idea.id} className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 flex flex-col">
-                <h4 className="font-bold text-base mb-2">{idea.title}</h4>
-                <p className="text-xs text-gray-400 italic mb-4" title={idea.description}>{idea.description}</p>
+            <div key={idea.id} className="glass-card p-4 rounded-lg flex flex-col h-full">
+                <div className="flex justify-between items-start">
+                    <h4 className="font-bold text-base mb-2 flex-1 pr-2">{idea.title}</h4>
+                    <input type="checkbox" className="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-blue-500 focus:ring-blue-500 flex-shrink-0" disabled={!['approved', 'generated'].includes(idea.status)} checked={selectedIdeas.includes(idea.id)} onChange={(e) => handleCheckboxChange(e, idea.id)} />
+                </div>
+                <p className="text-xs text-gray-400 italic mb-4 flex-grow" title={idea.description}>{idea.description}</p>
                 <div className="mt-auto pt-3 border-t border-gray-700">
                     <div className="flex justify-between items-center mb-3">
                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${colorMap[currentStatus] || 'bg-gray-200 text-gray-800'}`}>{statusMap[currentStatus] || currentStatus}</span>
@@ -114,13 +117,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                             <button onClick={() => handleIdeaAction(idea.id, 'delete')} className="text-red-400 hover:text-red-300" title="Delete"><i className="fas fa-trash-alt fa-lg"></i></button>
                          </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                        <input type="checkbox" className="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-blue-500 focus:ring-blue-500" disabled={!['approved', 'generated'].includes(idea.status)} checked={selectedIdeas.includes(idea.id)} onChange={(e) => handleCheckboxChange(e, idea.id)} />
-                        <div className="flex items-center space-x-2">
-                             {idea.status === 'approved' && <button onClick={() => onGeneratePost(idea)} className="text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md">Generate Content</button>}
-                             {idea.status === 'generated' && <button onClick={() => onViewPost(`generate-${idea.id}`)} className="text-xs bg-green-600 hover:bg-green-700 px-3 py-1 rounded-md">View Content</button>}
-                             {idea.status === 'published' && idea.wordpressLink && <a href={idea.wordpressLink} target="_blank" rel="noopener noreferrer" className="text-xs bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded-md">View on WP</a>}
-                        </div>
+                    <div className="flex items-center justify-end space-x-2">
+                        {idea.status === 'approved' && <button onClick={() => onGeneratePost(idea)} className="text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md">Generate Content</button>}
+                        {idea.status === 'generated' && <button onClick={() => onViewPost(`generate-${idea.id}`)} className="text-xs bg-green-600 hover:bg-green-700 px-3 py-1 rounded-md">View Content</button>}
+                        {idea.status === 'published' && idea.wordpressLink && <a href={idea.wordpressLink} target="_blank" rel="noopener noreferrer" className="text-xs bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded-md">View on WP</a>}
                     </div>
                 </div>
             </div>
@@ -164,7 +164,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     }
 
     return (
-        <div className="p-4 sm:p-6">
+        <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
                 <h1 className="text-3xl sm:text-4xl font-bold text-white text-center sm:text-left">✍️ Blog Post Factory</h1>
                 <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto justify-center">
@@ -175,32 +175,37 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 </button>
             </header>
 
-            <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 border border-gray-700">
+            <div className="glass-card p-4 sm:p-6 rounded-lg mb-8">
                 <form onSubmit={handleGenerateIdeas}>
-                    <div className="flex gap-4"><input type="text" id="destination" name="destination" className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Enter a destination or topic..." /><button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Generate Ideas</button></div>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <input type="text" id="destination" name="destination" className="form-input flex-grow" placeholder="Enter a destination or topic..." required />
+                        <button type="submit" disabled={isGenerating} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50">
+                            {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
+                        </button>
+                    </div>
                 </form>
             </div>
             
-            <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+            <div className="flex flex-col lg:flex-row justify-between items-center mb-4 gap-4">
                 <div className="flex items-center gap-4">
                     <h3 className="text-xl font-bold">Content Pipeline</h3>
                     <div className="hidden sm:flex items-center bg-gray-700 p-1 rounded-lg">
-                        <button onClick={() => setViewMode('grid')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'grid' ? 'bg-blue-600' : 'hover:bg-gray-600'}`}><i className="fas fa-th-large"></i></button>
-                        <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'list' ? 'bg-blue-600' : 'hover:bg-gray-600'}`}><i className="fas fa-bars"></i></button>
+                        <button onClick={() => setViewMode('grid')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'grid' ? 'bg-blue-600' : 'hover:bg-gray-600'}`} title="Grid View"><i className="fas fa-th-large"></i></button>
+                        <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'list' ? 'bg-blue-600' : 'hover:bg-gray-600'}`} title="List View"><i className="fas fa-bars"></i></button>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-center">
                     <button onClick={handleSelectAllApproved} className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded-md">Select All Approved</button>
                     <button onClick={handleUnselectAll} className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded-md">Unselect All</button>
-                    <button onClick={handlePublishClick} disabled={selectedIdeas.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">Publish ({selectedIdeas.length}) to WordPress</button>
+                    <button onClick={handlePublishClick} disabled={selectedIdeas.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">Publish ({selectedIdeas.length}) to WP</button>
                 </div>
             </div>
 
             {isLoading ? <window.LoadingSpinner text="Loading pipeline..."/> : ideas.length > 0 ? (
                 viewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{ideas.map(renderIdeaCard)}</div>
+                    <div className="dashboard-grid">{ideas.map(renderIdeaCard)}</div>
                 ) : (
-                    <div className="overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="overflow-x-auto glass-card rounded-lg">
                         <table className="w-full text-left table-auto">
                             <thead className="bg-gray-900/50">
                                 <tr>
