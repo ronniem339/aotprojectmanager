@@ -15,15 +15,13 @@ const uploadUtils = {
             console.warn("No image URL or Firebase Storage instance available for download and upload.");
             return '';
         }
-        // If imageUrl is already a Firebase Storage URL, no need to re-download and re-upload.
-        // This prevents infinite loops with auto-save if the URL is already processed.
         if (imageUrl.includes('firebasestorage.googleapis.com')) {
             return imageUrl;
         }
 
         const fileExtensionMatch = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
-        const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg'; // Default if no extension found
-        const path = `${storageFolderPath}/${filePrefix}${Date.now()}${fileExtension}`; // Dynamic path
+        const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
+        const path = `${storageFolderPath}/${filePrefix}${Date.now()}${fileExtension}`;
 
         const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
         try {
@@ -34,14 +32,16 @@ const uploadUtils = {
                 throw new Error(`Failed to fetch image via Netlify function: ${errorText}`);
             }
 
-            const base64Image = await response.text();
-            const contentType = response.headers.get('content-type') || 'image/jpeg';
-            const base64Response = await fetch(`data:${contentType};base64,${base64Image}`);
-            const blob = await base64Response.blob();
+            // --- CORRECTED CODE ---
+            // Directly get the response as a blob instead of text.
+            const blob = await response.blob();
 
+            // Now, upload the blob directly to Firebase Storage.
             const storageRef = storageInstance.ref(path);
             await storageRef.put(blob);
             return await storageRef.getDownloadURL();
+            // --- END OF CORRECTION ---
+
         } catch (error) {
             console.error(`Error downloading or uploading image from ${imageUrl} to ${path}:`, error);
             return '';
