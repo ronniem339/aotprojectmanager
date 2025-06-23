@@ -14,12 +14,13 @@ body {
 }
 
 /* Form input, textarea, and editable field styles */
+/* NOTE: A global 'padding' property, if present, should be removed from this selector. */
+/* Global padding overrides specific utility classes (like pl-10 for icons) and causes UI issues like the search bar overlap. */
 .form-input, .form-textarea, .editable-field {
     background-color: #202020; /* Darker grey for inputs */
     border: 1px solid #3a3a3a; /* Medium grey border for definition */
     color: #e0e0e0; /* Input text color */
     border-radius: 0.5rem;
-    padding: 0.5rem;
     width: 100%;
 }
 
@@ -187,10 +188,13 @@ body {
     gap: 1.5rem; /* Default gap for all sizes */
     grid-template-columns: repeat(1, 1fr); /* Mobile-first: 1 column */
 }
-.project-view {
-    display: flex;
-    flex-direction: column; /* Mobile-first: stacked layout */
-}
+
+/*
+ * The '.project-view' class was removed.
+ * It was incorrectly forcing the entire page into a row layout on tablets/desktops,
+ * which broke the header position. Layout is now correctly handled by component-level utility classes.
+*/
+
 .video-list-sidebar {
     width: 100%;
     height: auto;
@@ -239,9 +243,9 @@ body {
     .dashboard-grid {
         grid-template-columns: repeat(2, 1fr); /* 2 columns for tablets */
     }
-    .project-view {
-        flex-direction: row; /* Side-by-side layout for tablets and up */
-    }
+
+    /* The '.project-view' rule was removed from here to fix the broken layout. */
+
     .video-list-sidebar {
         width: 300px;
         max-height: none; /* Remove max-height for tablets and desktops */
