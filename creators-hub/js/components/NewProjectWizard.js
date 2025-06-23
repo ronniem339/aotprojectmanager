@@ -266,58 +266,92 @@ const handleCreateProject = async () => {
 
     // Upload cover image if one exists
     if (coverImageFile) {
-        // Updated to use the new centralized uploadFile utility
         finalCoverImageUrl = await window.uploadUtils.uploadFile(coverImageFile, 'project_thumbnails', userId, storage);
     } else if (coverImageUrl) {
-        // Updated to use the new centralized downloadAndUploadImage utility
         finalCoverImageUrl = await window.uploadUtils.downloadAndUploadImage(coverImageUrl, 'project_thumbnails', userId, storage);
     }
 
     try {
         const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc();
 
-        // Start the first batch
+        // Start a batch
         let batch = db.batch();
 
-        // 1. Set the main project data
+        // 1. Set the main project data (without large fields)
         batch.set(projectRef, {
             playlistTitle: finalizedTitle,
             playlistDescription: finalizedDescription,
-            locations,
-            footageInventory: footageInventory,
-            targeted_keywords: selectedKeywords,
             videoCount: acceptedVideos.length,
             coverImageUrl: finalCoverImageUrl,
             createdAt: new Date().toISOString()
         });
+        await batch.commit();
+        batch = db.batch();
 
-        // 2. Add video creations to the batch, committing in chunks
+
+        // 2. Add locations in batches
+        for (let i = 0; i < locations.length; i++) {
+            const locationRef = projectRef.collection('locations').doc();
+            batch.set(locationRef, locations[i]);
+            if ((i + 1) % 400 === 0) {
+                await batch.commit();
+                batch = db.batch();
+            }
+        }
+        await batch.commit();
+        batch = db.batch();
+
+        // 3. Add footage inventory in batches
+        for (let i = 0; i < footageInventory.length; i++) {
+            const footageRef = projectRef.collection('footageInventory').doc();
+            batch.set(footageRef, footageInventory[i]);
+            if ((i + 1) % 400 === 0) {
+                await batch.commit();
+                batch = db.batch();
+            }
+        }
+        await batch.commit();
+        batch = db.batch();
+
+
+        // 4. Add keywords in batches
+        for (let i = 0; i < selectedKeywords.length; i++) {
+            const keywordRef = projectRef.collection('keywords').doc();
+            batch.set(keywordRef, { keyword: selectedKeywords[i] });
+            if ((i + 1) % 400 === 0) {
+                await batch.commit();
+                batch = db.batch();
+            }
+        }
+        await batch.commit();
+        batch = db.batch();
+
+
+        // 5. Add video creations in batches
         for (let i = 0; i < acceptedVideos.length; i++) {
             const video = acceptedVideos[i];
             const videoRef = projectRef.collection('videos').doc();
             batch.set(videoRef, { ...video, chosenTitle: video.title, script: '', order: i, createdAt: new Date().toISOString() });
 
-            // **THE FIX**: Commit the batch every 400 writes and start a new one.
-            // This prevents a single batch from getting too large.
             if ((i + 1) % 400 === 0) {
                 await batch.commit();
-                batch = db.batch(); // Start a new batch for the next chunk
+                batch = db.batch();
             }
         }
 
-        // 3. Commit any remaining operations in the last batch
+        // Commit the final batch
         await batch.commit();
 
-        // 4. Clean up the draft
+        // Clean up the draft
         if (draftId) {
             await db.collection(`artifacts/${appId}/users/${userId}/wizards`).doc(draftId).delete();
         }
 
-        onClose(); // Close the wizard on success
+        onClose();
 
     } catch (e) {
         setError(`Failed to save project. ${e.message}`);
-        console.error("Error creating project:", e); // It's good practice to log the full error
+        console.error("Error creating project:", e);
     } finally {
         setIsLoading(false);
     }
