@@ -6,7 +6,7 @@ window.WizardStep3_Keywords = ({ keywordIdeas, selectedKeywords, onKeywordSelect
             <h2 className="text-2xl font-bold mb-4">New Project Wizard: Step 3 of 6 - Keyword Strategy</h2>
             <p className="text-gray-400 mb-6">Here are some popular search terms related to your project. Select the ones you want the AI to focus on when building the plan.</p>
             {/* FIX: This spinner is now correctly controlled by the 'isLoading' prop passed from NewProjectWizard.js,
-                     which should specifically reflect the keyword generation process. */}
+                         which should specifically reflect the keyword generation process. */}
             {isLoading && <window.LoadingSpinner text="Generating keyword ideas..." />}
             <div className="p-4 bg-gray-900/50 border border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto pr-2 flex flex-wrap gap-2">
                 {keywordIdeas.map((keyword, index) => (
