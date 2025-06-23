@@ -1,88 +1,71 @@
 // creators-hub/js/components/WordpressPublisher.js
+window.WordpressPublisher = ({ ideas, settings, onPublish, onCancel }) => {
+    const { useState, useEffect } = React;
+    const [categories, setCategories] = useState([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-function WordpressPublisher(ideas, onPublish, onCancel) {
-    let categories = [];
-    let selectedCategoryId = '';
-    let isLoading = true;
-    let error = null;
+    useEffect(() => {
+        const fetchCategories = async () => {
+            const wordpressConfig = settings.wordpress;
+            if (!wordpressConfig?.url || !wordpressConfig?.username || !wordpressConfig?.applicationPassword) {
+                setError("WordPress settings are not fully configured. Please check the 'WordPress Settings' section within the Technical Settings.");
+                setIsLoading(false);
+                return;
+            }
+            try {
+                const fetchedCategories = await window.wordpressUtils.getWordPressCategories(wordpressConfig);
+                setCategories(fetchedCategories);
+                if (fetchedCategories.length === 0) {
+                   setError("No categories found. Please create categories in WordPress or check API permissions.");
+                }
+            } catch (e) {
+                console.error("Failed to fetch WordPress categories:", e);
+                setError("Failed to fetch categories. Check console for details.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-    const fetchCategories = async () => {
-        try {
-            const app = window.app;
-            const wordpressSettings = app.getWordpressSettings();
-            if (wordpressSettings && wordpressSettings.url && wordpressSettings.username && wordpressSettings.applicationPassword) {
-                 categories = await window.wordpressUtils.getWordPressCategories(wordpressSettings);
-                 if (categories.length === 0) {
-                    error = "No categories found. Check permissions or create categories in WordPress."
-                 }
-            } else {
-                 error = "WordPress settings are not fully configured.";
-                 console.log(error);
-            }
-        } catch (e) {
-            console.error('Failed to fetch WordPress categories:', e);
-            error = "Failed to fetch categories. See console for details.";
-        } finally {
-            isLoading = false;
-            // This is a crude way to re-render.
-            const modal = document.getElementById('wordpress-publisher-modal');
-            if (modal) {
-                 const select = modal.querySelector('#wp-category-select');
-                 const loadingIndicator = modal.querySelector('.loading-indicator');
-                 const errorContainer = modal.querySelector('.error-container');
-                 
-                 if(select) {
-                    select.innerHTML = generateCategoryOptions();
-                    select.disabled = false;
-                 }
-                 if(loadingIndicator) loadingIndicator.classList.add('hidden');
-                 if(errorContainer && error) {
-                    errorContainer.textContent = error;
-                    errorContainer.classList.remove('hidden');
-                 }
-            }
-        }
+        fetchCategories();
+    }, [settings.wordpress]);
+
+    const handlePublish = () => {
+        // Pass the ideas array and the selected category ID to the handler in app.js
+        onPublish(ideas, selectedCategoryId);
     };
 
-    const generateCategoryOptions = () => {
-        if (isLoading) {
-            return '<option disabled>Loading categories...</option>';
-        }
-        if (categories.length === 0) {
-            return '<option value="">No categories found</option>';
-        }
-        return [
-            '<option value="">Uncategorized</option>',
-            ...categories.map(cat => `<option value="${cat.id}" ${cat.id == selectedCategoryId ? 'selected' : ''}>${cat.name}</option>`)
-        ].join('');
-    };
+    return (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-40 animate-fade-in">
+            <div className="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md border border-gray-700">
+                <h3 className="text-xl font-bold mb-4">Publish to WordPress</h3>
+                <p className="mb-4">You are about to publish {ideas.length} post(s) as drafts. Please select a category below.</p>
 
-    // Asynchronously fetch categories right after the initial render.
-    setTimeout(fetchCategories, 0);
+                {error && <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-2 rounded-md text-sm mb-4">{error}</div>}
 
-    return `
-        <div id="wordpress-publisher-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-40">
-            <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-                <h3 class="text-xl font-bold mb-4">Publish to WordPress</h3>
-                <p class="mb-4">You are about to publish ${ideas.length} blog post(s) to WordPress as drafts.</p>
-                
-                <div class="error-container text-red-400 text-sm mb-4 hidden"></div>
-
-                <div class="mb-4">
-                    <label for="wp-category-select" class="block text-sm font-medium text-gray-300 mb-2">Select Category</label>
-                    <div class="relative">
-                       <select id="wp-category-select" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" ${isLoading ? 'disabled' : ''}>
-                          ${generateCategoryOptions()}
+                <div className="mb-6">
+                    <label htmlFor="wp-category-select" className="block text-sm font-medium text-gray-300 mb-2">WordPress Category</label>
+                    <div className="relative">
+                       <select 
+                           id="wp-category-select" 
+                           value={selectedCategoryId}
+                           onChange={(e) => setSelectedCategoryId(e.target.value)}
+                           className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" 
+                           disabled={isLoading}
+                       >
+                          <option value="">Uncategorized</option>
+                          {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                        </select>
-                       <div class="loading-indicator absolute right-2 top-2.5 ${!isLoading ? 'hidden' : ''}"><i class="fas fa-spinner fa-spin"></i></div>
+                       {isLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2"><i className="fas fa-spinner fa-spin"></i></div>}
                     </div>
                 </div>
 
-                <div class="flex justify-end space-x-4">
-                    <button id="cancel-wp-publish" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Cancel</button>
-                    <button id="confirm-wp-publish" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Publish</button>
+                <div className="flex justify-end space-x-4">
+                    <button onClick={onCancel} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md font-semibold">Cancel</button>
+                    <button onClick={handlePublish} disabled={isLoading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-semibold disabled:opacity-50">Confirm & Publish</button>
                 </div>
             </div>
         </div>
-    `;
-}
+    );
+};
