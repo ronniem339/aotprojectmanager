@@ -62,8 +62,8 @@ window.App = () => { // Exposing App component globally
                 listiclePostFramework: '',
             },
             storytelling: { // Add this new block
-        videoStorytellingPrinciples: '',
-    }
+    videoStorytellingPrinciples: '',
+}
         },
         wordpress: { url: '', username: '', applicationPassword: '' }
     });
@@ -126,8 +126,8 @@ window.App = () => { // Exposing App component globally
                                     destinationGuideBlueprint: '', listiclePostFramework: '',
                                 },
                                 storytelling: { // Add this new block
-        videoStorytellingPrinciples: '',
-    }
+    videoStorytellingPrinciples: '',
+}
                             },
                             wordpress: { url: '', username: '', applicationPassword: '' }
                         }); 
@@ -487,16 +487,16 @@ const handleSaveSettings = async (updatedSettingsObject) => {
                 return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
             case 'blogTool':
                 return <window.BlogTool 
-                            settings={settings} 
-                            onBack={() => setCurrentView('tools')} 
-                            onNavigateToSettings={() => setCurrentView('technicalSettings')} 
-                            userId={user.uid} 
-                            db={firebaseDb}
-                            // START - ADDED FOR BLOG POST GENERATION QUEUE
-                            onWritePost={handleWritePost}
-                            processingIdeaId={processingIdeaId}
-                            // END - ADDED FOR BLOG POST GENERATION QUEUE
-                        />;
+                             settings={settings} 
+                             onBack={() => setCurrentView('tools')} 
+                             onNavigateToSettings={() => setCurrentView('technicalSettings')} 
+                             userId={user.uid} 
+                             db={firebaseDb}
+                             // START - ADDED FOR BLOG POST GENERATION QUEUE
+                             onWritePost={handleWritePost}
+                             processingIdeaId={processingIdeaId}
+                             // END - ADDED FOR BLOG POST GENERATION QUEUE
+                         />;
             case 'shortsTool':
                  return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             case 'contentLibrary':
@@ -507,14 +507,14 @@ const handleSaveSettings = async (updatedSettingsObject) => {
     }
 
     return (
-        <div className="min-h-screen"> 
+        <div className="min-h-screen bg-gray-900 text-white"> 
             {appError && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">{appError}</div>}
             {showNotification && <div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>}
             {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance}/>}
             {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
             {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={() => handleConfirmDeleteDraft(draftToDelete)} onCancel={() => setDraftToDelete(null)} />}
             {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} db={firebaseDb} auth={firebaseAuth} />}
-            <main>{renderView()}</main>
+            <main className="p-4 sm:p-6 lg:p-8">{renderView()}</main>
         </div>
     );
 }
