@@ -4,49 +4,51 @@ const { useEffect, useRef } = React;
 
 window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     const inputRef = useRef(null);
+    const autoCompleteRef = useRef(null);
 
     useEffect(() => {
-        if (!window.google || !window.google.maps.places || !inputRef.current) {
+        // Ensure the Google Maps script and the new element are loaded.
+        if (!window.google || !window.google.maps.places || !customElements.get('gmp-place-autocomplete-element')) {
             return;
         }
 
-        // --- NEW: Location Biasing Logic ---
-        const autocompleteOptions = {};
-
-        // If there's an existing location, use it to bias the search.
-        if (existingLocations && existingLocations.length > 0) {
-            const mainLocation = existingLocations[0]; // Use the first location as the anchor
-            if (mainLocation.lat && mainLocation.lng) {
-                const location = new window.google.maps.LatLng(mainLocation.lat, mainLocation.lng);
-                // Bias towards a 100km radius around the main location.
-                autocompleteOptions.bounds = new window.google.maps.Circle({
-                    center: location,
-                    radius: 100000 
-                }).getBounds();
-                autocompleteOptions.strictBounds = true; // Restrict search to this area for better relevance.
-            }
-        }
-        // --- End of New Logic ---
-
-        // MODIFIED: Pass the new options to the Autocomplete constructor
-        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, autocompleteOptions);
+        // --- NEW IMPLEMENTATION USING PlaceAutocompleteElement ---
+        const gmpAutocompleteElement = document.createElement('gmp-place-autocomplete-element');
         
-        autocomplete.setFields(['place_id', 'name', 'formatted_address', 'geometry', 'types']);
+        // Find the first location that has valid coordinates to act as our anchor
+        const anchorLocation = (existingLocations || []).find(loc => loc.lat && loc.lng);
 
-        const listener = autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
+        if (anchorLocation) {
+            const location = new window.google.maps.LatLng(anchorLocation.lat, anchorLocation.lng);
+            // Bias towards a 100km radius around the anchor location.
+            const circularBounds = new window.google.maps.Circle({
+                center: location,
+                radius: 100000 
+            }).getBounds();
+            gmpAutocompleteElement.locationBias = circularBounds;
+            gmpAutocompleteElement.strictBounds = true;
+        }
+        
+        // The input element to be enhanced.
+        const inputElement = inputRef.current;
+        gmpAutocompleteElement.appendChild(inputElement);
+        
+        // Prepend the custom element to the component's root div so it controls the input.
+        autoCompleteRef.current?.prepend(gmpAutocompleteElement);
+
+        const placeChangedListener = (event) => {
+            const place = event.target.place;
             
-            if (place && place.place_id) {
-                const isDuplicate = (existingLocations || []).some(loc => loc.place_id === place.place_id);
+            if (place && place.gmp_place_id) { // The new element uses gmp_place_id
+                const isDuplicate = (existingLocations || []).some(loc => loc.place_id === place.gmp_place_id);
                 
                 if (!isDuplicate) {
-                    // Also include lat/lng in the location object
                     const newLocation = {
-                        name: place.name,
-                        place_id: place.place_id,
-                        formatted_address: place.formatted_address,
-                        lat: place.geometry.location.lat(),
-                        lng: place.geometry.location.lng(),
+                        name: place.displayName,
+                        place_id: place.gmp_place_id,
+                        formatted_address: place.formattedAddress,
+                        lat: place.location.lat,
+                        lng: place.location.lng,
                         types: place.types
                     };
                     onLocationsChange([...(existingLocations || []), newLocation]);
@@ -56,18 +58,21 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
                     inputRef.current.value = "";
                 }
             }
-        });
+        };
 
+        gmpAutocompleteElement.addEventListener('gmp-placechange', placeChangedListener);
+
+        // Cleanup function to prevent memory leaks
         return () => {
-            if (window.google && window.google.maps.event) {
-                // Important to remove the old listeners to prevent memory leaks
-                window.google.maps.event.clearInstanceListeners(autocomplete);
-                // Also remove pac-container from the body
-                const pacContainers = document.querySelectorAll('.pac-container');
-                pacContainers.forEach(container => container.remove());
+            if (gmpAutocompleteElement) {
+                 gmpAutocompleteElement.removeEventListener('gmp-placechange', placeChangedListener);
+            }
+             if (gmpAutocompleteElement && gmpAutocompleteElement.parentElement) {
+                gmpAutocompleteElement.parentElement.removeChild(gmpAutocompleteElement);
             }
         };
-    }, [existingLocations, onLocationsChange]); // Rerun effect if existingLocations changes
+
+    }, [onLocationsChange, existingLocations]);
 
     const handleRemoveLocation = (place_id_to_remove) => {
         const newLocations = existingLocations.filter(loc => loc.place_id !== place_id_to_remove);
@@ -75,27 +80,19 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
     };
 
     return (
-        <div>
-            <div className="mb-2">
-                <input
-                    ref={inputRef}
-                    type="text"
-                    placeholder="Search and add a location..."
-                    className="w-full form-input"
-                    disabled={!window.google}
-                />
-            </div>
-            <div className="space-y-2">
-                {(existingLocations || []).map(loc => (
-                    <div key={loc.place_id || loc.name} className="flex items-center justify-between bg-gray-800/70 p-2 rounded-md">
-                        <span className="font-semibold text-gray-200">{loc.name}</span>
-                        <button 
-                            onClick={() => handleRemoveLocation(loc.place_id)} 
-                            className="text-gray-400 hover:text-red-500 font-bold text-xl leading-none px-2"
-                            title={`Remove ${loc.name}`}
-                        >
-                            &times;
-                        </button>
+        <div ref={autoCompleteRef}>
+            <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search and add a location..."
+                className="w-full form-input"
+                disabled={!window.google}
+            />
+            <div className="flex flex-wrap gap-2 mt-3">
+                {(existingLocations || []).map((loc) => (
+                    <div key={loc.place_id || loc.name} className="bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text text-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                        <span>{loc.name}</span>
+                        <button onClick={() => handleRemoveLocation(loc.place_id)} className="text-secondary-accent-lighter-text hover:text-white font-bold text-lg leading-none transform hover:scale-110 transition-transform">×</button>
                     </div>
                 ))}
             </div>
