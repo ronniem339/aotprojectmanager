@@ -10,21 +10,17 @@ window.loadGoogleMapsScript = (apiKey, callback) => {
     // Check if the script is already on the page
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-        // If the script is already loaded, and google.maps is available, just run the callback
         if (window.google && window.google.maps) {
             callback();
         }
-        // If the script is still loading, the callback will be handled by the initMap function
         return;
     }
 
-    // Define the callback function that Google's script will call when it's ready
     window.initMap = () => {
         console.log("Google Maps API loaded and initialized.");
         callback();
     };
 
-    // Create the script element and append it to the document head
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&v=beta&callback=initMap`;
     script.async = true;
@@ -40,13 +36,12 @@ window.App = () => { // Exposing App component globally
     const [currentView, setCurrentView] = useState('dashboard');
     const [previousView, setPreviousView] = useState('dashboard');
     const [selectedProject, setSelectedProject] = useState(null);
-    const [settings, setSettings] = useState({ 
-        geminiApiKey: '', 
-        googleMapsApiKey: '', 
-        youtubeApiKey: '', 
-        styleGuideText: '', 
+    const [settings, setSettings] = useState({
+        geminiApiKey: '',
+        googleMapsApiKey: '',
+        youtubeApiKey: '',
+        styleGuideText: '',
         myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-        // NEW: Add AI model settings with defaults
         useProModelForComplexTasks: false,
         flashModelName: 'gemini-1.5-flash-latest',
         proModelName: 'gemini-1.5-pro-latest',
@@ -61,9 +56,9 @@ window.App = () => { // Exposing App component globally
                 destinationGuideBlueprint: '',
                 listiclePostFramework: '',
             },
-            storytelling: { // Add this new block
-    videoStorytellingPrinciples: '',
-}
+            storytelling: {
+                videoStorytellingPrinciples: '',
+            }
         },
         wordpress: { url: '', username: '', applicationPassword: '' }
     });
@@ -83,13 +78,11 @@ window.App = () => { // Exposing App component globally
     const [firebaseDb, setFirebaseDb] = useState(null);
     const [firebaseAuth, setFirebaseAuth] = useState(null);
 
-    // START - ADDED FOR BLOG POST GENERATION QUEUE
-const [taskQueue, setTaskQueue] = useState([]);
-const [isTaskQueueProcessing, setIsTaskQueueProcessing] = useState(false);
-const [showPublisherModal, setShowPublisherModal] = useState(false);
-const [ideasToPublish, setIdeasToPublish] = useState([]);
-const [contentToView, setContentToView] = useState(null); // For viewing generated content
-    // END - ADDED FOR BLOG POST GENERATION QUEUE
+    const [taskQueue, setTaskQueue] = useState([]);
+    const [isTaskQueueProcessing, setIsTaskQueueProcessing] = useState(false);
+    const [showPublisherModal, setShowPublisherModal] = useState(false);
+    const [ideasToPublish, setIdeasToPublish] = useState([]);
+    const [contentToView, setContentToView] = useState(null);
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
 
@@ -108,12 +101,11 @@ const [contentToView, setContentToView] = useState(null); // For viewing generat
 
                 const unsubscribeAuth = app.auth().onAuthStateChanged(currentUser => {
                     setUser(currentUser);
-                    setIsAuthReady(true); 
+                    setIsAuthReady(true);
                     if (!currentUser) {
-                        setSettings({ 
-                            geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '', 
+                        setSettings({
+                            geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '',
                             myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-                            // NEW: Reset AI model settings on logout
                             useProModelForComplexTasks: false,
                             flashModelName: 'gemini-1.5-flash-latest',
                             proModelName: 'gemini-1.5-pro-latest',
@@ -127,12 +119,12 @@ const [contentToView, setContentToView] = useState(null); // For viewing generat
                                     coreSeoEngine: '', ideaGeneration: '',
                                     destinationGuideBlueprint: '', listiclePostFramework: '',
                                 },
-                                storytelling: { // Add this new block
-    videoStorytellingPrinciples: '',
-}
+                                storytelling: {
+                                    videoStorytellingPrinciples: '',
+                                }
                             },
                             wordpress: { url: '', username: '', applicationPassword: '' }
-                        }); 
+                        });
                         setActiveProjectDraft(null);
                     }
                 });
@@ -150,17 +142,16 @@ const [contentToView, setContentToView] = useState(null); // For viewing generat
 
 
     useEffect(() => {
-        if (user && user.uid && firebaseDb) { 
+        if (user && user.uid && firebaseDb) {
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
                     geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '',
                     myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
-                    // NEW: Include AI model settings in defaults
                     useProModelForComplexTasks: false,
                     flashModelName: 'gemini-1.5-flash-latest',
                     proModelName: 'gemini-1.5-pro-latest',
-                    knowledgeBases: { 
+                    knowledgeBases: {
                         youtube: {
                             whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
                             firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
@@ -174,13 +165,13 @@ const [contentToView, setContentToView] = useState(null); // For viewing generat
                     wordpress: { url: '', username: '', applicationPassword: '' }
                 };
                 const data = docSnap.exists ? docSnap.data() : {};
-                
+
                 const mergedKnowledgeBases = {
-                    ...defaultSettings.knowledgeBases, 
-                    ...data.knowledgeBases, 
+                    ...defaultSettings.knowledgeBases,
+                    ...data.knowledgeBases,
                     youtube: { ...defaultSettings.knowledgeBases.youtube, ...data.knowledgeBases?.youtube },
                     blog: { ...defaultSettings.knowledgeBases.blog, ...data.knowledgeBases?.blog },
-                    storytelling: { ...defaultSettings.knowledgeBases.storytelling, ...data.knowledgeBases?.storytelling } // Add this line
+                    storytelling: { ...defaultSettings.knowledgeBases.storytelling, ...data.knowledgeBases?.storytelling }
                 };
 
                 const newSettings = { ...defaultSettings, ...data, knowledgeBases: mergedKnowledgeBases };
@@ -196,185 +187,178 @@ const [contentToView, setContentToView] = useState(null); // For viewing generat
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
 
-    // --- START: New Unified Task Queue Engine ---
-
-const addTask = useCallback((task) => {
-    setTaskQueue(prevQueue => {
-        // Avoid adding duplicate tasks
-        if (prevQueue.some(t => t.id === task.id)) {
-            console.log(`Task ${task.id} is already in the queue.`);
-            return prevQueue;
-        }
-        return [...prevQueue, task];
-    });
-}, []);
-
-const updateTaskStatus = (taskId, status, result = null) => {
-    setTaskQueue(prevQueue => prevQueue.map(task => {
-        if (task.id === taskId) {
-            return { ...task, status, result };
-        }
-        return task;
-    }));
-};
-
-useEffect(() => {
-    const processTaskQueue = async () => {
-        if (isTaskQueueProcessing) return;
-
-        const nextTask = taskQueue.find(t => t.status === 'pending');
-        if (!nextTask) {
-            // Optional: Clear completed tasks after a delay
-            if (taskQueue.length > 0 && taskQueue.every(t => t.status === 'completed' || t.status === 'failed')) {
-                setTimeout(() => setTaskQueue([]), 15000);
+    const addTask = useCallback((task) => {
+        setTaskQueue(prevQueue => {
+            if (prevQueue.some(t => t.id === task.id)) {
+                console.log(`Task ${task.id} is already in the queue.`);
+                return prevQueue;
             }
+            return [...prevQueue, task];
+        });
+    }, []);
+
+    const updateTaskStatus = (taskId, status, result = null) => {
+        setTaskQueue(prevQueue => prevQueue.map(task => {
+            if (task.id === taskId) {
+                return { ...task, status, result };
+            }
+            return task;
+        }));
+    };
+
+    useEffect(() => {
+        const processTaskQueue = async () => {
+            if (isTaskQueueProcessing) return;
+
+            const nextTask = taskQueue.find(t => t.status === 'pending');
+            if (!nextTask) {
+                if (taskQueue.length > 0 && taskQueue.every(t => t.status === 'completed' || t.status === 'failed')) {
+                    setTimeout(() => setTaskQueue([]), 15000);
+                }
+                return;
+            }
+
+            setIsTaskQueueProcessing(true);
+            updateTaskStatus(nextTask.id, 'in-progress');
+
+            try {
+                let result;
+                switch (nextTask.type) {
+                    case 'generateBlogContent':
+                        result = await executeGenerateBlogContent(nextTask.data);
+                        break;
+                    case 'publishToWordPress':
+                        result = await executePublishToWordPress(nextTask.data);
+                        break;
+                }
+                updateTaskStatus(nextTask.id, 'completed', result);
+            } catch (error) {
+                console.error(`Task ${nextTask.id} failed:`, error);
+                updateTaskStatus(nextTask.id, 'failed', { error: error.message });
+            } finally {
+                setIsTaskQueueProcessing(false);
+            }
+        };
+
+        processTaskQueue();
+    }, [taskQueue, isTaskQueueProcessing]);
+
+    const executeGenerateBlogContent = async (data) => {
+        const { ideaId } = data;
+        if (!user || !firebaseDb) throw new Error("User or database not available.");
+
+        // --- FIX: Removed HTML tags from path ---
+        const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+
+        await ideaRef.update({ status: 'generating', generationError: null });
+
+        const ideaSnap = await ideaRef.get();
+        const idea = ideaSnap.data();
+
+        const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
+            idea: idea,
+            coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
+            monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
+            settings: settings
+        });
+
+        await ideaRef.update({
+            status: 'generated',
+            blogPostContent: blogPostContent,
+            generationCompletedAt: new Date().toISOString()
+        });
+
+        return { content: blogPostContent, viewable: true };
+    };
+
+    const executePublishToWordPress = async (data) => {
+        const { ideaId, categoryId } = data;
+        if (!user || !firebaseDb) throw new Error("User or database not available.");
+
+        // --- FIX: Removed HTML tags from path ---
+        const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+
+        await ideaRef.update({ status: 'publishing', generationError: null });
+
+        const ideaSnap = await ideaRef.get();
+        const idea = ideaSnap.data();
+
+        const htmlContent = await window.aiUtils.generateWordPressPostHTMLAI({
+            idea: idea,
+            settings: settings,
+            tone: idea.tone || 'Informative'
+        });
+
+        const wordpressConfig = settings.wordpress;
+        if (!wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
+            throw new Error("WordPress settings are not fully configured.");
+        }
+
+        const postData = {
+            title: idea.title,
+            htmlContent: htmlContent,
+            excerpt: idea.blogPostContent ? idea.blogPostContent.substring(0, 250) + '...' : idea.description,
+            categoryId: categoryId,
+        };
+
+        const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
+
+        await ideaRef.update({
+            status: 'published',
+            wordpressId: response.id,
+            wordpressLink: response.link,
+            publishedAt: new Date().toISOString()
+        });
+
+        return { link: response.link };
+    };
+
+    const handleGeneratePostTask = useCallback((idea) => {
+        addTask({
+            id: `generate-${idea.id}`,
+            name: `Generating post: "${idea.title}"`,
+            type: 'generateBlogContent',
+            status: 'pending',
+            data: { ideaId: idea.id }
+        });
+    }, [addTask]);
+
+    const handlePublishPostsTask = useCallback((selectedIdeas, categoryId) => {
+        selectedIdeas.forEach(idea => {
+            addTask({
+                id: `publish-${idea.id}`,
+                name: `Publishing: "${idea.title}"`,
+                type: 'publishToWordPress',
+                status: 'pending',
+                data: { ideaId: idea.id, categoryId: categoryId }
+            });
+        });
+        setShowPublisherModal(false);
+        setIdeasToPublish([]);
+    }, [addTask]);
+
+    const handleOpenPublisher = useCallback((selectedIdeas) => {
+        setIdeasToPublish(selectedIdeas);
+        setShowPublisherModal(true);
+    }, []);
+
+    const handleViewGeneratedPost = useCallback(async (taskId) => {
+        const task = taskQueue.find(t => t.id === taskId);
+        if (task && task.result && task.result.content) {
+            setContentToView(task.result.content);
             return;
         }
 
-        setIsTaskQueueProcessing(true);
-        updateTaskStatus(nextTask.id, 'in-progress');
-
-        try {
-            let result;
-            switch (nextTask.type) {
-                case 'generateBlogContent':
-                    result = await executeGenerateBlogContent(nextTask.data);
-                    break;
-                case 'publishToWordPress':
-                    result = await executePublishToWordPress(nextTask.data);
-                    break;
-            }
-            updateTaskStatus(nextTask.id, 'completed', result);
-        } catch (error) {
-            console.error(`Task ${nextTask.id} failed:`, error);
-            updateTaskStatus(nextTask.id, 'failed', { error: error.message });
-        } finally {
-            setIsTaskQueueProcessing(false);
+        const ideaId = taskId.replace('generate-', '');
+        // --- FIX: Removed HTML tags from path ---
+        const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+        const doc = await ideaRef.get();
+        if (doc.exists && doc.data().blogPostContent) {
+            setContentToView(doc.data().blogPostContent);
+        } else {
+            displayNotification("Could not find generated content for this post.");
         }
-    };
-
-    processTaskQueue();
-}, [taskQueue, isTaskQueueProcessing]); // Reruns whenever the queue changes or a task finishes
-
-const executeGenerateBlogContent = async (data) => {
-    const { ideaId } = data;
-    if (!user || !firebaseDb) throw new Error("User or database not available.");
-
-    const ideaRef = firebaseDb.collection(`artifacts/<span class="math-inline">\{APP\_ID\}/users/</span>{user.uid}/blogIdeas`).doc(ideaId);
-
-    await ideaRef.update({ status: 'generating', generationError: null });
-
-    const ideaSnap = await ideaRef.get();
-    const idea = ideaSnap.data();
-
-    const blogPostContent = await window.aiUtils.generateBlogPostContentAI({
-        idea: idea,
-        coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-        monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-        settings: settings
-    });
-
-    await ideaRef.update({
-        status: 'generated',
-        blogPostContent: blogPostContent,
-        generationCompletedAt: new Date().toISOString()
-    });
-
-    return { content: blogPostContent, viewable: true };
-};
-
-const executePublishToWordPress = async (data) => {
-    const { ideaId, categoryId } = data;
-    if (!user || !firebaseDb) throw new Error("User or database not available.");
-
-    const ideaRef = firebaseDb.collection(`artifacts/<span class="math-inline">\{APP\_ID\}/users/</span>{user.uid}/blogIdeas`).doc(ideaId);
-
-    await ideaRef.update({ status: 'publishing', generationError: null });
-
-    const ideaSnap = await ideaRef.get();
-    const idea = ideaSnap.data();
-
-    // Step 1: Generate the full HTML for WordPress
-    const htmlContent = await window.aiUtils.generateWordPressPostHTMLAI({
-        idea: idea,
-        settings: settings,
-        tone: idea.tone || 'Informative'
-    });
-
-    // Step 2: Post to WordPress
-    const wordpressConfig = settings.wordpress;
-    if (!wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
-        throw new Error("WordPress settings are not fully configured.");
-    }
-
-    const postData = {
-        title: idea.title,
-        htmlContent: htmlContent,
-        excerpt: idea.blogPostContent ? idea.blogPostContent.substring(0, 250) + '...' : idea.description,
-        categoryId: categoryId,
-    };
-
-    const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
-
-    // Step 3: Update the idea in Firestore with the final status and WordPress link
-    await ideaRef.update({
-        status: 'published',
-        wordpressId: response.id,
-        wordpressLink: response.link,
-        publishedAt: new Date().toISOString()
-    });
-
-    return { link: response.link };
-};
-
-// --- END: New Unified Task Queue Engine ---
-
-    const handleGeneratePostTask = useCallback((idea) => {
-    addTask({
-        id: `generate-${idea.id}`,
-        name: `Generating post: "${idea.title}"`,
-        type: 'generateBlogContent',
-        status: 'pending',
-        data: { ideaId: idea.id }
-    });
-}, [addTask]);
-
-const handlePublishPostsTask = useCallback((selectedIdeas, categoryId) => {
-    selectedIdeas.forEach(idea => {
-        addTask({
-            id: `publish-${idea.id}`,
-            name: `Publishing: "${idea.title}"`,
-            type: 'publishToWordPress',
-            status: 'pending',
-            data: { ideaId: idea.id, categoryId: categoryId }
-        });
-    });
-    setShowPublisherModal(false);
-    setIdeasToPublish([]);
-}, [addTask]);
-
-const handleOpenPublisher = useCallback((selectedIdeas) => {
-    setIdeasToPublish(selectedIdeas);
-    setShowPublisherModal(true);
-}, []);
-
-const handleViewGeneratedPost = useCallback(async (taskId) => {
-    const task = taskQueue.find(t => t.id === taskId);
-    if (task && task.result && task.result.content) {
-        setContentToView(task.result.content);
-        return;
-    }
-    // Fallback for viewing content not in the current queue (from a previous session)
-    const ideaId = taskId.replace('generate-', '');
-    const ideaRef = firebaseDb.collection(`artifacts/<span class="math-inline">\{APP\_ID\}/users/</span>{user.uid}/blogIdeas`).doc(ideaId);
-    const doc = await ideaRef.get();
-    if (doc.exists && doc.data().blogPostContent) {
-        setContentToView(doc.data().blogPostContent);
-    } else {
-        displayNotification("Could not find generated content for this post.");
-    }
-}, [taskQueue, user, firebaseDb, APP_ID]);
-
+    }, [taskQueue, user, firebaseDb, APP_ID]);
 
     const displayNotification = (message) => {
         setNotificationMessage(message);
@@ -386,13 +370,13 @@ const handleViewGeneratedPost = useCallback(async (taskId) => {
         setSelectedProject(project);
         setCurrentView('project');
     };
-const handleBackToDashboard = () => {
-    setSelectedProject(null);
-    setCurrentView('dashboard');
-};
-const handleNavigateBack = () => {
-    setCurrentView(previousView);
-};
+    const handleBackToDashboard = () => {
+        setSelectedProject(null);
+        setCurrentView('dashboard');
+    };
+    const handleNavigateBack = () => {
+        setCurrentView(previousView);
+    };
 
     const handleShowSettings = () => setCurrentView('settingsMenu');
     const handleShowTools = () => setCurrentView('tools');
@@ -402,38 +386,30 @@ const handleNavigateBack = () => {
         if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
     };
     const handleShowTechnicalSettings = () => setCurrentView('technicalSettings');
-const handleShowStyleAndTone = () => {
-    setPreviousView(currentView);
-    setCurrentView('myStudio');
-};
+    const handleShowStyleAndTone = () => {
+        setPreviousView(currentView);
+        setCurrentView('myStudio');
+    };
     const handleShowKnowledgeBases = () => setCurrentView('knowledgeBases');
-const handleNavigate = (view) => {
-    setPreviousView(currentView);
-    setCurrentView(view);
-};
-const handleSaveSettings = async (updatedSettingsObject) => {
-    if (!user || !firebaseDb) return;
+    const handleNavigate = (view) => {
+        setPreviousView(currentView);
+        setCurrentView(view);
+    };
+    const handleSaveSettings = async (updatedSettingsObject) => {
+        if (!user || !firebaseDb) return;
+        const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
+        try {
+            await settingsDocRef.set(updatedSettingsObject, { merge: true });
+            setSettings(updatedSettingsObject);
+            console.log('Settings successfully saved to Firestore.');
+        } catch (error) {
+            console.error('A critical error occurred while saving settings:', error);
+            alert('There was a critical error saving your style guide. Please try again.');
+        }
+    };
 
-    const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
-
-    try {
-        // Use .set() with { merge: true } to safely update the document in Firestore.
-        // This updates only the fields in our object, creating the document if it doesn't exist.
-        await settingsDocRef.set(updatedSettingsObject, { merge: true });
-
-        // Update the application's local state with the newly saved data.
-        setSettings(updatedSettingsObject);
-
-        console.log('Settings successfully saved to Firestore.');
-
-    } catch (error) {
-        console.error('A critical error occurred while saving settings:', error);
-        alert('There was a critical error saving your style guide. Please try again.');
-    }
-};
-    
     const handleShowDeleteConfirm = (project) => setProjectToDelete(project);
-    
+
     const handleConfirmDelete = async (projectId) => {
         if (!user || !firebaseDb) return;
         const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
@@ -445,27 +421,27 @@ const handleSaveSettings = async (updatedSettingsObject) => {
             await batch.commit();
             await projectRef.delete();
             displayNotification('Project deleted successfully.');
-            setProjectToDelete(null); 
+            setProjectToDelete(null);
         } catch (error) {
             console.error("Error deleting project:", error);
-            displayNotification(`Error: ${error.message}`); 
+            displayNotification(`Error: ${error.message}`);
         }
     };
-    
+
     const handleShowDeleteDraftConfirm = (draftId) => setDraftToDelete(draftId);
-    
+
     const handleConfirmDeleteDraft = async (draftId) => {
         if (!user || !firebaseDb) return;
         try {
             await firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId).delete();
             displayNotification('Draft deleted successfully.');
-            setDraftToDelete(null); 
+            setDraftToDelete(null);
         } catch (error) {
             console.error("Error deleting draft:", error);
-            displayNotification(`Error: ${error.message}`); 
+            displayNotification(`Error: ${error.message}`);
         }
     };
-    
+
     const handleResumeDraft = async (draftId) => {
         if (!user || !firebaseDb) return;
         const draftRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/wizards`).doc(draftId);
@@ -481,7 +457,7 @@ const handleSaveSettings = async (updatedSettingsObject) => {
             }
         } catch (error) {
             console.error("Error resuming draft:", error);
-            displayNotification(`Error: ${error.message}`); 
+            displayNotification(`Error: ${error.message}`);
         }
     };
 
@@ -517,7 +493,7 @@ const handleSaveSettings = async (updatedSettingsObject) => {
             displayNotification("Authentication not ready. Please try again.");
             return;
         }
-    
+
         try {
             const batch = firebaseDb.batch();
             const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc();
@@ -557,7 +533,7 @@ const handleSaveSettings = async (updatedSettingsObject) => {
             setIsLoading(false);
         }
     };
-    
+
     const handleCloseWizard = () => {
         setShowNewProjectWizard(false);
         setActiveProjectDraft(null);
@@ -568,72 +544,76 @@ const handleSaveSettings = async (updatedSettingsObject) => {
         if (!isAuthReady || !firebaseDb || !firebaseAuth) {
             return <div className="min-h-screen flex justify-center items-center"><window.LoadingSpinner text="Initializing application..." /></div>;
         }
-        
+
         if (!user) {
-            return <window.LoginScreen onLogin={() => {}} firebaseAuth={firebaseAuth} />;
+            return <window.LoginScreen onLogin={() => { }} firebaseAuth={firebaseAuth} />;
         }
 
         switch (currentView) {
             case 'project':
-    return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} onUpdateSettings={handleSaveSettings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} onNavigate={handleNavigate} />; // Add onNavigate={handleNavigate} here
+                return <window.ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} onUpdateSettings={handleSaveSettings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} onNavigate={handleNavigate} />;
             case 'settingsMenu':
                 return <window.SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
             case 'technicalSettings':
                 return <window.TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
-           case 'myStudio':
-    return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleNavigateBack} previousView={previousView} />;
+            case 'myStudio':
+                return <window.MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleNavigateBack} previousView={previousView} />;
             case 'importProject':
                 return <window.ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
             case 'knowledgeBases':
                 return <window.KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
             case 'tools':
                 return <window.ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
+            
+            // --- FIX: Added a guard to prevent rendering until user data is fully loaded ---
             case 'blogTool':
-    return <window.BlogTool
-        settings={settings}
-        onBack={() => setCurrentView('tools')}
-        onNavigateToSettings={() => setCurrentView('technicalSettings')}
-        userId={user.uid}
-        db={firebaseDb}
-        // Pass new handlers
-        onGeneratePost={handleGeneratePostTask}
-        onPublishPosts={handleOpenPublisher}
-        taskQueue={taskQueue} // Pass the queue to show status
-        onViewPost={handleViewGeneratedPost}
-    />;
+                if (!user || !user.uid || !firebaseDb) {
+                    return <div className="h-screen flex justify-center items-center"><window.LoadingSpinner text="Loading User Data..."/></div>;
+                }
+                return <window.BlogTool
+                    settings={settings}
+                    onBack={() => setCurrentView('tools')}
+                    onNavigateToSettings={() => setCurrentView('technicalSettings')}
+                    userId={user.uid}
+                    db={firebaseDb}
+                    onGeneratePost={handleGeneratePostTask}
+                    onPublishPosts={handleOpenPublisher}
+                    taskQueue={taskQueue}
+                    onViewPost={handleViewGeneratedPost}
+                />;
             case 'shortsTool':
-                 return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
+                return <window.ShortsTool settings={settings} onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             case 'contentLibrary':
-                 return <window.ContentLibrary onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
+                return <window.ContentLibrary onBack={() => setCurrentView('tools')} userId={user.uid} db={firebaseDb} />;
             default:
                 return <window.Dashboard userId={user.uid} onSelectProject={handleSelectProject} onShowSettings={handleShowSettings} onShowProjectSelection={() => setShowProjectSelection(true)} onShowDeleteConfirm={handleShowDeleteConfirm} onShowTools={handleShowTools} db={firebaseDb} auth={firebaseAuth} />;
         }
     }
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white"> 
+        <div className="min-h-screen bg-gray-900 text-white">
             {appError && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">{appError}</div>}
             {showNotification && <div className="fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">{notificationMessage}</div>}
-            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance}/>}
+            {showNewProjectWizard && user && <window.NewProjectWizard userId={user.uid} settings={settings} onClose={handleCloseWizard} googleMapsLoaded={googleMapsLoaded} initialDraft={activeProjectDraft} draftId={activeDraftId} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} />}
             {projectToDelete && <window.DeleteConfirmationModal project={projectToDelete} onConfirm={handleConfirmDelete} onCancel={() => setProjectToDelete(null)} />}
-            {draftToDelete && <window.DeleteConfirmationModal project={{id: draftToDelete, playlistTitle: 'this draft'}} onConfirm={() => handleConfirmDeleteDraft(draftToDelete)} onCancel={() => setDraftToDelete(null)} />}
+            {draftToDelete && <window.DeleteConfirmationModal project={{ id: draftToDelete, playlistTitle: 'this draft' }} onConfirm={() => handleConfirmDeleteDraft(draftToDelete)} onCancel={() => setDraftToDelete(null)} />}
             {showProjectSelection && <window.ProjectSelection onSelectWorkflow={handleSelectWorkflow} onClose={() => setShowProjectSelection(false)} userId={user.uid} onResumeDraft={handleResumeDraft} onDeleteDraft={handleShowDeleteDraftConfirm} db={firebaseDb} auth={firebaseAuth} />}
             {showPublisherModal && (
-    <window.WordpressPublisher
-        ideas={ideasToPublish}
-        settings={settings}
-        onPublish={handlePublishPostsTask}
-        onCancel={() => setShowPublisherModal(false)}
-    />
-)}
-{contentToView && (
-    <window.GeneratedPostViewer
-        content={contentToView}
-        onClose={() => setContentToView(null)}
-    />
-)}
-<window.TaskQueue tasks={taskQueue} onView={handleViewGeneratedPost} />
-                <main className="p-4 sm:p-6 lg:p-8">{renderView()}</main>
+                <window.WordpressPublisher
+                    ideas={ideasToPublish}
+                    settings={settings}
+                    onPublish={handlePublishPostsTask}
+                    onCancel={() => setShowPublisherModal(false)}
+                />
+            )}
+            {contentToView && (
+                <window.GeneratedPostViewer
+                    content={contentToView}
+                    onClose={() => setContentToView(null)}
+                />
+            )}
+            <window.TaskQueue tasks={taskQueue} onView={handleViewGeneratedPost} />
+            <main className="p-4 sm:p-6 lg:p-8">{renderView()}</main>
         </div>
     );
 }
