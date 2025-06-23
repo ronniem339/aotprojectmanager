@@ -4,11 +4,12 @@
 * This is the central AI utility object for the Creator's Hub application.
 * It handles all interactions with the Google Gemini API.
 */
-window.aiUtils = {
-  /**
-  * Helper function to gather and format the creator's style guide information.
-  */
-  getStyleGuidePrompt: (settings, videoTone) => {
+window.aiUtils = window.aiUtils || {};
+
+/**
+* Helper function to gather and format the creator's style guide information.
+*/
+window.aiUtils.getStyleGuidePrompt = (settings, videoTone) => {
     const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
     const styleGuideText = settings.knowledgeBases?.creator?.styleGuideText || 'Clear, concise, and captivating.';
     const toneText = videoTone ? `\nVideo Tone: "${videoTone}"` : '';
@@ -16,12 +17,12 @@ window.aiUtils = {
     return `**Creator Style Guide & Context:**
 Creator Persona (Who AmI): "${whoAmI}"
 Creator Style Guide: "${styleGuideText}"${toneText}`;
-  },
+};
 
-  /**
-  * The core, centralized function to call the Gemini API.
-  */
-  callGeminiAPI: async (prompt, settings, generationConfig = {}, isComplex = false) => {
+/**
+* The core, centralized function to call the Gemini API.
+*/
+window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, isComplex = false) => {
     if (!settings || !settings.geminiApiKey) {
       throw new Error("Gemini API Key is not set. Please set it in the settings.");
     }
@@ -95,12 +96,12 @@ Creator Style Guide: "${styleGuideText}"${toneText}`;
       }
       throw error;
     }
-  },
+};
 
-  /**
+/**
   * Generates blog post ideas.
   */
-  generateBlogPostIdeasAI: async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+window.aiUtils.generateBlogPostIdeasAI = async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
     let context = '';
     if (destination) {
       context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
@@ -159,12 +160,12 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
       console.error("Error generating blog post ideas:", error);
       throw new Error(`AI failed to generate ideas: ${error.message || error}`);
     }
-  },
+};
 
     /**
   * Generates a full blog post based on an approved idea.
   */
-  generateBlogPostContentAI: async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
+window.aiUtils.generateBlogPostContentAI = async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     let postTypeSpecificKb = '';
@@ -237,12 +238,12 @@ Example Output Format:
       console.error("Error generating blog post content:", error);
       throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
     }
-  },
+};
 
     /**
      * Generates a full blog post in HTML format, ready for WordPress.
      */
-    generateWordPressPostHTMLAI: async ({ idea, settings, tone }) => {
+window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
         const { title, primaryKeyword } = idea;
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
@@ -290,12 +291,12 @@ ${styleGuidePrompt}
             console.error("Error generating WordPress Post HTML:", error);
             throw new Error(`AI failed to generate WordPress HTML: ${error.message || error}`);
         }
-    },
+};
 
   /**
   * Finds points of interest.
   */
-  findPointsOfInterestAI: async ({ mainLocationName, currentLocations, settings }) => {
+window.aiUtils.findPointsOfInterestAI = async ({ mainLocationName, currentLocations, settings }) => {
     const existingLocationNames = currentLocations.map(l => l.name).join(', ');
 
     const prompt = `You are a creative travel planner. Based on the main location "${mainLocationName}", suggest up to 50 specific, popular, and interesting points of interest. Avoid suggesting general areas or cities that are already in the existing list of locations: ${existingLocationNames}.
@@ -328,9 +329,9 @@ Example JSON format:
       console.error("Error finding points of interest:", error);
       throw new Error(`AI failed to find locations: ${error.message || error}`);
     }
-  },
+};
     
-    generateInitialQuestionsAI: async (params) => {
+window.aiUtils.generateInitialQuestionsAI = async (params) => {
         const { initialThoughts, locations, description, storytellingKnowledge, settings } = params;
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
         const prompt = `You are an expert video scriptwriter and storyteller.
@@ -352,9 +353,9 @@ Example JSON format:
         **Output Format:**
         Your response MUST be a valid JSON object with a single key "questions", which must be an array of strings.`;
         return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    },
+    };
 
-    generateDraftOutlineAI: async (params) => {
+window.aiUtils.generateDraftOutlineAI = async (params) => {
         const { videoTitle, videoConcept, initialThoughts, initialAnswers, storytellingKnowledge, settings, refinementText, videoTone } = params;
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
         const initialAnswersPrompt = initialAnswers ? `**Creator's Answers to Initial Questions:**\n${initialAnswers}\n` : '';
@@ -387,9 +388,9 @@ Example JSON format:
         - Use "---" as a separator between major parts.
         Your response MUST be a valid JSON object with a single key "draftOutline", which is a string containing the outline.`;
         return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-    },
+    };
 
-    generateScriptPlanAI: async ({ videoTitle, videoConcept, draftOutline, settings }) => {
+window.aiUtils.generateScriptPlanAI = async ({ videoTitle, videoConcept, draftOutline, settings }) => {
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
         const prompt = `
         You are an expert video producer and storyteller. Your goal is to help a creator flesh out their video by asking insightful questions.
@@ -415,9 +416,9 @@ Example JSON format:
         } else {
             throw new Error("AI returned an invalid format for script plan questions.");
         }
-    },
+    };
 
-    generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone, existingScript = '' }) => {
+window.aiUtils.generateFinalScriptAI = async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone, existingScript = '' }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
         let prompt;
         if (existingScript) {
@@ -455,9 +456,9 @@ Example JSON format:
         }
         const responseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
         return { finalScript: responseText };
-    },
+    };
         
-    generateKeywordsAI: async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
+window.aiUtils.generateKeywordsAI = async ({ title, concept, locationsFeatured, projectTitle, projectDescription, settings }) => {
         const videoLocations = (locationsFeatured || []).join(', ');
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
         const videoTitlesKb = settings.knowledgeBases?.youtube?.videoTitles || '';
@@ -480,9 +481,9 @@ Example JSON format:
         } else {
             throw new Error("AI returned an invalid keyword format.");
         }
-    },
+    };
 
-    extractVideoMetadataAI: async ({ videoTitle, videoDescription, settings }) => {
+window.aiUtils.extractVideoMetadataAI = async ({ videoTitle, videoDescription, settings }) => {
         const youtubeSeoKb = settings.knowledgeBases?.youtube?.youtubeSeoKnowledgeBase || '';
         const prompt = `Analyze the YouTube video title and description. Infer geographical locations and important keywords/tags for SEO.
         Video Title: "${videoTitle}"
@@ -500,9 +501,9 @@ Example JSON format:
         } else {
             throw new Error("AI returned an invalid format for metadata extraction.");
         }
-    },
+    };
 
-    parseVideoFromTextAI: async ({ textInput, projectLocation, settings }) => {
+window.aiUtils.parseVideoFromTextAI = async ({ textInput, projectLocation, settings }) => {
         const prompt = `You are an expert video project manager. Analyze the following text from a user planning a new video for a project about "${projectLocation}".
         User's text: --- ${textInput} ---
         Extract and structure this information into a single, valid JSON object.
@@ -519,9 +520,9 @@ Example JSON format:
             throw new Error("AI returned an invalid or incomplete data structure.");
         }
         return parsedJson;
-    },
+    };
 
-    refineVideoConceptBasedOnInventory: async ({ videoTitle, currentConcept, footageChangesSummary, settings, videoTone }) => {
+window.aiUtils.refineVideoConceptBasedOnInventory = async ({ videoTitle, currentConcept, footageChangesSummary, settings, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
         const prompt = `You are a YouTube video concept reviser. A user changed their footage inventory.
         Please review the original concept and the changes, then provide a revised, brief outline or high-level plan.
@@ -531,9 +532,9 @@ Example JSON format:
         Footage Inventory Changes: ${footageChangesSummary}
         Based on these changes, how should the video concept be updated? Provide only the revised concept string.`;
         return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-    },
+    };
 
-    generateShortsIdeasAI: async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, projectTitle, shortsIdeaGenerationKb, previouslyCreatedShorts = [], settings, videoTone }) => {
+window.aiUtils.generateShortsIdeasAI = async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, projectTitle, shortsIdeaGenerationKb, previouslyCreatedShorts = [], settings, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
         const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
             const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
@@ -569,9 +570,9 @@ Example JSON format:
             console.error("Error generating shorts ideas:", error);
             throw new Error(`AI failed to generate shorts ideas: ${error.message || error}`);
         }
-    },
+    };
 
-    generateShortsMetadataAI: async ({ videoTitle, shortsIdea, settings, videoTone }) => {
+window.aiUtils.generateShortsMetadataAI = async ({ videoTitle, shortsIdea, settings, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
         const prompt = `You are a YouTube Shorts expert. Based on the long-form video and a Shorts idea, generate optimized metadata.
         Long-Form Video Title: "${videoTitle}"
@@ -596,9 +597,9 @@ Example JSON format:
             console.error("Error generating shorts metadata:", error);
             throw new Error(`AI failed to generate shorts metadata: ${error.message || error}`);
         }
-    },
+    };
 
-    updateStyleGuideAI: async function({ currentStyleGuide, refinementFeedback, settings }) {
+window.aiUtils.updateStyleGuideAI = async function({ currentStyleGuide, refinementFeedback, settings }) {
         const prompt = `You are an AI assistant helping a creator refine their personal "Style Guide".
         Intelligently merge the user's feedback into the existing style guide.
         **Current Style Guide:**
@@ -617,4 +618,3 @@ Example JSON format:
             throw new Error("AI failed to update the style guide.");
         }
     }
-};
