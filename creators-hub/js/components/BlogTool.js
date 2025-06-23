@@ -1,4 +1,3 @@
-// creators-hub/js/components/BlogTool.js
 window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db }) => {
     const { useState, useEffect, useMemo } = React;
     const [ideas, setIdeas] = useState([]);
@@ -7,35 +6,22 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
-const ideasCollectionRef = useMemo(() => {
-    if (!userId) return null; // This line is crucial
-    return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
-}, [db, APP_ID, userId]);
-    // --- MODIFIED CODE BLOCK ---
+
+    // Creates the Firestore reference, but only if the userId is valid.
+    const ideasCollectionRef = useMemo(() => {
+        if (!userId) return null; 
+        return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
+    }, [db, APP_ID, userId]);
+
+    // Sets up the Firestore listener. This is the single, corrected version.
     useEffect(() => {
-        // FIX: Add a guard to prevent Firestore calls with an invalid userId or collection reference
+        // Guard: Prevents running if the reference is not yet valid.
         if (!ideasCollectionRef) {
             setIsLoading(false);
             setIdeas([]);
-            return; // Do not proceed if the reference is null
+            return;
         }
 
-        const unsubscribe = ideasCollectionRef.onSnapshot(
-            snapshot => {
-                const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                fetchedIdeas.sort((a, b) => (a.createdAt?.seconds || 0) < (b.createdAt?.seconds || 0) ? 1 : -1);
-                setIdeas(fetchedIdeas);
-                setIsLoading(false);
-            },
-            err => {
-                // This is where the error you saw in the console is being caught
-                console.error("Error fetching blog ideas:", err);
-                setIsLoading(false);
-            }
-        );
-        return () => unsubscribe();
-    }, [ideasCollectionRef]); // The dependency array correctly watches for changes to the reference
-    useEffect(() => {
         const unsubscribe = ideasCollectionRef.onSnapshot(
             snapshot => {
                 const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
