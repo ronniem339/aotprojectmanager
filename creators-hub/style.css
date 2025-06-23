@@ -168,7 +168,7 @@ body {
 
 /* Styling for the VideoList active state */
 /* This specific rule makes the active video item use the primary accent color */
-.bg-primary-accent { 
+.bg-primary-accent {
     background-color: #00bfff; /* New primary accent color */
     color: #121212; /* Ensure dark text for contrast */
 }
@@ -178,7 +178,7 @@ body {
 }
 
 /* Adjustments for progress bar - now clearly green */
-.bg-green-500 { 
+.bg-green-500 {
     background-color: #28a745; /* Consistent success green for progress */
 }
 
