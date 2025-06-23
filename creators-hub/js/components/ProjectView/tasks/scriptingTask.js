@@ -135,6 +135,45 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
         </div>
     );
 };
+
+// Moved LocationDetailsCard outside of ScriptingWorkspaceModal
+const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
+    const [localDescription, setLocalDescription] = useState(description);
+
+    useEffect(() => {
+        setLocalDescription(description);
+    }, [description]);
+
+    return (
+        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+            <div className="flex justify-between items-start mb-3">
+                <label className="block text-gray-200 text-md font-medium">{location.name}</label>
+                <button onClick={() => onRemove(location.name)} className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0" title={`Update use of ${location.name}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+            </div>
+
+            <textarea
+                key={`on-camera-notes-${location.place_id}`}
+                value={localDescription}
+                onChange={(e) => setLocalDescription(e.target.value)}
+                onBlur={(e) => onDescriptionChange(location.name, e.target.value)}
+                rows="3"
+                className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
+            ></textarea>
+        </div>
+    );
+}, (prevProps, nextProps) => {
+    return (
+        prevProps.location?.place_id === nextProps.location?.place_id &&
+        prevProps.location?.name === nextProps.location?.name &&
+        prevProps.description === nextProps.description &&
+        prevProps.onDescriptionChange === nextProps.onDescriptionChange &&
+        prevProps.onRemove === nextProps.onRemove
+    );
+});
+
 // Stepper component for navigation
 const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
@@ -254,7 +293,7 @@ const ScriptingWorkspaceModal = ({
             setCurrentQuestionIndex(0); // Reset on stage change
         }
     }, [taskData.scriptingStage]);
-    
+
     useEffect(() => {
         setCurrentQuestionIndex(0); // Reset index when stage changes
     }, [currentStage]);
@@ -264,7 +303,7 @@ const ScriptingWorkspaceModal = ({
         setCurrentStage('full_script_review');
         await handleAction(onGenerateFullScript, localTaskData);
     };
-    
+
     const handleDataChange = (field, value) => {
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
     };
@@ -347,7 +386,7 @@ const ScriptingWorkspaceModal = ({
 
     const renderPaginatedQuestions = (questions, answers, answerField, onAnswerChange) => {
         const currentQuestion = questions[currentQuestionIndex];
-        
+
         return (
             <div>
                 <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 min-h-[200px]">
@@ -427,8 +466,8 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 2: Clarify Your Vision</h3>
                         <p className="text-gray-400 mb-6">Let's refine the core idea. Your answers here will guide the entire script structure.</p>
-                        {isMobile ? 
-                            renderPaginatedQuestions(questions, localTaskData.initialAnswers, 'initialAnswers', handleDataChange) : 
+                        {isMobile ?
+                            renderPaginatedQuestions(questions, localTaskData.initialAnswers, 'initialAnswers', handleDataChange) :
                             renderAllQuestions(questions, localTaskData.initialAnswers, 'initialAnswers', handleDataChange)
                         }
                         <div className="text-center mt-8">
@@ -482,13 +521,13 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4: Answer a Few More Questions</h3>
                         <p className="text-gray-400 mb-6">Let's get specific. Your answers here will be woven directly into the final script. You can leave questions blank or remove any that aren't helpful.</p>
-                         {isMobile ? 
+                         {isMobile ?
                             renderPaginatedQuestions(refinementQuestions, localTaskData.userExperiences, 'userExperiences', handleDataChange) :
                             renderAllQuestions(refinementQuestions, localTaskData.userExperiences, 'userExperiences', handleDataChange, handleRemoveQuestion)
                         }
                         <div className="text-center mt-8">
                              {(!isMobile || isLastRefinementQuestion) && (
-                                <button 
+                                <button
                                     onClick={async () => {
                                         const onCameraLocations = (video.locations_featured || []).filter(locName => {
                                             const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
@@ -499,8 +538,8 @@ const ScriptingWorkspaceModal = ({
                                         } else {
                                             await initiateScriptGeneration();
                                         }
-                                    }} 
-                                    disabled={isLoading} 
+                                    }}
+                                    disabled={isLoading}
                                     className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg"
                                 >
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Continue to Scripting'}
@@ -510,53 +549,12 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
             case 'on_camera_qa':
-                // A component to handle fetching and displaying details for a single location.
-                const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
-                    // Add these two lines for local state management
-                    const [localDescription, setLocalDescription] = useState(description);
-
-                    // Sync local state with prop (for external updates)
-                    useEffect(() => {
-                        setLocalDescription(description);
-                    }, [description]);
-
-                    return (
-                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                            <div className="flex justify-between items-start mb-3">
-                                <label className="block text-gray-200 text-md font-medium">{location.name}</label>
-                                <button onClick={() => onRemove(location.name)} className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-800/50 rounded-full flex-shrink-0" title={`Update use of ${location.name}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                            </div>
-
-                            <textarea
-                                key={`on-camera-notes-${location.place_id}`}
-                                value={localDescription} // Change this line to use local state
-                                onChange={(e) => setLocalDescription(e.target.value)} // Change this line to update local state
-                                onBlur={(e) => onDescriptionChange(location.name, e.target.value)} // Add this line to update parent on blur
-                                rows="3"
-                                className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                                placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
-                            ></textarea>
-                        </div>
-                    );
-                }, (prevProps, nextProps) => {
-                    return (
-                        prevProps.location?.place_id === nextProps.location?.place_id &&
-                        prevProps.location?.name === nextProps.location?.name &&
-                        prevProps.description === nextProps.description && // Keep this line as is
-                        prevProps.onDescriptionChange === nextProps.onDescriptionChange &&
-                        prevProps.onRemove === nextProps.onRemove
-                    );
-                });
-
                 // Memoize the onCameraLocationObjects array to prevent unnecessary re-creation
                 const onCameraLocationObjects = useMemo(() => {
                     return (localTaskData.onCameraLocations || [])
                         .map(locationName => project.locations.find(loc => loc.name === locationName))
                         .filter(Boolean);
                 }, [localTaskData.onCameraLocations, project.locations]);
-
 
                 return (
                     <div>
@@ -630,7 +628,7 @@ const ScriptingWorkspaceModal = ({
         contentToDisplay = <EngagingLoader durationInSeconds={120} />;
     } else {
         // Call renderContent without the internal isLoading check
-        contentToDisplay = renderContent(); 
+        contentToDisplay = renderContent();
     }
 
     return (
@@ -670,7 +668,7 @@ const ScriptingWorkspaceModal = ({
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
                     {contentToDisplay} {/* This is where the chosen content is rendered */}
                 </div>
-                
+
                 <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
                     {/* Footer can go here if needed */}
                 </div>
@@ -1052,7 +1050,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
                     onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
-                    onGenerateRefinementQuestions={handleGenerateRefinementQuestions} 
+                    onGenerateRefinementQuestions={handleGenerateRefinementQuestions}
                     onProceedToOnCamera={handleProceedToOnCamera}
                     onGenerateFullScript={handleGenerateFullScript}
                     onRefineScript={handleRefineScript}
