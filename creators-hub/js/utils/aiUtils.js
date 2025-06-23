@@ -7,9 +7,6 @@
 window.aiUtils = {
     /**
      * Helper function to gather and format the creator's style guide information.
-     * @param {object} settings - The application's complete settings object.
-     * @param {string} [videoTone] - The specific tone of the current video, if available.
-     * @returns {string} - A formatted string containing the style guide prompt.
      */
     getStyleGuidePrompt: (settings, videoTone) => {
         const whoAmI = settings.knowledgeBases?.creator?.whoAmI || 'A knowledgeable and engaging content creator.';
@@ -225,6 +222,7 @@ Example Output Format:
             if (match && match[1]) {
                 jsonString = match[1];
             } else {
+                console.error("AI response did not contain a valid JSON block.", rawResponseText);
                 throw new Error("AI response did not provide the expected JSON format. Please try again.");
             }
 
@@ -256,7 +254,7 @@ ${styleGuidePrompt}
 **Blog Post Details:**
 - **Title:** ${title}
 - **Primary Keyword:** ${primaryKeyword}
-- **Desired Tone:** ${tone}
+- **Desired Tone:** ${tone || 'Informative'}
 
 **Instructions:**
 1.  Create a compelling and engaging blog post.
@@ -331,10 +329,6 @@ Example JSON format:
             throw new Error(`AI failed to find locations: ${error.message || error}`);
         }
     },
-
-    // The rest of your aiUtils functions follow here...
-    // ... (generateInitialQuestionsAI, generateDraftOutlineAI, etc.)
-    // Make sure there is a comma after each function definition
     
     generateInitialQuestionsAI: async (params) => {
         const { initialThoughts, locations, description, storytellingKnowledge, settings } = params; 
