@@ -268,7 +268,7 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
 
     // --- RENDER METHOD ---
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-start z-50 p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-start z-50 p-4 sm:p-6 md:p-8 overflow-y-auto">
             <div className="glass-card rounded-lg p-6 md:p-8 w-full max-w-5xl relative my-8">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <h2 className="text-2xl font-bold mb-6">Edit Video Details</h2>
@@ -287,13 +287,13 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                     {/* Thumbnail Section */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Video Thumbnail</label>
-                        <div className="flex items-center gap-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700">
                             {thumbnailUrl ? (
-                                <img src={thumbnailUrl} alt="Video Thumbnail" className="w-40 h-24 object-cover rounded-md border border-gray-600"/>
+                                <img src={thumbnailUrl} alt="Video Thumbnail" className="w-full sm:w-40 h-auto sm:h-24 object-cover rounded-md border border-gray-600"/>
                             ) : (
-                                <div className="w-40 h-24 flex items-center justify-center bg-gray-800 text-gray-500 text-xs rounded-md border border-gray-700">No Thumbnail</div>
+                                <div className="w-full sm:w-40 h-24 flex items-center justify-center bg-gray-800 text-gray-500 text-xs rounded-md border border-gray-700">No Thumbnail</div>
                             )}
-                            <div className="flex-grow">
+                            <div className="flex-grow w-full">
                                 <input 
                                     type="text" 
                                     value={thumbnailUrl} 
@@ -320,8 +320,8 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                         <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
                              {googleMapsLoaded 
                                 ? <window.LocationSearchInput 
-                                      onLocationsChange={handleLocationsUpdateForVideo} 
-                                      existingLocations={videoLocations} /> 
+                                        onLocationsChange={handleLocationsUpdateForVideo} 
+                                        existingLocations={videoLocations} /> 
                                 : <p className="text-gray-400 text-center">Loading location search...</p>
                             }
                         </div>
@@ -330,8 +330,8 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                     {/* Footage Inventory */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Footage Inventory for this Video</label>
-                        <div className="bg-gray-900/50 rounded-lg border border-gray-700">
-                            <div className="grid grid-cols-7 gap-4 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
+                        <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-x-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-7 gap-4 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
                                 <div className="col-span-2">Location</div>
                                 <div>Stop Type</div>
                                 <div className="text-center">B-Roll<input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/></div>
@@ -345,8 +345,8 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
                                         const locationKey = location.place_id || location.name;
                                         const inventory = projectFootageInventory[locationKey] || {};
                                         return (
-                                            <div key={locationKey} className="grid grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
-                                                <div className="col-span-2 pr-2"><p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p></div>
+                                            <div key={locationKey} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
+                                                <div className="md:col-span-2 pr-2"><p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p></div>
                                                 <div className="flex gap-1">
                                                      <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
                                                      <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
