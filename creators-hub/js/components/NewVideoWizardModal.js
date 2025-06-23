@@ -257,13 +257,13 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
     const renderFinalReviewStep = () => (
         <div className="space-y-4">
             <h3 className="text-xl font-bold text-primary-accent mb-2">Review New Video Details</h3>
-            <div className="glass-card p-4 rounded-lg">
-                <p className="font-semibold">Title: <span className="font-normal text-gray-300">{videoData.title || 'N/A'}</span></p>
-                <p className="font-semibold">Concept: <span className="font-normal text-gray-300">{videoData.concept || 'N/A'}</span></p>
-                <p className="font-semibold">Est. Length: <span className="font-normal text-gray-300">{videoData.estimatedLengthMinutes ? `${videoData.estimatedLengthMinutes} min` : 'N/A'}</span></p>
-                <p className="font-semibold">Locations: <span className="font-normal text-gray-300">{videoData.locations_featured.map(l => l.name).join(', ') || 'N/A'}</span></p>
-                <p className="font-semibold">Keywords: <span className="font-normal text-gray-300">{videoData.targeted_keywords.join(', ') || 'N/A'}</span></p>
-                <p className="font-semibold">Script Provided: <span className="font-normal text-gray-300">{videoData.script.trim() !== '' ? 'Yes' : 'No'}</span></p>
+            <div className="glass-card p-4 rounded-lg space-y-2">
+                <p><span className="font-semibold text-gray-400">Title:</span> <span className="text-gray-200">{videoData.title || 'N/A'}</span></p>
+                <p><span className="font-semibold text-gray-400">Concept:</span> <span className="text-gray-200">{videoData.concept || 'N/A'}</span></p>
+                <p><span className="font-semibold text-gray-400">Est. Length:</span> <span className="text-gray-200">{videoData.estimatedLengthMinutes ? `${videoData.estimatedLengthMinutes} min` : 'N/A'}</span></p>
+                <p><span className="font-semibold text-gray-400">Locations:</span> <span className="text-gray-200">{videoData.locations_featured.map(l => l.name).join(', ') || 'N/A'}</span></p>
+                <p><span className="font-semibold text-gray-400">Keywords:</span> <span className="text-gray-200">{videoData.targeted_keywords.join(', ') || 'N/A'}</span></p>
+                <p><span className="font-semibold text-gray-400">Script Provided:</span> <span className="text-gray-200">{videoData.script.trim() !== '' ? 'Yes' : 'No'}</span></p>
             </div>
         </div>
     );
@@ -299,9 +299,14 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-6 md:p-8">
-            <div className="glass-card rounded-lg p-6 sm:p-8 w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
-                <h2 className="text-3xl font-bold text-white mb-6 text-center">Add New Video</h2>
+            <div 
+                className="glass-card rounded-lg p-4 sm:p-6 w-full h-full sm:h-auto sm:max-h-[90vh] max-w-3xl flex flex-col" 
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex-shrink-0 flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-primary-accent">Add New Video</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+                </div>
 
                 <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
                     {renderContent()}
@@ -309,8 +314,10 @@ window.NewVideoWizardModal = ({ onClose, onSave, settings, googleMapsLoaded, pro
 
                 {error && <p className="text-red-400 mt-4 text-sm bg-red-900/50 p-3 rounded-lg">{error}</p>}
 
-                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <button onClick={onClose} className="w-full sm:w-auto px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-white">Cancel</button>
+                <div className="flex-shrink-0 pt-6 mt-auto border-t border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="w-full sm:w-auto">
+                        <button onClick={onClose} className="w-full px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-white">Cancel</button>
+                    </div>
                     <div className="flex gap-4 w-full sm:w-auto">
                         {step > 0 && (
                             <button onClick={handlePrev} className="w-full sm:w-auto px-6 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold text-white">Back</button>
