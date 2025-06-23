@@ -14,14 +14,14 @@ window.VideoDetailsSidebar = ({ video }) => {
     const truncatedDescription = isLongDescription ? words.slice(0, 40).join(' ') + '...' : description;
 
     return (
-        <div className="glass-card p-6 rounded-lg space-y-6 lg:h-full lg:overflow-y-auto"> {/* Added overflow for long content */}
+        <div className="glass-card p-4 sm:p-6 rounded-lg space-y-6 lg:h-full lg:overflow-y-auto"> {/* Added overflow for long content */}
             
             {/* Video Thumbnail */}
             <div>
                 <window.ImageComponent 
                     src={video.thumbnailUrl || video.generatedThumbnails?.[0] || placeholderThumbnail} 
                     alt={video.title || 'Video Thumbnail'} 
-                    className="w-full h-40 object-cover rounded-md mb-4" 
+                    className="w-full h-auto object-cover rounded-md mb-4" 
                 />
             </div>
 
