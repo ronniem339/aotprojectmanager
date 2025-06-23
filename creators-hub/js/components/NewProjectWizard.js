@@ -43,42 +43,8 @@ window.NewProjectWizard = ({ userId, settings, onClose, googleMapsLoaded, initia
     // Initialize Firebase Storage
     const storage = firebaseAppInstance ? firebaseAppInstance.storage() : null;
 
-    const downloadAndUploadImage = async (imageUrl, uploadPath) => {
-        if (!imageUrl || !storage) {
-            console.warn("No image URL or Firebase Storage instance available for upload.");
-            return '';
-        }
-        const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(imageUrl)}`;
-        try {
-            const response = await fetch(fetchUrl);
-            if (!response.ok) {
-                throw new Error(await response.text());
-            }
-            const blob = await response.blob();
-            const storageRef = storage.ref(uploadPath);
-            await storageRef.put(blob);
-            return await storageRef.getDownloadURL();
-        } catch (error) {
-            console.error(`Error downloading or uploading image from ${imageUrl} to ${uploadPath}:`, error);
-            return '';
-        }
-    };
-    
-    // New function to upload a file directly
-    const uploadFile = async (file, uploadPath) => {
-        if (!file || !storage) {
-            console.warn("No file or Firebase Storage instance available for upload.");
-            return '';
-        }
-        try {
-            const storageRef = storage.ref(uploadPath);
-            await storageRef.put(file);
-            return await storageRef.getDownloadURL();
-        } catch (error) {
-            console.error(`Error uploading file to ${uploadPath}:`, error);
-            return '';
-        }
-    };
+    // REMOVED: Old local downloadAndUploadImage function
+    // REMOVED: Old local uploadFile function
 
 
     // Persist state to Firestore on change
@@ -300,12 +266,11 @@ const handleCreateProject = async () => {
 
     // Upload cover image if one exists
     if (coverImageFile) {
-        const path = `project_thumbnails/${Date.now()}_${userId}_${coverImageFile.name}`;
-        finalCoverImageUrl = await uploadFile(coverImageFile, path);
+        // Updated to use the new centralized uploadFile utility
+        finalCoverImageUrl = await window.uploadUtils.uploadFile(coverImageFile, 'project_thumbnails', userId, storage);
     } else if (coverImageUrl) {
-        const fileExtension = coverImageUrl.split('.').pop().split('?')[0];
-        const path = `project_thumbnails/${Date.now()}_${userId}.${fileExtension}`;
-        finalCoverImageUrl = await downloadAndUploadImage(coverImageUrl, path);
+        // Updated to use the new centralized downloadAndUploadImage utility
+        finalCoverImageUrl = await window.uploadUtils.downloadAndUploadImage(coverImageUrl, 'project_thumbnails', userId, storage);
     }
 
     try {
