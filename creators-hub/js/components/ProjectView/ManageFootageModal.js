@@ -251,8 +251,8 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
 
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
-            <div className="glass-card rounded-lg p-8 w-full h-full flex flex-col relative">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-6 md:p-8">
+            <div className="glass-card rounded-lg p-6 sm:p-8 w-full h-full max-w-4xl flex flex-col relative">
                 <button onClick={onClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 
                 {currentModalStage === 'inventoryEdit' && (
@@ -298,14 +298,14 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                                 <div className="glass-card p-4 rounded-lg">
                                     <h3 className="text-xl font-semibold mb-4">Footage Inventory Details</h3>
                                     <div className="max-h-80 overflow-y-auto pr-2">
-                                        <table className="w-full text-left table-fixed">
+                                        <table className="w-full text-left table-auto">
                                             <thead className="bg-gray-800/50 sticky top-0 backdrop-blur-sm">
                                                 <tr>
-                                                    <th className="p-3 text-sm font-semibold w-[40%]">Location</th>
-                                                    <th className="p-3 text-sm font-semibold text-center w-[10%]">B-Roll</th>
-                                                    <th className="p-3 text-sm font-semibold text-center w-[10%]">On-Cam</th>
-                                                    <th className="p-3 text-sm font-semibold text-center w-[10%]">Drone</th>
-                                                    <th className="p-3 text-sm font-semibold w-[30%]">Importance</th>
+                                                    <th className="p-3 text-sm font-semibold w-2/5">Location</th>
+                                                    <th className="p-3 text-sm font-semibold text-center">B-Roll</th>
+                                                    <th className="p-3 text-sm font-semibold text-center">On-Cam</th>
+                                                    <th className="p-3 text-sm font-semibold text-center">Drone</th>
+                                                    <th className="p-3 text-sm font-semibold text-center w-1/4">Importance</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -342,15 +342,15 @@ window.ManageFootageModal = ({ project, videos, userId, settings, googleMapsLoad
                                                                 <div className="flex gap-1 justify-center">
                                                                     <button
                                                                         onClick={() => handleInventoryChange(loc.place_id, 'importance', 'major')}
-                                                                        className={`flex-1 text-[0.7rem] py-0.5 px-1.5 rounded-md transition-colors font-semibold 
-                                                                                    ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
+                                                                        className={`flex-1 text-xs py-1 px-2 rounded-md transition-colors font-semibold 
+                                                                                     ${inventory.importance === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
                                                                     >
                                                                         Major
                                                                     </button>
                                                                     <button
                                                                         onClick={() => handleInventoryChange(loc.place_id, 'importance', 'quick')}
-                                                                        className={`flex-1 text-[0.7rem] py-0.5 px-1.5 rounded-md transition-colors font-semibold 
-                                                                                    ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
+                                                                        className={`flex-1 text-xs py-1 px-2 rounded-md transition-colors font-semibold 
+                                                                                     ${inventory.importance === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
                                                                     >
                                                                         Quick Stop
                                                                     </button>
