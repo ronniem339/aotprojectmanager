@@ -181,102 +181,93 @@ body {
     background-color: #28a745; /* Consistent success green for progress */
 }
 
-/* --- Mobile Responsive Enhancements --- */
+/* --- Responsive Layout Classes --- */
+.dashboard-grid {
+    display: grid;
+    gap: 1.5rem; /* Default gap for all sizes */
+    grid-template-columns: repeat(1, 1fr); /* Mobile-first: 1 column */
+}
+.project-view {
+    display: flex;
+    flex-direction: column; /* Mobile-first: stacked layout */
+}
+.video-list-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+    overflow-y: auto;
+}
 
-/* Google Pixel 9 Pro (and similar mobile devices) */
+
+/* --- Mobile-Specific Enhancements (Pixel 9 Pro) --- */
 @media (max-width: 767px) {
-    /* 1. Reduce title size on mobile */
     .scripting-workspace-title {
-        font-size: 1.5rem; /* Equivalent to text-2xl */
-        margin-bottom: 1rem; /* Adjust spacing */
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
     }
-
-    /* 2. Hide the desktop stepper on mobile */
     .desktop-stepper {
         display: none;
     }
-
-    /* 3. Style the mobile question pagination */
     .mobile-question-navigator {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-top: 1rem;
         padding: 0.5rem;
-        background-color: #202020; /* bg-dark-surface */
+        background-color: #202020;
         border-radius: 0.5rem;
     }
-
     .mobile-question-navigator button {
         padding: 0.5rem 1rem;
         border-radius: 0.375rem;
         font-weight: 600;
         transition: background-color 0.2s;
     }
-
     .mobile-question-navigator button:disabled {
         opacity: 0.4;
         cursor: not-allowed;
     }
-
     .mobile-question-progress {
         font-size: 0.875rem;
         font-weight: 500;
-        color: #cccccc; /* text-dark-light-gray */
-    }
-
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .project-view {
-        flex-direction: column;
-    }
-
-    .video-list-sidebar {
-        width: 100%;
-        height: auto;
-        max-height: 50vh;
-        overflow-y: auto;
+        color: #cccccc;
     }
 }
 
-/* OnePlus Go Tablet (and similar tablets) */
-@media (min-width: 768px) and (max-width: 1024px) {
+/* --- Tablet Optimizations (OnePlus Go) --- */
+@media (min-width: 768px) {
     .dashboard-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr); /* 2 columns for tablets */
     }
-
     .project-view {
-        flex-direction: row;
+        flex-direction: row; /* Side-by-side layout for tablets and up */
     }
-
     .video-list-sidebar {
         width: 300px;
+        max-height: none; /* Remove max-height for tablets and desktops */
+    }
+    .mobile-stepper {
+        display: none;
     }
 }
 
-
-/* Microsoft Surface Laptop 15" (and larger screens) */
+/* --- Laptop Optimizations (Surface Laptop) --- */
 @media (min-width: 1025px) {
     .dashboard-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-    .project-view {
-        flex-direction: row;
+        grid-template-columns: repeat(3, 1fr); /* 3 columns for standard laptops */
     }
     .video-list-sidebar {
         width: 350px;
     }
 }
 
-
-/* Hide mobile-only elements on larger screens */
-@media (min-width: 768px) {
-    .mobile-stepper {
-        display: none;
+/* --- Large Desktop Optimizations --- */
+@media (min-width: 1600px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(4, 1fr); /* 4 columns for very large screens */
     }
 }
+
 
 /* Styles for the Mobile Stepper Dropdown */
 .mobile-stepper-menu {
@@ -286,13 +277,12 @@ body {
     right: 0;
     margin: 0 auto;
     width: 90%;
-    background: #202020; /* bg-dark-surface */
-    border: 1px solid #3a3a3a; /* border-dark-input */
+    background: #202020;
+    border: 1px solid #3a3a3a;
     border-radius: 0.5rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 2000;
 }
-
 .mobile-stepper-item {
     display: flex;
     align-items: center;
