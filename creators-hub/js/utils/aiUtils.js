@@ -409,9 +409,55 @@ Example JSON format:
     return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
     },
 
-/**
-     * Generates refinement questions based on a draft outline. This is a complex task.
-     */
+    /**
+ * Generates refinement questions based on a draft outline. This is a complex task.
+ */
+generateScriptPlanAI: async ({ videoTitle, videoConcept, draftOutline, settings }) => {
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+
+    const prompt = `
+    You are an expert video producer and storyteller. Your goal is to help a creator flesh out their video by asking insightful questions.
+    You have been given the draft outline for an upcoming video. Your task is to generate a set of questions for the creator to answer. These questions should be designed to extract personal experiences, feelings, and specific details about the locations mentioned in the outline, which will make the final script more engaging and authentic.
+
+    **Video Title:** "${videoTitle}"
+    **Video Concept:** "${videoConcept}"
+    ${styleGuidePrompt}
+
+    **Draft Outline to Analyze:**
+    ---
+    ${draftOutline}
+    ---
+
+    **Your Task:**
+    Based on the outline, generate 5-7 targeted questions. Focus on:
+    - Eliciting emotional responses or personal reflections about places.
+    - Uncovering specific, sensory details (what did it look, sound, smell, feel like?).
+    - Probing for unexpected challenges or surprises during their journey.
+    - Encouraging the creator to share a unique opinion or "insider tip".
+
+    **Output Format:**
+    Your response MUST be a valid JSON object with a single key "locationQuestions".
+    "locationQuestions" must be an array of objects, where each object has a single key "question" containing the question string.
+
+    **Example JSON Output:**
+    {
+      "locationQuestions": [
+        { "question": "What was the single most unexpected thing you discovered at the Eiffel Tower?" },
+        { "question": "As you walked through the Louvre, what was one piece of art that genuinely stopped you in your tracks, and why?" }
+      ]
+    }
+    `;
+
+    // This is a creative task, so we should consider it complex.
+    const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+
+    if (parsedJson && Array.isArray(parsedJson.locationQuestions)) {
+        return parsedJson;
+    } else {
+        console.error("AI returned an invalid format for script plan questions.", parsedJson);
+        throw new Error("AI returned an invalid format for script plan questions.");
+    }
+},
 // In creators-hub/js/utils/aiUtils.js
 
 generateFinalScriptAI: async ({ scriptPlan, userAnswers, videoTitle, settings, refinementText, onCameraDescriptions, videoTone, existingScript = '' }) => {
