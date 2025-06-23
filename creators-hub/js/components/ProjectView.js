@@ -323,7 +323,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
 
 
     return (
-        <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white">
+        <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white project-view">
             {/* --- START: UPDATE THIS COMPONENT --- */}
             <window.ProjectHeader
                 project={localProject}
@@ -341,7 +341,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
             <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
 
                 {!isSingleVideoProject && (
-                    <div className={`lg:w-1/4 flex-shrink-0 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg ${isSidebarOpen ? 'block' : 'hidden'} lg:block`}>
+                    <div className={`video-list-sidebar flex-shrink-0 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg ${isSidebarOpen ? 'block' : 'hidden'} lg:block`}>
                         <window.VideoList
                             videos={videos}
                             activeVideoId={activeVideoId}
