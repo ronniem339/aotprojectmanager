@@ -222,7 +222,7 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Footage Inventory</label>
                         <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-x-auto">
-                             <div className="grid grid-cols-1 md:grid-cols-7 gap-4 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
+                             <div className="hidden md:grid md:grid-cols-7 gap-4 text-xs font-semibold text-gray-400 border-b border-gray-700 px-4 py-2">
                                 <div className="col-span-2">Location</div>
                                 <div>Stop Type</div>
                                 <div className="text-center">B-Roll<input type="checkbox" onChange={(e) => handleSelectAllFootage('bRoll', e.target.checked)} className="ml-2 h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent align-middle"/></div>
@@ -236,18 +236,44 @@ window.EditProjectModal = ({ project, videos, userId, settings, onClose, googleM
                                         const locationKey = location.place_id || location.name;
                                         const inventory = footageInventory[locationKey] || {};
                                         return (
-                                            <div key={locationKey} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
-                                                <div className="md:col-span-2 pr-2"><p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p></div>
-                                                <div className="flex gap-1">
-                                                     <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
-                                                     <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
+                                            <div key={locationKey} className="grid grid-cols-1 md:grid-cols-7 gap-y-4 gap-x-2 items-center px-4 py-3 border-b border-gray-800 last:border-b-0">
+                                                {/* --- Mobile Header & Main Info --- */}
+                                                <div className="col-span-1 md:col-span-2 flex justify-between items-center">
+                                                    <p className="font-semibold text-gray-200 truncate" title={location.name}>{location.name}</p>
+                                                    <div className="flex justify-center md:hidden">
+                                                        <button onClick={() => handleDeleteLocation(locationKey)} className="text-gray-500 hover:text-red-500 transition-colors" title={`Delete ${location.name}`}>
+                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(locationKey, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
-                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(locationKey, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
-                                                <div className="flex justify-center"><input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(locationKey, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/></div>
-                                                <div className="flex justify-center">
+                                                
+                                                {/* --- Mobile Grid Layout for Inputs --- */}
+                                                <div className="col-span-1 md:col-span-5 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                                                    <div className="md:col-span-1">
+                                                        <label className="block text-xs font-medium text-gray-400 mb-1 md:hidden">Stop Type</label>
+                                                        <div className="flex gap-1">
+                                                             <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'major')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'major' ? 'bg-green-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Major</button>
+                                                             <button onClick={() => handleInventoryChange(locationKey, 'stopType', 'quick')} className={`flex-1 text-xs px-2 py-1.5 rounded-md transition-colors ${inventory.stopType === 'quick' ? 'bg-amber-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`}>Quick</button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-center">
+                                                        <label className="text-xs font-medium text-gray-400 mb-1 md:hidden">B-Roll</label>
+                                                        <input type="checkbox" checked={!!inventory.bRoll} onChange={(e) => handleInventoryChange(locationKey, 'bRoll', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
+                                                    </div>
+                                                    <div className="flex flex-col items-center">
+                                                        <label className="text-xs font-medium text-gray-400 mb-1 md:hidden">On-Camera</label>
+                                                        <input type="checkbox" checked={!!inventory.onCamera} onChange={(e) => handleInventoryChange(locationKey, 'onCamera', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
+                                                    </div>
+                                                    <div className="flex flex-col items-center">
+                                                        <label className="text-xs font-medium text-gray-400 mb-1 md:hidden">Drone</label>
+                                                        <input type="checkbox" checked={!!inventory.drone} onChange={(e) => handleInventoryChange(locationKey, 'drone', e.target.checked)} className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"/>
+                                                    </div>
+                                                </div>
+
+                                                {/* --- Desktop Only Delete Button --- */}
+                                                <div className="hidden md:flex justify-center items-center">
                                                     <button onClick={() => handleDeleteLocation(locationKey)} className="text-gray-500 hover:text-red-500 transition-colors" title={`Delete ${location.name}`}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                                                     </button>
                                                 </div>
                                             </div>
