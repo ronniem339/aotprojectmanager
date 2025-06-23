@@ -26,18 +26,31 @@ window.WordpressSettings = ({ settings, onSave }) => {
         setConnectionStatus({ status: 'info', message: 'Settings saved. You can now test the connection.' });
     };
 
-    const handleTestConnection = async () => {
-        if (!blogUrl || !username || !applicationPassword) {
-            setConnectionStatus({ status: 'error', message: 'Please fill in all fields before testing.' });
-            return;
-        }
-        setConnectionStatus({ status: 'loading', message: 'Testing connection...' });
+   // A corrected version of the function for WordpressSettings.js
 
-        // Placeholder for actual API call
-        setTimeout(() => {
-            setConnectionStatus({ status: 'success', message: 'Successfully connected to your WordPress site!' });
-        }, 2000);
-    };
+const handleTestConnection = async () => {
+    if (!blogUrl || !username || !applicationPassword) {
+        setConnectionStatus({ status: 'error', message: 'Please fill in all fields before testing.' });
+        return;
+    }
+    setConnectionStatus({ status: 'loading', message: 'Testing connection...' });
+
+    try {
+        // Use the actual utility function to test the connection
+        const categories = await window.wordpressUtils.getWordPressCategories({
+            url: blogUrl,
+            username: username,
+            applicationPassword: applicationPassword
+        });
+        
+        // The getWordPressCategories function returns an array. A successful connection might return an empty array if no categories exist.
+        setConnectionStatus({ status: 'success', message: 'Successfully connected to your WordPress site! Found ' + categories.length + ' categories.' });
+
+    } catch (error) {
+        console.error("WordPress connection test failed:", error);
+        setConnectionStatus({ status: 'error', message: `Connection failed: ${error.message}. Please check your URL, username, and Application Password.` });
+    }
+};
 
     return (
         <div className="glass-card p-6 rounded-lg">
