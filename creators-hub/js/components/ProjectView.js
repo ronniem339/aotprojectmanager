@@ -1,102 +1,136 @@
 // js/components/ProjectView.js
 
 window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance, onNavigate }) => {
-    const { useState, useEffect, useCallback } = React;
+    const { useState, useEffect, useCallback, useMemo } = React;
+
+    // Core State
     const [localProject, setLocalProject] = useState(null);
     const [videos, setVideos] = useState([]);
+    const [activeVideoId, setActiveVideoId] = useState(null);
+    
+    // UI/Loading State
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeVideoId, setActiveVideoId] = useState(null);
+    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+    const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(false);
+    const [isTabletOrLarger, setIsTabletOrLarger] = useState(window.innerWidth >= 768);
+
+    // Modal State
     const [showEditProjectModal, setShowEditProjectModal] = useState(false);
     const [showVideoModal, setShowVideoModal] = useState(false);
     const [showScriptPlanModal, setShowScriptPlanModal] = useState(false);
     const [scriptPlanData, setScriptPlanData] = useState(null);
     const [taskBeingEdited, setTaskBeingEdited] = useState(null);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showNewVideoWizard, setShowNewVideoWizard] = useState(false);
-    // --- START: ENSURE THIS STATE IS PRESENT ---
-    const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(false);
-    // --- END: ENSURE THIS STATE IS PRESENT ---
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
+    // --- DERIVED STATE ---
+
+    const isSingleVideoProject = useMemo(() => localProject?.videoCount === 1, [localProject]);
+    const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
+    
+    const overallProgress = useMemo(() => {
+        if (!videos.length || !window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) {
+            return 0;
+        }
+        let totalCompletedTasks = 0;
+        videos.forEach(video => {
+            window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => {
+                if (video.tasks?.[task.id] === 'complete') {
+                    totalCompletedTasks++;
+                }
+            });
+        });
+        const maxPossibleTasks = videos.length * window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
+        return (maxPossibleTasks > 0) ? (totalCompletedTasks / maxPossibleTasks) * 100 : 0;
+    }, [videos]);
+
+    // --- EFFECTS ---
+
+    // Initialize local project state from props
     useEffect(() => {
         setLocalProject(project);
         setActiveVideoId(null); 
     }, [project]);
 
+    // Auto-select the first video in single-video projects
     useEffect(() => {
-        if (localProject && localProject.videoCount === 1 && videos.length === 1 && !activeVideoId) {
+        if (isSingleVideoProject && videos.length === 1 && !activeVideoId) {
             setActiveVideoId(videos[0].id);
         }
-    }, [localProject, videos, activeVideoId]);
+    }, [isSingleVideoProject, videos, activeVideoId]);
 
-
+    // Listener for screen size changes to adapt layout
     useEffect(() => {
-        const fetchProjectAndVideos = async () => {
-            const projectId = project?.id;
+        const handleResize = () => setIsTabletOrLarger(window.innerWidth >= 768);
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial check
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
-            if (!db || !auth || !userId || !projectId) {
-                setLoading(false);
-                setError("Project ID, User ID, or Firebase instances are missing.");
-                return;
-            }
-
-            try {
-                if (!auth.currentUser) {
-                    setError("User not authenticated for project data access. Please log in.");
-                    setLoading(false);
-                    return;
-                }
-
-                const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(projectId);
-                const videoCollectionRef = projectRef.collection('videos');
-
-                await projectRef.update({
-                    lastAccessed: firebase.firestore.FieldValue.serverTimestamp()
-                }).catch(err => console.error("Error updating lastAccessed:", err));
-
-
-                const unsubscribeProject = projectRef.onSnapshot(docSnap => {
-                    if (docSnap.exists) {
-                        setLocalProject({ id: docSnap.id, ...docSnap.data() });
-                    } else {
-                        setError("Project not found.");
-                        setLocalProject(null);
-                    }
-                    setLoading(false);
-                }, err => {
-                    console.error("Error fetching project:", err);
-                    setError("Failed to load project data.");
-                    setLoading(false);
-                });
-
-                const unsubscribeVideos = videoCollectionRef.orderBy('order').onSnapshot(snapshot => {
-                    const videosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setVideos(videosData);
-                }, err => {
-                    console.error("Error fetching videos:", err);
-                    setError("Failed to load video data.");
-                });
-
-                return () => {
-                    unsubscribeProject();
-                    unsubscribeVideos();
-                };
-
-            } catch (err) {
-                console.error("Firebase Fetch Error:", err);
-                setError(`Data fetch failed: ${err.message}`);
-                setLoading(false);
-            }
-        };
-
-        if (db && auth && userId && project?.id) {
-            fetchProjectAndVideos();
-        } else {
-            setLoading(false);
+    // Intelligently manage the visibility of the right details sidebar
+    useEffect(() => {
+        if (isTabletOrLarger && activeVideo) {
+            setIsRightSidebarVisible(true);
+        } else if (!isTabletOrLarger) {
+            setIsRightSidebarVisible(false);
         }
+    }, [isTabletOrLarger, activeVideo]);
+
+    // Fetch all project and video data from Firestore
+    useEffect(() => {
+        if (!db || !auth || !userId || !project?.id) {
+            setLoading(false);
+            setError("Project ID, User ID, or Firebase instances are missing.");
+            return;
+        }
+
+        let isMounted = true;
+        setLoading(true);
+
+        const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(project.id);
+        const videoCollectionRef = projectRef.collection('videos');
+
+        projectRef.update({
+            lastAccessed: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(err => console.error("Error updating lastAccessed:", err));
+
+        const unsubscribeProject = projectRef.onSnapshot(docSnap => {
+            if (!isMounted) return;
+            if (docSnap.exists) {
+                setLocalProject({ id: docSnap.id, ...docSnap.data() });
+            } else {
+                setError("Project not found.");
+                setLocalProject(null);
+            }
+            setLoading(false);
+        }, err => {
+            if (!isMounted) return;
+            console.error("Error fetching project:", err);
+            setError("Failed to load project data.");
+            setLoading(false);
+        });
+
+        const unsubscribeVideos = videoCollectionRef.orderBy('order').onSnapshot(snapshot => {
+            if (!isMounted) return;
+            const videosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setVideos(videosData);
+        }, err => {
+            if (!isMounted) return;
+            console.error("Error fetching videos:", err);
+            setError("Failed to load video data.");
+        });
+
+        return () => {
+            isMounted = false;
+            unsubscribeProject();
+            unsubscribeVideos();
+        };
     }, [userId, project?.id, appId, db, auth]);
+
+
+    // --- CALLBACKS & HANDLERS ---
 
     const handleEditProject = useCallback(async (updatedFields) => {
         if (!localProject || !db) return;
@@ -113,10 +147,13 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
 
     const handleVideoSelected = useCallback((video) => {
         setActiveVideoId(video.id);
-    }, []);
+        if(!isTabletOrLarger) {
+            setIsLeftSidebarOpen(false); // Close mobile sidebar on selection
+        }
+    }, [isTabletOrLarger]);
 
     const handleCloseVideoModal = useCallback(() => {
-        setActiveVideoId(null);
+        // We don't nullify activeVideoId here to keep the context in the background
         setShowVideoModal(false);
     }, []);
 
@@ -131,102 +168,23 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         }
     }, [userId, localProject?.id, appId, db]);
 
-    const handleGenerateScriptPlan = useCallback(async (videoId, videoTitle, videoConcept, locationsFeatured, projectFootageInventory) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const aiResponse = await window.aiUtils.generateScriptPlanAI({
-                videoTitle: videoTitle,
-                videoConcept: videoConcept,
-                videoLocationsFeatured: locationsFeatured,
-                projectFootageInventory: projectFootageInventory,
-                settings: settings 
-            });
-
-            setScriptPlanData({
-                videoId: videoId,
-                scriptPlan: aiResponse.scriptPlan,
-                locationQuestions: aiResponse.locationQuestions
-            });
-            setShowScriptPlanModal(true);
-            setTaskBeingEdited({ videoId: videoId, taskType: 'scripting' });
-
-        } catch (e) {
-            console.error("Error generating script plan:", e);
-            setError(`Failed to generate script plan: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [settings]);
-
-    const handleSaveLocationExperiences = useCallback(async (videoId, experiences) => {
-        setLoading(true);
-        setError(null);
-        try {
-            await updateVideo(videoId, {
-                scriptPlan: scriptPlanData.scriptPlan,
-                locationQuestions: scriptPlanData.locationQuestions,
-                locationExperiences: experiences,
-                scriptingTaskStatus: 'user_input_collected',
-            });
-            setShowScriptPlanModal(false);
-            setScriptPlanData(null);
-            setTaskBeingEdited(null);
-        } catch (e) {
-            console.error("Error saving location experiences:", e);
-            setError(`Failed to save experiences: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [updateVideo, scriptPlanData]);
-
     const handleTaskCompletion = useCallback(async (taskName, status, data = {}) => {
         if (!db || !localProject?.id || !activeVideo?.id) return;
 
-        const videoId = activeVideo.id; // Use the active video's ID
+        const videoId = activeVideo.id;
         const updatePayload = { [`tasks.${taskName}`]: status, ...data };
 
-        // Optimistic UI Update
-        setVideos(currentVideos => currentVideos.map(v => {
-            if (v.id === videoId) {
-                // Deep clone to avoid direct state mutation
-                const newVideo = JSON.parse(JSON.stringify(v));
-                if (!newVideo.tasks) {
-                    newVideo.tasks = {};
-                }
-
-                // Safely update nested data properties
-                for (const key in data) {
-                    if (Object.prototype.hasOwnProperty.call(data, key)) {
-                        const keys = key.split('.');
-                        let current = newVideo;
-                        for (let i = 0; i < keys.length - 1; i++) {
-                            // Ensure nested objects exist
-                            current[keys[i]] = current[keys[i]] || {};
-                            current = current[keys[i]];
-                        }
-                        current[keys[keys.length - 1]] = data[key];
-                    }
-                }
-                newVideo.tasks[taskName] = status;
-                return newVideo;
-            }
-            return v;
-        }));
-
-        // Firebase Update
         try {
             const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoId);
             await videoRef.update(updatePayload);
-
-            if (taskBeingEdited && taskBeingEdited.videoId === videoId && taskBeingEdited.taskType === taskName) {
+            if (taskBeingEdited?.videoId === videoId && taskBeingEdited?.taskType === taskName) {
                 setTaskBeingEdited(null);
             }
         } catch (e) {
             console.error(`Failed to complete task ${taskName} for video ${videoId}:`, e);
             setError(`Failed to update task status: ${e.message}`);
         }
-    }, [userId, localProject?.id, appId, taskBeingEdited, db, activeVideo]); // Added activeVideo to dependency array
+    }, [userId, localProject?.id, appId, taskBeingEdited, db, activeVideo]);
 
     const handleSaveNewVideo = useCallback(async (newVideoData) => {
         setLoading(true);
@@ -259,25 +217,22 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         }
     }, [db, localProject, videos.length, userId, appId]);
 
-
-    const overallProgress = React.useMemo(() => {
-        if (!videos.length || !window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) {
-            return 0;
+    const handleEditClick = () => {
+        if (isSingleVideoProject) {
+            if (videos.length > 0) {
+                // For single video projects, "Edit" opens the video modal directly
+                setActiveVideoId(videos[0].id);
+                setShowVideoModal(true);
+            }
+        } else {
+            // For multi-video projects, "Edit" opens the project modal
+            setShowEditProjectModal(true);
         }
-        let totalCompletedTasks = 0;
-        videos.forEach(video => {
-            window.CREATOR_HUB_CONFIG.TASK_PIPELINE.forEach(task => {
-                if (video.tasks?.[task.id] === 'complete') {
-                    totalCompletedTasks++;
-                }
-            });
-        });
-        const maxPossibleTasks = videos.length * window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length;
-        return (maxPossibleTasks > 0) ? (totalCompletedTasks / maxPossibleTasks) * 100 : 0;
-    }, [videos]);
+    };
 
+    // --- RENDER LOGIC ---
 
-    if (loading) {
+    if (loading && !localProject) {
         return (
             <div className="fixed inset-0 bg-gray-900 text-white flex items-center justify-center">
                 <window.LoadingSpinner /> <span className="ml-2">Loading project...</span>
@@ -307,91 +262,82 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         );
     }
 
-    const isSingleVideoProject = localProject.videoCount === 1;
-    const activeVideo = isSingleVideoProject ? videos[0] : videos.find(v => v.id === activeVideoId);
-    
-    const handleEditClick = () => {
-        if (isSingleVideoProject) {
-            if (videos.length > 0) {
-                setActiveVideoId(videos[0].id);
-                setShowVideoModal(true);
-            }
-        } else {
-            setShowEditProjectModal(true);
-        }
-    };
-
-
     return (
-        <div className="p-4 sm:p-8 flex flex-col h-screen bg-gray-900 text-white project-view">
-            {/* --- START: UPDATE THIS COMPONENT --- */}
+        <div className="flex flex-col h-screen bg-gray-900 text-white p-4 sm:p-6 md:p-8">
             <window.ProjectHeader
                 project={localProject}
                 onBack={onCloseProject}
                 onEdit={handleEditClick}
                 overallProgress={overallProgress}
-                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                onToggleSidebar={() => setIsLeftSidebarOpen(o => !o)}
                 hideDescription={isSingleVideoProject}
                 onAddVideo={() => setShowNewVideoWizard(true)}
                 isRightSidebarVisible={isRightSidebarVisible}
                 onToggleRightSidebar={() => setIsRightSidebarVisible(v => !v)}
+                isSingleVideoProject={isSingleVideoProject}
             />
-            {/* --- END: UPDATE THIS COMPONENT --- */}
 
-            <div className={`flex flex-1 overflow-hidden gap-4 ${isSingleVideoProject ? 'flex-col lg:flex-row' : ''}`}>
+            <div className="flex flex-1 mt-4 overflow-hidden gap-4 md:gap-6">
 
+                {/* Left Sidebar: Video List */}
                 {!isSingleVideoProject && (
-                    <div className={`video-list-sidebar flex-shrink-0 bg-gray-800 border-r border-gray-700 overflow-y-auto custom-scrollbar rounded-lg ${isSidebarOpen ? 'block' : 'hidden'} lg:block`}>
-                        <window.VideoList
-                            videos={videos}
-                            activeVideoId={activeVideoId}
-                            onSelectVideo={(id) => {
-                                setActiveVideoId(id);
-                                setIsSidebarOpen(false);
-                            }}
-                            onEditVideo={(videoToEdit) => {
-                                setActiveVideoId(videoToEdit.id);
-                                setShowVideoModal(true);
-                            }}
-                            onReorder={async (dragged, target) => {
-                                const newOrder = [...videos];
-                                const draggedIndex = newOrder.findIndex(v => v.id === dragged.id);
-                                const targetIndex = newOrder.findIndex(v => v.id === target.id);
-                                const [removed] = newOrder.splice(draggedIndex, 1);
-                                newOrder.splice(targetIndex, 0, removed);
-                                const batch = db.batch();
-                                newOrder.forEach((video, index) => {
-                                    const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(video.id);
-                                    batch.update(videoRef, { order: index });
-                                });
-                                await batch.commit();
-                            }}
-                            onDeleteVideo={async (videoToDelete) => {
-                                if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
-                                    try {
-                                        await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
-                                        const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
-                                        await projectRef.update({
-                                            videoCount: firebase.firestore.FieldValue.increment(-1)
-                                        });
-                                        if (activeVideoId === videoToDelete.id) {
-                                            setActiveVideoId(null);
+                    <aside className={`
+                        ${isLeftSidebarOpen ? 'block absolute inset-0 bg-gray-900 z-20 p-4' : 'hidden'} md:static md:block md:bg-transparent md:p-0 md:z-auto
+                        md:w-1/3 lg:w-1/4 xl:w-1/5 flex-shrink-0 h-full
+                    `}>
+                        <div className="bg-gray-800 border border-gray-700 rounded-lg h-full flex flex-col">
+                           <window.VideoList
+                                videos={videos}
+                                activeVideoId={activeVideoId}
+                                onSelectVideo={handleVideoSelected}
+                                onEditVideo={(videoToEdit) => {
+                                    setActiveVideoId(videoToEdit.id);
+                                    setShowVideoModal(true);
+                                }}
+                                onReorder={async (dragged, target) => {
+                                    const newOrder = [...videos];
+                                    const draggedIndex = newOrder.findIndex(v => v.id === dragged.id);
+                                    const targetIndex = newOrder.findIndex(v => v.id === target.id);
+                                    const [removed] = newOrder.splice(draggedIndex, 1);
+                                    newOrder.splice(targetIndex, 0, removed);
+                                    const batch = db.batch();
+                                    newOrder.forEach((video, index) => {
+                                        const videoRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(video.id);
+                                        batch.update(videoRef, { order: index });
+                                    });
+                                    await batch.commit();
+                                }}
+                                onDeleteVideo={async (videoToDelete) => {
+                                    // Replace with a custom modal in a real app
+                                    if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
+                                        try {
+                                            await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
+                                            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
+                                            await projectRef.update({
+                                                videoCount: firebase.firestore.FieldValue.increment(-1)
+                                            });
+                                            if (activeVideoId === videoToDelete.id) {
+                                                setActiveVideoId(null);
+                                            }
+                                        } catch (e) {
+                                            console.error("Error deleting video:", e);
+                                            setError(`Failed to delete video: ${e.message}`);
                                         }
-                                    } catch (e) {
-                                        console.error("Error deleting video:", e);
-                                        setError(`Failed to delete video: ${e.message}`);
                                     }
-                                }
-                            }}
-                        />
-                    </div>
+                                }}
+                            />
+                        </div>
+                    </aside>
                 )}
-                {/* --- START: UPDATE THIS LAYOUT SECTION --- */}
-                <div className={`flex-1 flex flex-col lg:flex-row gap-4 ${isSidebarOpen && !isSingleVideoProject ? 'hidden' : 'flex'} lg:flex`}>
+
+                {/* Main Content Area: Workspace + Details */}
+                <div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
                     {activeVideo ? (
                         <>
-                            <main className="flex-grow overflow-y-auto custom-scrollbar p-4 rounded-lg glass-card">
+                            {/* Workspace */}
+                            <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 rounded-lg glass-card h-full">
                                 <window.VideoWorkspace
+                                    key={activeVideo.id} // Add key to force re-render on video change
                                     video={activeVideo}
                                     settings={settings}
                                     onUpdateTask={handleTaskCompletion}
@@ -402,8 +348,10 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                                     onNavigate={onNavigate}
                                 />
                             </main>
+
+                            {/* Right Details Sidebar */}
                             {isRightSidebarVisible && (
-                                <aside className={`lg:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar rounded-lg glass-card ${isSingleVideoProject ? 'w-full lg:w-1/3' : 'hidden lg:block'}`}>
+                                <aside className="w-full mt-4 md:mt-0 md:w-1/2 lg:w-2/5 xl:w-1/3 flex-shrink-0 overflow-y-auto custom-scrollbar p-4 md:p-6 rounded-lg glass-card h-full">
                                     <window.VideoDetailsSidebar
                                         video={activeVideo}
                                         projectLocations={localProject?.locations}
@@ -415,17 +363,17 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center h-full glass-card rounded-lg">
                             <p className="text-gray-500 text-xl">
-                                { !isSingleVideoProject ? "Select a video from the left to start working!" : "Loading video..."}
+                                { !isSingleVideoProject ? "Select a video from the left to start working." : "Loading video..."}
                             </p>
-                            {videos.length === 0 && (
+                            {videos.length === 0 && !loading && (
                                 <p className="text-gray-500 mt-2">No videos in this project yet. Click "Add Video" above to create one.</p>
                             )}
                         </div>
                     )}
                 </div>
-                {/* --- END: UPDATE THIS LAYOUT SECTION --- */}
             </div>
-
+            
+            {/* --- MODALS --- */}
             {showEditProjectModal && (
                 <window.EditProjectModal
                     project={localProject}
