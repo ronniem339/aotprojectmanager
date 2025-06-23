@@ -1,135 +1,76 @@
-// A comprehensive service worker for PWA installability and offline functionality.
+// A robust, modern service worker using a stale-while-revalidate strategy.
 
-const CACHE_NAME = 'aot-pm-cache-v1';
-// This list MUST include every external resource the app needs to load.
-const urlsToCache = [
-  // The entry points
-  '.',
-  'index.html',
-  'manifest.json',
-  'style.css',
-  'icons/AOT-lg.png',
+const CACHE_NAME_STATIC = 'aot-pm-static-v2'; // Changed version to force update
+const CACHE_NAME_DYNAMIC = 'aot-pm-dynamic-v2';
 
-  // External Fonts, Icons, and CSS
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css',
-  'https://cdn.tailwindcss.com',
-
-  // Core Libraries
-  'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js',
-  'https://unpkg.com/react@18/umd/react.development.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
-  'https://unpkg.com/@babel/standalone/babel.min.js',
-
-  // Firebase SDKs
-  'https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js',
-  'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js',
-  'https://www.gstatic.com/firebasejs/11.6.1/firebase-storage-compat.js',
-
-  // Configs & Utilities
-  'js/config.js',
-  'js/utils/aiUtils.js',
-  'js/utils/imageUploadUtils.js',
-  'js/utils/wordpressUtils.js',
-
-  // App Components
-  'js/components/common.js',
-  'js/components/NewProjectWizard/WizardStep_AIParse.js',
-  'js/components/NewProjectWizard/WizardStep1_Foundation.js',
-  'js/components/NewProjectWizard/WizardStep2_Inventory.js',
-  'js/components/NewProjectWizard/WizardStep3_Keywords.js',
-  'js/components/NewProjectWizard/WizardStep4_Title.js',
-  'js/components/NewProjectWizard/WizardStep5_Description.js',
-  'js/components/NewProjectWizard/WizardStep6_Review.js',
-  'js/components/NewProjectWizard.js',
-  'js/components/Dashboard.js',
-  'js/components/SettingsMenu.js',
-  'js/components/WordpressSettings.js',
-  'js/components/TechnicalSettingsView.js',
-  'js/components/MyStudioView.js',
-  'js/components/ProjectSelection.js',
-  'js/components/ImportProjectView.js',
-  'js/components/KnowledgeBaseView.js',
-
-  // Tools & Sub-components
-  'js/components/ToolsView.js',
-  'js/components/ShortsTool.js',
-  'js/components/ContentLibrary.js',
-  'js/components/GeneratedPostViewer.js',
-  'js/components/TaskQueue.js',
-  'js/components/WordpressPublisher.js',
-  'js/components/BlogTool.js',
-
-  // Project View Components
-  'js/components/ProjectView/ProjectHeader.js',
-  'js/components/ProjectView/VideoList.js',
-  'js/components/ProjectView/EditProjectModal.js',
-  'js/components/ProjectView/EditVideoModal.js',
-  'js/components/ProjectView/FullScreenScriptView.js',
-  'js/components/ProjectView/VideoDetailsSidebar.js',
-  'js/components/ProjectView/tasks/SimpleConfirmationTask.js',
-  'js/components/ProjectView/tasks/ScriptingTask.js',
-  'js/components/ProjectView/tasks/EditVideoTask.js',
-  'js/components/ProjectView/tasks/TitleTask.js',
-  'js/components/ProjectView/tasks/DescriptionTask.js',
-  'js/components/ProjectView/tasks/ChaptersTask.js',
-  'js/components/ProjectView/tasks/TagsTask.js',
-  'js/components/ProjectView/tasks/ThumbnailTask.js',
-  'js/components/ProjectView/tasks/UploadToYouTubeTask.js',
-  'js/components/ProjectView/tasks/FirstCommentTask.js',
-  'js/components/ProjectView/VideoWorkspace.js',
-  'js/components/ProjectView/ManageFootageModal.js',
-  'js/components/ProjectView.js',
-  'js/components/ProjectView/ShortsIdeasToolModal.js',
-  'js/components/NewVideoWizardModal.js',
-
-  // Main App Entry Point
-  'js/app.js'
+// These are the absolute core files for the app shell to work.
+// This list must be 100% correct.
+const STATIC_ASSETS = [
+  './', // This is the alias for index.html, the start_url.
+  './index.html',
+  './manifest.json',
+  './style.css',
+  './icons/AOT-lg.png',
+  './js/app.js',
+  './js/components/common.js' // Contains the crucial login screen component
 ];
 
-// Install event: Open a cache and add all the app shell files to it.
+// INSTALL: Cache the static app shell.
 self.addEventListener('install', event => {
+  console.log('[Service Worker] Installing...');
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Service Worker: Caching app shell');
-        return cache.addAll(urlsToCache);
-      })
-      .catch(error => {
-        console.error('Failed to cache app shell:', error);
-      })
-  );
-});
-
-// Activate event: Clean up any old, unused caches.
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('Service Worker: Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
+    caches.open(CACHE_NAME_STATIC).then(cache => {
+      console.log('[Service Worker] Precaching App Shell...');
+      // Use addAll to cache all static assets. If one fails, the SW install fails.
+      return cache.addAll(STATIC_ASSETS);
+    }).catch(err => {
+        // This is critical for debugging.
+        console.error('[Service Worker] Pre-caching failed:', err);
     })
   );
 });
 
-// Fetch event: Serve cached content when available, fall back to network.
+// ACTIVATE: Clean up old caches.
+self.addEventListener('activate', event => {
+  console.log('[Service Worker] Activating...');
+  event.waitUntil(
+    caches.keys().then(keyList => {
+      return Promise.all(keyList.map(key => {
+        // Delete all caches that are not the current static or dynamic cache.
+        if (key !== CACHE_NAME_STATIC && key !== CACHE_NAME_DYNAMIC) {
+          console.log('[Service Worker] Removing old cache.', key);
+          return caches.delete(key);
+        }
+      }));
+    })
+  );
+  // Tell the active service worker to take immediate control of all open pages.
+  return self.clients.claim();
+});
+
+// FETCH: Apply a "stale-while-revalidate" strategy.
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        // If the resource is in the cache, return it.
-        if (response) {
-          return response;
-        }
-        // Otherwise, fetch from the network.
-        return fetch(event.request);
+      .then(cachedResponse => {
+        const fetchPromise = fetch(event.request).then(networkResponse => {
+          // If we get a valid response, put it in the dynamic cache.
+          if (networkResponse && networkResponse.status === 200) {
+            return caches.open(CACHE_NAME_DYNAMIC).then(cache => {
+              cache.put(event.request, networkResponse.clone());
+              return networkResponse;
+            });
+          }
+          return networkResponse;
+        });
+
+        // Return the cached response immediately if it exists, otherwise wait for the network.
+        return cachedResponse || fetchPromise;
+      })
+      .catch(err => {
+          // This is a fallback for when both cache and network fail.
+          // You could return a generic offline page here if you had one.
+          console.error('[Service Worker] Fetch failed:', err);
       })
   );
 });
