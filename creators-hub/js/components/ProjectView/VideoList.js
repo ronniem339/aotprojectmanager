@@ -58,7 +58,7 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
                                  // Changed active background to a darker gray, and active text to soft white
                                  className={`flex items-center flex-nowrap gap-2 rounded-lg transition-colors cursor-pointer relative group p-2 pr-1
                                              ${isDragging ? 'opacity-50 border border-primary-accent' : ''} 
-                                             ${isActive ? 'bg-gray-700/60 text-white shadow-lg' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}
+                                             ${isActive ? 'bg-primary-accent text-white shadow-lg' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}
                             >
                                 {/* Drag handle */}
                                 <div className={`flex-shrink-0 p-1 text-gray-500 cursor-grab ${isActive ? 'text-white' : 'group-hover:text-white'}`}>
