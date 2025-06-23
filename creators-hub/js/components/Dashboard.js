@@ -222,7 +222,7 @@ window.Dashboard = ({ userId, onSelectProject, onShowSettings, onShowProjectSele
             {loading ? <window.LoadingSpinner text="Loading Projects..." /> : (
                 <>
                     <h2 className="text-2xl font-bold text-white mb-4">Active Projects</h2>
-                    <div className="dashboard-grid gap-6 mb-12" ref={projectCardsRef}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12" ref={projectCardsRef}>
                         {activeProjects.length === 0 ? (
                             <p className="text-gray-400 text-center col-span-full py-8">No active projects found.</p>
                         ) : (
