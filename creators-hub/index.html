@@ -103,9 +103,10 @@
 
     <!-- Service Worker Registration -->
     <script>
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker'in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js') // Make sure this path is correct
+                // Use a relative path to be more robust
+                navigator.serviceWorker.register('./service-worker.js')
                     .then(registration => {
                         console.log('Service Worker registered successfully:', registration);
                     })
