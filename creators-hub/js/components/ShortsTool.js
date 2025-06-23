@@ -73,10 +73,10 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
 
 
     return (
-        <div className="p-4 md:p-8 min-h-screen flex flex-col"> {/* Added flex-col and min-h-screen for better layout */}
-            <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4"> {/* Added gap and flex-col for responsiveness */}
+        <div className="p-4 sm:p-6 md:p-8 min-h-screen flex flex-col">
+            <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
                 <h1 className="text-3xl sm:text-4xl font-bold text-white text-center sm:text-left">📱 Shorts & Reels Factory</h1>
-                <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto justify-center"> {/* Added w-full sm:w-auto justify-center */}
+                <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
@@ -85,9 +85,9 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
             </header>
 
             {isLoading ? <window.LoadingSpinner text="Loading projects..." /> : (
-                <div className="flex flex-col md:flex-row gap-4 mb-6"> {/* Added flex-col md:flex-row for stacking on small screens */}
+                <div className="flex flex-col md:flex-row gap-4 mb-6">
                     {/* Project Selector */}
-                    <div className="flex-1 w-full"> {/* Added w-full */}
+                    <div className="flex-1 w-full">
                         <label className="block text-sm font-medium text-gray-300 mb-2">1. Select a Project</label>
                         <select
                             value={selectedProject ? selectedProject.id : ''}
@@ -105,9 +105,9 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
                         </select>
                     </div>
                     {/* Video Selector */}
-                    <div className="flex-1 w-full"> {/* Added w-full */}
-                           <label className="block text-sm font-medium text-gray-300 mb-2">2. Select a Video</label>
-                           <select
+                    <div className="flex-1 w-full">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">2. Select a Video</label>
+                            <select
                                 value={selectedVideo ? selectedVideo.id : ''}
                                 onChange={(e) => {
                                     const vid = videos.find(v => v.id === e.target.value);
@@ -115,7 +115,7 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
                                 }}
                                 className="form-input w-full"
                                 disabled={!selectedProject || videos.length === 0}
-                           >
+                            >
                                 <option value="" disabled>{!selectedProject ? 'First, select a project' : (videos.length === 0 ? 'No videos in this project' : 'Choose a video...')}</option>
                                {videos.map(v => (
                                    <option key={v.id} value={v.id}>{v.chosenTitle || v.title}</option>
@@ -126,22 +126,21 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
             )}
             
             {/* Conditional rendering of the content area */}
-            <div className="flex-grow"> {/* Added flex-grow to make this section expand */}
+            <div className="flex-grow">
             {selectedProject && selectedVideo ? (
-                    <div className="glass-card p-6 rounded-lg h-full"> {/* Changed to h-full to fill parent */}
+                    <div className="glass-card p-4 sm:p-6 rounded-lg h-full">
                         <window.ShortsIdeasToolModal
                             video={selectedVideo}
                             project={selectedProject}
                             settings={settings}
-                            // onClose is not passed here as it's an embedded component now
                             onSaveShortsIdea={handleSaveShortsIdea}
                             onDeleteShortsIdea={handleDeleteShortsIdea}
                             onGenerateShortsMetadata={handleGenerateShortsMetadata}
                         />
                     </div>
             ) : (
-                <div className="glass-card p-12 rounded-lg text-center h-full flex items-center justify-center"> {/* Added flex, items-center, justify-center for vertical centering */}
-                    <p className="text-gray-400 text-lg">Please select a project and a video to start generating Shorts ideas.</p> {/* Increased text size */}
+                <div className="glass-card p-12 rounded-lg text-center h-full flex items-center justify-center">
+                    <p className="text-gray-400 text-lg">Please select a project and a video to start generating Shorts ideas.</p>
                 </div>
             )}
             </div>
