@@ -362,42 +362,42 @@ const handleCreateProject = async () => {
     const renderWizardStep = () => {
         switch (step) {
             case 1: return <window.WizardStep1_Foundation 
-                                inputs={inputs} 
-                                locations={locations} 
-                                coverImageUrl={coverImageUrl} 
-                                settings={settings} 
-                                googleMapsLoaded={googleMapsLoaded} 
-                                onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} 
-                                onLocationsUpdate={handleLocationsUpdate} 
-                                onCoverImageUrlChange={setCoverImageUrl}
-                                onCoverImageFileChange={setCoverImageFile}
-                            />;
+                                 inputs={inputs} 
+                                 locations={locations} 
+                                 coverImageUrl={coverImageUrl} 
+                                 settings={settings} 
+                                 googleMapsLoaded={googleMapsLoaded} 
+                                 onInputChange={(name, val) => setInputs(p => ({ ...p, [name]: val }))} 
+                                 onLocationsUpdate={handleLocationsUpdate} 
+                                 onCoverImageUrlChange={setCoverImageUrl}
+                                 onCoverImageFileChange={setCoverImageFile}
+                             />;
             case 2: return <window.WizardStep2_Inventory 
-                       locations={locations}
-                       footageInventory={footageInventory}
-                       onLocationsUpdate={handleLocationsUpdate}
-                       onInventoryChange={handleInventoryChange}
-                       onSelectAllFootage={handleSelectAllFootage}
-                       googleMapsLoaded={googleMapsLoaded}
-                   />;
+                               locations={locations}
+                               footageInventory={footageInventory}
+                               onLocationsUpdate={handleLocationsUpdate}
+                               onInventoryChange={handleInventoryChange}
+                               onSelectAllFootage={handleSelectAllFootage}
+                               googleMapsLoaded={googleMapsLoaded}
+                           />;
             case 3: return <window.WizardStep3_Keywords keywordIdeas={keywordIdeas} selectedKeywords={selectedKeywords} onKeywordSelection={handleKeywordSelection} isLoading={isGeneratingKeywords} error={error} />;
             case 4: return <window.WizardStep4_Title suggestions={editableOutline?.playlistTitleSuggestions || []} selectedTitle={selectedTitle} refinement={refinement} isLoading={isLoading} error={error} onTitleSelect={setSelectedTitle} onRefinementChange={setRefinement} onRefine={handleRefineTitle} />;
             case 5: return <window.WizardStep5_Description description={editableOutline?.playlistDescription} refinement={refinement} isLoading={isLoading} error={error} onDescriptionChange={(val) => setEditableOutline(p => ({...p, playlistDescription: val}))} onRefinementChange={setRefinement} onRefine={handleRefineDescription} />;
             case 6: return <window.WizardStep6_Review 
-                        videos={editableOutline?.videos || []} 
-                        refiningVideoIndex={refiningVideoIndex} 
-                        refinement={refinement} 
-                        planRefinement={planRefinement}
-                        isLoading={isLoading} 
-                        error={error} 
-                        onRefinementChange={setRefinement} 
-                        onPlanRefinementChange={setPlanRefinement}
-                        onSetRefiningVideoIndex={setRefiningVideoIndex} 
-                        onRefineVideo={handleRefineVideo} 
-                        onRefineEntirePlan={handleRefineEntirePlan}
-                        onAcceptVideo={handleAcceptVideo} 
-                        onDeleteVideo={handleDeleteVideoSuggestion} 
-                    />;
+                                 videos={editableOutline?.videos || []} 
+                                 refiningVideoIndex={refiningVideoIndex} 
+                                 refinement={refinement} 
+                                 planRefinement={planRefinement}
+                                 isLoading={isLoading} 
+                                 error={error} 
+                                 onRefinementChange={setRefinement} 
+                                 onPlanRefinementChange={setPlanRefinement}
+                                 onSetRefiningVideoIndex={setRefiningVideoIndex} 
+                                 onRefineVideo={handleRefineVideo} 
+                                 onRefineEntirePlan={handleRefineEntirePlan}
+                                 onAcceptVideo={handleAcceptVideo} 
+                                 onDeleteVideo={handleDeleteVideoSuggestion} 
+                             />;
             default: return <p>Step {step} not found.</p>;
         }
     };
@@ -411,32 +411,32 @@ const handleCreateProject = async () => {
             <div className="flex justify-between items-center w-full">
                 <div><button onClick={() => setShowConfirmModal(true)} className="px-4 py-2 bg-red-800/80 hover:bg-red-700 rounded-lg text-xs text-red-100">Delete Draft</button></div>
                 <div className="flex items-center gap-4">
-                       {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
-                       {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500">Next</button>}
-                       {step === 2 && <button onClick={handleGenerateKeywords} disabled={isGeneratingKeywords || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isGeneratingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
-                       {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
-                       {step === 4 && <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
-                       {step === 5 && <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
-                       {step === 6 && (
+                        {step > 1 && <button onClick={() => setStep(s => s - 1)} disabled={isLoading} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg">Back</button>}
+                        {step === 1 && <button onClick={() => setStep(2)} disabled={locations.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg disabled:bg-gray-500">Next</button>}
+                        {step === 2 && <button onClick={handleGenerateKeywords} disabled={isGeneratingKeywords || !isInventoryComplete} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isGeneratingKeywords ? <window.LoadingSpinner isButton={true} /> : '💡 Get Keyword Ideas'}</button>}
+                        {step === 3 && <button onClick={handleGenerateInitialOutline} disabled={isLoading || selectedKeywords.length === 0} className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-darker rounded-lg flex items-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🪄 Generate Project Plan'}</button>}
+                        {step === 4 && <button onClick={() => { setFinalizedTitle(selectedTitle); setStep(5); setRefinement(''); setError(''); }} disabled={isLoading || !selectedTitle} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
+                        {step === 5 && <button onClick={() => { setFinalizedDescription(editableOutline.playlistDescription); setStep(6); setRefinement(''); setError('');}} disabled={isLoading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">Accept & Continue ➡️</button>}
+                        {step === 6 && (
                             <>
                                 <button onClick={() => editableOutline.videos.forEach((v, i) => v.status === 'pending' && handleAcceptVideo(i))} disabled={isLoading || allVideosHandled} className="px-4 py-2 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg disabled:bg-gray-500">Accept All Remaining</button>
                                 <button onClick={handleCreateProject} disabled={isLoading || !atLeastOneVideoAccepted} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2 text-lg font-semibold disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '✅ Finish & Create Project'}</button>
                             </>
-                       )}
+                        )}
                 </div>
             </div>
         );
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4 sm:p-6 md:p-8">
             {showConfirmModal && <ConfirmationModal onConfirm={handleStartOver} onCancel={() => setShowConfirmModal(false)} />}
-            <div className="glass-card rounded-lg p-8 w-full h-full flex flex-col" onClick={e => e.stopPropagation()}> 
+            <div className="glass-card rounded-lg p-4 sm:p-6 md:p-8 w-full h-full max-w-4xl flex flex-col" onClick={e => e.stopPropagation()}> 
                 <button onClick={handleClose} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 <div className="flex-grow overflow-y-auto pr-2"> 
                     {renderWizardStep()}
                 </div>
-                <div className="flex-shrink-0 pt-6 mt-6 border-t border-gray-700">
+                <div className="flex-shrink-0 pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-700">
                     {renderActionButtons()}
                 </div>
             </div>
