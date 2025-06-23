@@ -580,11 +580,8 @@ const ScriptingWorkspaceModal = ({
                         </div>
                     </div>
                 );
-            case 'complete':
+                case 'complete':
             case 'full_script_review':
-                if (isLoading) {
-                    return <EngagingLoader durationInSeconds={120} />;
-                }
                 return (
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 5: Final Script Review</h3>
@@ -627,11 +624,20 @@ const ScriptingWorkspaceModal = ({
                 return <p className="text-red-400 text-center p-4">Invalid scripting stage: {currentStage}</p>;
         }
     };
-return (
+// Inside ScriptingWorkspaceModal's render method, before the final return statement:
+    let contentToDisplay;
+    if (currentStage === 'full_script_review' && isLoading) {
+        contentToDisplay = <EngagingLoader durationInSeconds={120} />;
+    } else {
+        // Call renderContent without the internal isLoading check
+        contentToDisplay = renderContent(); 
+    }
+
+    return (
         <div className="fixed inset-0 bg-gray-900 z-50 overflow-y-auto">
             <div className="w-full min-h-full p-4 sm:p-12 md:p-16 relative">
                 <button onClick={() => handleClose(true)} className="absolute top-4 right-4 sm:top-6 sm:right-8 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
-    <div className="absolute top-4 left-4 z-10">
+                <div className="absolute top-4 left-4 z-10">
                     <button onClick={() => setShowDebugMenu(!showDebugMenu)} className="bg-gray-700 text-white px-3 py-1 rounded-lg text-xs hover:bg-gray-600">
                         Debug
                     </button>
@@ -662,7 +668,7 @@ return (
 
                 <div className="">
                     {error && <p className="text-red-400 mb-4 bg-red-900/50 p-3 rounded-lg">{error}</p>}
-                    {renderContent()}
+                    {contentToDisplay} {/* This is where the chosen content is rendered */}
                 </div>
                 
                 <div className="flex-shrink-0 pt-3 mt-3 border-t border-gray-700 flex justify-end items-center h-10">
