@@ -32,28 +32,28 @@ body {
 
 /* Specific styles for editable titles */
 .editable-field-title {
-     background-color: transparent;
-     border-color: transparent;
-     font-weight: bold;
-     font-size: 1.25rem;
-     color: #00bfff; /* Primary accent for titles (Blue) */
+    background-color: transparent;
+    border-color: transparent;
+    font-weight: bold;
+    font-size: 1.25rem;
+    color: #00bfff; /* Primary accent for titles (Blue) */
 }
 .editable-field-title:focus {
-     background-color: #202020; /* Match form-input background on focus */
-     border-color: #00bfff; /* Primary accent for border on focus */
+    background-color: #202020; /* Match form-input background on focus */
+    border-color: #00bfff; /* Primary accent for border on focus */
 }
 
 /* Specific styles for editable concepts */
 .editable-field-concept {
-     background-color: transparent;
-     border-color: transparent;
-     font-style: italic;
-     font-size: 0.875rem;
-     color: #a0a0a0; /* Softer grey for concept text */
+    background-color: transparent;
+    border-color: transparent;
+    font-style: italic;
+    font-size: 0.875rem;
+    color: #a0a0a0; /* Softer grey for concept text */
 }
 .editable-field-concept:focus {
-     background-color: #202020; /* Match form-input background on focus */
-     border-color: #00bfff; /* Primary accent for border on focus */
+    background-color: #202020; /* Match form-input background on focus */
+    border-color: #00bfff; /* Primary accent for border on focus */
 }
 
 /* Tab button active state */
@@ -182,7 +182,9 @@ body {
 }
 
 /* --- Mobile Responsive Enhancements --- */
-@media (max-width: 768px) {
+
+/* Google Pixel 9 Pro (and similar mobile devices) */
+@media (max-width: 767px) {
     /* 1. Reduce title size on mobile */
     .scripting-workspace-title {
         font-size: 1.5rem; /* Equivalent to text-2xl */
@@ -222,10 +224,55 @@ body {
         font-weight: 500;
         color: #cccccc; /* text-dark-light-gray */
     }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .project-view {
+        flex-direction: column;
+    }
+
+    .video-list-sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+        overflow-y: auto;
+    }
 }
 
+/* OnePlus Go Tablet (and similar tablets) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .project-view {
+        flex-direction: row;
+    }
+
+    .video-list-sidebar {
+        width: 300px;
+    }
+}
+
+
+/* Microsoft Surface Laptop 15" (and larger screens) */
+@media (min-width: 1025px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .project-view {
+        flex-direction: row;
+    }
+    .video-list-sidebar {
+        width: 350px;
+    }
+}
+
+
 /* Hide mobile-only elements on larger screens */
-@media (min-width: 769px) {
+@media (min-width: 768px) {
     .mobile-stepper {
         display: none;
     }
