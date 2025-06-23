@@ -1,6 +1,6 @@
 // js/components/ProjectView/tasks/ScriptingTask.js
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo, useCallback } = React; // Added useCallback
 
 // Custom hook to check for media queries
 const useMediaQuery = (query) => {
@@ -259,12 +259,7 @@ const ScriptingWorkspaceModal = ({
         setCurrentQuestionIndex(0); // Reset index when stage changes
     }, [currentStage]);
 
- const onCameraLocationObjects = useMemo(() => {
-        return (localTaskData.onCameraLocations || [])
-            .map(locationName => project.locations.find(loc => loc.name === locationName))
-            .filter(Boolean);
-    }, [localTaskData.onCameraLocations, project.locations]); // Dependencies for useMemo
-    
+
     const initiateScriptGeneration = async () => {
         setCurrentStage('full_script_review');
         await handleAction(onGenerateFullScript, localTaskData);
@@ -274,13 +269,16 @@ const ScriptingWorkspaceModal = ({
         setLocalTaskData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleOnCameraDescriptionChange = (locationName, description) => {
-        const newDescriptions = {
-            ...(localTaskData.onCameraDescriptions || {}),
-            [locationName]: description
-        };
-        handleDataChange('onCameraDescriptions', newDescriptions);
-    };
+    // Memoize handleOnCameraDescriptionChange
+    const handleOnCameraDescriptionChange = useCallback((locationName, description) => {
+        setLocalTaskData(prev => ({
+            ...prev,
+            onCameraDescriptions: {
+                ...(prev.onCameraDescriptions || {}),
+                [locationName]: description
+            }
+        }));
+    }, [setLocalTaskData]); // setLocalTaskData is a stable setter from useState
 
     const handleRemoveQuestion = (indexToRemove) => {
         const newQuestions = localTaskData.locationQuestions.filter((_, index) => index !== indexToRemove);
@@ -513,7 +511,7 @@ const ScriptingWorkspaceModal = ({
                 );
             case 'on_camera_qa':
                 // A component to handle fetching and displaying details for a single location.
-                const LocationDetailsCard = ({ location, onDescriptionChange, onRemove, description }) => {
+                const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
                     const [placeDetails, setPlaceDetails] = React.useState(null);
                     const [isLoading, setIsLoading] = React.useState(true);
 
@@ -589,11 +587,26 @@ const ScriptingWorkspaceModal = ({
                             ></textarea>
                         </div>
                     );
-                };
+                }, (prevProps, nextProps) => {
+                    // Custom comparison function for React.memo
+                    // Only re-render if location's key properties or the description change.
+                    // Callbacks (onDescriptionChange, onRemove) should be stable due to useCallback in parent.
+                    return (
+                        prevProps.location?.place_id === nextProps.location?.place_id &&
+                        prevProps.location?.name === nextProps.location?.name &&
+                        prevProps.description === nextProps.description &&
+                        prevProps.onDescriptionChange === nextProps.onDescriptionChange &&
+                        prevProps.onRemove === nextProps.onRemove
+                    );
+                });
 
-                const onCameraLocationObjects = (localTaskData.onCameraLocations || [])
-                    .map(locationName => project.locations.find(loc => loc.name === locationName))
-                    .filter(Boolean);
+                // Memoize the onCameraLocationObjects array to prevent unnecessary re-creation
+                const onCameraLocationObjects = useMemo(() => {
+                    return (localTaskData.onCameraLocations || [])
+                        .map(locationName => project.locations.find(loc => loc.name === locationName))
+                        .filter(Boolean);
+                }, [localTaskData.onCameraLocations, project.locations]); // Dependencies for useMemo
+
 
                 return (
                     <div>
