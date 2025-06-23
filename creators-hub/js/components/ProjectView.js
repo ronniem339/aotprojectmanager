@@ -74,7 +74,8 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         if (isTabletOrLarger && activeVideo) {
             setIsRightSidebarVisible(true);
         } else if (!isTabletOrLarger) {
-            setIsRightSidebarVisible(false);
+            // On smaller screens, the right sidebar should be explicitly toggled, not automatic.
+            // By not setting it to false here, we preserve the user's choice to open it.
         }
     }, [isTabletOrLarger, activeVideo]);
 
@@ -144,16 +145,16 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
             setLoading(false);
         }
     }, [localProject, userId, appId, db]);
-
-    const handleVideoSelected = useCallback((video) => {
-        setActiveVideoId(video.id);
+    
+    // *** THIS IS THE CORRECTED FUNCTION ***
+    const handleVideoSelected = useCallback((videoId) => {
+        setActiveVideoId(videoId); // It now correctly accepts the video ID string.
         if(!isTabletOrLarger) {
             setIsLeftSidebarOpen(false); // Close mobile sidebar on selection
         }
     }, [isTabletOrLarger]);
 
     const handleCloseVideoModal = useCallback(() => {
-        // We don't nullify activeVideoId here to keep the context in the background
         setShowVideoModal(false);
     }, []);
 
@@ -216,16 +217,31 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
             setLoading(false);
         }
     }, [db, localProject, videos.length, userId, appId]);
+    
+    const handleDeleteVideo = async (videoToDelete) => {
+        if (!videoToDelete) return;
+        try {
+            await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
+            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
+            await projectRef.update({
+                videoCount: firebase.firestore.FieldValue.increment(-1)
+            });
+            if (activeVideoId === videoToDelete.id) {
+                setActiveVideoId(null);
+            }
+        } catch (e) {
+            console.error("Error deleting video:", e);
+            setError(`Failed to delete video: ${e.message}`);
+        }
+    };
 
     const handleEditClick = () => {
         if (isSingleVideoProject) {
             if (videos.length > 0) {
-                // For single video projects, "Edit" opens the video modal directly
                 setActiveVideoId(videos[0].id);
                 setShowVideoModal(true);
             }
         } else {
-            // For multi-video projects, "Edit" opens the project modal
             setShowEditProjectModal(true);
         }
     };
@@ -307,24 +323,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                                     });
                                     await batch.commit();
                                 }}
-                                onDeleteVideo={async (videoToDelete) => {
-                                    // Replace with a custom modal in a real app
-                                    if (window.confirm(`Are you sure you want to delete video "${videoToDelete.chosenTitle || videoToDelete.title}"? This cannot be undone.`)) {
-                                        try {
-                                            await db.collection(`artifacts/${appId}/users/${userId}/projects/${localProject.id}/videos`).doc(videoToDelete.id).delete();
-                                            const projectRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).doc(localProject.id);
-                                            await projectRef.update({
-                                                videoCount: firebase.firestore.FieldValue.increment(-1)
-                                            });
-                                            if (activeVideoId === videoToDelete.id) {
-                                                setActiveVideoId(null);
-                                            }
-                                        } catch (e) {
-                                            console.error("Error deleting video:", e);
-                                            setError(`Failed to delete video: ${e.message}`);
-                                        }
-                                    }
-                                }}
+                                onDeleteVideo={handleDeleteVideo}
                             />
                         </div>
                     </aside>
@@ -337,7 +336,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                             {/* Workspace */}
                             <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 rounded-lg glass-card h-full">
                                 <window.VideoWorkspace
-                                    key={activeVideo.id} // Add key to force re-render on video change
+                                    key={activeVideo.id}
                                     video={activeVideo}
                                     settings={settings}
                                     onUpdateTask={handleTaskCompletion}
