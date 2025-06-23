@@ -58,16 +58,13 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
             // Handle thumbnail upload if a new, non-Firebase URL is pasted
             if (finalThumbnailUrl && !finalThumbnailUrl.includes('firebasestorage.googleapis.com') && storage) {
                 try {
-                    const fetchUrl = `/.netlify/functions/fetch-image?url=${encodeURIComponent(finalThumbnailUrl)}`;
-                    const response = await fetch(fetchUrl);
-                    if (!response.ok) throw new Error(await response.text());
-                    const blob = await response.blob();
-                    const fileExtensionMatch = finalThumbnailUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
-                    const fileExtension = fileExtensionMatch ? fileExtensionMatch[0] : '.jpg';
-                    const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}${fileExtension}`;
-                    const storageRef = storage.ref(path);
-                    await storageRef.put(blob);
-                    finalThumbnailUrl = await storageRef.getDownloadURL();
+                    // UPDATED: Using the centralized downloadAndUploadImage utility
+                    finalThumbnailUrl = await window.uploadUtils.downloadAndUploadImage(
+                        finalThumbnailUrl,
+                        `video_thumbnails/${project.id}`, // storageFolderPath: e.g., 'video_thumbnails/projectID'
+                        video.id,                        // filePrefix: e.g., 'videoID'
+                        storage                          // storageInstance
+                    );
                     setThumbnailUrl(finalThumbnailUrl); // Update local state post-upload
                 } catch (error) {
                     console.error("Failed to upload new thumbnail from URL:", error);
@@ -133,10 +130,13 @@ window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose,
             const file = e.target.files[0];
             setSaveStatus('saving'); // Indicate that an operation is in progress
             try {
-                const path = `video_thumbnails/${project.id}/${video.id}_${Date.now()}_${file.name}`;
-                const storageRef = storage.ref(path);
-                await storageRef.put(file);
-                const newUrl = await storageRef.getDownloadURL();
+                // UPDATED: Using the centralized uploadFile utility
+                const newUrl = await window.uploadUtils.uploadFile(
+                    file,
+                    `video_thumbnails/${project.id}`, // storageFolderPath: e.g., 'video_thumbnails/projectID'
+                    video.id,                        // filePrefix: e.g., 'videoID'
+                    storage                          // storageInstance
+                );
                 setThumbnailUrl(newUrl); // This state change will be picked up by the debounced auto-save
             } catch (error) {
                 console.error("Error uploading thumbnail:", error);
