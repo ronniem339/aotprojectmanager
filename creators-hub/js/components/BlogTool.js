@@ -67,7 +67,18 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const handleCheckboxChange = (e, ideaId) => {
         setSelectedIdeas(p => e.target.checked ? [...p, ideaId] : p.filter(id => id !== ideaId));
     };
+
+    // --- NEW: Handler to select all approved ideas ---
+    const handleSelectAllApproved = () => {
+        const approvedIds = ideas.filter(idea => ['approved', 'generated'].includes(idea.status)).map(idea => idea.id);
+        setSelectedIdeas(approvedIds);
+    };
     
+    // --- NEW: Handler to clear all selections ---
+    const handleUnselectAll = () => {
+        setSelectedIdeas([]);
+    };
+
     const handlePublishClick = () => {
         const ideasToPublish = ideas.filter(idea => selectedIdeas.includes(idea.id));
         onPublishPosts(ideasToPublish);
@@ -107,13 +118,33 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
 
     return (
         <div className="p-4 sm:p-6">
-            <h2 className="text-2xl font-bold mb-6">Blog Post Factory</h2>
+            {/* --- NEW: Header with Back Button --- */}
+            <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
+                <h1 className="text-3xl sm:text-4xl font-bold text-white text-center sm:text-left">✍️ Blog Post Factory</h1>
+                <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Tools
+                </button>
+            </header>
+
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 border border-gray-700">
                 <form onSubmit={handleGenerateIdeas}>
                     <div className="flex gap-4"><input type="text" id="destination" name="destination" className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Enter a destination or topic..." /><button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Generate Ideas</button></div>
                 </form>
             </div>
-            <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold">Content Pipeline</h3><button onClick={handlePublishClick} disabled={selectedIdeas.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">Publish ({selectedIdeas.length}) to WordPress</button></div>
+            
+            {/* --- MODIFIED: Added Select All/Unselect All buttons --- */}
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+                <h3 className="text-xl font-bold">Content Pipeline</h3>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleSelectAllApproved} className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded-md">Select All Approved</button>
+                    <button onClick={handleUnselectAll} className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded-md">Unselect All</button>
+                    <button onClick={handlePublishClick} disabled={selectedIdeas.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">Publish ({selectedIdeas.length}) to WordPress</button>
+                </div>
+            </div>
+
             {isLoading ? <window.LoadingSpinner text="Loading pipeline..."/> : ideas.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{ideas.map(renderIdeaCard)}</div> : <p className="text-gray-400 p-4 bg-gray-800 rounded-lg">No ideas yet. Use the generator above!</p>}
         </div>
     );
