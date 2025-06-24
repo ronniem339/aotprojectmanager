@@ -17,9 +17,6 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
             const projs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setProjects(projs);
             setIsLoading(false);
-        }, error => {
-            console.error("Error fetching projects: ", error);
-            setIsLoading(false);
         });
         return () => unsubscribe();
     }, [userId, db, appId]);
@@ -38,29 +35,28 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
             setVideos(vids);
             
             if (vids.length > 0) {
-                const currentSelectedVideoFromDB = vids.find(v => v.id === selectedVideo?.id);
-
-                if (currentSelectedVideoFromDB) {
-                    // **FIX 1: Create a new object reference to guarantee a re-render.**
-                    // This forces React to see a completely new object and trigger the
-                    // update in the child component every single time.
-                    const newSelectedVideoObject = JSON.parse(JSON.stringify(currentSelectedVideoFromDB));
-                    setSelectedVideo(newSelectedVideoObject);
-
-                } else {
-                    setSelectedVideo(vids[0]);
-                }
+                // Use a functional state update to avoid stale state issues within the closure.
+                setSelectedVideo(currentSelectedVid => {
+                    const updatedVid = vids.find(v => v.id === currentSelectedVid?.id);
+                    if (updatedVid) {
+                        // Deep clone to ensure referential inequality and trigger re-renders
+                        return JSON.parse(JSON.stringify(updatedVid));
+                    }
+                    // If the previously selected video is no longer available, default to the first one.
+                    return vids[0];
+                });
             } else {
                 setSelectedVideo(null);
             }
         });
 
         return () => unsubscribe();
-    // **FIX 2: Add `selectedVideo` to the dependency array.**
-    // This ensures the onSnapshot callback always has the latest `selectedVideo` reference.
-    }, [selectedProject, userId, db, appId, selectedVideo]);
+    // **THE FIX: Removed `selectedVideo` from the dependency array.**
+    // This prevents the listener from being torn down and re-created unnecessarily.
+    }, [selectedProject, userId, db, appId]);
     
-    // Callbacks for the ShortsIdeasToolModal (no changes here)
+    // ... (The rest of the component, including all handlers and JSX, remains unchanged) ...
+    
     const handleSaveShortsIdea = async (newIdea) => {
         if (!db || !selectedProject || !selectedVideo) return;
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProject.id}/videos`).doc(selectedVideo.id);
@@ -101,7 +97,6 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
         await videoDocRef.update({ shortsIdeas: updatedShorts });
     };
 
-    // JSX / Rendering (no changes here)
     return (
         <div className="p-4 sm:p-6 md:p-8 min-h-screen flex flex-col">
             <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
