@@ -16,13 +16,25 @@ body {
 /* Form input, textarea, and editable field styles */
 /* NOTE: A global 'padding' property, if present, should be removed from this selector. */
 /* Global padding overrides specific utility classes (like pl-10 for icons) and causes UI issues like the search bar overlap. */
-.form-input, .form-textarea, .editable-field {
+.form-input, .form-textarea, .editable-field, .form-select {
     background-color: #202020; /* Darker grey for inputs */
     border: 1px solid #3a3a3a; /* Medium grey border for definition */
     color: #e0e0e0; /* Input text color */
     border-radius: 0.5rem;
     width: 100%;
+    /* --- UPDATED STYLES for larger inputs and fonts --- */
+    padding-top: 0.75rem;      /* 12px */
+    padding-bottom: 0.75rem;   /* 12px */
+    padding-left: 1rem;        /* 16px */
+    font-size: 1rem;           /* 16px */
+    line-height: 1.5rem;       /* 24px */
 }
+
+/* --- NEW STYLE to ensure select elements have room for the dropdown arrow --- */
+select.form-input, select.form-select {
+  padding-right: 2.5rem; /* Make room for the dropdown arrow */
+}
+
 
 /* Focus styles for form elements */
 .form-input:focus, .form-textarea:focus, .editable-field:focus {
