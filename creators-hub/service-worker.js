@@ -55,7 +55,8 @@ self.addEventListener('fetch', event => {
       .then(cachedResponse => {
         const fetchPromise = fetch(event.request).then(networkResponse => {
           // If we get a valid response, put it in the dynamic cache.
-          if (networkResponse && networkResponse.status === 200) {
+          // FIX: Only attempt to cache GET requests.
+          if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
             return caches.open(CACHE_NAME_DYNAMIC).then(cache => {
               cache.put(event.request, networkResponse.clone());
               return networkResponse;
