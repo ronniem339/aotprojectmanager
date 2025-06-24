@@ -103,11 +103,11 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         if (!destination) return;
         setIsGenerating(true);
         try {
+            // Corrected: Removed redundant knowledge base params. 
+            // The settings object contains everything the function needs.
             const newIdeas = await window.aiUtils.generateBlogPostIdeasAI({
-                destination, settings,
-                coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-                monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-                ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration
+                destination, 
+                settings,
             });
             const batch = db.batch();
             newIdeas.forEach(idea => {
@@ -133,11 +133,11 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 setIsGeneratingFromVideo(false);
                 return;
             }
+            // Corrected: Removed redundant knowledge base params.
             const newIdeas = await window.aiUtils.generateBlogPostIdeasFromVideoAI({
-                video: videoData, projectTitle: projectData.playlistTitle, settings,
-                coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
-                monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
-                ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration
+                video: videoData, 
+                projectTitle: projectData.playlistTitle, 
+                settings,
             });
             const batch = db.batch();
             newIdeas.forEach(idea => {
@@ -466,8 +466,8 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                                 <span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span>
                                             </div>
                                              <div className="text-sm text-gray-400">
-                                                <strong>Origin:</strong> {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
-                                             </div>
+                                                 <strong>Origin:</strong> {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
+                                              </div>
                                             <div className="flex gap-2 pt-2 border-t border-gray-700/50">
                                                 {idea.status === 'approved' ? (
                                                     <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write Post</button>
