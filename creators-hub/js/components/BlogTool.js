@@ -4,15 +4,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const { useState, useEffect, useMemo } = React;
 
     // --- STATE MANAGEMENT ---
-    // For Idea Generation UI
     const [isGenerating, setIsGenerating] = useState(false);
     const [projects, setProjects] = useState([]);
     const [selectedProject, setSelectedProject] = useState('');
     const [videos, setVideos] = useState([]);
     const [selectedVideo, setSelectedVideo] = useState('');
     const [isGeneratingFromVideo, setIsGeneratingFromVideo] = useState(false);
-
-    // For Content Pipeline Dashboard
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedRow, setExpandedRow] = useState(null);
@@ -31,8 +28,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     }, [db, APP_ID, userId]);
 
     // --- DATA FETCHING EFFECTS ---
-
-    // Fetch all blog ideas for the pipeline
     useEffect(() => {
         if (!ideasCollectionRef) {
             setIsLoading(false);
@@ -53,8 +48,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         return () => unsubscribe();
     }, [ideasCollectionRef, sortBy, sortOrder]);
 
-
-    // Fetch all projects for the user (for generator UI)
     useEffect(() => {
         if (!userId) {
             setProjects([]);
@@ -62,16 +55,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         }
         const projectsCollectionRef = db.collection(`artifacts/${APP_ID}/users/${userId}/projects`);
         const unsubscribe = projectsCollectionRef.onSnapshot(
-            snapshot => {
-                const fetchedProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setProjects(fetchedProjects);
-            },
+            snapshot => setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
             err => console.error("Error fetching projects:", err)
         );
         return () => unsubscribe();
     }, [db, APP_ID, userId]);
 
-    // Fetch videos when a project is selected (for generator UI)
     useEffect(() => {
         if (!selectedProject || !userId) {
             setVideos([]);
@@ -95,10 +84,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         return () => unsubscribe();
     }, [db, APP_ID, userId, selectedProject]);
 
-
     // --- HANDLER FUNCTIONS ---
-
-    // For Idea Generation
     const handleGenerateIdeas = async (e) => {
         e.preventDefault();
         const destination = e.target.elements.destination.value;
@@ -135,9 +121,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 return;
             }
             const newIdeas = await window.aiUtils.generateBlogPostIdeasFromVideoAI({
-                video: videoData,
-                projectTitle: projectData.playlistTitle,
-                settings,
+                video: videoData, projectTitle: projectData.playlistTitle, settings,
                 coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
                 monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
                 ideaGenerationKb: settings.knowledgeBases.blog.ideaGeneration
@@ -155,7 +139,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         }
     };
 
-    // For Dashboard
     const handleRowClick = (id) => setExpandedRow(expandedRow === id ? null : id);
     
     const handleIndividualDelete = async (e, ideaId) => {
@@ -174,7 +157,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         onGeneratePost(idea);
     };
 
-    // Bulk Actions
     const handleBulkUpdateStatus = async (ideaIds, newStatus) => {
         if (ideaIds.size === 0) return;
         const batch = db.batch();
@@ -388,7 +370,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 <h3 className="text-xl font-bold mb-4">Content Pipeline</h3>
                 <div className="mb-4 flex items-center border-b border-gray-700">
                      {['new', 'active', 'closed'].map(view => (
-                        <button key={view} onClick={() => setCurrentDashboardView(view)} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400 hover:text-white'}`}>
+                        <button key={view} onClick={() => { setSelectedIdeas(new Set()); setCurrentDashboardView(view); }} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400 hover:text-white'}`}>
                             {view === 'active' ? 'Active Pipeline' : `${view} Ideas`}
                         </button>
                      ))}
@@ -402,41 +384,74 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 <div className="mb-4 flex flex-wrap gap-2 items-center">{renderBulkActionButtons()}</div>
                 
                 {sortedAndFilteredIdeas.length === 0 ? 
-                    <div className="text-center text-gray-400 py-8"><p>No ideas in this view.</p></div> :
-                    <div className="overflow-x-auto glass-card rounded-lg">
-                        <table className="w-full text-left table-auto">
-                            <thead className="bg-gray-800/50">
-                                <tr>
-                                    <th className="p-3 w-px"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
-                                    <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
-                                    <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Type {getSortIcon('postType')}</th>
-                                    <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
-                                    <th className="p-3 cursor-pointer" onClick={() => handleSort('relatedProjectTitle')}>Origin {getSortIcon('relatedProjectTitle')}</th>
-                                    <th className="p-3 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-800">
-                                {sortedAndFilteredIdeas.map(idea => (
-                                    <React.Fragment key={idea.id}>
-                                        <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
-                                            <td className="p-3"><input type="checkbox" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
-                                            <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
-                                            <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType}</span></td>
-                                            <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
-                                            <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
-                                            <td className="p-3 text-right">
-                                                <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2 disabled:opacity-50" onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
-                                                    {idea.status === 'approved' ? 'Write' : 'View'}
-                                                </button>
-                                                <button onClick={(e) => handleIndividualDelete(e, idea.id)} className="px-3 py-1 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold">Del</button>
-                                            </td>
-                                        </tr>
-                                        {expandedRow === idea.id && (<tr className="bg-gray-800/30"><td colSpan="6"><ExpandedContent idea={idea} /></td></tr>)}
-                                    </React.Fragment>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <div className="text-center text-gray-400 py-8"><p>No ideas in this view.</p></div> 
+                    :
+                    <>
+                        {/* --- Desktop Table View --- */}
+                        <div className="hidden md:block overflow-x-auto glass-card rounded-lg">
+                            <table className="w-full text-left table-auto">
+                                <thead className="bg-gray-800/50">
+                                    <tr>
+                                        <th className="p-3 w-px"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
+                                        <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
+                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Type {getSortIcon('postType')}</th>
+                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
+                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('relatedProjectTitle')}>Origin {getSortIcon('relatedProjectTitle')}</th>
+                                        <th className="p-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800">
+                                    {sortedAndFilteredIdeas.map(idea => (
+                                        <React.Fragment key={idea.id}>
+                                            <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
+                                                <td className="p-3"><input type="checkbox" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
+                                                <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
+                                                <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span></td>
+                                                <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
+                                                <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
+                                                <td className="p-3 text-right space-x-2">
+                                                    <button className="btn btn-sm btn-primary" onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
+                                                        {idea.status === 'approved' ? 'Write' : 'View'}
+                                                    </button>
+                                                    <button onClick={(e) => handleIndividualDelete(e, idea.id)} className="btn btn-sm btn-danger">Del</button>
+                                                </td>
+                                            </tr>
+                                            {expandedRow === idea.id && (<tr className="bg-gray-800/30"><td colSpan="6"><ExpandedContent idea={idea} /></td></tr>)}
+                                        </React.Fragment>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* --- Mobile Card View --- */}
+                        <div className="md:hidden space-y-4">
+                            {sortedAndFilteredIdeas.map(idea => (
+                                <div key={idea.id} className="glass-card rounded-lg overflow-hidden">
+                                    <div className="p-4" onClick={() => handleRowClick(idea.id)}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <input type="checkbox" className="form-checkbox mr-4 mt-1 flex-shrink-0" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()} />
+                                            <h3 className="font-bold text-lg text-primary-accent pr-2 flex-grow">{idea.title}</h3>
+                                        </div>
+                                        <div className="ml-8 space-y-3">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span>
+                                                <span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span>
+                                            </div>
+                                             <div className="text-sm text-gray-400">
+                                                <strong>Origin:</strong> {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
+                                            </div>
+                                            <div className="flex gap-2 pt-2 border-t border-gray-700/50">
+                                                 <button className="btn btn-sm btn-primary flex-grow" onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
+                                                     {idea.status === 'approved' ? 'Write Post' : 'View Post'}
+                                                 </button>
+                                                 <button onClick={(e) => handleIndividualDelete(e, idea.id)} className="btn btn-sm btn-danger flex-grow">Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {expandedRow === idea.id && <ExpandedContent idea={idea} />}
+                                </div>
+                            ))}
+                        </div>
+                    </>
                 }
             </div>
         );
@@ -446,8 +461,8 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
                 <h1 className="text-3xl sm:text-4xl font-bold text-white text-center sm:text-left">✍️ Blog Post Factory</h1>
-                <button onClick={onBack} className="flex items-center gap-2 glass-card px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <button onClick={onBack} className="btn btn-outline w-full sm:w-auto justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     Back to Tools
                 </button>
             </header>
