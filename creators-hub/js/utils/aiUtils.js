@@ -310,14 +310,14 @@ Example Output Format:
     }
 };
 
-    /**
-      * Generates a full blog post in HTML format, ready for WordPress.
-      */
+/**
+  * Generates a full blog post in HTML format, ready for WordPress.
+  */
 window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
-        const { title, primaryKeyword } = idea;
-        const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
+    const { title, primaryKeyword } = idea;
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
-        const prompt = `
+    const prompt = `
 You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress editor.
 
 ${styleGuidePrompt}
@@ -330,39 +330,67 @@ ${styleGuidePrompt}
 **Instructions:**
 1.  Create a compelling and engaging blog post.
 2.  The structure should be logical with a clear introduction, body, and conclusion. Use H2 and H3 tags for headings.
-3.  Strategically place placeholders for images and YouTube videos where they would be most effective.
+3.  **CRITICAL:** Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content. The title is handled separately by WordPress.
+4.  Strategically place placeholders for images and YouTube videos where they would be most effective.
     * **Image Placeholder:** Use \`<div class="placeholder-image" style="height:300px; background:#ccc; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the image">Image Placeholder: [add descriptive keywords here]</div>\`
     * **YouTube Placeholder:** Use \`<div class="placeholder-youtube" style="height:300px; background:#333; color:white; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the video">YouTube Placeholder: [add descriptive keywords here]</div>\`
-4.  Ensure the primary keyword is naturally integrated into the text.
-5.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output should be only the content that goes inside the WordPress editor.
-6.  Your entire response should be only the raw HTML content. Do not wrap it in JSON or Markdown code blocks.`;
+5.  Ensure the primary keyword is naturally integrated into the text.
+6.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output should be only the content that goes inside the WordPress editor.
+7.  Your entire response should be only the raw HTML content. Do not wrap it in JSON or Markdown code blocks.`;
 
-        try {
-            const htmlContent = await window.aiUtils.callGeminiAPI(
-                prompt,
-                settings,
-                { responseMimeType: "text/plain" },
-                true // This is a complex task
-            );
+    try {
+        const htmlContent = await window.aiUtils.callGeminiAPI(
+            prompt,
+            settings,
+            { responseMimeType: "text/plain" },
+            true // This is a complex task
+        );
 
-            let cleanedHtml = htmlContent.trim();
-            if (cleanedHtml.startsWith('```html')) {
-                cleanedHtml = cleanedHtml.substring(7).trim();
-            } else if (cleanedHtml.startsWith('```')) {
-                 cleanedHtml = cleanedHtml.substring(3).trim();
-            }
-            if (cleanedHtml.endsWith('```')) {
-                cleanedHtml = cleanedHtml.slice(0, -3).trim();
-            }
-
-            return cleanedHtml;
-
-        } catch (error) {
-            console.error("Error generating WordPress Post HTML:", error);
-            throw new Error(`AI failed to generate WordPress HTML: ${error.message || error}`);
+        let cleanedHtml = htmlContent.trim();
+        if (cleanedHtml.startsWith('```html')) {
+            cleanedHtml = cleanedHtml.substring(7).trim();
+        } else if (cleanedHtml.startsWith('```')) {
+             cleanedHtml = cleanedHtml.substring(3).trim();
         }
-};
+        if (cleanedHtml.endsWith('```')) {
+            cleanedHtml = cleanedHtml.slice(0, -3).trim();
+        }
 
+        return cleanedHtml;
+
+    } catch (error) {
+        console.error("Error generating WordPress Post HTML:", error);
+        throw new Error(`AI failed to generate WordPress HTML: ${error.message || error}`);
+    }
+};
+/**
+ * --- NEW FUNCTION ---
+ * Generates SEO tags for a blog post.
+ */
+window.aiUtils.generateTagsForPostAI = async ({ idea, settings }) => {
+    const prompt = `You are an SEO expert. Based on the following blog post idea, generate a list of 5-10 highly relevant tags for WordPress.
+    
+    Blog Post Details:
+    - Title: "${idea.title}"
+    - Description: "${idea.description}"
+    - Primary Keyword: "${idea.primaryKeyword}"
+
+    Return the list as a valid JSON object with a single key "tags", which is an array of strings.
+    Example: { "tags": ["travel", "destinations", "city guide"] }`;
+
+    try {
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
+        if (parsedJson && Array.isArray(parsedJson.tags)) {
+            return parsedJson.tags;
+        } else {
+            console.warn("AI returned an invalid format for tags, returning empty array.", parsedJson);
+            return []; // Return an empty array on failure to prevent crashes
+        }
+    } catch (error) {
+        console.error("Error generating tags for post:", error);
+        throw new Error(`AI failed to generate tags: ${error.message || error}`);
+    }
+};
   /**
   * Finds points of interest.
   */
