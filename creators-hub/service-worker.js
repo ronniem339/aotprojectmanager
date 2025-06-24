@@ -1,6 +1,6 @@
 // A robust, modern service worker using a stale-while-revalidate strategy.
 
-const CACHE_NAME_STATIC = 'aot-pm-static-v2'; // Changed version to force update
+const CACHE_NAME_STATIC = 'aot-pm-static-v2';
 const CACHE_NAME_DYNAMIC = 'aot-pm-dynamic-v2';
 
 // These are the absolute core files for the app shell to work.
@@ -21,13 +21,13 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME_STATIC).then(cache => {
       console.log('[Service Worker] Precaching App Shell...');
-      // Use addAll to cache all static assets. If one fails, the SW install fails.
       return cache.addAll(STATIC_ASSETS);
     }).catch(err => {
-        // This is critical for debugging.
         console.error('[Service Worker] Pre-caching failed:', err);
     })
   );
+  // Force the waiting service worker to become the active service worker.
+  self.skipWaiting();
 });
 
 // ACTIVATE: Clean up old caches.
