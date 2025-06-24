@@ -7,17 +7,17 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
     const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
     const [isLoadingMetadata, setIsLoadingMetadata] = useState({});
     const [error, setError] = useState('');
-    const [shortsIdeas, setShortsIdeas] = useState(video.shortsIdeas || []);
 
-    useEffect(() => {
-        setShortsIdeas(video.shortsIdeas || []);
-    }, [video.shortsIdeas, video.id]);
+    // **FIX 1: Remove the local 'shortsIdeas' state. We will use the 'video.shortsIdeas' prop directly.**
+    // No longer needed: const [shortsIdeas, setShortsIdeas] = useState(video.shortsIdeas || []);
+    // No longer needed: useEffect(() => { setShortsIdeas(video.shortsIdeas || []); }, [video.shortsIdeas, video.id]);
 
-    // **FIX 2: Separate ideas into active and completed lists**
+    // **FIX 2: Use a 'useMemo' hook to derive active and completed ideas directly from the prop.**
+    // This is efficient and always up-to-date.
     const { activeIdeas, completedIdeas } = useMemo(() => {
         const active = [];
         const completed = [];
-        (shortsIdeas || []).forEach(idea => {
+        (video.shortsIdeas || []).forEach(idea => {
             if (idea.status === 'complete') {
                 completed.push(idea);
             } else {
@@ -25,7 +25,7 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
             }
         });
         return { activeIdeas: active, completedIdeas: completed };
-    }, [shortsIdeas]);
+    }, [video.shortsIdeas]); // This will re-calculate whenever the prop changes.
 
 
     const handleGenerateIdeas = async () => {
@@ -33,7 +33,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         setError('');
         setGeneratedIdeas([]);
 
-        const previouslyCreatedShorts = shortsIdeas.map(idea => ({ title: idea.title, status: idea.status }));
+        // Pass the current saved ideas from the prop, not local state
+        const previouslyCreatedShorts = (video.shortsIdeas || []).map(idea => ({ title: idea.title, status: idea.status }));
 
         try {
             const ideas = await window.aiUtils.generateShortsIdeasAI({
@@ -70,14 +71,12 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         onDeleteShortsIdea(id);
     };
 
-    // **FIX 2: Handler to mark an idea as complete**
     const handleMarkAsComplete = (ideaId) => {
         if (onUpdateShortsIdeaStatus) {
             onUpdateShortsIdeaStatus(ideaId, 'complete');
         }
     };
 
-    // **FIX 2: Handler to revert a completed idea back to saved**
     const handleRevertToSaved = (ideaId) => {
         if (onUpdateShortsIdeaStatus) {
             onUpdateShortsIdeaStatus(ideaId, 'saved');
@@ -107,7 +106,6 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         <div className="w-full h-full flex flex-col">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 text-center">Generate YouTube Shorts Ideas</h2>
 
-             {/* **FIX 1: Added pb-6 to give space at the bottom of the scrollable area** */}
             <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar pb-6">
                 <p className="text-gray-400 mb-6 text-center">Generate quick, engaging ideas for YouTube Shorts based on your video content and project details.</p>
                 
@@ -124,8 +122,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                 )}
                 <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1 space-y-6">
-                        {/* Saved Ideas (Active) */}
-                        <div className={`${activeIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
+                        {/* **FIX 3: Use the derived 'activeIdeas' state here.** */}
+                        <div className={`${activeIdeas.length > 0 || generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
                             <h3 className="text-xl font-bold text-white mb-4">Saved Shorts Ideas ({activeIdeas.length})</h3>
                             <div className="space-y-4">
                                 {activeIdeas.map((idea) => (
@@ -147,7 +145,6 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                                                 <p className="text-sm text-gray-300"><strong>Description:</strong> {idea.metadata.description || 'N/A'}</p>
                                                 <p className="text-sm text-gray-300"><strong>Tags:</strong> {idea.metadata.tags || 'N/A'}</p>
                                                 <div className="mt-3 flex justify-end items-center gap-4">
-                                                    {/* **FIX 2: Add Mark as Complete button** */}
                                                     <button onClick={() => handleMarkAsComplete(idea.id)} className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 rounded-md font-semibold">Mark as Used</button>
                                                     <window.CopyButton textToCopy={`${idea.metadata.caption}\n\n${idea.metadata.description}\n\nTags: ${idea.metadata.tags}`} />
                                                 </div>
@@ -167,7 +164,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                                 ))}
                             </div>
                         </div>
-                        {/* **FIX 2: New section for Completed ideas** */}
+                        
+                        {/* **FIX 4: Use the derived 'completedIdeas' state here.** */}
                         {completedIdeas.length > 0 && (
                              <div className="pt-6 border-t border-gray-700">
                                 <h3 className="text-xl font-bold text-gray-500 mb-4">Completed Ideas ({completedIdeas.length})</h3>
@@ -184,7 +182,7 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                             </div>
                         )}
                     </div>
-                     {/* New Suggestions Column */}
+
                     <div className={`flex-1 ${generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
                         <h3 className="text-xl font-bold text-white mb-4">New Suggestions ({generatedIdeas.length})</h3>
                         <div className="space-y-4">
@@ -204,7 +202,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                     </div>
                 </div>
                 
-                {shortsIdeas.length === 0 && generatedIdeas.length === 0 && (
+                {/* **FIX 5: Update the final check to use derived state.** */}
+                {activeIdeas.length === 0 && completedIdeas.length === 0 && generatedIdeas.length === 0 && (
                     <div className="text-center text-gray-500 mt-8">
                         No Shorts ideas saved or generated yet. Click "Generate Shorts Ideas" to get started!
                     </div>
