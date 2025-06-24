@@ -9,7 +9,7 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
     const [isLoading, setIsLoading] = useState(true);
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
 
-    // Fetch projects
+    // Fetch projects (no changes here)
     useEffect(() => {
         if (!userId || !db) return;
         const projectsCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects`).orderBy("lastAccessed", "desc");
@@ -32,33 +32,53 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
             return;
         }
         const videosCollectionRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProject.id}/videos`).orderBy("order");
+        
         const unsubscribe = videosCollectionRef.onSnapshot(snapshot => {
             const vids = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setVideos(vids);
+            
             if (vids.length > 0) {
-                setSelectedVideo(vids[0]); // Auto-select the first video
+                const currentSelectedVideoFromDB = vids.find(v => v.id === selectedVideo?.id);
+
+                if (currentSelectedVideoFromDB) {
+                    // **FIX 1: Create a new object reference to guarantee a re-render.**
+                    // This forces React to see a completely new object and trigger the
+                    // update in the child component every single time.
+                    const newSelectedVideoObject = JSON.parse(JSON.stringify(currentSelectedVideoFromDB));
+                    setSelectedVideo(newSelectedVideoObject);
+
+                } else {
+                    setSelectedVideo(vids[0]);
+                }
             } else {
                 setSelectedVideo(null);
             }
         });
+
         return () => unsubscribe();
-    }, [selectedProject, userId, db, appId]);
+    // **FIX 2: Add `selectedVideo` to the dependency array.**
+    // This ensures the onSnapshot callback always has the latest `selectedVideo` reference.
+    }, [selectedProject, userId, db, appId, selectedVideo]);
     
-    // Callbacks for the ShortsIdeasToolModal
+    // Callbacks for the ShortsIdeasToolModal (no changes here)
     const handleSaveShortsIdea = async (newIdea) => {
         if (!db || !selectedProject || !selectedVideo) return;
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProject.id}/videos`).doc(selectedVideo.id);
-        const currentShorts = selectedVideo.shortsIdeas || [];
-        const updatedShorts = [...currentShorts, newIdea];
-        await videoDocRef.update({ shortsIdeas: updatedShorts });
+        await videoDocRef.update({
+            shortsIdeas: firebase.firestore.FieldValue.arrayUnion(newIdea)
+        });
     };
 
     const handleDeleteShortsIdea = async (ideaId) => {
         if (!db || !selectedProject || !selectedVideo) return;
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProject.id}/videos`).doc(selectedVideo.id);
-        const currentShorts = selectedVideo.shortsIdeas || [];
-        const updatedShorts = currentShorts.filter(idea => idea.id !== ideaId);
-        await videoDocRef.update({ shortsIdeas: updatedShorts });
+        const ideaToDelete = (selectedVideo.shortsIdeas || []).find(idea => idea.id === ideaId);
+        
+        if (ideaToDelete) {
+            await videoDocRef.update({
+                shortsIdeas: firebase.firestore.FieldValue.arrayRemove(ideaToDelete)
+            });
+        }
     };
 
     const handleGenerateShortsMetadata = async (ideaId, metadata) => {
@@ -70,8 +90,18 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
         );
         await videoDocRef.update({ shortsIdeas: updatedShorts });
     };
+    
+    const handleUpdateShortsIdeaStatus = async (ideaId, newStatus) => {
+        if (!db || !selectedProject || !selectedVideo) return;
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${selectedProject.id}/videos`).doc(selectedVideo.id);
+        const currentShorts = selectedVideo.shortsIdeas || [];
+        const updatedShorts = currentShorts.map(idea =>
+            idea.id === ideaId ? { ...idea, status: newStatus } : idea
+        );
+        await videoDocRef.update({ shortsIdeas: updatedShorts });
+    };
 
-
+    // JSX / Rendering (no changes here)
     return (
         <div className="p-4 sm:p-6 md:p-8 min-h-screen flex flex-col">
             <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
@@ -86,7 +116,6 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
 
             {isLoading ? <window.LoadingSpinner text="Loading projects..." /> : (
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
-                    {/* Project Selector */}
                     <div className="flex-1 w-full">
                         <label className="block text-sm font-medium text-gray-300 mb-2">1. Select a Project</label>
                         <select
@@ -104,7 +133,6 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
                             ))}
                         </select>
                     </div>
-                    {/* Video Selector */}
                     <div className="flex-1 w-full">
                             <label className="block text-sm font-medium text-gray-300 mb-2">2. Select a Video</label>
                             <select
@@ -125,10 +153,9 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
                 </div>
             )}
             
-            {/* Conditional rendering of the content area */}
-            <div className="flex-grow">
-            {selectedProject && selectedVideo ? (
-                    <div className="glass-card p-4 sm:p-6 rounded-lg h-full">
+            <div className="flex-grow flex flex-col">
+                {selectedProject && selectedVideo ? (
+                    <div className="glass-card p-4 sm:p-6 rounded-lg h-full flex-grow">
                         <window.ShortsIdeasToolModal
                             video={selectedVideo}
                             project={selectedProject}
@@ -136,13 +163,14 @@ window.ShortsTool = ({ settings, onBack, userId, db }) => {
                             onSaveShortsIdea={handleSaveShortsIdea}
                             onDeleteShortsIdea={handleDeleteShortsIdea}
                             onGenerateShortsMetadata={handleGenerateShortsMetadata}
+                            onUpdateShortsIdeaStatus={handleUpdateShortsIdeaStatus}
                         />
                     </div>
-            ) : (
-                <div className="glass-card p-12 rounded-lg text-center h-full flex items-center justify-center">
-                    <p className="text-gray-400 text-lg">Please select a project and a video to start generating Shorts ideas.</p>
-                </div>
-            )}
+                ) : (
+                    <div className="glass-card p-12 rounded-lg text-center h-full flex items-center justify-center flex-grow">
+                        <p className="text-gray-400 text-lg">Please select a project and a video to start generating Shorts ideas.</p>
+                    </div>
+                )}
             </div>
         </div>
     );
