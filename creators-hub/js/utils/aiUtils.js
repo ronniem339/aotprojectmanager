@@ -80,12 +80,9 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
       
       if (finalGenerationConfig.responseMimeType === "application/json") {
           try {
-              // **FIX: Robustly find and parse the JSON part of the response.**
-              // This handles cases where the AI includes markdown or other text.
               const jsonStart = responseText.indexOf('{');
               const arrayStart = responseText.indexOf('[');
               
-              // Determine if the response is a JSON object or array
               const start = (jsonStart === -1 || (arrayStart !== -1 && arrayStart < jsonStart)) ? arrayStart : jsonStart;
 
               if (start === -1) {
@@ -182,6 +179,59 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
     }
 };
 
+/**
+ * NEW FUNCTION
+ * Generates blog post ideas based on a specific video.
+ */
+window.aiUtils.generateBlogPostIdeasFromVideoAI = async ({ video, projectTitle, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+    const context = `A user wants blog post ideas based on a specific video from their travels.
+Project Title: "${projectTitle || 'N/A'}"
+Video Title: "${video.title || 'Untitled Video'}"
+Video Concept: "${video.concept || 'No concept provided.'}"
+Video Locations: "${(video.locations_featured || []).join(', ') || 'No locations specified.'}"
+Video Keywords: "${(video.targeted_keywords || []).join(', ') || 'No keywords specified.'}"
+
+Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
+
+    const prompt = `You are an expert SEO and content strategist for a travel blog.
+${context}
+
+You MUST adhere to the following foundational knowledge bases for all generated content:
+---
+**Core SEO & Content Engine:**
+${coreSeoEngine || "Focus on user intent and long-tail keywords."}
+---
+**Monetization & Content Goals:**
+${monetizationGoals || "The goal is to generate affiliate revenue from links."}
+---
+**Blog Post Idea Generation Framework:**
+${ideaGenerationKb || "Generate ideas for different content types like guides, listicles, and comparison posts."}
+---
+
+For each idea, provide the following in a valid JSON object:
+- "title": (string) A catchy, SEO-friendly headline.
+- "description": (string) A brief (1-2 sentence) summary of the post's content and target audience.
+- "primaryKeyword": (string) The main search term this post should rank for.
+- "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
+- "monetizationOpportunities": (string) A brief (1-2 sentence) explanation of the specific monetization opportunities (e.g., affiliate links for hotels, tours, gear) and how it aligns with the user's content goals.
+
+Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
+
+    try {
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
+        if (parsedJson && Array.isArray(parsedJson.ideas)) {
+            return parsedJson.ideas;
+        } else {
+            console.error("AI returned an invalid format for blog post ideas from video:", parsedJson);
+            throw new Error("AI returned an invalid format for blog post ideas.");
+        }
+    } catch (error) {
+        console.error("Error generating blog post ideas from video:", error);
+        throw new Error(`AI failed to generate ideas from video: ${error.message || error}`);
+    }
+};
+
+
     /**
   * Generates a full blog post based on an approved idea.
   */
@@ -243,7 +293,7 @@ Example Output Format:
       if (match && match[1]) {
         jsonString = match[1];
       } else {
-              console.error("AI response did not contain a valid JSON block.", rawResponseText);
+            console.error("AI response did not contain a valid JSON block.", rawResponseText);
         throw new Error("AI response did not provide the expected JSON format. Please try again.");
       }
 
