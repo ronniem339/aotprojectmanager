@@ -534,43 +534,73 @@ window.aiUtils.refineVideoConceptBasedOnInventory = async ({ videoTitle, current
         return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
     };
 
+// creators-hub/js/utils/aiUtils.js
+
 window.aiUtils.generateShortsIdeasAI = async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, projectTitle, shortsIdeaGenerationKb, previouslyCreatedShorts = [], settings, videoTone }) => {
-        const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
-        const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
-            const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
-            const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => type.replace('bRoll', 'B-Roll').replace('onCamera', 'On-Camera').replace('drone', 'Drone')).join(', ');
-            return ` - ${locName}: ${footageTypes ? footageTypes + ' footage available' : 'No specific footage recorded'}.`;
-        }).join('\n');
-        const previouslyCreatedShortsSummary = previouslyCreatedShorts.length > 0 ? previouslyCreatedShorts.map(short => `- "${short.title}" (Status: ${short.status || 'unknown'})`).join('\n') : 'No shorts created yet.';
-        const prompt = `You are a YouTube Shorts content strategist. Generate compelling, short-form video ideas.
-        Long-Form Video:
-        - Title: "${videoTitle}"
-        - Concept: "${videoConcept}"
-        - Locations with Footage:
-        ${featuredLocationsDetail || 'No specific locations featured.'}
-        Project Context:
-        - Series Title: "${projectTitle}"
-        ${styleGuide}
-        Shorts Knowledge Base: "${shortsIdeaGenerationKb || 'Focus on quick hooks and trending sounds.'}"
-        Previously created shorts (avoid overlap):
-        ${previouslyCreatedShortsSummary}
-        Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
-        - A catchy title.
-        - A brief description.
-        - A suggestion for specific footage to use.
-        Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects with "title", "description", and "footageToUse" properties.`;
+    const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
+    
+    const featuredLocationsDetail = (videoLocationsFeatured || []).map(locName => {
+        const locInventory = Object.values(projectFootageInventory || {}).find(inv => inv.name === locName) || {};
+        const footageTypes = ['bRoll', 'onCamera', 'drone'].filter(type => locInventory[type]).map(type => type.replace('bRoll', 'B-Roll').replace('onCamera', 'On-Camera').replace('drone', 'Drone')).join(', ');
+        return ` - ${locName}: ${footageTypes ? footageTypes + ' footage available' : 'No specific footage recorded'}.`;
+    }).join('\n');
+    
+    const previouslyCreatedShortsSummary = previouslyCreatedShorts.length > 0 ? previouslyCreatedShorts.map(short => `- "${short.title}" (Status: ${short.status || 'unknown'})`).join('\n') : 'No shorts created yet.';
+    
+    const prompt = `You are a YouTube Shorts content strategist. Generate compelling, short-form video ideas.
+    Long-Form Video:
+    - Title: "${videoTitle}"
+    - Concept: "${videoConcept}"
+    - Locations with Footage:
+    ${featuredLocationsDetail || 'No specific locations featured.'}
+    Project Context:
+    - Series Title: "${projectTitle}"
+    ${styleGuide}
+    Shorts Knowledge Base: "${shortsIdeaGenerationKb || 'Focus on quick hooks and trending sounds.'}"
+    Previously created shorts (avoid overlap):
+    ${previouslyCreatedShortsSummary}
+    Generate 3-5 distinct YouTube Shorts ideas. For each idea, provide:
+    - A catchy title.
+    - A brief description.
+    - A suggestion for specific footage to use.
+    Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects with "title", "description", and "footageToUse" properties.`;
+
+    try {
+        // Assuming callGeminiAPI returns the raw text response from the AI
+        const textResponse = await window.aiUtils.callGeminiAPI(prompt, settings);
+
+        // **FIX: Clean the AI response to extract only the JSON object.**
+        // This prevents errors if the AI includes markdown or other text.
+        const jsonStart = textResponse.indexOf('{');
+        const jsonEnd = textResponse.lastIndexOf('}');
+
+        if (jsonStart === -1 || jsonEnd === -1) {
+            console.error("AI response did not contain a valid JSON object:", textResponse);
+            throw new Error("Received an invalid response from the AI.");
+        }
+        
+        const jsonString = textResponse.substring(jsonStart, jsonEnd + 1);
+        
+        // Now, parse the cleaned string
         try {
-            const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
+            const parsedJson = JSON.parse(jsonString);
             if (parsedJson && Array.isArray(parsedJson.shortsIdeas)) {
                 return parsedJson.shortsIdeas;
             } else {
+                console.error("Parsed JSON does not have the expected structure:", parsedJson);
                 throw new Error("AI returned an invalid format for shorts ideas.");
             }
-        } catch (error) {
-            console.error("Error generating shorts ideas:", error);
-            throw new Error(`AI failed to generate shorts ideas: ${error.message || error}`);
+        } catch (parseError) {
+            console.error("Failed to parse cleaned AI response as JSON:", jsonString, parseError);
+            throw new Error("AI response was expected to be valid JSON but wasn't.");
         }
-    };
+
+    } catch (error) {
+        console.error("Error generating shorts ideas:", error);
+        // Re-throw a cleaner error message for the UI
+        throw new Error(`AI failed to generate shorts ideas: ${error.message}`);
+    }
+};
 
 window.aiUtils.generateShortsMetadataAI = async ({ videoTitle, shortsIdea, settings, videoTone }) => {
         const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
