@@ -1,6 +1,6 @@
 // js/components/BlogTool.js
 
-window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db }) => {
+window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db, displayNotification }) => {
     const { useState, useEffect, useMemo } = React;
 
     // --- STATE MANAGEMENT ---
@@ -117,6 +117,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             await batch.commit();
         } catch (err) {
             console.error(`Failed to generate ideas: ${err.message}`);
+            displayNotification(`Error: Failed to generate ideas. ${err.message}`);
         } finally {
             setIsGenerating(false);
         }
@@ -146,6 +147,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             await batch.commit();
         } catch (err) {
             console.error(`Failed to generate ideas from video: ${err.message}`);
+            displayNotification(`Error: Failed to generate ideas from video. ${err.message}`);
         } finally {
             setIsGeneratingFromVideo(false);
         }
@@ -155,12 +157,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     
     const handleIndividualDelete = async (e, ideaId) => {
         e.stopPropagation();
-        if (window.confirm("Are you sure you want to permanently delete this blog idea?")) {
-            try {
-                await ideasCollectionRef.doc(ideaId).delete();
-            } catch (error) {
-                console.error("Error deleting blog idea:", error);
-            }
+        try {
+            await ideasCollectionRef.doc(ideaId).delete();
+            displayNotification("Idea deleted successfully.");
+        } catch (error) {
+            console.error("Error deleting blog idea:", error);
+            displayNotification(`Error: Could not delete idea. ${error.message}`);
         }
     };
     
@@ -169,7 +171,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         onGeneratePost(idea);
     };
 
-    // --- NEW: Handler for viewing a post ---
     const handleIndividualViewPost = (e, ideaId) => {
         e.stopPropagation();
         onViewPost(`generate-${ideaId}`);
@@ -185,35 +186,39 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         try {
             await batch.commit();
             setSelectedIdeas(new Set());
+            displayNotification(`Successfully updated ${ideaIds.size} item(s) to "${newStatus}".`);
         } catch (error) {
             console.error(`Error updating status to ${newStatus}:`, error);
+            displayNotification(`Error: Could not update items. ${error.message}`);
         }
     };
 
     const handleBulkApprove = () => {
         const ideasToApprove = new Set(Array.from(selectedIdeas).filter(id => ideas.find(i => i.id === id)?.status === 'new'));
-        if (ideasToApprove.size > 0 && window.confirm(`Approve ${ideasToApprove.size} new ideas?`)) {
+        if (ideasToApprove.size > 0) {
             handleBulkUpdateStatus(ideasToApprove, 'approved');
         }
     };
     
     const handleBulkReject = async () => {
         const ideasToReject = new Set(Array.from(selectedIdeas).filter(id => ideas.find(i => i.id === id)?.status === 'new'));
-        if (ideasToReject.size > 0 && window.confirm(`Reject and delete ${ideasToReject.size} new ideas?`)) {
+        if (ideasToReject.size > 0) {
             const batch = db.batch();
             ideasToReject.forEach(id => batch.delete(ideasCollectionRef.doc(id)));
             try {
                 await batch.commit();
                 setSelectedIdeas(new Set());
+                displayNotification(`${ideasToReject.size} idea(s) rejected and deleted.`);
             } catch (error) {
                  console.error("Error rejecting ideas:", error);
+                 displayNotification(`Error: Could not reject ideas. ${error.message}`);
             }
         }
     };
 
     const handleBulkGenerate = () => {
         const ideasToGenerate = ideas.filter(idea => selectedIdeas.has(idea.id) && idea.status === 'approved');
-        if (ideasToGenerate.length > 0 && window.confirm(`Generate content for ${ideasToGenerate.length} approved ideas?`)) {
+        if (ideasToGenerate.length > 0) {
             ideasToGenerate.forEach(idea => onGeneratePost(idea));
             setSelectedIdeas(new Set());
         }
@@ -221,7 +226,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
 
     const handleBulkPublish = () => {
         const ideasToPublish = ideas.filter(idea => selectedIdeas.has(idea.id) && idea.status === 'generated');
-        if (ideasToPublish.length > 0 && window.confirm(`Publish ${ideasToPublish.length} posts to WordPress?`)) {
+        if (ideasToPublish.length > 0) {
             onPublishPosts(ideasToPublish);
             setSelectedIdeas(new Set());
         }
@@ -229,20 +234,22 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     
     const handleBulkClose = () => {
         const ideasToClose = new Set(Array.from(selectedIdeas).filter(id => ideas.find(i => i.id === id)?.status === 'published'));
-        if (ideasToClose.size > 0 && window.confirm(`Move ${ideasToClose.size} published posts to closed?`)) {
+        if (ideasToClose.size > 0) {
             handleBulkUpdateStatus(ideasToClose, 'closed');
         }
     };
     
     const handleBulkDelete = async () => {
-        if (selectedIdeas.size > 0 && window.confirm(`Permanently delete ${selectedIdeas.size} selected items? This cannot be undone.`)) {
+        if (selectedIdeas.size > 0) {
             const batch = db.batch();
             selectedIdeas.forEach(id => batch.delete(ideasCollectionRef.doc(id)));
             try {
                 await batch.commit();
+                displayNotification(`${selectedIdeas.size} item(s) deleted successfully.`);
                 setSelectedIdeas(new Set());
             } catch (error) {
                  console.error("Error during bulk deletion:", error);
+                 displayNotification(`Error: Could not delete items. ${error.message}`);
             }
         }
     };
