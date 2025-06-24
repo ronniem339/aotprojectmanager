@@ -21,6 +21,18 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const [currentDashboardView, setCurrentDashboardView] = useState('active'); // 'new', 'active', 'closed'
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
+    
+    // --- Reusable Button Styles using Tailwind classes ---
+    const buttonStyles = {
+        base: 'inline-flex items-center justify-center px-4 py-2 text-sm font-bold rounded-md transition-colors disabled:opacity-50',
+        sm: 'px-3 py-1 text-xs',
+        primary: 'bg-blue-600 hover:bg-blue-700 text-white',
+        secondary: 'bg-gray-600 hover:bg-gray-700 text-white',
+        success: 'bg-green-600 hover:bg-green-700 text-white',
+        danger: 'bg-red-600 hover:bg-red-700 text-white',
+        outline: 'bg-transparent border border-gray-500 hover:bg-gray-700 text-gray-300'
+    };
+
 
     const ideasCollectionRef = useMemo(() => {
         if (!userId) return null;
@@ -302,7 +314,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                         <label htmlFor="destination" className="block text-sm font-medium text-gray-300">From a Topic or Destination</label>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <input type="text" id="destination" name="destination" className="form-input flex-grow" placeholder="e.g., 'Best hikes in the Lake District'" required />
-                            <button type="submit" disabled={isGenerating} className="btn btn-primary w-full sm:w-auto">
+                            <button type="submit" disabled={isGenerating} className={`${buttonStyles.base} ${buttonStyles.primary} w-full sm:w-auto`}>
                                 {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
                             </button>
                         </div>
@@ -322,7 +334,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                 {videos.map(v => <option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>)}
                             </select>
                         </div>
-                        <button onClick={handleGenerateFromVideo} disabled={isGeneratingFromVideo || !selectedVideo} className="btn btn-secondary w-full mt-3">
+                        <button onClick={handleGenerateFromVideo} disabled={isGeneratingFromVideo || !selectedVideo} className={`${buttonStyles.base} ${buttonStyles.secondary} w-full mt-3`}>
                             {isGeneratingFromVideo ? <window.LoadingSpinner isButton={true} /> : 'Generate From Video'}
                         </button>
                     </div>
@@ -353,12 +365,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         );
 
         const renderBulkActionButtons = () => {
-            const commonDeleteButton = <button onClick={handleBulkDelete} className="btn btn-danger" disabled={selectedIdeasStats.total === 0}>Delete ({selectedIdeasStats.total})</button>;
+            const commonDeleteButton = <button onClick={handleBulkDelete} className={`${buttonStyles.base} ${buttonStyles.danger}`} disabled={selectedIdeasStats.total === 0}>Delete ({selectedIdeasStats.total})</button>;
             if (currentDashboardView === 'new') {
-                return <><button onClick={handleBulkApprove} className="btn btn-success" disabled={selectedIdeasStats.new === 0}>Approve ({selectedIdeasStats.new})</button><button onClick={handleBulkReject} className="btn btn-danger" disabled={selectedIdeasStats.new === 0}>Reject ({selectedIdeasStats.new})</button>{commonDeleteButton}</>;
+                return <><button onClick={handleBulkApprove} className={`${buttonStyles.base} ${buttonStyles.success}`} disabled={selectedIdeasStats.new === 0}>Approve ({selectedIdeasStats.new})</button><button onClick={handleBulkReject} className={`${buttonStyles.base} ${buttonStyles.danger}`} disabled={selectedIdeasStats.new === 0}>Reject ({selectedIdeasStats.new})</button>{commonDeleteButton}</>;
             }
             if (currentDashboardView === 'active') {
-                return <><button onClick={handleBulkGenerate} className="btn btn-secondary" disabled={selectedIdeasStats.approved === 0}>Generate ({selectedIdeasStats.approved})</button><button onClick={handleBulkPublish} className="btn btn-secondary" disabled={selectedIdeasStats.generated === 0}>Publish ({selectedIdeasStats.generated})</button><button onClick={handleBulkClose} className="btn btn-secondary" disabled={selectedIdeasStats.published === 0}>Close ({selectedIdeasStats.published})</button>{commonDeleteButton}</>;
+                return <><button onClick={handleBulkGenerate} className={`${buttonStyles.base} ${buttonStyles.secondary}`} disabled={selectedIdeasStats.approved === 0}>Generate ({selectedIdeasStats.approved})</button><button onClick={handleBulkPublish} className={`${buttonStyles.base} ${buttonStyles.secondary}`} disabled={selectedIdeasStats.generated === 0}>Publish ({selectedIdeasStats.generated})</button><button onClick={handleBulkClose} className={`${buttonStyles.base} ${buttonStyles.secondary}`} disabled={selectedIdeasStats.published === 0}>Close ({selectedIdeasStats.published})</button>{commonDeleteButton}</>;
             }
             return commonDeleteButton;
         };
@@ -392,7 +404,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                             <table className="w-full text-left table-auto">
                                 <thead className="bg-gray-800/50">
                                     <tr>
-                                        <th className="p-3 w-px"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
+                                        <th className="p-3 w-px"><input type="checkbox" className="form-checkbox" onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
                                         <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
                                         <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Type {getSortIcon('postType')}</th>
                                         <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
@@ -404,16 +416,16 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                     {sortedAndFilteredIdeas.map(idea => (
                                         <React.Fragment key={idea.id}>
                                             <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
-                                                <td className="p-3"><input type="checkbox" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
+                                                <td className="p-3"><input type="checkbox" className="form-checkbox" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
                                                 <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
                                                 <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span></td>
                                                 <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
                                                 <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
                                                 <td className="p-3 text-right space-x-2">
-                                                    <button className="btn btn-sm btn-primary" onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
+                                                    <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary}`} onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
                                                         {idea.status === 'approved' ? 'Write' : 'View'}
                                                     </button>
-                                                    <button onClick={(e) => handleIndividualDelete(e, idea.id)} className="btn btn-sm btn-danger">Del</button>
+                                                    <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger}`}>Del</button>
                                                 </td>
                                             </tr>
                                             {expandedRow === idea.id && (<tr className="bg-gray-800/30"><td colSpan="6"><ExpandedContent idea={idea} /></td></tr>)}
@@ -440,10 +452,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                                 <strong>Origin:</strong> {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
                                             </div>
                                             <div className="flex gap-2 pt-2 border-t border-gray-700/50">
-                                                 <button className="btn btn-sm btn-primary flex-grow" onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
+                                                 <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
                                                      {idea.status === 'approved' ? 'Write Post' : 'View Post'}
                                                  </button>
-                                                 <button onClick={(e) => handleIndividualDelete(e, idea.id)} className="btn btn-sm btn-danger flex-grow">Delete</button>
+                                                 <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger} flex-grow`}>Delete</button>
                                             </div>
                                         </div>
                                     </div>
@@ -461,7 +473,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
                 <h1 className="text-3xl sm:text-4xl font-bold text-white text-center sm:text-left">✍️ Blog Post Factory</h1>
-                <button onClick={onBack} className="btn btn-outline w-full sm:w-auto justify-center">
+                <button onClick={onBack} className={`${buttonStyles.base} ${buttonStyles.outline} w-full sm:w-auto justify-center`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     Back to Tools
                 </button>
