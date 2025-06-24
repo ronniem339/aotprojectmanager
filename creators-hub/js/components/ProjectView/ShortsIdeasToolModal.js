@@ -58,8 +58,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                 whoAmI: whoAmI,
                 styleGuideText: styleGuideText,
                 apiKey: apiKey,
-                previouslyCreatedShorts: previouslyCreatedShorts // Pass saved shorts
-                settings: settings // Add this line to pass the settings object
+                previouslyCreatedShorts: previouslyCreatedShorts,
+                settings: settings 
             });
             setGeneratedIdeas(ideas);
         } catch (err) {
