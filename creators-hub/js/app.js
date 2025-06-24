@@ -304,7 +304,7 @@ window.App = () => { // Exposing App component globally
         const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
 
         await ideaRef.update({
-            status: 'published',
+            status: 'closed',
             wordpressId: response.id,
             wordpressLink: response.link,
             publishedAt: new Date().toISOString()
