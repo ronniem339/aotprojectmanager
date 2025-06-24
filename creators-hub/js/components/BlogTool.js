@@ -169,6 +169,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         onGeneratePost(idea);
     };
 
+    // --- NEW: Handler for viewing a post ---
+    const handleIndividualViewPost = (e, ideaId) => {
+        e.stopPropagation();
+        onViewPost(`generate-${ideaId}`);
+    };
+
     const handleBulkUpdateStatus = async (ideaIds, newStatus) => {
         if (ideaIds.size === 0) return;
         const batch = db.batch();
@@ -352,6 +358,8 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             'published': 'bg-purple-900/50 text-purple-400', 'failed': 'bg-red-900/50 text-red-400',
             'closed': 'bg-gray-900/50 text-gray-500', 'queued': 'bg-indigo-900/50 text-indigo-400'
         })[status] || 'bg-gray-700';
+        const checkboxClass = "h-5 w-5 rounded bg-gray-700 border-gray-500 text-blue-600 focus:ring-blue-500";
+
 
         const ExpandedContent = ({ idea }) => (
             <div className="p-4 bg-gray-800/30">
@@ -404,7 +412,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                             <table className="w-full text-left table-auto">
                                 <thead className="bg-gray-800/50">
                                     <tr>
-                                        <th className="p-3 w-px"><input type="checkbox" className="form-checkbox" onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
+                                        <th className="p-3 w-px"><input type="checkbox" className={checkboxClass} onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
                                         <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
                                         <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Type {getSortIcon('postType')}</th>
                                         <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
@@ -416,15 +424,17 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                     {sortedAndFilteredIdeas.map(idea => (
                                         <React.Fragment key={idea.id}>
                                             <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
-                                                <td className="p-3"><input type="checkbox" className="form-checkbox" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
+                                                <td className="p-3"><input type="checkbox" className={checkboxClass} checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
                                                 <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
                                                 <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span></td>
                                                 <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
                                                 <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
                                                 <td className="p-3 text-right space-x-2">
-                                                    <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary}`} onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
-                                                        {idea.status === 'approved' ? 'Write' : 'View'}
-                                                    </button>
+                                                    {idea.status === 'approved' ? (
+                                                        <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary}`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write</button>
+                                                    ) : (
+                                                        <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.secondary}`} onClick={(e) => handleIndividualViewPost(e, idea.id)} disabled={!idea.blogPostContent}>View</button>
+                                                    )}
                                                     <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger}`}>Del</button>
                                                 </td>
                                             </tr>
@@ -440,7 +450,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                 <div key={idea.id} className="glass-card rounded-lg overflow-hidden">
                                     <div className="p-4" onClick={() => handleRowClick(idea.id)}>
                                         <div className="flex justify-between items-start mb-2">
-                                            <input type="checkbox" className="form-checkbox mr-4 mt-1 flex-shrink-0" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()} />
+                                            <input type="checkbox" className={`${checkboxClass} mr-4 mt-1 flex-shrink-0`} checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()} />
                                             <h3 className="font-bold text-lg text-primary-accent pr-2 flex-grow">{idea.title}</h3>
                                         </div>
                                         <div className="ml-8 space-y-3">
@@ -450,11 +460,13 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                             </div>
                                              <div className="text-sm text-gray-400">
                                                 <strong>Origin:</strong> {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
-                                            </div>
+                                             </div>
                                             <div className="flex gap-2 pt-2 border-t border-gray-700/50">
-                                                 <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)} disabled={idea.status !== 'approved'}>
-                                                     {idea.status === 'approved' ? 'Write Post' : 'View Post'}
-                                                 </button>
+                                                {idea.status === 'approved' ? (
+                                                    <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write Post</button>
+                                                ) : (
+                                                    <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.secondary} flex-grow`} onClick={(e) => handleIndividualViewPost(e, idea.id)} disabled={!idea.blogPostContent}>View Post</button>
+                                                )}
                                                  <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger} flex-grow`}>Delete</button>
                                             </div>
                                         </div>
