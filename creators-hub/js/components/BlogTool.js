@@ -130,22 +130,24 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     
     // New handler for generating ideas from a selected video
     const handleGenerateFromVideo = async () => {
-        if (!selectedVideo) {
+        if (!selectedProject || !selectedVideo) {
             console.warn("Please select a project and video first.");
             return;
         }
         setIsGeneratingFromVideo(true);
         try {
             const videoData = videos.find(v => v.id === selectedVideo);
-            if (!videoData) {
-                console.error("Selected video data not found.");
+            const projectData = projects.find(p => p.id === selectedProject);
+
+            if (!videoData || !projectData) {
+                console.error("Selected project or video data not found.");
                 setIsGeneratingFromVideo(false);
                 return;
             }
 
-            // NOTE: This requires a new function 'generateBlogPostIdeasFromVideoAI' in aiUtils.js
             const newIdeas = await window.aiUtils.generateBlogPostIdeasFromVideoAI({
                 video: videoData,
+                projectTitle: projectData.playlistTitle, // FIX: Was projectData.title
                 settings,
                 coreSeoEngine: settings.knowledgeBases.blog.coreSeoEngine,
                 monetizationGoals: settings.knowledgeBases.blog.monetizationGoals,
@@ -235,7 +237,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                 disabled={projects.length === 0}
                             >
                                 <option value="">{projects.length === 0 ? 'Loading projects...' : 'Select a Project'}</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.title || 'Untitled Project'}</option>)}
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle || 'Untitled Project'}</option>)}
                             </select>
                             <select
                                 id="video-select"
