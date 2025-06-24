@@ -118,7 +118,7 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
 /**
   * Generates blog post ideas.
   */
-window.aiUtils.generateBlogPostIdeasAI = async ({ destination, project, video, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+window.aiUtils.generateBlogPostIdeasAI = async ({ destination, project, video, settings }) => {
     let context = '';
     if (destination) {
       context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
@@ -142,19 +142,24 @@ Based on the overall project, generate 10 diverse blog post ideas.`;
       throw new Error("No valid context provided for idea generation (topic, project, or video).");
     }
 
+    const blogSettings = settings.knowledgeBases.blog;
+    const coreSeoEngine = blogSettings.coreSeoEngine || "Focus on user intent and long-tail keywords.";
+    const monetizationGoals = blogSettings.monetizationGoals || "The goal is to generate affiliate revenue from links.";
+    const ideaGenerationKb = blogSettings.ideaGeneration || "Generate ideas for different content types like guides, listicles, and comparison posts.";
+
     const prompt = `You are an expert SEO and content strategist for a travel blog.
 ${context}
 
 You MUST adhere to the following foundational knowledge bases for all generated content:
 ---
 **Core SEO & Content Engine:**
-${coreSeoEngine || "Focus on user intent and long-tail keywords."}
+${coreSeoEngine}
 ---
 **Monetization & Content Goals:**
-${monetizationGoals || "The goal is to generate affiliate revenue from links."}
+${monetizationGoals}
 ---
 **Blog Post Idea Generation Framework:**
-${ideaGenerationKb || "Generate ideas for different content types like guides, listicles, and comparison posts."}
+${ideaGenerationKb}
 ---
 
 For each idea, provide the following in a valid JSON object:
@@ -183,7 +188,7 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
  * NEW FUNCTION
  * Generates blog post ideas based on a specific video.
  */
-window.aiUtils.generateBlogPostIdeasFromVideoAI = async ({ video, projectTitle, coreSeoEngine, ideaGenerationKb, monetizationGoals, settings }) => {
+window.aiUtils.generateBlogPostIdeasFromVideoAI = async ({ video, projectTitle, settings }) => {
     const context = `A user wants blog post ideas based on a specific video from their travels.
 Project Title: "${projectTitle || 'N/A'}"
 Video Title: "${video.title || 'Untitled Video'}"
@@ -192,6 +197,11 @@ Video Locations: "${(video.locations_featured || []).join(', ') || 'No locations
 Video Keywords: "${(video.targeted_keywords || []).join(', ') || 'No keywords specified.'}"
 
 Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
+    
+    const blogSettings = settings.knowledgeBases.blog;
+    const coreSeoEngine = blogSettings.coreSeoEngine || "Focus on user intent and long-tail keywords.";
+    const monetizationGoals = blogSettings.monetizationGoals || "The goal is to generate affiliate revenue from links.";
+    const ideaGenerationKb = blogSettings.ideaGeneration || "Generate ideas for different content types like guides, listicles, and comparison posts.";
 
     const prompt = `You are an expert SEO and content strategist for a travel blog.
 ${context}
@@ -199,13 +209,13 @@ ${context}
 You MUST adhere to the following foundational knowledge bases for all generated content:
 ---
 **Core SEO & Content Engine:**
-${coreSeoEngine || "Focus on user intent and long-tail keywords."}
+${coreSeoEngine}
 ---
 **Monetization & Content Goals:**
-${monetizationGoals || "The goal is to generate affiliate revenue from links."}
+${monetizationGoals}
 ---
 **Blog Post Idea Generation Framework:**
-${ideaGenerationKb || "Generate ideas for different content types like guides, listicles, and comparison posts."}
+${ideaGenerationKb}
 ---
 
 For each idea, provide the following in a valid JSON object:
@@ -235,14 +245,18 @@ Your response must be a valid JSON object with a single key "ideas" which is an 
     /**
   * Generates a full blog post based on an approved idea.
   */
-window.aiUtils.generateBlogPostContentAI = async ({ idea, coreSeoEngine, monetizationGoals, settings }) => {
+window.aiUtils.generateBlogPostContentAI = async ({ idea, settings }) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
+    const blogSettings = settings.knowledgeBases.blog;
 
+    const coreSeoEngine = blogSettings.coreSeoEngine || "Focus on user intent and long-tail keywords. Structure with H1, H2, H3 tags. Include internal and external linking opportunities.";
+    const monetizationGoals = blogSettings.monetizationGoals || "Strategically integrate opportunities for affiliate revenue from links naturally within the content. Do NOT explicitly suggest adding links, just provide the content that would support them.";
+    
     let postTypeSpecificKb = '';
-    if (idea.postType === 'Listicle Post' && settings.knowledgeBases.blog.listicleContent) {
-      postTypeSpecificKb = `**Listicle Post Knowledge Base:**\n${settings.knowledgeBases.blog.listicleContent}\n---`;
-    } else if (idea.postType === 'Destination Guide' && settings.knowledgeBases.blog.destinationGuideContent) {
-      postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${settings.knowledgeBases.blog.destinationGuideContent}\n---`;
+    if (idea.postType === 'Listicle Post' && blogSettings.listiclePostFramework) {
+      postTypeSpecificKb = `**Listicle Post Knowledge Base:**\n${blogSettings.listiclePostFramework}\n---`;
+    } else if (idea.postType === 'Destination Guide' && blogSettings.destinationGuideBlueprint) {
+      postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${blogSettings.destinationGuideBlueprint}\n---`;
     }
 
     const prompt = `You are an expert blog post writer for a travel blog.
@@ -260,11 +274,11 @@ ${styleGuidePrompt}
 You MUST adhere to the following foundational knowledge bases for all generated content:
 ---
 **Core SEO & Content Engine:**
-${coreSeoEngine || "Focus on user intent and long-tail keywords. Structure with H1, H2, H3 tags. Include internal and external linking opportunities."}
+${coreSeoEngine}
 ---
 ${postTypeSpecificKb}
 **Monetization & Content Goals:**
-${monetizationGoals || "Strategically integrate opportunities for affiliate revenue from links naturally within the content. Do NOT explicitly suggest adding links, just provide the content that would support them."}
+${monetizationGoals}
 ---
 
 **Your Task & Output Instructions:**
@@ -273,13 +287,14 @@ ${monetizationGoals || "Strategically integrate opportunities for affiliate reve
 3. Naturally integrate the "primaryKeyword" throughout the content.
 4. Weave in the "monetizationOpportunities" as seamlessly as possible.
 5. Maintain the creator's style and tone.
-6. Your response MUST contain a single JSON object with a key "blogPostContent". The value should be the full blog post formatted in Markdown.
+6. Your response MUST contain a single JSON object with two keys: "blogPostContent" (the full post in Markdown) and "excerpt" (a 1-2 sentence summary of the post).
 7. **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
 
 Example Output Format:
 ~~~json
 {
- "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n..."
+ "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n...",
+ "excerpt": "This is a brief summary of the blog post."
 }
 ~~~
 `;
@@ -299,12 +314,12 @@ Example Output Format:
 
       const parsedJson = JSON.parse(jsonString);
 
-      if (parsedJson && typeof parsedJson.blogPostContent === 'string') {
-        return parsedJson.blogPostContent;
+      if (parsedJson && typeof parsedJson.blogPostContent === 'string' && typeof parsedJson.excerpt === 'string') {
+        return parsedJson;
       } else {
         throw new Error("AI returned an invalid format for blog post content.");
       }
-    } catch (error) {
+    } catch (error).
       console.error("Error generating blog post content:", error);
       throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
     }
