@@ -52,7 +52,7 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); 
+    const timeoutId = setTimeout(() => controller.abort(), 120000);  
 
     try {
       const response = await fetch(apiUrl, {
@@ -77,20 +77,40 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
       }
 
       const responseText = result.candidates[0].content.parts[0].text;
-     
+      
       if (finalGenerationConfig.responseMimeType === "application/json") {
-        try {
-                    const cleanedResponse = responseText.replace(/[\n\r]/g, '');
-                    return JSON.parse(cleanedResponse);
-                } catch (e) {
-                    console.error("Failed to parse AI response as JSON:", responseText, e);
-                    throw new Error("AI response was expected to be valid JSON but wasn't.");
-                }
+          try {
+              // **FIX: Robustly find and parse the JSON part of the response.**
+              // This handles cases where the AI includes markdown or other text.
+              const jsonStart = responseText.indexOf('{');
+              const arrayStart = responseText.indexOf('[');
+              
+              // Determine if the response is a JSON object or array
+              const start = (jsonStart === -1 || (arrayStart !== -1 && arrayStart < jsonStart)) ? arrayStart : jsonStart;
+
+              if (start === -1) {
+                  throw new Error("Response did not contain a valid JSON object or array.");
+              }
+
+              const endChar = responseText[start] === '{' ? '}' : ']';
+              const end = responseText.lastIndexOf(endChar);
+
+              if (end === -1) {
+                  throw new Error("Response did not contain a valid closing JSON character.");
+              }
+              
+              const jsonString = responseText.substring(start, end + 1);
+              return JSON.parse(jsonString); // Parse the CLEANED string
+          } catch (e) {
+              console.error("Failed to parse AI response as JSON:", responseText, e);
+              throw new Error("AI response was expected to be valid JSON but wasn't.");
+          }
       } else {
+        // For plain text, just return it directly
         return responseText;
       }
     } catch (error) {
-      clearTimeout(timeoutId); 
+      clearTimeout(timeoutId);  
       if (error.name === 'AbortError') {
         throw new Error('API call timed out after 2 minutes.');
       }
@@ -214,7 +234,7 @@ Example Output Format:
 ~~~
 `;
 
-   try {
+    try {
       const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
       const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
       const match = rawResponseText.match(jsonBlockRegex);
@@ -223,7 +243,7 @@ Example Output Format:
       if (match && match[1]) {
         jsonString = match[1];
       } else {
-                console.error("AI response did not contain a valid JSON block.", rawResponseText);
+              console.error("AI response did not contain a valid JSON block.", rawResponseText);
         throw new Error("AI response did not provide the expected JSON format. Please try again.");
       }
 
@@ -241,8 +261,8 @@ Example Output Format:
 };
 
     /**
-     * Generates a full blog post in HTML format, ready for WordPress.
-     */
+      * Generates a full blog post in HTML format, ready for WordPress.
+      */
 window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
         const { title, primaryKeyword } = idea;
         const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
@@ -534,8 +554,7 @@ window.aiUtils.refineVideoConceptBasedOnInventory = async ({ videoTitle, current
         return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
     };
 
-// creators-hub/js/utils/aiUtils.js
-
+// **FIX: Reverted to the simpler, correct version.** // With the central callGeminiAPI now being robust, this function no longer needs complex parsing logic.
 window.aiUtils.generateShortsIdeasAI = async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, projectTitle, shortsIdeaGenerationKb, previouslyCreatedShorts = [], settings, videoTone }) => {
     const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
     
@@ -566,39 +585,15 @@ window.aiUtils.generateShortsIdeasAI = async ({ videoTitle, videoConcept, videoL
     Your response MUST be a valid JSON object with a single key "shortsIdeas" which is an array of objects with "title", "description", and "footageToUse" properties.`;
 
     try {
-        // Assuming callGeminiAPI returns the raw text response from the AI
-        const textResponse = await window.aiUtils.callGeminiAPI(prompt, settings);
-
-        // **FIX: Clean the AI response to extract only the JSON object.**
-        // This prevents errors if the AI includes markdown or other text.
-        const jsonStart = textResponse.indexOf('{');
-        const jsonEnd = textResponse.lastIndexOf('}');
-
-        if (jsonStart === -1 || jsonEnd === -1) {
-            console.error("AI response did not contain a valid JSON object:", textResponse);
-            throw new Error("Received an invalid response from the AI.");
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
+        if (parsedJson && Array.isArray(parsedJson.shortsIdeas)) {
+            return parsedJson.shortsIdeas;
+        } else {
+            throw new Error("AI returned an invalid format for shorts ideas.");
         }
-        
-        const jsonString = textResponse.substring(jsonStart, jsonEnd + 1);
-        
-        // Now, parse the cleaned string
-        try {
-            const parsedJson = JSON.parse(jsonString);
-            if (parsedJson && Array.isArray(parsedJson.shortsIdeas)) {
-                return parsedJson.shortsIdeas;
-            } else {
-                console.error("Parsed JSON does not have the expected structure:", parsedJson);
-                throw new Error("AI returned an invalid format for shorts ideas.");
-            }
-        } catch (parseError) {
-            console.error("Failed to parse cleaned AI response as JSON:", jsonString, parseError);
-            throw new Error("AI response was expected to be valid JSON but wasn't.");
-        }
-
     } catch (error) {
         console.error("Error generating shorts ideas:", error);
-        // Re-throw a cleaner error message for the UI
-        throw new Error(`AI failed to generate shorts ideas: ${error.message}`);
+        throw new Error(`AI failed to generate shorts ideas: ${error.message || error}`);
     }
 };
 
