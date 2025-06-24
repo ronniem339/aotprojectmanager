@@ -1,37 +1,40 @@
 // creators-hub/js/components/ProjectView/ShortsIdeasToolModal.js
 
-window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onDeleteShortsIdea, onGenerateShortsMetadata }) => {
-    const { useState, useEffect } = React;
+window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onDeleteShortsIdea, onGenerateShortsMetadata, onUpdateShortsIdeaStatus }) => {
+    const { useState, useEffect, useMemo } = React;
 
     const [generatedIdeas, setGeneratedIdeas] = useState([]);
     const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
     const [isLoadingMetadata, setIsLoadingMetadata] = useState({});
     const [error, setError] = useState('');
-    
-    // This state will now be managed by the useEffect below to ensure it's always in sync with the video prop.
     const [shortsIdeas, setShortsIdeas] = useState(video.shortsIdeas || []);
 
-    // **FIX 1: Correctly sync state when the video prop changes.**
-    // This ensures that when you select a new video, the "Saved Shorts" list updates accordingly.
     useEffect(() => {
         setShortsIdeas(video.shortsIdeas || []);
-    }, [video.shortsIdeas, video.id]); // Added video.id to the dependency array
+    }, [video.shortsIdeas, video.id]);
+
+    // **FIX 2: Separate ideas into active and completed lists**
+    const { activeIdeas, completedIdeas } = useMemo(() => {
+        const active = [];
+        const completed = [];
+        (shortsIdeas || []).forEach(idea => {
+            if (idea.status === 'complete') {
+                completed.push(idea);
+            } else {
+                active.push(idea);
+            }
+        });
+        return { activeIdeas: active, completedIdeas: completed };
+    }, [shortsIdeas]);
+
 
     const handleGenerateIdeas = async () => {
         setIsLoadingIdeas(true);
         setError('');
         setGeneratedIdeas([]);
 
-        const apiKey = settings.geminiApiKey;
-        if (!apiKey) {
-            setError("Gemini API Key is not set. Please set it in the settings.");
-            setIsLoadingIdeas(false);
-            return;
-        }
+        const previouslyCreatedShorts = shortsIdeas.map(idea => ({ title: idea.title, status: idea.status }));
 
-        const shortsIdeaGenerationKb = settings.knowledgeBases?.youtube?.shortsIdeaGeneration || '';
-        
-        // Pass the settings object directly to the AI utility
         try {
             const ideas = await window.aiUtils.generateShortsIdeasAI({
                 videoTitle: video.chosenTitle || video.title,
@@ -39,9 +42,9 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                 videoLocationsFeatured: video.locations_featured || [],
                 projectFootageInventory: project.footageInventory || {},
                 projectTitle: project.playlistTitle,
-                shortsIdeaGenerationKb: shortsIdeaGenerationKb,
-                previouslyCreatedShorts: shortsIdeas.map(idea => ({ title: idea.title, status: idea.status })),
-                settings: settings, // Pass the entire settings object
+                shortsIdeaGenerationKb: settings.knowledgeBases?.youtube?.shortsIdeaGeneration || '',
+                previouslyCreatedShorts: previouslyCreatedShorts,
+                settings: settings,
             });
             setGeneratedIdeas(ideas);
         } catch (err) {
@@ -52,7 +55,6 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         }
     };
 
-    // **FIX 2: Correctly save a new idea without overwriting existing ones.**
     const handleSaveIdea = (idea) => {
         const newIdea = {
             ...idea,
@@ -60,36 +62,37 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
             status: 'saved',
             metadata: null
         };
-        // This now correctly calls the parent handler which manages the database update.
-        // The parent `handleSaveShortsIdea` function in `ShortsTool.js` is already written correctly
-        // to append the new idea to the existing array in Firestore.
         onSaveShortsIdea(newIdea);
-        
-        // Remove from the "New Suggestions" list after saving.
         setGeneratedIdeas(prev => prev.filter(gIdea => gIdea.title !== idea.title));
     };
 
-    // **FIX 3: Remove the browser confirmation dialog for a smoother UX.**
     const handleDeleteIdea = (id) => {
         onDeleteShortsIdea(id);
     };
 
+    // **FIX 2: Handler to mark an idea as complete**
+    const handleMarkAsComplete = (ideaId) => {
+        if (onUpdateShortsIdeaStatus) {
+            onUpdateShortsIdeaStatus(ideaId, 'complete');
+        }
+    };
+
+    // **FIX 2: Handler to revert a completed idea back to saved**
+    const handleRevertToSaved = (ideaId) => {
+        if (onUpdateShortsIdeaStatus) {
+            onUpdateShortsIdeaStatus(ideaId, 'saved');
+        }
+    };
+
+
     const handleGenerateMetadata = async (ideaId, idea) => {
         setIsLoadingMetadata(prev => ({ ...prev, [ideaId]: true }));
         setError('');
-
-        const apiKey = settings.geminiApiKey;
-        if (!apiKey) {
-            setError("Gemini API Key is not set.");
-            setIsLoadingMetadata(prev => ({ ...prev, [ideaId]: false }));
-            return;
-        }
-        
         try {
             const metadata = await window.aiUtils.generateShortsMetadataAI({
                 videoTitle: video.chosenTitle || video.title,
                 shortsIdea: idea,
-                settings: settings, // Pass the entire settings object
+                settings: settings,
             });
             onGenerateShortsMetadata(ideaId, metadata);
         } catch (err) {
@@ -100,12 +103,12 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         }
     };
 
-    // ... (The rest of the return/render logic remains the same)
     return (
         <div className="w-full h-full flex flex-col">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 text-center">Generate YouTube Shorts Ideas</h2>
 
-            <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
+             {/* **FIX 1: Added pb-6 to give space at the bottom of the scrollable area** */}
+            <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar pb-6">
                 <p className="text-gray-400 mb-6 text-center">Generate quick, engaging ideas for YouTube Shorts based on your video content and project details.</p>
                 
                 <div className="text-center mb-6">
@@ -120,11 +123,12 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                     </div>
                 )}
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {(shortsIdeas.length > 0 || generatedIdeas.length > 0) && (
-                        <div className={`flex-1 ${shortsIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
-                            <h3 className="text-xl font-bold text-white mb-4">Saved Shorts Ideas ({shortsIdeas.length})</h3>
+                    <div className="flex-1 space-y-6">
+                        {/* Saved Ideas (Active) */}
+                        <div className={`${activeIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
+                            <h3 className="text-xl font-bold text-white mb-4">Saved Shorts Ideas ({activeIdeas.length})</h3>
                             <div className="space-y-4">
-                                {shortsIdeas.map((idea) => (
+                                {activeIdeas.map((idea) => (
                                     <div key={idea.id} className="glass-card p-4 rounded-lg border border-green-500 bg-green-900/20">
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-bold text-lg text-white">{idea.title}</h4>
@@ -142,7 +146,9 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                                                 <p className="text-sm text-gray-300"><strong>Caption:</strong> {idea.metadata.caption || 'N/A'}</p>
                                                 <p className="text-sm text-gray-300"><strong>Description:</strong> {idea.metadata.description || 'N/A'}</p>
                                                 <p className="text-sm text-gray-300"><strong>Tags:</strong> {idea.metadata.tags || 'N/A'}</p>
-                                                <div className="mt-3 text-right">
+                                                <div className="mt-3 flex justify-end items-center gap-4">
+                                                    {/* **FIX 2: Add Mark as Complete button** */}
+                                                    <button onClick={() => handleMarkAsComplete(idea.id)} className="px-3 py-1 text-xs bg-green-700 hover:bg-green-600 rounded-md font-semibold">Mark as Used</button>
                                                     <window.CopyButton textToCopy={`${idea.metadata.caption}\n\n${idea.metadata.description}\n\nTags: ${idea.metadata.tags}`} />
                                                 </div>
                                             </div>
@@ -161,26 +167,41 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                                 ))}
                             </div>
                         </div>
-                    )}
-                    {(generatedIdeas.length > 0 || shortsIdeas.length > 0) && (
-                        <div className={`flex-1 ${generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
-                            <h3 className="text-xl font-bold text-white mb-4">New Suggestions ({generatedIdeas.length})</h3>
-                            <div className="space-y-4">
-                                {generatedIdeas.map((idea, index) => (
-                                    <div key={index} className="glass-card p-4 rounded-lg border border-gray-700">
-                                        <h3 className="font-bold text-lg text-white mb-2">{idea.title}</h3>
-                                        <p className="text-gray-300 text-sm">{idea.description}</p>
-                                        <p className="text-gray-400 text-xs italic mt-2">Footage: {idea.footageToUse}</p>
-                                        <div className="flex justify-end gap-2 mt-3">
-                                            <button onClick={() => handleSaveIdea(idea)} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg font-semibold">
-                                                Save Idea
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                        {/* **FIX 2: New section for Completed ideas** */}
+                        {completedIdeas.length > 0 && (
+                             <div className="pt-6 border-t border-gray-700">
+                                <h3 className="text-xl font-bold text-gray-500 mb-4">Completed Ideas ({completedIdeas.length})</h3>
+                                <div className="space-y-4 opacity-70">
+                                    {completedIdeas.map((idea) => (
+                                         <div key={idea.id} className="glass-card p-4 rounded-lg border border-gray-600 bg-gray-900/30">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-bold text-md text-gray-400 line-through">{idea.title}</h4>
+                                                <button onClick={() => handleRevertToSaved(idea.id)} className="text-xs text-amber-400 hover:underline">Re-activate</button>
+                                            </div>
+                                         </div>
+                                    ))}
+                                </div>
                             </div>
+                        )}
+                    </div>
+                     {/* New Suggestions Column */}
+                    <div className={`flex-1 ${generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
+                        <h3 className="text-xl font-bold text-white mb-4">New Suggestions ({generatedIdeas.length})</h3>
+                        <div className="space-y-4">
+                            {generatedIdeas.map((idea, index) => (
+                                <div key={index} className="glass-card p-4 rounded-lg border border-gray-700">
+                                    <h3 className="font-bold text-lg text-white mb-2">{idea.title}</h3>
+                                    <p className="text-gray-300 text-sm">{idea.description}</p>
+                                    <p className="text-gray-400 text-xs italic mt-2">Footage: {idea.footageToUse}</p>
+                                    <div className="flex justify-end gap-2 mt-3">
+                                        <button onClick={() => handleSaveIdea(idea)} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded-lg font-semibold">
+                                            Save Idea
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    )}
+                    </div>
                 </div>
                 
                 {shortsIdeas.length === 0 && generatedIdeas.length === 0 && (
