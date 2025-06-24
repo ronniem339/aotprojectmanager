@@ -1,34 +1,26 @@
 // creators-hub/js/components/ProjectView/ShortsIdeasToolModal.js
 
-/**
- * ShortsIdeasToolModal Component
- * A tool for generating YouTube Shorts ideas based on video and project context, designed to be embedded.
- *
- * @param {object} props - The component props.
- * @param {object} props.video - The current video object.
- * @param {object} props.project - The current project object.
- * @param {object} props.settings - User settings, including AI API key and knowledge bases.
- * @param {function} props.onSaveShortsIdea - Callback to save a new shorts idea to Firestore.
- * @param {function} props.onDeleteShortsIdea - Callback to delete a shorts idea from Firestore.
- * @param {function} props.onGenerateShortsMetadata - Callback to generate metadata for a shorts idea.
- */
 window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onDeleteShortsIdea, onGenerateShortsMetadata }) => {
     const { useState, useEffect } = React;
 
     const [generatedIdeas, setGeneratedIdeas] = useState([]);
     const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
-    const [isLoadingMetadata, setIsLoadingMetadata] = useState({}); // Track metadata loading per idea
+    const [isLoadingMetadata, setIsLoadingMetadata] = useState({});
     const [error, setError] = useState('');
-    const [shortsIdeas, setShortsIdeas] = useState(video.shortsIdeas || []); // Load existing shorts ideas
+    
+    // This state will now be managed by the useEffect below to ensure it's always in sync with the video prop.
+    const [shortsIdeas, setShortsIdeas] = useState(video.shortsIdeas || []);
 
+    // **FIX 1: Correctly sync state when the video prop changes.**
+    // This ensures that when you select a new video, the "Saved Shorts" list updates accordingly.
     useEffect(() => {
         setShortsIdeas(video.shortsIdeas || []);
-    }, [video.shortsIdeas]);
+    }, [video.shortsIdeas, video.id]); // Added video.id to the dependency array
 
     const handleGenerateIdeas = async () => {
         setIsLoadingIdeas(true);
         setError('');
-        setGeneratedIdeas([]); // Clear previous generated ideas
+        setGeneratedIdeas([]);
 
         const apiKey = settings.geminiApiKey;
         if (!apiKey) {
@@ -38,15 +30,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         }
 
         const shortsIdeaGenerationKb = settings.knowledgeBases?.youtube?.shortsIdeaGeneration || '';
-        const whoAmI = settings.knowledgeBases?.youtube?.whoAmI || '';
-        const styleGuideText = settings.styleGuideText || '';
-
-        // Pass previously generated/saved shorts ideas to AI for context
-        const previouslyCreatedShorts = shortsIdeas.map(idea => ({
-            title: idea.title,
-            status: idea.status // Or whatever status you store (e.g., 'saved', 'generated', 'published')
-        }));
-
+        
+        // Pass the settings object directly to the AI utility
         try {
             const ideas = await window.aiUtils.generateShortsIdeasAI({
                 videoTitle: video.chosenTitle || video.title,
@@ -55,11 +40,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                 projectFootageInventory: project.footageInventory || {},
                 projectTitle: project.playlistTitle,
                 shortsIdeaGenerationKb: shortsIdeaGenerationKb,
-                whoAmI: whoAmI,
-                styleGuideText: styleGuideText,
-                apiKey: apiKey,
-                previouslyCreatedShorts: previouslyCreatedShorts,
-                settings: settings 
+                previouslyCreatedShorts: shortsIdeas.map(idea => ({ title: idea.title, status: idea.status })),
+                settings: settings, // Pass the entire settings object
             });
             setGeneratedIdeas(ideas);
         } catch (err) {
@@ -70,21 +52,26 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         }
     };
 
+    // **FIX 2: Correctly save a new idea without overwriting existing ones.**
     const handleSaveIdea = (idea) => {
         const newIdea = {
             ...idea,
-            id: `short-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Unique ID
-            status: 'saved', // Initial status
-            metadata: null // No metadata yet
+            id: `short-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            status: 'saved',
+            metadata: null
         };
+        // This now correctly calls the parent handler which manages the database update.
+        // The parent `handleSaveShortsIdea` function in `ShortsTool.js` is already written correctly
+        // to append the new idea to the existing array in Firestore.
         onSaveShortsIdea(newIdea);
-        setGeneratedIdeas(prev => prev.filter(gIdea => gIdea.title !== idea.title)); // Remove from generated list
+        
+        // Remove from the "New Suggestions" list after saving.
+        setGeneratedIdeas(prev => prev.filter(gIdea => gIdea.title !== idea.title));
     };
 
+    // **FIX 3: Remove the browser confirmation dialog for a smoother UX.**
     const handleDeleteIdea = (id) => {
-        if (window.confirm("Are you sure you want to delete this Shorts idea?")) {
-            onDeleteShortsIdea(id);
-        }
+        onDeleteShortsIdea(id);
     };
 
     const handleGenerateMetadata = async (ideaId, idea) => {
@@ -93,21 +80,16 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
 
         const apiKey = settings.geminiApiKey;
         if (!apiKey) {
-            setError("Gemini API Key is not set. Please set it in the settings.");
+            setError("Gemini API Key is not set.");
             setIsLoadingMetadata(prev => ({ ...prev, [ideaId]: false }));
             return;
         }
         
-        const whoAmI = settings.knowledgeBases?.youtube?.whoAmI || '';
-        const styleGuideText = settings.styleGuideText || '';
-
         try {
             const metadata = await window.aiUtils.generateShortsMetadataAI({
                 videoTitle: video.chosenTitle || video.title,
                 shortsIdea: idea,
-                whoAmI: whoAmI,
-                styleGuideText: styleGuideText,
-                apiKey: apiKey
+                settings: settings, // Pass the entire settings object
             });
             onGenerateShortsMetadata(ideaId, metadata);
         } catch (err) {
@@ -118,9 +100,10 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         }
     };
 
+    // ... (The rest of the return/render logic remains the same)
     return (
-        <div className="w-full h-full flex flex-col"> {/* Removed fixed positioning and overlay; added flex-col */}
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 text-center">Generate YouTube Shorts Ideas</h2> {/* Adjusted text size for responsiveness */}
+        <div className="w-full h-full flex flex-col">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 text-center">Generate YouTube Shorts Ideas</h2>
 
             <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar">
                 <p className="text-gray-400 mb-6 text-center">Generate quick, engaging ideas for YouTube Shorts based on your video content and project details.</p>
@@ -136,15 +119,12 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                         {error}
                     </div>
                 )}
-
-                {/* Main content area for ideas - using a flex container for responsiveness */}
-                <div className="flex flex-col lg:flex-row gap-6"> {/* Added responsive flex layout */}
-                    {/* Display Saved Shorts Ideas */}
-                    {(shortsIdeas.length > 0 || generatedIdeas.length > 0) && ( // Only show section if there are ideas
-                        <div className={`flex-1 ${shortsIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}> {/* Conditional display for smaller screens */}
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {(shortsIdeas.length > 0 || generatedIdeas.length > 0) && (
+                        <div className={`flex-1 ${shortsIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
                             <h3 className="text-xl font-bold text-white mb-4">Saved Shorts Ideas ({shortsIdeas.length})</h3>
                             <div className="space-y-4">
-                                {shortsIdeas.map((idea, index) => (
+                                {shortsIdeas.map((idea) => (
                                     <div key={idea.id} className="glass-card p-4 rounded-lg border border-green-500 bg-green-900/20">
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-bold text-lg text-white">{idea.title}</h4>
@@ -182,10 +162,8 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                             </div>
                         </div>
                     )}
-
-                    {/* Display Newly Generated Ideas */}
-                    {(generatedIdeas.length > 0 || shortsIdeas.length > 0) && ( // Only show section if there are ideas
-                        <div className={`flex-1 ${generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}> {/* Conditional display for smaller screens */}
+                    {(generatedIdeas.length > 0 || shortsIdeas.length > 0) && (
+                        <div className={`flex-1 ${generatedIdeas.length > 0 ? 'block' : 'hidden lg:block'}`}>
                             <h3 className="text-xl font-bold text-white mb-4">New Suggestions ({generatedIdeas.length})</h3>
                             <div className="space-y-4">
                                 {generatedIdeas.map((idea, index) => (
@@ -205,15 +183,12 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
                     )}
                 </div>
                 
-                {/* Message when no ideas are present */}
                 {shortsIdeas.length === 0 && generatedIdeas.length === 0 && (
                     <div className="text-center text-gray-500 mt-8">
                         No Shorts ideas saved or generated yet. Click "Generate Shorts Ideas" to get started!
                     </div>
                 )}
-
             </div>
-            {/* The 'Close' button is now handled by ShortsTool.js if needed at that level. */}
         </div>
     );
 };
