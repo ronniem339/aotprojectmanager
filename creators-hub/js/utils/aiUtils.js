@@ -326,14 +326,14 @@ Example Output Format:
 };
 
 /**
-  * Generates a full blog post in HTML format, ready for WordPress.
+  * Generates a full blog post in HTML format, ready for WordPress, with OtterBlocks support.
   */
 window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
     const { title, primaryKeyword } = idea;
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
     const prompt = `
-You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress editor.
+You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress Gutenberg editor, with special compatibility for OtterBlocks.
 
 ${styleGuidePrompt}
 
@@ -344,14 +344,18 @@ ${styleGuidePrompt}
 
 **Instructions:**
 1.  Create a compelling and engaging blog post.
-2.  The structure should be logical with a clear introduction, body, and conclusion. Use H2 and H3 tags for headings.
-3.  **CRITICAL:** Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content. The title is handled separately by WordPress.
-4.  Strategically place placeholders for images and YouTube videos where they would be most effective.
+2.  The structure should be logical with a clear introduction, body, and conclusion.
+3.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments. For example:
+    * **Paragraph:** \`<p>This is a paragraph.</p>\`
+    * **Heading:** \`<h2>This is a Heading</h2>\`
+    * **List:** \`<ul><li>Item 1</li><li>Item 2</li></ul>\`
+4.  Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content. The title is handled separately by WordPress.
+5.  Strategically place placeholders for images and YouTube videos where they would be most effective, wrapped in appropriate block comments.
     * **Image Placeholder:** Use \`<div class="placeholder-image" style="height:300px; background:#ccc; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the image">Image Placeholder: [add descriptive keywords here]</div>\`
     * **YouTube Placeholder:** Use \`<div class="placeholder-youtube" style="height:300px; background:#333; color:white; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the video">YouTube Placeholder: [add descriptive keywords here]</div>\`
-5.  Ensure the primary keyword is naturally integrated into the text.
-6.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output should be only the content that goes inside the WordPress editor.
-7.  Your entire response should be only the raw HTML content. Do not wrap it in JSON or Markdown code blocks.`;
+6.  Ensure the primary keyword is naturally integrated into the text.
+7.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output should be only the content that goes inside the WordPress editor.
+8.  Your entire response should be only the raw HTML content with Gutenberg block comments. Do not wrap it in JSON or Markdown code blocks.`;
 
     try {
         const htmlContent = await window.aiUtils.callGeminiAPI(
