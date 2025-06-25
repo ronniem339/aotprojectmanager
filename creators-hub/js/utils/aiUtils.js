@@ -391,12 +391,12 @@ ${styleGuidePrompt}
     }
 };
 /**
- * --- NEW FUNCTION ---
- * Generates SEO tags for a blog post.
+/**
+ * Generates a list of relevant tags for a blog post using AI.
  */
 window.aiUtils.generateTagsForPostAI = async ({ idea, settings }) => {
     const prompt = `You are an SEO expert. Based on the following blog post idea, generate a list of 5-10 highly relevant tags for WordPress.
-    
+
     Blog Post Details:
     - Title: "${idea.title}"
     - Description: "${idea.description}"
@@ -411,11 +411,11 @@ window.aiUtils.generateTagsForPostAI = async ({ idea, settings }) => {
             return parsedJson.tags;
         } else {
             console.warn("AI returned an invalid format for tags, returning empty array.", parsedJson);
-            return []; // Return an empty array on failure to prevent crashes
+            return [];
         }
     } catch (error) {
         console.error("Error generating tags for post:", error);
-        throw new Error(`AI failed to generate tags: ${error.message || error}`);
+        return []; // Return an empty array on failure to prevent crashes
     }
 };
 /**
