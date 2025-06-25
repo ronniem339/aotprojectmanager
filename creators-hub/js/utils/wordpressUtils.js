@@ -20,7 +20,7 @@ async function postToWordPress(postData, wordpressConfig) {
         excerpt: excerpt,
         status: 'draft',
         categories: categoryId ? [categoryId] : [],
-        tags: tags || [] // --- NEW: Pass tag IDs to WordPress
+        tags: tags || []
     });
 
     try {
@@ -44,6 +44,33 @@ async function postToWordPress(postData, wordpressConfig) {
 /**
  * Fetches categories from a WordPress site.
  */
+async function getWordPressCategories(wordpressConfig) {
+    const { url, username, applicationPassword } = wordpressConfig;
+    if (!url || !username || !applicationPassword) {
+        throw new Error('WordPress settings are not fully configured.');
+    }
+    const cleanedUrl = url.replace(/\/+$/, '');
+    const endpoint = `${cleanedUrl}/wp-json/wp/v2/categories?per_page=100`;
+    const token = btoa(`${username}:${applicationPassword}`);
+    const headers = { 'Authorization': `Basic ${token}` };
+
+    try {
+        const response = await fetch(endpoint, { headers });
+        const responseData = await response.json();
+        if (!response.ok) {
+            console.error('WordPress API Error Response:', responseData);
+            throw new Error(`Failed to fetch categories: ${responseData.message || response.statusText}`);
+        }
+        return responseData.filter(cat => cat.slug !== 'uncategorized');
+    } catch (error) {
+        console.error('Error fetching WordPress categories:', error);
+        throw error;
+    }
+}
+
+/**
+ * Fetches existing tags, creates new ones if needed, and returns their IDs.
+ */
 async function getAndCreateTags(tagNames, wordpressConfig) {
     const { url, username, applicationPassword } = wordpressConfig;
     const cleanedUrl = url.replace(/\/+$/, '');
@@ -60,18 +87,18 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     } catch (e) {
         console.warn("Could not fetch existing tags, may need to create all.", e);
     }
-    
+
     const existingTagMap = new Map(existingTags.map(tag => [tag.name.toLowerCase(), tag.id]));
     const tagIds = [];
     const tagsToCreate = [];
 
     // 2. Identify which tags need to be created, ensuring they are valid
     for (const tagName of tagNames) {
-        // FIX: Ensure the tag name is not null, empty, or just whitespace
+        // Ensure the tag name is not null, empty, or just whitespace
         if (tagName && tagName.trim() !== '') {
             const cleanTagName = tagName.trim();
             const lowerCaseTag = cleanTagName.toLowerCase();
-            
+
             if (existingTagMap.has(lowerCaseTag)) {
                 // Add existing tag ID if not already in the list
                 if (!tagIds.includes(existingTagMap.get(lowerCaseTag))) {
@@ -94,7 +121,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
                 headers: headers,
                 body: JSON.stringify({ name: tagName })
             }).then(res => {
-                // FIX: Add more detailed error handling inside the promise
+                // Add more detailed error handling inside the promise
                 if (!res.ok) {
                     return res.json().then(err => {
                         // This error is okay; it means the tag already exists. We can grab its ID.
@@ -122,72 +149,11 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
             console.error("Error processing tag creation promises in WordPress:", error);
         }
     }
-    
+
     // Return a unique set of tag IDs to prevent duplicates
     return [...new Set(tagIds)];
 }
 
-
-/**
- * --- NEW FUNCTION ---
- * Fetches existing tags, creates new ones if needed, and returns their IDs.
- */
-async function getAndCreateTags(tagNames, wordpressConfig) {
-    const { url, username, applicationPassword } = wordpressConfig;
-    const cleanedUrl = url.replace(/\/+$/, '');
-    const token = btoa(`${username}:${applicationPassword}`);
-    const headers = { 'Authorization': `Basic ${token}`, 'Content-Type': 'application/json' };
-
-    // 1. Fetch all existing tags
-    const tagsEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
-    let existingTags = [];
-    try {
-        const response = await fetch(tagsEndpoint, { headers });
-        existingTags = await response.json();
-        if (!response.ok) existingTags = []; // Handle case where tags might not be enabled
-    } catch (e) {
-        console.warn("Could not fetch existing tags, may need to create all.", e);
-    }
-    
-    const existingTagMap = new Map(existingTags.map(tag => [tag.name.toLowerCase(), tag.id]));
-    const tagIds = [];
-    const tagsToCreate = [];
-
-    // 2. Identify which tags need to be created
-    for (const tagName of tagNames) {
-        const lowerCaseTag = tagName.toLowerCase();
-        if (existingTagMap.has(lowerCaseTag)) {
-            tagIds.push(existingTagMap.get(lowerCaseTag));
-        } else {
-            tagsToCreate.push(tagName);
-        }
-    }
-
-    // 3. Create new tags in parallel
-    if (tagsToCreate.length > 0) {
-        const createTagPromises = tagsToCreate.map(tagName => {
-            return fetch(tagsEndpoint, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ name: tagName })
-            }).then(res => res.json());
-        });
-
-        try {
-            const newTags = await Promise.all(createTagPromises);
-            newTags.forEach(newTag => {
-                if (newTag.id) {
-                    tagIds.push(newTag.id);
-                }
-            });
-        } catch (error) {
-            console.error("Error creating new tags in WordPress:", error);
-            // Continue with the tags that were found, even if some failed to create
-        }
-    }
-    
-    return tagIds;
-}
 
 window.wordpressUtils = {
     postToWordPress,
