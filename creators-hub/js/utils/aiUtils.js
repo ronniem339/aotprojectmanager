@@ -319,7 +319,7 @@ Example Output Format:
       } else {
         throw new Error("AI returned an invalid format for blog post content.");
       }
-    } catch (error).
+ } catch (error) { // <--- Corrected Line
       console.error("Error generating blog post content:", error);
       throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
     }
