@@ -281,26 +281,31 @@ const executePublishToWordPress = async (data) => {
     const ideaSnap = await ideaRef.get();
     const idea = ideaSnap.data();
 
-    // Generate HTML content and the new excerpt in parallel for efficiency
-    const [htmlContent, cleanExcerpt] = await Promise.all([
+    const wordpressConfig = settings.wordpress;
+    if (!wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
+        throw new Error("WordPress settings are not fully configured.");
+    }
+
+    // --- FIX: Run all content and metadata generation in parallel ---
+    const [htmlContent, cleanExcerpt, generatedTags] = await Promise.all([
         window.aiUtils.generateWordPressPostHTMLAI({
             idea: idea,
             settings: settings,
             tone: idea.tone || 'Informative'
         }),
-        window.aiUtils.generateExcerptForPostAI({ idea: idea, settings: settings }) // New AI call for the excerpt
+        window.aiUtils.generateExcerptForPostAI({ idea: idea, settings: settings }),
+        window.aiUtils.generateTagsForPostAI({ idea, settings }) // Generate tag names
     ]);
 
-    const wordpressConfig = settings.wordpress;
-    if (!wordpressConfig.url || !wordpressConfig.username || !wordpress.applicationPassword) {
-        throw new Error("WordPress settings are not fully configured.");
-    }
+    // --- FIX: Get tag IDs from WordPress, creating new tags if they don't exist ---
+    const tagIds = await window.wordpressUtils.getAndCreateTags(generatedTags, wordpressConfig);
 
     const postData = {
         title: idea.title,
         htmlContent: htmlContent,
-        excerpt: cleanExcerpt, // Use the newly generated, clean excerpt
+        excerpt: cleanExcerpt,
         categoryId: categoryId,
+        tags: tagIds, // --- FIX: Pass the array of tag IDs to the post creator ---
     };
 
     const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
@@ -309,7 +314,8 @@ const executePublishToWordPress = async (data) => {
         status: 'closed',
         wordpressId: response.id,
         wordpressLink: response.link,
-        publishedAt: new Date().toISOString()
+        publishedAt: new Date().toISOString(),
+        tags: generatedTags // Store the generated tag names back to Firebase for reference
     });
 
     return { link: response.link };
