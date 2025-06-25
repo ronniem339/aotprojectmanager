@@ -116,7 +116,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             const batch = db.batch();
             newIdeas.forEach(idea => {
                 const docRef = ideasCollectionRef.doc();
-                 const projectData = projects.find(p => p.id === selectedProjectId);
+                const projectData = projects.find(p => p.id === selectedProjectId);
                 const relatedData = selectedVideo
                     ? { relatedProjectId: selectedProjectId, relatedProjectTitle: projectData?.playlistTitle || 'N/A', relatedVideoId: selectedVideo.id, relatedVideoTitle: selectedVideo.title }
                     : {};
@@ -200,8 +200,8 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 setSelectedIdeas(new Set());
                 displayNotification(`${ideasToReject.size} idea(s) rejected and deleted.`, 'success');
             } catch (error) {
-                 console.error("Error rejecting ideas:", error);
-                 displayNotification(`Error: Could not reject ideas. ${error.message}`, 'error');
+                console.error("Error rejecting ideas:", error);
+                displayNotification(`Error: Could not reject ideas. ${error.message}`, 'error');
             }
         }
     };
@@ -238,8 +238,8 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 displayNotification(`${selectedIdeas.size} item(s) deleted successfully.`, 'success');
                 setSelectedIdeas(new Set());
             } catch (error) {
-                 console.error("Error during bulk deletion:", error);
-                 displayNotification(`Error: Could not delete items. ${error.message}`, 'error');
+                console.error("Error during bulk deletion:", error);
+                displayNotification(`Error: Could not delete items. ${error.message}`, 'error');
             }
         }
     };
@@ -311,34 +311,34 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         <div className="glass-card p-4 sm:p-6 rounded-lg mb-8">
             <h3 className="text-lg font-semibold mb-4 text-white">Generate New Ideas</h3>
             <div className="space-y-6">
-                 <div>
-                    <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-300">From a Topic or Destination</label>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <input type="text" value={topic} onChange={e => setTopic(e.target.value)} disabled={!!selectedVideoId} className="form-input flex-grow disabled:opacity-50" placeholder="e.g., 'adventure travel'" />
-                            <input type="text" value={destination} onChange={e => setDestination(e.target.value)} disabled={!!selectedVideoId} className="form-input flex-grow disabled:opacity-50" placeholder="e.g., 'Lake District'" />
+                    <div>
+                        <div className="space-y-3">
+                            <label className="block text-sm font-medium text-gray-300">From a Topic or Destination</label>
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <input type="text" value={topic} onChange={e => setTopic(e.target.value)} disabled={!!selectedVideoId} className="form-input flex-grow disabled:opacity-50" placeholder="e.g., 'adventure travel'" />
+                                <input type="text" value={destination} onChange={e => setDestination(e.target.value)} disabled={!!selectedVideoId} className="form-input flex-grow disabled:opacity-50" placeholder="e.g., 'Lake District'" />
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="flex items-center"><div className="flex-grow border-t border-gray-600"></div><span className="flex-shrink mx-4 text-gray-400">OR</span><div className="flex-grow border-t border-gray-600"></div></div>
-                <div>
-                    <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-300">From an Existing Video</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="form-select" disabled={projects.length === 0 || !!topic || !!destination}>
-                                <option value="">{projects.length === 0 ? 'Loading projects...' : 'Select a Project'}</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle || 'Untitled Project'}</option>)}
-                            </select>
-                            <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} className="form-select" disabled={!selectedProjectId || !!topic || !!destination}>
-                                <option value="">{ !selectedProjectId ? 'Select project first' : (videos.length === 0 ? 'No videos in project' : 'Select a Video')}</option>
-                                {videos.map(v => <option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>)}
-                            </select>
+                    <div className="flex items-center"><div className="flex-grow border-t border-gray-600"></div><span className="flex-shrink mx-4 text-gray-400">OR</span><div className="flex-grow border-t border-gray-600"></div></div>
+                    <div>
+                        <div className="space-y-3">
+                            <label className="block text-sm font-medium text-gray-300">From an Existing Video</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="form-select" disabled={projects.length === 0 || !!topic || !!destination}>
+                                    <option value="">{projects.length === 0 ? 'Loading projects...' : 'Select a Project'}</option>
+                                    {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle || 'Untitled Project'}</option>)}
+                                </select>
+                                <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} className="form-select" disabled={!selectedProjectId || !!topic || !!destination}>
+                                    <option value="">{ !selectedProjectId ? 'Select project first' : (videos.length === 0 ? 'No videos in project' : 'Select a Video')}</option>
+                                    {videos.map(v => <option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>)}
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
-                 <button onClick={handleGenerateIdeas} disabled={isGenerating || (!topic && !destination && !selectedVideoId)} className={`${buttonStyles.base} ${buttonStyles.primary} w-full mt-3`}>
-                    {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
-                </button>
+                    <button onClick={handleGenerateIdeas} disabled={isGenerating || (!topic && !destination && !selectedVideoId)} className={`${buttonStyles.base} ${buttonStyles.primary} w-full mt-3`}>
+                        {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
+                    </button>
             </div>
         </div>
     );
@@ -383,11 +383,11 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             <div className="mt-8">
                 <h3 className="text-xl font-bold mb-4">Content Pipeline</h3>
                 <div className="mb-4 flex items-center border-b border-gray-700">
-                     {['new', 'active', 'closed'].map(view => (
-                        <button key={view} onClick={() => { setSelectedIdeas(new Set()); setCurrentDashboardView(view); }} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-blue-500 text-white' : 'text-gray-400 hover:text-white'}`}>
-                            {view === 'active' ? 'Active Pipeline' : `${view} Ideas`}
-                        </button>
-                     ))}
+                        {['new', 'active', 'closed'].map(view => (
+                            <button key={view} onClick={() => { setSelectedIdeas(new Set()); setCurrentDashboardView(view); }} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-blue-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                                {view === 'active' ? 'Active Pipeline' : `${view} Ideas`}
+                            </button>
+                        ))}
                 </div>
                 <div className="mb-4 flex flex-col md:flex-row gap-4">
                     <input type="text" placeholder="Search ideas..." value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} className="form-input flex-grow"/>
@@ -452,16 +452,16 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                                 <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span>
                                                 <span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span>
                                             </div>
-                                             <div className="text-sm text-gray-400">
-                                                 <strong>Origin:</strong> {idea.relatedVideoTitle || 'Text Input'}
-                                             </div>
+                                            <div className="text-sm text-gray-400">
+                                                <strong>Origin:</strong> {idea.relatedVideoTitle || 'Text Input'}
+                                            </div>
                                             <div className="flex gap-2 pt-2 border-t border-gray-700/50">
                                                 {idea.status === 'approved' ? (
                                                     <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write Post</button>
                                                 ) : (
                                                     <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.secondary} flex-grow`} onClick={(e) => handleIndividualViewPost(e, idea.id)} disabled={!idea.blogPostContent}>View Post</button>
                                                 )}
-                                                 <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger} flex-grow`}>Delete</button>
+                                                <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger} flex-grow`}>Delete</button>
                                             </div>
                                         </div>
                                     </div>
