@@ -271,47 +271,49 @@ window.App = () => { // Exposing App component globally
         return { content: blogPostContent, viewable: true };
     };
 
-    const executePublishToWordPress = async (data) => {
-        const { ideaId, categoryId } = data;
-        if (!user || !firebaseDb) throw new Error("User or database not available.");
+const executePublishToWordPress = async (data) => {
+    const { ideaId, categoryId } = data;
+    if (!user || !firebaseDb) throw new Error("User or database not available.");
 
-        // --- FIX: Removed HTML tags from path ---
-        const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+    const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+    await ideaRef.update({ status: 'publishing', generationError: null });
 
-        await ideaRef.update({ status: 'publishing', generationError: null });
+    const ideaSnap = await ideaRef.get();
+    const idea = ideaSnap.data();
 
-        const ideaSnap = await ideaRef.get();
-        const idea = ideaSnap.data();
-
-        const htmlContent = await window.aiUtils.generateWordPressPostHTMLAI({
+    // Generate HTML content and the new excerpt in parallel for efficiency
+    const [htmlContent, cleanExcerpt] = await Promise.all([
+        window.aiUtils.generateWordPressPostHTMLAI({
             idea: idea,
             settings: settings,
             tone: idea.tone || 'Informative'
-        });
+        }),
+        window.aiUtils.generateExcerptForPostAI({ idea: idea, settings: settings }) // New AI call for the excerpt
+    ]);
 
-        const wordpressConfig = settings.wordpress;
-        if (!wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
-            throw new Error("WordPress settings are not fully configured.");
-        }
+    const wordpressConfig = settings.wordpress;
+    if (!wordpressConfig.url || !wordpressConfig.username || !wordpress.applicationPassword) {
+        throw new Error("WordPress settings are not fully configured.");
+    }
 
-        const postData = {
-            title: idea.title,
-            htmlContent: htmlContent,
-            excerpt: idea.blogPostContent ? idea.blogPostContent.substring(0, 250) + '...' : idea.description,
-            categoryId: categoryId,
-        };
-
-        const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
-
-        await ideaRef.update({
-            status: 'closed',
-            wordpressId: response.id,
-            wordpressLink: response.link,
-            publishedAt: new Date().toISOString()
-        });
-
-        return { link: response.link };
+    const postData = {
+        title: idea.title,
+        htmlContent: htmlContent,
+        excerpt: cleanExcerpt, // Use the newly generated, clean excerpt
+        categoryId: categoryId,
     };
+
+    const response = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
+
+    await ideaRef.update({
+        status: 'closed',
+        wordpressId: response.id,
+        wordpressLink: response.link,
+        publishedAt: new Date().toISOString()
+    });
+
+    return { link: response.link };
+};
 
     const handleGeneratePostTask = useCallback((idea) => {
         addTask({
