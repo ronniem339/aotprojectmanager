@@ -1,6 +1,9 @@
 const { useState, useEffect, useCallback } = React;
-const { Router, NewProjectWizard, DeleteConfirmationModal, ProjectSelection, WordpressPublisher, GeneratedPostViewer, TaskQueue } = window.components;
+// Get components that are correctly namespaced under window.components
+const { Router, NewProjectWizard, ProjectSelection, WordpressPublisher, GeneratedPostViewer, TaskQueue } = window.components;
 
+// Get components that are on the global window object directly
+const { DeleteConfirmationModal } = window;
 // The main App component is now much cleaner.
 window.App = () => {
     // All state and handlers are managed within the useAppState hook.
