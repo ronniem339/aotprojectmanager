@@ -140,14 +140,15 @@
     <script src="/js/components/ProjectView/ShortsIdeasToolModal.js" type="text/babel"></script>
     <script src="/js/components/NewVideoWizardModal.js" type="text/babel"></script>
 
-    <!-- Main App Entry Point -->
+    <!-- Main App Logic -->
+    <script src="/js/hooks/useAppState.js" type="text/babel"></script>
+    <script src="/js/components/Router.js" type="text/babel"></script>
     <script src="/js/app.js" type="text/babel"></script>
 
     <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker'in navigator) {
             window.addEventListener('load', () => {
-                // Use a relative path to be more robust
                 navigator.serviceWorker.register('./service-worker.js')
                     .then(registration => {
                         console.log('Service Worker registered successfully:', registration);
