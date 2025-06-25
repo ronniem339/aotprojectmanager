@@ -74,7 +74,20 @@
     <script src="/js/utils/wordpressUtils.js" type="text/babel"></script>
 
     <!-- App Components -->
-    <script src="/js/components/common.js" type="text/babel"></script>
+    <!-- START REFACTOR COMMON.JS -->
+    <script src="/js/hooks/useDebounce.js" type="text/babel"></script>
+    <script src="/js/utils/googleMapsLoader.js" type="text/babel"></script>
+    <script src="/js/components/ui/LoadingSpinner.js" type="text/babel"></script>
+    <script src="/js/components/ui/ImageComponent.js" type="text/babel"></script>
+    <script src="/js/components/auth/LoginScreen.js" type="text/babel"></script>
+    <script src="/js/components/ui/DeleteConfirmationModal.js" type="text/babel"></script>
+    <script src="/js/components/ui/LocationSearchInput.js" type="text/babel"></script>
+    <script src="/js/components/ui/MockLocationSearchInput.js" type="text/babel"></script>
+    <script src="/js/components/ui/CopyButton.js" type="text/babel"></script>
+    <script src="/js/components/ui/CanvaModal.js" type="text/babel"></script>
+    <script src="/js/components/ui/Accordion.js" type="text/babel"></script>
+    <!-- END REFACTOR COMMON.JS -->
+
     <script src="/js/components/NewProjectWizard/WizardStep_AIParse.js" type="text/babel"></script>
     <script src="/js/components/NewProjectWizard/WizardStep1_Foundation.js" type="text/babel"></script>
     <script src="/js/components/NewProjectWizard/WizardStep2_Inventory.js" type="text/babel"></script>
