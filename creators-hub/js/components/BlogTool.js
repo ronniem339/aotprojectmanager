@@ -1,28 +1,27 @@
-// js/components/BlogTool.js
-
 window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db, displayNotification }) => {
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useCallback } = React;
 
-    // --- STATE MANAGEMENT ---
+    // --- STATE MANAGEMENT (Unified) ---
     const [isGenerating, setIsGenerating] = useState(false);
     const [projects, setProjects] = useState([]);
-    const [selectedProject, setSelectedProject] = useState('');
     const [videos, setVideos] = useState([]);
-    const [selectedVideo, setSelectedVideo] = useState('');
-    const [isGeneratingFromVideo, setIsGeneratingFromVideo] = useState(false);
+    const [selectedVideoId, setSelectedVideoId] = useState('');
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [topic, setTopic] = useState('');
+    const [destination, setDestination] = useState('');
+
     const [expandedRow, setExpandedRow] = useState(null);
     const [sortBy, setSortBy] = useState('createdAt');
     const [sortOrder, setSortOrder] = useState('desc');
     const [filterTerm, setFilterTerm] = useState('');
     const [filterPostType, setFilterPostType] = useState('All');
     const [selectedIdeas, setSelectedIdeas] = useState(new Set());
-    const [currentDashboardView, setCurrentDashboardView] = useState('active'); // 'new', 'active', 'closed'
+    const [currentDashboardView, setCurrentDashboardView] = useState('new'); // Default to 'new'
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
-    
-    // --- Reusable Button Styles using Tailwind classes ---
+
+    // --- Reusable Button Styles ---
     const buttonStyles = {
         base: 'inline-flex items-center justify-center px-4 py-2 text-sm font-bold rounded-md transition-colors disabled:opacity-50',
         sm: 'px-3 py-1 text-xs',
@@ -32,21 +31,36 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         danger: 'bg-red-600 hover:bg-red-700 text-white',
         outline: 'bg-transparent border border-gray-500 hover:bg-gray-700 text-gray-300'
     };
-
-
+    
     const ideasCollectionRef = useMemo(() => {
         if (!userId) return null;
         return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
     }, [db, APP_ID, userId]);
 
-    // --- DATA FETCHING EFFECTS ---
+    // --- DATA FETCHING (Unified) ---
+    useEffect(() => {
+        if (!userId) {
+           setProjects([]);
+           setVideos([]);
+           return;
+        }
+        // Fetch all videos for the user at once for the dropdown.
+        const videosUnsub = db.collectionGroup('videos').where('userId', '==', userId).onSnapshot(snapshot => {
+            const fetchedVideos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setVideos(fetchedVideos);
+        }, err => console.error("Error fetching videos:", err));
+        
+        return () => videosUnsub();
+    }, [userId, db]);
+    
     useEffect(() => {
         if (!ideasCollectionRef) {
             setIsLoading(false);
             return;
         }
         setIsLoading(true);
-        const unsubscribe = ideasCollectionRef.orderBy(sortBy, sortOrder).onSnapshot(
+        // The query is now handled by the sortedAndFilteredIdeas memo
+        const unsubscribe = ideasCollectionRef.onSnapshot(
             snapshot => {
                 const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setIdeas(fetchedIdeas);
@@ -58,100 +72,58 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             }
         );
         return () => unsubscribe();
-    }, [ideasCollectionRef, sortBy, sortOrder]);
+    }, [ideasCollectionRef]);
 
-    useEffect(() => {
-        if (!userId) {
-            setProjects([]);
-            return;
-        }
-        const projectsCollectionRef = db.collection(`artifacts/${APP_ID}/users/${userId}/projects`);
-        const unsubscribe = projectsCollectionRef.onSnapshot(
-            snapshot => setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
-            err => console.error("Error fetching projects:", err)
-        );
-        return () => unsubscribe();
-    }, [db, APP_ID, userId]);
 
-    useEffect(() => {
-        if (!selectedProject || !userId) {
-            setVideos([]);
-            setSelectedVideo('');
-            return;
-        }
-        const videosCollectionRef = db.collection(`artifacts/${APP_ID}/users/${userId}/projects/${selectedProject}/videos`);
-        const unsubscribe = videosCollectionRef.onSnapshot(
-            snapshot => {
-                const fetchedVideos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setVideos(fetchedVideos);
-                if (selectedVideo && !fetchedVideos.some(v => v.id === selectedVideo)) {
-                    setSelectedVideo('');
-                }
-            },
-            err => {
-                console.error("Error fetching videos:", err);
-                setVideos([]);
-            }
-        );
-        return () => unsubscribe();
-    }, [db, APP_ID, userId, selectedProject]);
-
-    // --- HANDLER FUNCTIONS ---
-    const handleGenerateIdeas = async (e) => {
-        e.preventDefault();
-        const destination = e.target.elements.destination.value;
-        if (!destination) return;
+    // --- EVENT HANDLERS (Unified) ---
+    const handleGenerateIdeas = useCallback(async () => {
         setIsGenerating(true);
         try {
-            // Corrected: Removed redundant knowledge base params. 
-            // The settings object contains everything the function needs.
-            const newIdeas = await window.aiUtils.generateBlogPostIdeasAI({
-                destination, 
-                settings,
-            });
+            let generationParams = { settings };
+            const selectedVideo = videos.find(v => v.id === selectedVideoId);
+
+            if (selectedVideo) {
+                generationParams.video = selectedVideo;
+            } else if (topic || destination) {
+                generationParams.topic = topic;
+                generationParams.destination = destination;
+            } else {
+                displayNotification("Please provide a topic/destination or select a video to start.", "info");
+                setIsGenerating(false);
+                return;
+            }
+
+            const newIdeas = await window.aiUtils.generateBlogIdeasAI(generationParams);
+            
             const batch = db.batch();
             newIdeas.forEach(idea => {
                 const docRef = ideasCollectionRef.doc();
-                batch.set(docRef, { ...idea, status: 'new', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                const relatedData = selectedVideo 
+                    ? { relatedVideoId: selectedVideo.id, relatedVideoTitle: selectedVideo.title }
+                    : {};
+                batch.set(docRef, { 
+                    ...idea, 
+                    status: 'new', 
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    ...relatedData
+                });
             });
             await batch.commit();
+            displayNotification(`${newIdeas.length} new blog post ideas have been generated!`, 'success');
+
+            // Clear inputs after generation
+            setTopic('');
+            setDestination('');
+            setSelectedVideoId('');
+
         } catch (err) {
             console.error(`Failed to generate ideas: ${err.message}`);
-            displayNotification(`Error: Failed to generate ideas. ${err.message}`);
+            displayNotification(`Error: Failed to generate ideas. ${err.message}`, 'error');
         } finally {
             setIsGenerating(false);
         }
-    };
-    
-    const handleGenerateFromVideo = async () => {
-        if (!selectedProject || !selectedVideo) return;
-        setIsGeneratingFromVideo(true);
-        try {
-            const videoData = videos.find(v => v.id === selectedVideo);
-            const projectData = projects.find(p => p.id === selectedProject);
-            if (!videoData || !projectData) {
-                setIsGeneratingFromVideo(false);
-                return;
-            }
-            // Corrected: Removed redundant knowledge base params.
-            const newIdeas = await window.aiUtils.generateBlogPostIdeasFromVideoAI({
-                video: videoData, 
-                projectTitle: projectData.playlistTitle, 
-                settings,
-            });
-            const batch = db.batch();
-            newIdeas.forEach(idea => {
-                const docRef = ideasCollectionRef.doc();
-                batch.set(docRef, { ...idea, status: 'new', createdAt: firebase.firestore.FieldValue.serverTimestamp(), relatedProjectId: projectData.id, relatedVideoId: videoData.id, relatedProjectTitle: projectData.playlistTitle, relatedVideoTitle: videoData.title });
-            });
-            await batch.commit();
-        } catch (err) {
-            console.error(`Failed to generate ideas from video: ${err.message}`);
-            displayNotification(`Error: Failed to generate ideas from video. ${err.message}`);
-        } finally {
-            setIsGeneratingFromVideo(false);
-        }
-    };
+    }, [settings, videos, selectedVideoId, topic, destination, db, ideasCollectionRef, displayNotification]);
+
 
     const handleRowClick = (id) => setExpandedRow(expandedRow === id ? null : id);
     
@@ -159,10 +131,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         e.stopPropagation();
         try {
             await ideasCollectionRef.doc(ideaId).delete();
-            displayNotification("Idea deleted successfully.");
+            displayNotification("Idea deleted successfully.", "success");
         } catch (error) {
             console.error("Error deleting blog idea:", error);
-            displayNotification(`Error: Could not delete idea. ${error.message}`);
+            displayNotification(`Error: Could not delete idea. ${error.message}`, "error");
         }
     };
     
@@ -186,10 +158,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         try {
             await batch.commit();
             setSelectedIdeas(new Set());
-            displayNotification(`Successfully updated ${ideaIds.size} item(s) to "${newStatus}".`);
+            displayNotification(`Successfully updated ${ideaIds.size} item(s) to "${newStatus}".`, 'success');
         } catch (error) {
             console.error(`Error updating status to ${newStatus}:`, error);
-            displayNotification(`Error: Could not update items. ${error.message}`);
+            displayNotification(`Error: Could not update items. ${error.message}`, 'error');
         }
     };
 
@@ -208,10 +180,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             try {
                 await batch.commit();
                 setSelectedIdeas(new Set());
-                displayNotification(`${ideasToReject.size} idea(s) rejected and deleted.`);
+                displayNotification(`${ideasToReject.size} idea(s) rejected and deleted.`, 'success');
             } catch (error) {
                  console.error("Error rejecting ideas:", error);
-                 displayNotification(`Error: Could not reject ideas. ${error.message}`);
+                 displayNotification(`Error: Could not reject ideas. ${error.message}`, 'error');
             }
         }
     };
@@ -245,23 +217,58 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             selectedIdeas.forEach(id => batch.delete(ideasCollectionRef.doc(id)));
             try {
                 await batch.commit();
-                displayNotification(`${selectedIdeas.size} item(s) deleted successfully.`);
+                displayNotification(`${selectedIdeas.size} item(s) deleted successfully.`, 'success');
                 setSelectedIdeas(new Set());
             } catch (error) {
                  console.error("Error during bulk deletion:", error);
-                 displayNotification(`Error: Could not delete items. ${error.message}`);
+                 displayNotification(`Error: Could not delete items. ${error.message}`, 'error');
             }
         }
     };
 
     const handleSort = (column) => {
-        if (sortBy === column) {
-            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortBy(column);
-            setSortOrder('asc');
-        }
+        const newSortOrder = sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc';
+        setSortBy(column);
+        setSortOrder(newSortOrder);
     };
+    
+    // --- MEMOIZED COMPUTATIONS ---
+    const sortedAndFilteredIdeas = useMemo(() => {
+        const activeStatuses = ['approved', 'generated', 'published', 'queued', 'generating', 'failed'];
+        let viewFilteredIdeas;
+
+        if (currentDashboardView === 'new') {
+            viewFilteredIdeas = ideas.filter(idea => idea.status === 'new');
+        } else if (currentDashboardView === 'active') {
+            viewFilteredIdeas = ideas.filter(idea => activeStatuses.includes(idea.status));
+        } else { // 'closed'
+            viewFilteredIdeas = ideas.filter(idea => idea.status === 'closed');
+        }
+
+        let searchFilteredIdeas = viewFilteredIdeas;
+        if (filterTerm) {
+            const lowerCaseFilterTerm = filterTerm.toLowerCase();
+            searchFilteredIdeas = viewFilteredIdeas.filter(idea =>
+                (idea.title?.toLowerCase().includes(lowerCaseFilterTerm)) ||
+                (idea.description?.toLowerCase().includes(lowerCaseFilterTerm)) ||
+                (idea.primaryKeyword?.toLowerCase().includes(lowerCaseFilterTerm))
+            );
+        }
+        
+        let typeFilteredIdeas = searchFilteredIdeas;
+        if (filterPostType !== 'All') {
+            typeFilteredIdeas = searchFilteredIdeas.filter(idea => idea.postType === filterPostType);
+        }
+        
+        // Final sort
+        return typeFilteredIdeas.sort((a, b) => {
+            const aVal = a[sortBy];
+            const bVal = b[sortBy];
+            if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [ideas, filterTerm, filterPostType, currentDashboardView, sortBy, sortOrder]);
     
     const selectedIdeasStats = useMemo(() => {
         const stats = { new: 0, approved: 0, generated: 0, published: 0, total: 0 };
@@ -278,30 +285,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         return stats;
     }, [selectedIdeas, ideas]);
 
-    const sortedAndFilteredIdeas = useMemo(() => {
-        const activeStatuses = ['approved', 'generated', 'published', 'queued', 'generating', 'failed'];
-        let viewFilteredIdeas;
-        if (currentDashboardView === 'new') {
-            viewFilteredIdeas = ideas.filter(idea => idea.status === 'new');
-        } else if (currentDashboardView === 'active') {
-            viewFilteredIdeas = ideas.filter(idea => activeStatuses.includes(idea.status));
-        } else { // 'closed'
-            viewFilteredIdeas = ideas.filter(idea => idea.status === 'closed');
-        }
-        if (filterTerm) {
-            const lowerCaseFilterTerm = filterTerm.toLowerCase();
-            viewFilteredIdeas = viewFilteredIdeas.filter(idea =>
-                (idea.title?.toLowerCase().includes(lowerCaseFilterTerm)) ||
-                (idea.description?.toLowerCase().includes(lowerCaseFilterTerm)) ||
-                (idea.primaryKeyword?.toLowerCase().includes(lowerCaseFilterTerm))
-            );
-        }
-        if (filterPostType !== 'All') {
-            viewFilteredIdeas = viewFilteredIdeas.filter(idea => idea.postType === filterPostType);
-        }
-        return viewFilteredIdeas;
-    }, [ideas, filterTerm, filterPostType, currentDashboardView]);
-
     const toggleSelectAll = () => {
         if (selectedIdeas.size === sortedAndFilteredIdeas.length) {
             setSelectedIdeas(new Set());
@@ -317,40 +300,37 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     };
 
     // --- RENDER FUNCTIONS ---
-    
     const renderGeneratorUI = () => (
         <div className="glass-card p-4 sm:p-6 rounded-lg mb-8">
             <h3 className="text-lg font-semibold mb-4 text-white">Generate New Ideas</h3>
             <div className="space-y-6">
-                <div>
-                    <form onSubmit={handleGenerateIdeas} className="space-y-3">
-                        <label htmlFor="destination" className="block text-sm font-medium text-gray-300">From a Topic or Destination</label>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <input type="text" id="destination" name="destination" className="form-input flex-grow" placeholder="e.g., 'Best hikes in the Lake District'" required />
-                            <button type="submit" disabled={isGenerating} className={`${buttonStyles.base} ${buttonStyles.primary} w-full sm:w-auto`}>
-                                {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
-                            </button>
-                        </div>
-                    </form>
+                
+                {/* --- Text Input Section --- */}
+                <div className="space-y-4">
+                     <p className="text-sm text-gray-300">Start with a topic or destination.</p>
+                    <input type="text" placeholder="General Topic (e.g., 'adventure travel', 'foodie guide')" value={topic} onChange={(e) => setTopic(e.target.value)} disabled={!!selectedVideoId} className="form-input w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50" />
+                    <input type="text" placeholder="Destination (e.g., 'Paris, France', 'Costa Rica')" value={destination} onChange={(e) => setDestination(e.target.value)} disabled={!!selectedVideoId} className="form-input w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50" />
                 </div>
-                <div className="flex items-center"><div className="flex-grow border-t border-gray-600"></div><span className="flex-shrink mx-4 text-gray-400">OR</span><div className="flex-grow border-t border-gray-600"></div></div>
-                <div>
-                    <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-300">From an Existing Video</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <select id="project-select" value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)} className="form-select" disabled={projects.length === 0}>
-                                <option value="">{projects.length === 0 ? 'Loading projects...' : 'Select a Project'}</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle || 'Untitled Project'}</option>)}
-                            </select>
-                            <select id="video-select" value={selectedVideo} onChange={(e) => setSelectedVideo(e.target.value)} className="form-select" disabled={!selectedProject}>
-                                <option value="">{ !selectedProject ? 'Select project' : (videos.length === 0 ? 'No videos' : 'Select a Video')}</option>
-                                {videos.map(v => <option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>)}
-                            </select>
-                        </div>
-                        <button onClick={handleGenerateFromVideo} disabled={isGeneratingFromVideo || !selectedVideo} className={`${buttonStyles.base} ${buttonStyles.secondary} w-full mt-3`}>
-                            {isGeneratingFromVideo ? <window.LoadingSpinner isButton={true} /> : 'Generate From Video'}
-                        </button>
-                    </div>
+
+                <div className="flex items-center">
+                    <hr className="flex-grow border-t border-gray-600"/>
+                    <span className="px-3 text-gray-400 text-sm">OR</span>
+                    <hr className="flex-grow border-t border-gray-600"/>
+                </div>
+
+                {/* --- Video Input Section --- */}
+                 <div className="space-y-4">
+                    <p className="text-sm text-gray-300">Start from one of your existing videos.</p>
+                    <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} disabled={!!topic || !!destination} className="form-input w-full bg-gray-900/50 border-gray-700 text-white focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50">
+                        <option value="">Select a video...</option>
+                        {videos.map(v => (<option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>))}
+                    </select>
+                </div>
+
+                <div className="pt-2">
+                    <button onClick={handleGenerateIdeas} disabled={isGenerating || (!topic && !destination && !selectedVideoId)} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -372,7 +352,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             <div className="p-4 bg-gray-800/30">
                 <div className="space-y-3">
                     <div><h4 className="font-semibold text-gray-400 text-xs">Description</h4><p className="text-sm text-gray-300">{idea.description}</p></div>
-                    <div><h4 className="font-semibold text-gray-400 text-xs">Primary Keyword</h4><p className="px-2 py-1 text-sm bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full inline-block">{idea.primaryKeyword}</p></div>
+                    <div><h4 className="font-semibold text-gray-400 text-xs">Primary Keyword</h4><p className="px-2 py-1 text-sm bg-gray-700 text-gray-200 rounded-full inline-block">{idea.primaryKeyword}</p></div>
                     {idea.monetizationOpportunities && (<div className="p-2 bg-green-900/20 border-l-2 border-green-500"><h4 className="font-semibold text-green-400 text-xs">Monetization Angle</h4><p className="text-sm text-green-300/90 italic">{idea.monetizationOpportunities}</p></div>)}
                     {idea.blogPostContent && (<div><h4 className="font-semibold text-gray-400 text-xs">Generated Content (Preview)</h4><p className="text-sm text-gray-300 border-l-2 border-gray-600 pl-2 italic">{idea.blogPostContent.substring(0, 200)}...</p></div>)}
                 </div>
@@ -397,7 +377,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 <h3 className="text-xl font-bold mb-4">Content Pipeline</h3>
                 <div className="mb-4 flex items-center border-b border-gray-700">
                      {['new', 'active', 'closed'].map(view => (
-                        <button key={view} onClick={() => { setSelectedIdeas(new Set()); setCurrentDashboardView(view); }} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400 hover:text-white'}`}>
+                        <button key={view} onClick={() => { setSelectedIdeas(new Set()); setCurrentDashboardView(view); }} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-blue-500 text-white' : 'text-gray-400 hover:text-white'}`}>
                             {view === 'active' ? 'Active Pipeline' : `${view} Ideas`}
                         </button>
                      ))}
@@ -423,7 +403,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                         <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
                                         <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Type {getSortIcon('postType')}</th>
                                         <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
-                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('relatedProjectTitle')}>Origin {getSortIcon('relatedProjectTitle')}</th>
+                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('relatedVideoTitle')}>Origin {getSortIcon('relatedVideoTitle')}</th>
                                         <th className="p-3 text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -432,11 +412,11 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                         <React.Fragment key={idea.id}>
                                             <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
                                                 <td className="p-3"><input type="checkbox" className={checkboxClass} checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
-                                                <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
+                                                <td className="p-3 font-semibold text-blue-400">{idea.title}</td>
                                                 <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span></td>
                                                 <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
-                                                <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
-                                                <td className="p-3 text-right space-x-2">
+                                                <td className="p-3 text-sm text-gray-300">{idea.relatedVideoTitle || 'Text Input'}</td>
+                                                <td className="p-3 text-right space-x-2 whitespace-nowrap">
                                                     {idea.status === 'approved' ? (
                                                         <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary}`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write</button>
                                                     ) : (
@@ -458,7 +438,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                     <div className="p-4" onClick={() => handleRowClick(idea.id)}>
                                         <div className="flex justify-between items-start mb-2">
                                             <input type="checkbox" className={`${checkboxClass} mr-4 mt-1 flex-shrink-0`} checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()} />
-                                            <h3 className="font-bold text-lg text-primary-accent pr-2 flex-grow">{idea.title}</h3>
+                                            <h3 className="font-bold text-lg text-blue-400 pr-2 flex-grow">{idea.title}</h3>
                                         </div>
                                         <div className="ml-8 space-y-3">
                                             <div className="flex justify-between items-center text-sm">
@@ -466,8 +446,8 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                                                 <span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span>
                                             </div>
                                              <div className="text-sm text-gray-400">
-                                                 <strong>Origin:</strong> {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
-                                              </div>
+                                                 <strong>Origin:</strong> {idea.relatedVideoTitle || 'Text Input'}
+                                             </div>
                                             <div className="flex gap-2 pt-2 border-t border-gray-700/50">
                                                 {idea.status === 'approved' ? (
                                                     <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write Post</button>
