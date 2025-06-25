@@ -1,27 +1,26 @@
 window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db, displayNotification }) => {
     const { useState, useEffect, useMemo, useCallback } = React;
 
-    // --- STATE MANAGEMENT (Unified) ---
+    // --- STATE MANAGEMENT ---
     const [isGenerating, setIsGenerating] = useState(false);
     const [projects, setProjects] = useState([]);
     const [videos, setVideos] = useState([]);
+    const [selectedProjectId, setSelectedProjectId] = useState('');
     const [selectedVideoId, setSelectedVideoId] = useState('');
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [topic, setTopic] = useState('');
     const [destination, setDestination] = useState('');
-
     const [expandedRow, setExpandedRow] = useState(null);
     const [sortBy, setSortBy] = useState('createdAt');
     const [sortOrder, setSortOrder] = useState('desc');
     const [filterTerm, setFilterTerm] = useState('');
     const [filterPostType, setFilterPostType] = useState('All');
     const [selectedIdeas, setSelectedIdeas] = useState(new Set());
-    const [currentDashboardView, setCurrentDashboardView] = useState('new'); // Default to 'new'
+    const [currentDashboardView, setCurrentDashboardView] = useState('new');
 
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
-
-    // --- Reusable Button Styles ---
+    
     const buttonStyles = {
         base: 'inline-flex items-center justify-center px-4 py-2 text-sm font-bold rounded-md transition-colors disabled:opacity-50',
         sm: 'px-3 py-1 text-xs',
@@ -31,36 +30,56 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         danger: 'bg-red-600 hover:bg-red-700 text-white',
         outline: 'bg-transparent border border-gray-500 hover:bg-gray-700 text-gray-300'
     };
-    
+
     const ideasCollectionRef = useMemo(() => {
         if (!userId) return null;
         return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
     }, [db, APP_ID, userId]);
 
-    // --- DATA FETCHING (Unified) ---
+    // --- DATA FETCHING (FIXED) ---
     useEffect(() => {
         if (!userId) {
-           setProjects([]);
-           setVideos([]);
-           return;
+            setProjects([]);
+            return;
         }
-        // Fetch all videos for the user at once for the dropdown.
-        const videosUnsub = db.collectionGroup('videos').where('userId', '==', userId).onSnapshot(snapshot => {
-            const fetchedVideos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setVideos(fetchedVideos);
-        }, err => console.error("Error fetching videos:", err));
-        
-        return () => videosUnsub();
-    }, [userId, db]);
-    
+        const projectsCollectionRef = db.collection(`artifacts/${APP_ID}/users/${userId}/projects`);
+        const unsubscribe = projectsCollectionRef.onSnapshot(
+            snapshot => setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
+            err => console.error("Error fetching projects:", err)
+        );
+        return () => unsubscribe();
+    }, [db, APP_ID, userId]);
+
+    useEffect(() => {
+        if (!selectedProjectId || !userId) {
+            setVideos([]);
+            setSelectedVideoId('');
+            return;
+        }
+        const videosCollectionRef = db.collection(`artifacts/${APP_ID}/users/${userId}/projects/${selectedProjectId}/videos`);
+        const unsubscribe = videosCollectionRef.onSnapshot(
+            snapshot => {
+                const fetchedVideos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setVideos(fetchedVideos);
+                if (selectedVideoId && !fetchedVideos.some(v => v.id === selectedVideoId)) {
+                    setSelectedVideoId('');
+                }
+            },
+            err => {
+                console.error("Error fetching videos for project:", err);
+                setVideos([]);
+            }
+        );
+        return () => unsubscribe();
+    }, [db, APP_ID, userId, selectedProjectId, selectedVideoId]);
+
     useEffect(() => {
         if (!ideasCollectionRef) {
             setIsLoading(false);
             return;
         }
         setIsLoading(true);
-        // The query is now handled by the sortedAndFilteredIdeas memo
-        const unsubscribe = ideasCollectionRef.onSnapshot(
+        const unsubscribe = ideasCollectionRef.orderBy(sortBy, sortOrder).onSnapshot(
             snapshot => {
                 const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setIdeas(fetchedIdeas);
@@ -72,10 +91,9 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             }
         );
         return () => unsubscribe();
-    }, [ideasCollectionRef]);
-
-
-    // --- EVENT HANDLERS (Unified) ---
+    }, [ideasCollectionRef, sortBy, sortOrder]);
+    
+    // --- HANDLER FUNCTIONS (Unified) ---
     const handleGenerateIdeas = useCallback(async () => {
         setIsGenerating(true);
         try {
@@ -88,7 +106,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 generationParams.topic = topic;
                 generationParams.destination = destination;
             } else {
-                displayNotification("Please provide a topic/destination or select a video to start.", "info");
+                displayNotification("Please provide a topic/destination or select a video.", "info");
                 setIsGenerating(false);
                 return;
             }
@@ -98,8 +116,9 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             const batch = db.batch();
             newIdeas.forEach(idea => {
                 const docRef = ideasCollectionRef.doc();
-                const relatedData = selectedVideo 
-                    ? { relatedVideoId: selectedVideo.id, relatedVideoTitle: selectedVideo.title }
+                 const projectData = projects.find(p => p.id === selectedProjectId);
+                const relatedData = selectedVideo
+                    ? { relatedProjectId: selectedProjectId, relatedProjectTitle: projectData?.playlistTitle || 'N/A', relatedVideoId: selectedVideo.id, relatedVideoTitle: selectedVideo.title }
                     : {};
                 batch.set(docRef, { 
                     ...idea, 
@@ -109,12 +128,12 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
                 });
             });
             await batch.commit();
-            displayNotification(`${newIdeas.length} new blog post ideas have been generated!`, 'success');
+            displayNotification(`${newIdeas.length} new blog post ideas generated!`, 'success');
 
-            // Clear inputs after generation
             setTopic('');
             setDestination('');
             setSelectedVideoId('');
+            setSelectedProjectId('');
 
         } catch (err) {
             console.error(`Failed to generate ideas: ${err.message}`);
@@ -122,8 +141,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         } finally {
             setIsGenerating(false);
         }
-    }, [settings, videos, selectedVideoId, topic, destination, db, ideasCollectionRef, displayNotification]);
-
+    }, [settings, videos, selectedVideoId, selectedProjectId, topic, destination, db, ideasCollectionRef, displayNotification, projects]);
 
     const handleRowClick = (id) => setExpandedRow(expandedRow === id ? null : id);
     
@@ -227,48 +245,13 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     };
 
     const handleSort = (column) => {
-        const newSortOrder = sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc';
-        setSortBy(column);
-        setSortOrder(newSortOrder);
+        if (sortBy === column) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(column);
+            setSortOrder('asc');
+        }
     };
-    
-    // --- MEMOIZED COMPUTATIONS ---
-    const sortedAndFilteredIdeas = useMemo(() => {
-        const activeStatuses = ['approved', 'generated', 'published', 'queued', 'generating', 'failed'];
-        let viewFilteredIdeas;
-
-        if (currentDashboardView === 'new') {
-            viewFilteredIdeas = ideas.filter(idea => idea.status === 'new');
-        } else if (currentDashboardView === 'active') {
-            viewFilteredIdeas = ideas.filter(idea => activeStatuses.includes(idea.status));
-        } else { // 'closed'
-            viewFilteredIdeas = ideas.filter(idea => idea.status === 'closed');
-        }
-
-        let searchFilteredIdeas = viewFilteredIdeas;
-        if (filterTerm) {
-            const lowerCaseFilterTerm = filterTerm.toLowerCase();
-            searchFilteredIdeas = viewFilteredIdeas.filter(idea =>
-                (idea.title?.toLowerCase().includes(lowerCaseFilterTerm)) ||
-                (idea.description?.toLowerCase().includes(lowerCaseFilterTerm)) ||
-                (idea.primaryKeyword?.toLowerCase().includes(lowerCaseFilterTerm))
-            );
-        }
-        
-        let typeFilteredIdeas = searchFilteredIdeas;
-        if (filterPostType !== 'All') {
-            typeFilteredIdeas = searchFilteredIdeas.filter(idea => idea.postType === filterPostType);
-        }
-        
-        // Final sort
-        return typeFilteredIdeas.sort((a, b) => {
-            const aVal = a[sortBy];
-            const bVal = b[sortBy];
-            if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }, [ideas, filterTerm, filterPostType, currentDashboardView, sortBy, sortOrder]);
     
     const selectedIdeasStats = useMemo(() => {
         const stats = { new: 0, approved: 0, generated: 0, published: 0, total: 0 };
@@ -284,6 +267,30 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         });
         return stats;
     }, [selectedIdeas, ideas]);
+
+    const sortedAndFilteredIdeas = useMemo(() => {
+        const activeStatuses = ['approved', 'generated', 'published', 'queued', 'generating', 'failed'];
+        let viewFilteredIdeas;
+        if (currentDashboardView === 'new') {
+            viewFilteredIdeas = ideas.filter(idea => idea.status === 'new');
+        } else if (currentDashboardView === 'active') {
+            viewFilteredIdeas = ideas.filter(idea => activeStatuses.includes(idea.status));
+        } else { // 'closed'
+            viewFilteredIdeas = ideas.filter(idea => idea.status === 'closed');
+        }
+        if (filterTerm) {
+            const lowerCaseFilterTerm = filterTerm.toLowerCase();
+            viewFilteredIdeas = viewFilteredIdeas.filter(idea =>
+                (idea.title?.toLowerCase().includes(lowerCaseFilterTerm)) ||
+                (idea.description?.toLowerCase().includes(lowerCaseFilterTerm)) ||
+                (idea.primaryKeyword?.toLowerCase().includes(lowerCaseFilterTerm))
+            );
+        }
+        if (filterPostType !== 'All') {
+            viewFilteredIdeas = viewFilteredIdeas.filter(idea => idea.postType === filterPostType);
+        }
+        return viewFilteredIdeas; // Sorting is now handled by the useEffect for ideas
+    }, [ideas, filterTerm, filterPostType, currentDashboardView]);
 
     const toggleSelectAll = () => {
         if (selectedIdeas.size === sortedAndFilteredIdeas.length) {
@@ -304,34 +311,34 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         <div className="glass-card p-4 sm:p-6 rounded-lg mb-8">
             <h3 className="text-lg font-semibold mb-4 text-white">Generate New Ideas</h3>
             <div className="space-y-6">
-                
-                {/* --- Text Input Section --- */}
-                <div className="space-y-4">
-                     <p className="text-sm text-gray-300">Start with a topic or destination.</p>
-                    <input type="text" placeholder="General Topic (e.g., 'adventure travel', 'foodie guide')" value={topic} onChange={(e) => setTopic(e.target.value)} disabled={!!selectedVideoId} className="form-input w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50" />
-                    <input type="text" placeholder="Destination (e.g., 'Paris, France', 'Costa Rica')" value={destination} onChange={(e) => setDestination(e.target.value)} disabled={!!selectedVideoId} className="form-input w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50" />
+                 <div>
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-300">From a Topic or Destination</label>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <input type="text" value={topic} onChange={e => setTopic(e.target.value)} disabled={!!selectedVideoId} className="form-input flex-grow disabled:opacity-50" placeholder="e.g., 'adventure travel'" />
+                            <input type="text" value={destination} onChange={e => setDestination(e.target.value)} disabled={!!selectedVideoId} className="form-input flex-grow disabled:opacity-50" placeholder="e.g., 'Lake District'" />
+                        </div>
+                    </div>
                 </div>
-
-                <div className="flex items-center">
-                    <hr className="flex-grow border-t border-gray-600"/>
-                    <span className="px-3 text-gray-400 text-sm">OR</span>
-                    <hr className="flex-grow border-t border-gray-600"/>
+                <div className="flex items-center"><div className="flex-grow border-t border-gray-600"></div><span className="flex-shrink mx-4 text-gray-400">OR</span><div className="flex-grow border-t border-gray-600"></div></div>
+                <div>
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-300">From an Existing Video</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="form-select" disabled={projects.length === 0 || !!topic || !!destination}>
+                                <option value="">{projects.length === 0 ? 'Loading projects...' : 'Select a Project'}</option>
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.playlistTitle || 'Untitled Project'}</option>)}
+                            </select>
+                            <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} className="form-select" disabled={!selectedProjectId || !!topic || !!destination}>
+                                <option value="">{ !selectedProjectId ? 'Select project first' : (videos.length === 0 ? 'No videos in project' : 'Select a Video')}</option>
+                                {videos.map(v => <option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>)}
+                            </select>
+                        </div>
+                    </div>
                 </div>
-
-                {/* --- Video Input Section --- */}
-                 <div className="space-y-4">
-                    <p className="text-sm text-gray-300">Start from one of your existing videos.</p>
-                    <select value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)} disabled={!!topic || !!destination} className="form-input w-full bg-gray-900/50 border-gray-700 text-white focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50">
-                        <option value="">Select a video...</option>
-                        {videos.map(v => (<option key={v.id} value={v.id}>{v.title || 'Untitled Video'}</option>))}
-                    </select>
-                </div>
-
-                <div className="pt-2">
-                    <button onClick={handleGenerateIdeas} disabled={isGenerating || (!topic && !destination && !selectedVideoId)} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                        {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
-                    </button>
-                </div>
+                 <button onClick={handleGenerateIdeas} disabled={isGenerating || (!topic && !destination && !selectedVideoId)} className={`${buttonStyles.base} ${buttonStyles.primary} w-full mt-3`}>
+                    {isGenerating ? <window.LoadingSpinner isButton={true} /> : 'Generate Ideas'}
+                </button>
             </div>
         </div>
     );
