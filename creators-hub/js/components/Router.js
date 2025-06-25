@@ -53,13 +53,13 @@ window.components.Router = ({
         case 'settingsMenu':
             return <SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
         case 'technicalSettings':
-            return <TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+            return <TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={onShowSettings} />;
         case 'myStudio':
             return <MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleNavigateBack} previousView={previousView} />;
         case 'importProject':
             return <ImportProjectView onAnalyze={handleAnalyzeImportedProject} onBack={handleBackToDashboard} isLoading={isLoading} settings={settings} firebaseDb={firebaseDb} firebaseAppInstance={firebaseAppInstance} />;
         case 'knowledgeBases':
-            return <KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={handleShowSettings} />;
+            return <KnowledgeBaseView settings={settings} onSave={handleSaveSettings} onBack={onShowSettings} />;
         case 'tools':
             return <ToolsView onBack={handleBackToDashboard} onSelectTool={handleSelectTool} />;
         case 'blogTool':
