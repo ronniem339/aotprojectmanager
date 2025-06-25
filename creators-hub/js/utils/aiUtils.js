@@ -121,11 +121,25 @@ window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, setting
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     let context_prompt = "";
-    if (video && video.transcript) {
-        context_prompt = `**Primary Content Source (Video Transcript):**\n"""\n${video.transcript.substring(0, 4000)}\n"""\nThis video is about "${video.title}". From this transcript, identify the primary destination and key topics to generate blog post ideas.`;
+
+    // **MODIFICATION START**
+    // The logic is updated to provide better context when a video is selected,
+    // even if a transcript isn't available.
+    if (video) {
+        if (video.transcript) {
+            // If a transcript exists, use it as the primary source.
+            context_prompt = `**Primary Content Source (Video Transcript):**\n"""\n${video.transcript.substring(0, 4000)}\n"""\nThis video is about "${video.title}". From this transcript, identify the primary destination and key topics to generate blog post ideas.`;
+        } else {
+            // **FIX:** If no transcript, use the video's title and concept/description for context.
+            // This prevents the AI from falling back to generic inputs.
+            const videoConcept = video.concept || video.description || '';
+            context_prompt = `**Primary Content Source (Video Details):**\n- Video Title: "${video.title}"\n- Video Concept/Description: "${videoConcept}"\n\nBased on these video details, identify the core themes, locations, and topics to generate relevant blog post ideas.`;
+        }
     } else {
+        // Fallback for when no video is selected.
         context_prompt = `**Primary Content Source (User Input):**\n- Destination: "${destination || 'Not specified'}"\n- General Topic: "${topic}"`;
     }
+    // **MODIFICATION END**
 
     const prompt = `You are an expert SEO content strategist for a travel blog.
 Your task is to generate a list of 10-15 highly specific and compelling blog post ideas based on the provided content source.
@@ -161,7 +175,6 @@ ${styleGuidePrompt}
         throw new Error(`AI failed to generate ideas: ${error.message || error}`);
     }
 };
-
 /**
  * Generates a full blog post based on an approved idea.
  * The length is automatically determined based on the idea's title and type.
