@@ -343,18 +343,24 @@ ${styleGuidePrompt}
 - **Desired Tone:** ${tone || 'Informative'}
 
 **Instructions:**
-1.  Create a compelling and engaging blog post.
+1.  Create a compelling and engaging blog post using standard Gutenberg blocks like paragraphs and headings.
 2.  The structure should be logical with a clear introduction, body, and conclusion.
 3.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments. For example:
     * **Paragraph:** \`<p>This is a paragraph.</p>\`
     * **Heading:** \`<h2>This is a Heading</h2>\`
-    * **List:** \`<ul><li>Item 1</li><li>Item 2</li></ul>\`
 4.  Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content. The title is handled separately by WordPress.
-5.  Strategically place placeholders for images and YouTube videos where they would be most effective, wrapped in appropriate block comments.
-    * **Image Placeholder:** Use \`<div class="placeholder-image" style="height:300px; background:#ccc; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the image">Image Placeholder: [add descriptive keywords here]</div>\`
-    * **YouTube Placeholder:** Use \`<div class="placeholder-youtube" style="height:300px; background:#333; color:white; display:flex; align-items:center; justify-content:center; margin:1rem 0;" data-keywords="a descriptive keyword for the video">YouTube Placeholder: [add descriptive keywords here]</div>\`
+5.  Strategically place placeholders for images and YouTube videos where they would be most effective, using the specific block markup below.
+
+    * **Image Placeholder Block:** Use this exact format. It will create a placeholder in the editor where a user can upload an image.
+        \`<figure class="wp-block-image aligncenter size-large"><figcaption><strong>Image Placeholder:</strong> [add descriptive keywords for the image here]</figcaption></figure>
+        \`
+
+    * **YouTube Placeholder Block:** Use this exact format. It creates a YouTube embed block. Replace the bracketed text in the URL and the caption.
+        \`<figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=dLc9jiBgXYQ%26autoplay%3D18 descriptive keywords for the video here]</div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
+        \`
+
 6.  Ensure the primary keyword is naturally integrated into the text.
-7.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output should be only the content that goes inside the WordPress editor.
+7.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags. The output must be only the content that goes inside the WordPress editor.
 8.  Your entire response should be only the raw HTML content with Gutenberg block comments. Do not wrap it in JSON or Markdown code blocks.`;
 
     try {
@@ -365,6 +371,7 @@ ${styleGuidePrompt}
             true // This is a complex task
         );
 
+        // Clean up potential markdown formatting from the AI response
         let cleanedHtml = htmlContent.trim();
         if (cleanedHtml.startsWith('```html')) {
             cleanedHtml = cleanedHtml.substring(7).trim();
@@ -379,6 +386,7 @@ ${styleGuidePrompt}
 
     } catch (error) {
         console.error("Error generating WordPress Post HTML:", error);
+        // FIX: Removed the erroneous backslash before the template literal
         throw new Error(`AI failed to generate WordPress HTML: ${error.message || error}`);
     }
 };
