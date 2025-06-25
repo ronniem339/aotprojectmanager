@@ -116,136 +116,58 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
 };
 
 /**
-  * Generates blog post ideas.
-  */
-window.aiUtils.generateBlogPostIdeasAI = async ({ destination, project, video, settings }) => {
-    let context = '';
-    if (destination) {
-      context = `Your task is to generate a list of 10 diverse, high-potential blog post ideas for the destination: "${destination}".`;
-    } else if (project && video) {
-      context = `A user wants blog post ideas based on a specific video from their travels.
-Project Title: "${project.playlistTitle}"
-Video Title: "${video.title}"
-Video Concept: "${video.concept}"
-Video Locations: "${(video.locations_featured || []).join(', ')}"
-Video Keywords: "${(video.targeted_keywords || []).join(', ')}"
+   * Generates blog post ideas from a variety of sources (text, video).
+   * It automatically includes hotel-monetized ideas if a destination is detected.
+   */
+  generateBlogIdeasAI: async ({ topic, destination, video, settings }) => {
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
-    } else if (project) {
-      context = `A user wants blog post ideas for an entire travel project.
-Project Title: "${project.playlistTitle}"
-Project Description: "${project.playlistDescription}"
-Project Locations: "${(project.locations || []).map(l => l.name).join(', ')}"
-
-Based on the overall project, generate 10 diverse blog post ideas.`;
+    let context_prompt = "";
+    if (video && video.transcript) {
+        context_prompt = `**Primary Content Source (Video Transcript):**\n"""\n${video.transcript.substring(0, 4000)}\n"""\nThis video is about "${video.title}". From this transcript, identify the primary destination and key topics to generate blog post ideas.`;
     } else {
-      throw new Error("No valid context provided for idea generation (topic, project, or video).");
+        context_prompt = `**Primary Content Source (User Input):**\n- Destination: "${destination || 'Not specified'}"\n- General Topic: "${topic}"`;
     }
 
-    const blogSettings = settings.knowledgeBases.blog;
-    const coreSeoEngine = blogSettings.coreSeoEngine || "Focus on user intent and long-tail keywords.";
-    const monetizationGoals = blogSettings.monetizationGoals || "The goal is to generate affiliate revenue from links.";
-    const ideaGenerationKb = blogSettings.ideaGeneration || "Generate ideas for different content types like guides, listicles, and comparison posts.";
+    const prompt = `You are an expert SEO content strategist for a travel blog.
+Your task is to generate a list of 10-15 highly specific and compelling blog post ideas based on the provided content source.
 
-    const prompt = `You are an expert SEO and content strategist for a travel blog.
-${context}
+${context_prompt}
 
-You MUST adhere to the following foundational knowledge bases for all generated content:
----
-**Core SEO & Content Engine:**
-${coreSeoEngine}
----
-**Monetization & Content Goals:**
-${monetizationGoals}
----
-**Blog Post Idea Generation Framework:**
-${ideaGenerationKb}
----
+${styleGuidePrompt}
 
-For each idea, provide the following in a valid JSON object:
-- "title": (string) A catchy, SEO-friendly headline.
-- "description": (string) A brief (1-2 sentence) summary of the post's content and target audience.
-- "primaryKeyword": (string) The main search term this post should rank for.
-- "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
-- "monetizationOpportunities": (string) A brief (1-2 sentence) explanation of the specific monetization opportunities (e.g., affiliate links for hotels, tours, gear) and how it aligns with the user's content goals.
-
-Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
+**Your Task & Output Instructions:**
+1.  Analyze the provided content source to understand the core themes, locations, and topics.
+2.  Generate 10-15 blog post ideas. The ideas should be a mix of post types (e.g., Listicle Post, Destination Guide, How-To Guide, Personal Story).
+3.  **Hotel-Specific Ideas:** If a specific destination is mentioned or can be inferred, you MUST include 2-4 ideas that are hotel-focused listicles. These should target different traveler types (e.g., "Best Budget Hostels," "Most Romantic Boutique Hotels," "Top Family-Friendly Resorts"). For these specific hotel listicles, the "monetizationOpportunities" field should be "Hotel affiliate links."
+4.  For all other ideas, suggest 1-3 clear, actionable monetization opportunities (e.g., "Affiliate links for hiking gear," "Sponsored post by a local cafe," "Digital travel guide for sale").
+5.  Each idea must be SEO-optimized with a compelling, clickable title.
+6.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "monetizationOpportunities".
+7.  **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
+`;
 
     try {
-      const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-      if (parsedJson && Array.isArray(parsedJson.ideas)) {
-        return parsedJson.ideas;
-      } else {
-        throw new Error("AI returned an invalid format for blog post ideas.");
-      }
-    } catch (error) {
-      console.error("Error generating blog post ideas:", error);
-      throw new Error(`AI failed to generate ideas: ${error.message || error}`);
-    }
-};
-
-/**
- * NEW FUNCTION
- * Generates blog post ideas based on a specific video.
- */
-window.aiUtils.generateBlogPostIdeasFromVideoAI = async ({ video, projectTitle, settings }) => {
-    const context = `A user wants blog post ideas based on a specific video from their travels.
-Project Title: "${projectTitle || 'N/A'}"
-Video Title: "${video.title || 'Untitled Video'}"
-Video Concept: "${video.concept || 'No concept provided.'}"
-Video Locations: "${(video.locations_featured || []).join(', ') || 'No locations specified.'}"
-Video Keywords: "${(video.targeted_keywords || []).join(', ') || 'No keywords specified.'}"
-
-Based on this specific video, generate 5-7 blog post ideas that expand on its themes, locations, or concepts.`;
-    
-    const blogSettings = settings.knowledgeBases.blog;
-    const coreSeoEngine = blogSettings.coreSeoEngine || "Focus on user intent and long-tail keywords.";
-    const monetizationGoals = blogSettings.monetizationGoals || "The goal is to generate affiliate revenue from links.";
-    const ideaGenerationKb = blogSettings.ideaGeneration || "Generate ideas for different content types like guides, listicles, and comparison posts.";
-
-    const prompt = `You are an expert SEO and content strategist for a travel blog.
-${context}
-
-You MUST adhere to the following foundational knowledge bases for all generated content:
----
-**Core SEO & Content Engine:**
-${coreSeoEngine}
----
-**Monetization & Content Goals:**
-${monetizationGoals}
----
-**Blog Post Idea Generation Framework:**
-${ideaGenerationKb}
----
-
-For each idea, provide the following in a valid JSON object:
-- "title": (string) A catchy, SEO-friendly headline.
-- "description": (string) A brief (1-2 sentence) summary of the post's content and target audience.
-- "primaryKeyword": (string) The main search term this post should rank for.
-- "postType": (string) The type of post, either "Destination Guide" or "Listicle Post".
-- "monetizationOpportunities": (string) A brief (1-2 sentence) explanation of the specific monetization opportunities (e.g., affiliate links for hotels, tours, gear) and how it aligns with the user's content goals.
-
-Your response must be a valid JSON object with a single key "ideas" which is an array of these objects.`;
-
-    try {
-        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-        if (parsedJson && Array.isArray(parsedJson.ideas)) {
-            return parsedJson.ideas;
-        } else {
-            console.error("AI returned an invalid format for blog post ideas from video:", parsedJson);
-            throw new Error("AI returned an invalid format for blog post ideas.");
+        const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+        const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
+        const match = rawResponseText.match(jsonBlockRegex);
+        if (match && match[1]) {
+            const parsedJson = JSON.parse(match[1]);
+            if (parsedJson && Array.isArray(parsedJson.ideas)) {
+                return parsedJson.ideas;
+            }
         }
+        throw new Error("AI returned an invalid format for blog post ideas.");
     } catch (error) {
-        console.error("Error generating blog post ideas from video:", error);
-        throw new Error(`AI failed to generate ideas from video: ${error.message || error}`);
+        console.error("Error generating blog post ideas:", error);
+        throw new Error(`AI failed to generate ideas: ${error.message || error}`);
     }
-};
-
-
-    /**
-  * Generates a full blog post based on an approved idea.
-  */
-window.aiUtils.generateBlogPostContentAI = async ({ idea, settings }) => {
+  },
+  
+  /**
+   * Generates a full blog post based on an approved idea.
+   * The length is automatically determined based on the idea's title and type.
+   */
+  generateBlogPostContentAI: async ({ idea, settings }) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
     const blogSettings = settings.knowledgeBases.blog;
 
@@ -258,6 +180,18 @@ window.aiUtils.generateBlogPostContentAI = async ({ idea, settings }) => {
     } else if (idea.postType === 'Destination Guide' && blogSettings.destinationGuideBlueprint) {
       postTypeSpecificKb = `**Destination Guide Knowledge Base:**\n${blogSettings.destinationGuideBlueprint}\n---`;
     }
+
+    // --- Automatic Length Detection Logic ---
+    let lengthInstruction;
+    const guideKeywords = ['complete guide', 'ultimate guide', 'in-depth', 'comprehensive guide', 'full guide'];
+    const titleContainsGuideKeyword = guideKeywords.some(keyword => idea.title.toLowerCase().includes(keyword));
+
+    if (idea.postType === 'Destination Guide' || titleContainsGuideKeyword) {
+        lengthInstruction = "The blog post should be very detailed and comprehensive, between 2000 and 3000 words.";
+    } else {
+        lengthInstruction = "The blog post should be a standard length, between 1500 and 2000 words.";
+    }
+    // --- End of Logic ---
 
     const prompt = `You are an expert blog post writer for a travel blog.
 Your task is to write a complete, detailed, and engaging blog post based on the following approved idea.
@@ -283,20 +217,13 @@ ${monetizationGoals}
 
 **Your Task & Output Instructions:**
 1. Write a comprehensive blog post.
-2. Structure the post logically with an engaging introduction, several body sections using H2 and H3 headings, and a clear conclusion/call to action.
-3. Naturally integrate the "primaryKeyword" throughout the content.
-4. Weave in the "monetizationOpportunities" as seamlessly as possible.
-5. Maintain the creator's style and tone.
-6. Your response MUST contain a single JSON object with two keys: "blogPostContent" (the full post in Markdown) and "excerpt" (a 1-2 sentence summary of the post).
-7. **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
-
-Example Output Format:
-~~~json
-{
- "blogPostContent": "# My Awesome Travel Guide\\n\\n## Introduction\\n...",
- "excerpt": "This is a brief summary of the blog post."
-}
-~~~
+2. ${lengthInstruction}
+3. Structure the post logically with an engaging introduction, several body sections using H2 and H3 headings, and a clear conclusion/call to action.
+4. Naturally integrate the "primaryKeyword" throughout the content.
+5. Weave in the "monetizationOpportunities" as seamlessly as possible.
+6. Maintain the creator's style and tone.
+7. Your response MUST contain a single JSON object with two keys: "blogPostContent" (the full post in Markdown) and "excerpt" (a 1-2 sentence summary of the post).
+8. **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
 `;
 
     try {
@@ -319,12 +246,12 @@ Example Output Format:
       } else {
         throw new Error("AI returned an invalid format for blog post content.");
       }
- } catch (error) { // <--- Corrected Line
-      console.error("Error generating blog post content:", error);
-      throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
+    } catch (error) {
+        console.error("Error generating blog post content:", error);
+        throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
     }
+  },
 };
-
 /**
   * Generates a full blog post in HTML format, ready for WordPress, with OtterBlocks support.
   */
