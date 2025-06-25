@@ -1,5 +1,3 @@
-// js/utils/aiUtils.js
-
 /**
 * This is the central AI utility object for the Creator's Hub application.
 * It handles all interactions with the Google Gemini API.
@@ -116,10 +114,10 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
 };
 
 /**
-   * Generates blog post ideas from a variety of sources (text, video).
-   * It automatically includes hotel-monetized ideas if a destination is detected.
-   */
-  generateBlogIdeasAI: async ({ topic, destination, video, settings }) => {
+ * Generates blog post ideas from a variety of sources (text, video).
+ * It automatically includes hotel-monetized ideas if a destination is detected.
+ */
+window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, settings }) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     let context_prompt = "";
@@ -143,10 +141,11 @@ ${styleGuidePrompt}
 4.  For all other ideas, suggest 1-3 clear, actionable monetization opportunities (e.g., "Affiliate links for hiking gear," "Sponsored post by a local cafe," "Digital travel guide for sale").
 5.  Each idea must be SEO-optimized with a compelling, clickable title.
 6.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "monetizationOpportunities".
-7.  **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
+7.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.
 `;
 
     try {
+        // Note: This specific function expects a text/plain response that it will parse itself.
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
         const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
         const match = rawResponseText.match(jsonBlockRegex);
@@ -161,13 +160,13 @@ ${styleGuidePrompt}
         console.error("Error generating blog post ideas:", error);
         throw new Error(`AI failed to generate ideas: ${error.message || error}`);
     }
-  },
-  
-  /**
-   * Generates a full blog post based on an approved idea.
-   * The length is automatically determined based on the idea's title and type.
-   */
-  generateBlogPostContentAI: async ({ idea, settings }) => {
+};
+
+/**
+ * Generates a full blog post based on an approved idea.
+ * The length is automatically determined based on the idea's title and type.
+ */
+window.aiUtils.generateBlogPostContentAI = async ({ idea, settings }) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
     const blogSettings = settings.knowledgeBases.blog;
 
@@ -223,43 +222,42 @@ ${monetizationGoals}
 5. Weave in the "monetizationOpportunities" as seamlessly as possible.
 6. Maintain the creator's style and tone.
 7. Your response MUST contain a single JSON object with two keys: "blogPostContent" (the full post in Markdown) and "excerpt" (a 1-2 sentence summary of the post).
-8. **CRITICAL OUTPUT FORMAT:** Wrap your entire JSON object in "~~~json" and "~~~" delimiters.
+8. **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.
 `;
 
     try {
-      const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-      const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
-      const match = rawResponseText.match(jsonBlockRegex);
-      let jsonString = null;
+        const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+        const jsonBlockRegex = /~~~\s*json\s*\n([\s\S]*?)\n\s*~~~/;
+        const match = rawResponseText.match(jsonBlockRegex);
+        let jsonString = null;
 
-      if (match && match[1]) {
-        jsonString = match[1];
-      } else {
+        if (match && match[1]) {
+          jsonString = match[1];
+        } else {
             console.error("AI response did not contain a valid JSON block.", rawResponseText);
-        throw new Error("AI response did not provide the expected JSON format. Please try again.");
-      }
+          throw new Error("AI response did not provide the expected JSON format. Please try again.");
+        }
 
-      const parsedJson = JSON.parse(jsonString);
+        const parsedJson = JSON.parse(jsonString);
 
-      if (parsedJson && typeof parsedJson.blogPostContent === 'string' && typeof parsedJson.excerpt === 'string') {
-        return parsedJson;
-      } else {
-        throw new Error("AI returned an invalid format for blog post content.");
-      }
+        if (parsedJson && typeof parsedJson.blogPostContent === 'string' && typeof parsedJson.excerpt === 'string') {
+          return parsedJson;
+        } else {
+          throw new Error("AI returned an invalid format for blog post content.");
+        }
     } catch (error) {
         console.error("Error generating blog post content:", error);
         throw new Error(`AI failed to generate blog post content: ${error.message || error}`);
     }
-  },
 };
+
 /**
-  * Generates a full blog post in HTML format, ready for WordPress, with OtterBlocks support.
-  */
+ * Generates a full blog post in HTML format, ready for WordPress, with OtterBlocks support.
+ */
 window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
     const { title, primaryKeyword } = idea;
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
-    // The prompt string now has a closing backtick at the end.
     const prompt = `
 You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress Gutenberg editor.
 
@@ -279,14 +277,12 @@ ${styleGuidePrompt}
 
     * **Image Placeholder Block:** Use this exact two-block format. This creates a clickable image placeholder and a descriptive paragraph below it.
 
-        \`<figure class="wp-block-image size-large"><img alt="image placeholder"/></figure>
+        <figure class="wp-block-image size-large"><img alt="image placeholder"/></figure>
         <p class="is-style-small-text"><em>Image suggestion: [add descriptive keywords for the image here]</em></p>
-        \`
 
     * **YouTube Placeholder Block:** Use this exact format. It creates a proper YouTube embed block with a helpful search link.
 
-        \`<figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">https://www.youtube.com/results?search_query=[add+descriptive+keywords+for+the+video+here]</div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
-        \`
+        <figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">https://www.youtube.com/results?search_query=[add+descriptive+keywords+for+the+video+here]</div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
 
 6.  Ensure the primary keyword is naturally integrated into the text.
 7.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags.
@@ -318,7 +314,7 @@ ${styleGuidePrompt}
         throw new Error(`AI failed to generate WordPress HTML: ${error.message || error}`);
     }
 };
-/**
+
 /**
  * Generates a list of relevant tags for a blog post using AI.
  */
@@ -346,6 +342,7 @@ window.aiUtils.generateTagsForPostAI = async ({ idea, settings }) => {
         return []; // Return an empty array on failure to prevent crashes
     }
 };
+
 /**
  * Generates a clean, text-only excerpt/meta description for a blog post.
  */
@@ -381,9 +378,10 @@ Based on these details, generate the perfect excerpt.`;
         return idea.description;
     }
 };
-  /**
-  * Finds points of interest.
-  */
+
+/**
+ * Finds points of interest.
+ */
 window.aiUtils.findPointsOfInterestAI = async ({ mainLocationName, currentLocations, settings }) => {
     const existingLocationNames = currentLocations.map(l => l.name).join(', ');
 
@@ -404,18 +402,18 @@ Example JSON format:
 ]`;
 
     try {
-      const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
-      if (!Array.isArray(parsedJson)) {
-        const key = Object.keys(parsedJson).find(k => Array.isArray(parsedJson[k]));
-        if (key) {
-          return parsedJson[key];
+        const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
+        if (!Array.isArray(parsedJson)) {
+            const key = Object.keys(parsedJson).find(k => Array.isArray(parsedJson[k]));
+            if (key) {
+              return parsedJson[key];
+            }
+            throw new Error("AI response was not a valid JSON array.");
         }
-        throw new Error("AI response was not a valid JSON array.");
-      }
-      return parsedJson;
+        return parsedJson;
     } catch (error) {
-      console.error("Error finding points of interest:", error);
-      throw new Error(`AI failed to find locations: ${error.message || error}`);
+        console.error("Error finding points of interest:", error);
+        throw new Error(`AI failed to find locations: ${error.message || error}`);
     }
 };
     
@@ -622,7 +620,6 @@ window.aiUtils.refineVideoConceptBasedOnInventory = async ({ videoTitle, current
         return await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
     };
 
-// **FIX: Reverted to the simpler, correct version.** // With the central callGeminiAPI now being robust, this function no longer needs complex parsing logic.
 window.aiUtils.generateShortsIdeasAI = async ({ videoTitle, videoConcept, videoLocationsFeatured, projectFootageInventory, projectTitle, shortsIdeaGenerationKb, previouslyCreatedShorts = [], settings, videoTone }) => {
     const styleGuide = window.aiUtils.getStyleGuidePrompt(settings, videoTone);
     
@@ -710,4 +707,4 @@ window.aiUtils.updateStyleGuideAI = async function({ currentStyleGuide, refineme
             console.error("Error updating style guide with AI:", error);
             throw new Error("AI failed to update the style guide.");
         }
-    }
+    };
