@@ -37,7 +37,8 @@ window.components.Router = ({
     handleGeneratePostTask,
     handleOpenPublisher,
     taskQueue,
-    handleViewGeneratedPost
+    handleViewGeneratedPost,
+    displayNotification
 }) => {
     if (!isAuthReady || !firebaseDb || !firebaseAuth) {
         return <div className="min-h-screen flex justify-center items-center"><LoadingSpinner text="Initializing application..." /></div>;
@@ -76,6 +77,7 @@ window.components.Router = ({
                 onPublishPosts={handleOpenPublisher}
                 taskQueue={taskQueue}
                 onViewPost={handleViewGeneratedPost}
+                displayNotification={displayNotification}
             />;
         case 'shortsTool':
             return <ShortsTool settings={settings} onBack={() => handleNavigate('tools')} userId={user.uid} db={firebaseDb} />;

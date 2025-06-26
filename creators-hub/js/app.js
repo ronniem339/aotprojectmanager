@@ -100,6 +100,7 @@ window.App = () => {
                     handleOpenPublisher={handlers.handleOpenPublisher}
                     taskQueue={taskQueue}
                     handleViewGeneratedPost={handlers.handleViewGeneratedPost}
+                    displayNotification={handlers.displayNotification}
                 />
             </main>
         </div>
