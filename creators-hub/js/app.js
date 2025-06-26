@@ -71,36 +71,22 @@ window.App = () => {
 
             <main className="p-4 sm:p-6 lg:p-8">
                 <Router
-                    currentView={currentView}
-                    isAuthReady={isAuthReady}
-                    firebaseDb={firebaseDb}
-                    firebaseAuth={firebaseAuth}
-                    user={user}
-                    onSelectProject={handlers.handleSelectProject}
-                    onShowSettings={handlers.handleShowSettings}
-                    onShowProjectSelection={() => handlers.setShowProjectSelection(true)}
-                    onShowDeleteConfirm={handlers.handleShowDeleteConfirm}
-                    onShowTools={handlers.handleShowTools}
-                    selectedProject={selectedProject}
-                    handleBackToDashboard={handlers.handleBackToDashboard}
-                    settings={settings}
-                    handleSaveSettings={handlers.handleSaveSettings}
-                    googleMapsLoaded={googleMapsLoaded}
-                    firebaseAppInstance={firebaseAppInstance}
-                    handleNavigate={handlers.handleNavigate}
-                    handleShowTechnicalSettings={handlers.handleShowTechnicalSettings}
-                    handleShowStyleAndTone={handlers.handleShowStyleAndTone}
-                    handleShowKnowledgeBases={handlers.handleShowKnowledgeBases}
-                    handleNavigateBack={handlers.handleNavigateBack}
-                    previousView={previousView}
-                    handleAnalyzeImportedProject={handlers.handleAnalyzeImportedProject}
-                    isLoading={isLoading}
-                    handleSelectTool={handlers.handleSelectTool}
-                    handleGeneratePostTask={handlers.handleGeneratePostTask}
-                    handleOpenPublisher={handlers.handleOpenPublisher}
-                    taskQueue={taskQueue}
-                    handleViewGeneratedPost={handlers.handleViewGeneratedPost}
-                />
+                        {...{
+                            currentView,
+                            isAuthReady,
+                            firebaseDb,
+                            firebaseAuth,
+                            user,
+                            selectedProject,
+                            settings,
+                            googleMapsLoaded,
+                            firebaseAppInstance,
+                            previousView,
+                            isLoading,
+                            taskQueue,
+                            ...handlers
+                        }}
+                    />
             </main>
         </div>
     );
