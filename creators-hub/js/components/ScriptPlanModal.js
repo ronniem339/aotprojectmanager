@@ -1,4 +1,6 @@
-import { generateDraftOutlineAI, generateScriptPlanAI, generateFinalScriptAI } from '../utils/aiUtils.js';
+import { generateDraftOutlineAI } from '../utils/ai/planning/generateDraftOutlineAI.js';
+import { generateScriptPlanAI } from '../utils/ai/planning/generateScriptPlanAI.js';
+import { generateFinalScriptAI } from '../utils/ai/planning/generateFinalScriptAI.js';
 import { FullScreenScriptView } from './ProjectView/FullScreenScriptView.js';
 
 /**
