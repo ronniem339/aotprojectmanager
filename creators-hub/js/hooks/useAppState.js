@@ -26,6 +26,10 @@ window.useAppState = () => {
             },
             storytelling: {
                 videoStorytellingPrinciples: '',
+            },
+            creator: {
+                styleGuideText: '',
+                styleGuideLog: []
             }
         },
         wordpress: { url: '', username: '', applicationPassword: '' }
@@ -91,7 +95,7 @@ window.useAppState = () => {
             const settingsDocRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/settings`).doc('styleGuide');
             const unsubscribeSettings = settingsDocRef.onSnapshot(docSnap => {
                 const defaultSettings = {
-                    geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '', styleGuideText: '',
+                    geminiApiKey: '', googleMapsApiKey: '', youtubeApiKey: '',
                     myWriting: '', admiredWriting: '', keywords: '', dosAndDonts: '', excludedPhrases: '',
                     useProModelForComplexTasks: false,
                     flashModelName: 'gemini-1.5-flash-latest',
@@ -108,6 +112,10 @@ window.useAppState = () => {
                         },
                         storytelling: {
                            videoStorytellingPrinciples: '',
+                        },
+                        creator: {
+                            styleGuideText: '',
+                            styleGuideLog: []
                         }
                     },
                     wordpress: { url: '', username: '', applicationPassword: '' }
@@ -119,7 +127,8 @@ window.useAppState = () => {
                     ...data.knowledgeBases,
                     youtube: { ...defaultSettings.knowledgeBases.youtube, ...data.knowledgeBases?.youtube },
                     blog: { ...defaultSettings.knowledgeBases.blog, ...data.knowledgeBases?.blog },
-                    storytelling: { ...defaultSettings.knowledgeBases.storytelling, ...data.knowledgeBases?.storytelling }
+                    storytelling: { ...defaultSettings.knowledgeBases.storytelling, ...data.knowledgeBases?.storytelling },
+                    creator: { ...defaultSettings.knowledgeBases.creator, ...data.knowledgeBases?.creator }
                 };
 
                 const newSettings = { ...defaultSettings, ...data, knowledgeBases: mergedKnowledgeBases };
