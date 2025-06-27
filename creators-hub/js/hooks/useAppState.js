@@ -389,7 +389,7 @@ window.useAppState = () => {
         },
                 handleViewGeneratedPost: (idea) => {
             if (idea && idea.blogPostContent) {
-                setContentToView(idea.blogPostContent);
+                setContentToView(idea);
             } else {
                 const taskId = `generate-post-${idea.id}`;
                 const task = taskQueue.find(t => t.id === taskId);
