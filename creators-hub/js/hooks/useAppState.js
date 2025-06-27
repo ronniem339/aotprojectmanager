@@ -154,6 +154,8 @@ window.useAppState = () => {
             if (task.status === 'queued') {
                 if (task.type === 'generate-post') {
                     await handlers.executeGenerateBlogContent(task);
+                } else if (task.type === 'publish-post') {
+                    await handlers.executePublishToWordPress(task);
                 }
                 // Future task types can be handled here
             }
@@ -320,7 +322,37 @@ window.useAppState = () => {
                 await ideaRef.update({ status: 'failed' });
             }
         },
-        executePublishToWordPress: async(data) => {},
+        executePublishToWordPress: async (task) => {
+            const { idea } = task.data;
+            try {
+                handlers.updateTaskStatus(task.id, 'publishing');
+                const wordpressConfig = settings.wordpress;
+
+                if (!wordpressConfig || !wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
+                    throw new Error('WordPress settings are not fully configured. Please check your settings.');
+                }
+
+                const postData = {
+                    title: idea.title,
+                    htmlContent: idea.blogPostContent,
+                    excerpt: idea.description,
+                    // categoryId: idea.categoryId, // Assuming categoryId might be part of the idea if selected
+                    // tags: idea.tags // Assuming tags might be part of the idea
+                };
+
+                const result = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
+                handlers.updateTaskStatus(task.id, 'complete', result);
+                const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
+                await ideaRef.update({ status: 'published' });
+                handlers.displayNotification(`Successfully published "${idea.title}" to WordPress!`, 'success');
+            } catch (error) {
+                console.error("Error executing publish to WordPress task:", error);
+                handlers.updateTaskStatus(task.id, 'failed', { error: error.message });
+                const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
+                await ideaRef.update({ status: 'failed' });
+                handlers.displayNotification(`Failed to publish "${idea.title}": ${error.message}`, 'error');
+            }
+        },
         handleGeneratePostTask: async (idea) => {
             if (!user || !firebaseDb) return;
             const { relatedProjectId, relatedVideoId } = idea;
@@ -341,9 +373,33 @@ window.useAppState = () => {
             };
             handlers.addTask(task);
         },
-        handlePublishPostsTask: () => {},
-        handleOpenPublisher: () => {},
-        handleViewGeneratedPost: () => {},
+        handlePublishPostsTask: (ideas) => {
+            if (!user || !firebaseDb) return;
+            ideas.forEach(idea => {
+                const task = {
+                    id: `publish-post-${idea.id}`,
+                    type: 'publish-post',
+                    status: 'queued',
+                    data: { idea },
+                    createdAt: new Date(),
+                };
+                handlers.addTask(task);
+            });
+            handlers.setShowPublisherModal(false);
+        },
+                handleViewGeneratedPost: (idea) => {
+            if (idea && idea.blogPostContent) {
+                setContentToView(idea.blogPostContent);
+            } else {
+                const taskId = `generate-post-${idea.id}`;
+                const task = taskQueue.find(t => t.id === taskId);
+                if (task && task.status === 'complete' && task.result) {
+                    setContentToView(task.result.blogPostContent);
+                } else {
+                    displayNotification('Content not available yet or an error occurred.', 'info');
+                }
+            }
+        },
         setProjectToDelete,
         setDraftToDelete,
         setShowProjectSelection,

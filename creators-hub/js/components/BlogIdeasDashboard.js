@@ -1,6 +1,6 @@
 // js/components/BlogIdeasDashboard.js
 
-window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts, processingIdeaId }) => {
+window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts, processingIdeaId, onViewPost }) => {
     const { useState, useEffect, useMemo } = React;
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -320,7 +320,7 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
                                     <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
                                     <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
                                     <td className="p-3 text-right">
-                                        <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2 disabled:opacity-50 disabled:cursor-not-allowed" onClick={(e) => handleWritePost(e, idea)} disabled={idea.status !== 'approved'}>
+                                        <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2 disabled:opacity-50 disabled:cursor-not-allowed" onClick={(e) => idea.status === 'approved' ? handleWritePost(e, idea) : onViewPost(idea)} disabled={!['approved', 'generated', 'published', 'failed'].includes(idea.status)}>
                                             {idea.status === 'approved' ? 'Write Post' : 'View Post'}
                                         </button>
                                         <button onClick={(e) => handleDeleteIdea(e, idea.id)} className="px-3 py-1 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold">Delete</button>
@@ -349,7 +349,7 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
                                 <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span>
                             </div>
                              <div className="flex gap-2">
-                                 <button className="flex-grow px-3 py-2 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed" onClick={(e) => handleWritePost(e, idea)} disabled={idea.status !== 'approved'}>
+                                 <button className="flex-grow px-3 py-2 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed" onClick={(e) => idea.status === 'approved' ? handleWritePost(e, idea) : onViewPost(idea)} disabled={!['approved', 'generated', 'published', 'failed'].includes(idea.status)}>
                                      {idea.status === 'approved' ? 'Write Post' : 'View Post'}
                                  </button>
                                  <button onClick={(e) => handleDeleteIdea(e, idea.id)} className="px-3 py-2 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold">Delete</button>

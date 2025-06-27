@@ -166,10 +166,9 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         onGeneratePost(idea);
     };
 
-    const handleIndividualViewPost = (e, ideaId) => {
+    const handleIndividualViewPost = (e, idea) => {
         e.stopPropagation();
-        onViewPost(`generate-${ideaId}`);
-    };
+        onViewPost(idea);
 
     const handleBulkUpdateStatus = async (ideaIds, newStatus) => {
         if (ideaIds.size === 0) return;
@@ -383,100 +382,13 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
 
         if (isLoading) return <window.LoadingSpinner text="Loading pipeline..." />;
         
-        return (
-            <div className="mt-8">
-                <h3 className="text-xl font-bold mb-4">Content Pipeline</h3>
-                <div className="mb-4 flex items-center border-b border-gray-700">
-                        {['new', 'active', 'closed'].map(view => (
-                            <button key={view} onClick={() => { setSelectedIdeas(new Set()); setCurrentDashboardView(view); }} className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-blue-500 text-white' : 'text-gray-400 hover:text-white'}`}>
-                                {view === 'active' ? 'Active Pipeline' : `${view} Ideas`}
-                            </button>
-                        ))}
-                </div>
-                <div className="mb-4 flex flex-col md:flex-row gap-4">
-                    <input type="text" placeholder="Search ideas..." value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} className="form-input flex-grow"/>
-                    <select value={filterPostType} onChange={(e) => setFilterPostType(e.target.value)} className="form-input w-full md:w-auto">
-                        {uniquePostTypes.map(type => (<option key={type} value={type}>{type}</option>))}
-                    </select>
-                </div>
-                <div className="mb-4 flex flex-wrap gap-2 items-center">{renderBulkActionButtons()}</div>
-                
-                {sortedAndFilteredIdeas.length === 0 ? 
-                    <div className="text-center text-gray-400 py-8"><p>No ideas in this view.</p></div> 
-                    :
-                    <>
-                        {/* --- Desktop Table View --- */}
-                        <div className="hidden md:block overflow-x-auto glass-card rounded-lg">
-                            <table className="w-full text-left table-auto">
-                                <thead className="bg-gray-800/50">
-                                    <tr>
-                                        <th className="p-3 w-px"><input type="checkbox" className={checkboxClass} onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
-                                        <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
-                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Type {getSortIcon('postType')}</th>
-                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
-                                        <th className="p-3 cursor-pointer" onClick={() => handleSort('relatedVideoTitle')}>Origin {getSortIcon('relatedVideoTitle')}</th>
-                                        <th className="p-3 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-800">
-                                    {sortedAndFilteredIdeas.map(idea => (
-                                        <React.Fragment key={idea.id}>
-                                            <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
-                                                <td className="p-3"><input type="checkbox" className={checkboxClass} checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
-                                                <td className="p-3 font-semibold text-blue-400">{idea.title}</td>
-                                                <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span></td>
-                                                <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
-                                                <td className="p-3 text-sm text-gray-300">{idea.relatedVideoTitle || 'Text Input'}</td>
-                                                <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                                                    {idea.status === 'approved' ? (
-                                                        <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary}`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write</button>
-                                                    ) : (
-                                                        <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.secondary}`} onClick={(e) => handleIndividualViewPost(e, idea.id)} disabled={!idea.blogPostContent}>View</button>
-                                                    )}
-                                                    <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger}`}>Del</button>
-                                                </td>
-                                            </tr>
-                                            {expandedRow === idea.id && (<tr className="bg-gray-800/30"><td colSpan="6"><ExpandedContent idea={idea} /></td></tr>)}
-                                        </React.Fragment>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        {/* --- Mobile Card View --- */}
-                        <div className="md:hidden space-y-4">
-                            {sortedAndFilteredIdeas.map(idea => (
-                                <div key={idea.id} className="glass-card rounded-lg overflow-hidden">
-                                    <div className="p-4" onClick={() => handleRowClick(idea.id)}>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <input type="checkbox" className={`${checkboxClass} mr-4 mt-1 flex-shrink-0`} checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()} />
-                                            <h3 className="font-bold text-lg text-blue-400 pr-2 flex-grow">{idea.title}</h3>
-                                        </div>
-                                        <div className="ml-8 space-y-3">
-                                            <div className="flex justify-between items-center text-sm">
-                                                <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span>
-                                                <span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType || 'N/A'}</span>
-                                            </div>
-                                            <div className="text-sm text-gray-400">
-                                                <strong>Origin:</strong> {idea.relatedVideoTitle || 'Text Input'}
-                                            </div>
-                                            <div className="flex gap-2 pt-2 border-t border-gray-700/50">
-                                                {idea.status === 'approved' ? (
-                                                    <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.primary} flex-grow`} onClick={(e) => handleIndividualWritePost(e, idea)}>Write Post</button>
-                                                ) : (
-                                                    <button className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.secondary} flex-grow`} onClick={(e) => handleIndividualViewPost(e, idea.id)} disabled={!idea.blogPostContent}>View Post</button>
-                                                )}
-                                                <button onClick={(e) => handleIndividualDelete(e, idea.id)} className={`${buttonStyles.base} ${buttonStyles.sm} ${buttonStyles.danger} flex-grow`}>Delete</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {expandedRow === idea.id && <ExpandedContent idea={idea} />}
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                }
-            </div>
-        );
+        return <BlogIdeasDashboard 
+            userId={userId} 
+            db={db} 
+            settings={settings} 
+            onWritePost={onGeneratePost} 
+            onPublishPosts={onPublishPosts} 
+            onViewPost={onViewPost} />;
     };
 
     return (
