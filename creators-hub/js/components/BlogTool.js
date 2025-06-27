@@ -221,6 +221,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             setSelectedIdeas(new Set());
         }
     };
+
+    const handlePublish = (ideasToPublish) => {
+        onPublishPosts(ideasToPublish);
+    };
     
     const handleBulkClose = () => {
         const ideasToClose = new Set(Array.from(selectedIdeas).filter(id => ideas.find(i => i.id === id)?.status === 'published'));
