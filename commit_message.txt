@@ -1,0 +1,3 @@
+fix: app.js - Component destructuring
+
+Corrected the destructuring of multiple components in `app.js` to correctly import them from `window.components` instead of `window`, resolving the "Element type is invalid" error.
