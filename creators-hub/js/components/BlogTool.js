@@ -392,6 +392,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             onWritePost={onGeneratePost} 
             onOpenPublisher={onPublishPosts} 
             onViewPost={onViewPost} />;
+    };
 
     return (
         <div className="p-4 sm:p-6 md:p-8">
