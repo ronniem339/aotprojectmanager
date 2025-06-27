@@ -103,9 +103,9 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const haveIdeasBeenGenerated = ideas.ideas1.length > 0 || ideas.ideas2.length > 0 || ideas.ideas3.length > 0;
 
     return (
-        <div className="task-content flex flex-col h-full">
-            {/* --- TOP PART (FIXED) --- */}
-            <div className="flex-shrink-0 space-y-4">
+        <div className="task-content space-y-4">
+            {/* --- TOP PART --- */}
+            <div className="space-y-4">
                 <p className="text-sm font-medium text-gray-300">Describe the three images you want to use for A/B testing:</p>
                 {Object.keys(imageDescriptions).map((key, index) => (
                     <div key={key} className="space-y-1">
@@ -119,45 +119,43 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 {error && <p className="error-message">{error}</p>}
             </div>
 
-            {/* --- MIDDLE PART (SCROLLABLE) --- */}
-            <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 mt-4 space-y-4">
-                {haveIdeasBeenGenerated && (
-                    <div className="space-y-4">
-                        {Object.entries(ideas).map(([key, ideaList], index) => (
-                            ideaList.length > 0 && (
-                                <div key={key} className="space-y-3">
-                                    <h4 className="text-lg font-semibold text-white">Suggestions for Image {index + 1}:</h4>
-                                    {ideaList.map((idea, ideaIndex) => {
-                                        const ideaId = `${index}-${ideaIndex}`;
-                                        const isCopied = copiedIdeaId === ideaId;
-                                        return (
-                                            <div key={ideaIndex} className={`glass-card-light p-3 rounded-lg flex justify-between items-start gap-4 transition-colors duration-300 ${isCopied ? 'bg-green-900/60' : ''}`}>
-                                                <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
-                                                <button
-                                                    onClick={() => {
-                                                        setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
-                                                        setError('');
-                                                        setCopiedIdeaId(ideaId);
-                                                        setTimeout(() => setCopiedIdeaId(null), 2000);
-                                                    }}
-                                                    className={`button-secondary-small flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                                                    title="Add this idea to the brief"
-                                                    disabled={isCopied}
-                                                >
-                                                    {isCopied ? 'Copied!' : 'Use Idea'}
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )
-                        ))}
-                    </div>
-                )}
-            </div>
+            {/* --- MIDDLE PART (IDEAS) --- */}
+            {haveIdeasBeenGenerated && (
+                <div className="space-y-4">
+                    {Object.entries(ideas).map(([key, ideaList], index) => (
+                        ideaList.length > 0 && (
+                            <div key={key} className="space-y-3">
+                                <h4 className="text-lg font-semibold text-white">Suggestions for Image {index + 1}:</h4>
+                                {ideaList.map((idea, ideaIndex) => {
+                                    const ideaId = `${index}-${ideaIndex}`;
+                                    const isCopied = copiedIdeaId === ideaId;
+                                    return (
+                                        <div key={ideaIndex} className={`glass-card-light p-3 rounded-lg flex justify-between items-start gap-4 transition-colors duration-300 ${isCopied ? 'bg-green-900/60' : ''}`}>
+                                            <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
+                                            <button
+                                                onClick={() => {
+                                                    setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
+                                                    setError('');
+                                                    setCopiedIdeaId(ideaId);
+                                                    setTimeout(() => setCopiedIdeaId(null), 2000);
+                                                }}
+                                                className={`button-secondary-small flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                                                title="Add this idea to the brief"
+                                                disabled={isCopied}
+                                            >
+                                                {isCopied ? 'Copied!' : 'Use Idea'}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )
+                    ))}
+                </div>
+            )}
 
-            {/* --- BOTTOM PART (FIXED) --- */}
-            <div className="flex-shrink-0 pt-4 mt-4 border-t border-gray-700 space-y-4">
+            {/* --- BOTTOM PART --- */}
+            <div className="pt-4 border-t border-gray-700 space-y-4">
                 <div className="space-y-2">
                     <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
                         Final Thumbnail Design Brief (for all 3 versions):
