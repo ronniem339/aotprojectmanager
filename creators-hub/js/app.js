@@ -8,8 +8,16 @@ const {
     ProjectSelection,
     WordpressPublisher,
     GeneratedPostViewer,
-    TaskQueue
-} = window; // All of these are on the global window object
+    TaskQueue,
+    LoadingSpinner,
+    ImageComponent,
+    LoginScreen,
+    LocationSearchInput,
+    MockLocationSearchInput,
+    CopyButton,
+    CanvaModal,
+    Accordion
+} = window;
 
 // The main App component is now much cleaner.
 window.App = () => {

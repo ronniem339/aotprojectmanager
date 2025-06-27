@@ -11,8 +11,7 @@ const STATIC_ASSETS = [
   './manifest.json',
   './style.css',
   './icons/AOT-lg.png',
-  './js/app.js',
-  './js/components/common.js' // Contains the crucial login screen component
+  './js/app.js'
 ];
 
 // INSTALL: Cache the static app shell.
