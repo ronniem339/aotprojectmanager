@@ -388,6 +388,7 @@ window.useAppState = () => {
             handlers.setShowPublisherModal(false);
         },
                 handleViewGeneratedPost: (idea) => {
+            console.log('handleViewGeneratedPost - idea:', idea);
             if (idea && idea.blogPostContent) {
                 setContentToView(idea.blogPostContent);
             } else {
