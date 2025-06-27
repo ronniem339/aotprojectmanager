@@ -33,18 +33,9 @@ window.ShortsIdeasToolModal = ({ video, project, settings, onSaveShortsIdea, onD
         setError('');
         setGeneratedIdeas([]);
 
-        // Pass the current saved ideas from the prop, not local state
-        const previouslyCreatedShorts = (video.shortsIdeas || []).map(idea => ({ title: idea.title, status: idea.status }));
-
         try {
             const ideas = await window.aiUtils.generateShortsIdeasAI({
-                videoTitle: video.chosenTitle || video.title,
-                videoConcept: video.concept,
-                videoLocationsFeatured: video.locations_featured || [],
-                projectFootageInventory: project.footageInventory || {},
-                projectTitle: project.playlistTitle,
-                shortsIdeaGenerationKb: settings.knowledgeBases?.youtube?.shortsIdeaGeneration || '',
-                previouslyCreatedShorts: previouslyCreatedShorts,
+                video: video,
                 settings: settings,
             });
             setGeneratedIdeas(ideas);
