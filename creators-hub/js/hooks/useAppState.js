@@ -144,6 +144,26 @@ window.useAppState = () => {
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
     
+    useEffect(() => {
+        const processTaskQueue = async () => {
+            if (isTaskQueueProcessing || taskQueue.length === 0) {
+                return;
+            }
+            setIsTaskQueueProcessing(true);
+            const task = taskQueue[0];
+            if (task.status === 'queued') {
+                if (task.type === 'generate-post') {
+                    await handlers.executeGenerateBlogContent(task);
+                }
+                // Future task types can be handled here
+            }
+            // Remove the processed task from the queue
+            setTaskQueue(prevQueue => prevQueue.slice(1));
+            setIsTaskQueueProcessing(false);
+        };
+        processTaskQueue();
+    }, [taskQueue, isTaskQueueProcessing]);
+
     // All handler functions are defined here...
     const handlers = {
         handleSelectProject: (project) => {
@@ -284,9 +304,43 @@ window.useAppState = () => {
             }));
         },
         // Placeholder for task execution logic
-        executeGenerateBlogContent: async(data) => {},
+        executeGenerateBlogContent: async (task) => {
+            const { idea, video } = task.data;
+            try {
+                handlers.updateTaskStatus(task.id, 'generating');
+                const result = await window.aiUtils.generateBlogPostContentAI(idea, settings, video);
+                handlers.updateTaskStatus(task.id, 'complete', result);
+                // Also update the idea in Firestore
+                const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
+                await ideaRef.update({ status: 'generated', blogPostContent: result.blogPostContent });
+            } catch (error) {
+                console.error("Error executing generate blog content task:", error);
+                handlers.updateTaskStatus(task.id, 'failed', { error: error.message });
+                const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
+                await ideaRef.update({ status: 'failed' });
+            }
+        },
         executePublishToWordPress: async(data) => {},
-        handleGeneratePostTask: () => {},
+        handleGeneratePostTask: async (idea) => {
+            if (!user || !firebaseDb) return;
+            const { relatedProjectId, relatedVideoId } = idea;
+            let video = null;
+            if (relatedProjectId && relatedVideoId) {
+                const videoRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects/${relatedProjectId}/videos`).doc(relatedVideoId);
+                const videoSnap = await videoRef.get();
+                if (videoSnap.exists) {
+                    video = videoSnap.data();
+                }
+            }
+            const task = {
+                id: `generate-post-${idea.id}`,
+                type: 'generate-post',
+                status: 'queued',
+                data: { idea, video },
+                createdAt: new Date(),
+            };
+            handlers.addTask(task);
+        },
         handlePublishPostsTask: () => {},
         handleOpenPublisher: () => {},
         handleViewGeneratedPost: () => {},

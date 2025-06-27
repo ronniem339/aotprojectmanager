@@ -4,33 +4,50 @@ window.aiUtils = window.aiUtils || {};
  * Generates the full blog post content from an idea.
  * This is a "complex" task that uses the more powerful Gemini model.
  */
-window.aiUtils.generateBlogPostContentAI = async (idea, settings) => {
+window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
-    // This assumes related videos are handled elsewhere or not needed for this isolated function.
-    const relatedVideoContext = ''; 
+    const knowledgeBases = settings.knowledgeBases?.blog || {};
+
+    let contextualBlueprints = '';
+    if (idea.postType === 'Destination Guide' && knowledgeBases.destinationGuideBlueprint) {
+        contextualBlueprints += `\n**Destination Guide Blueprint:**\n${knowledgeBases.destinationGuideBlueprint}\n`;
+    }
+    if (idea.postType === 'Listicle Post' && knowledgeBases.listiclePostFramework) {
+        contextualBlueprints += `\n**Listicle Post Framework:**\n${knowledgeBases.listiclePostFramework}\n`;
+    }
+    if (knowledgeBases.coreSeoEngine) {
+        contextualBlueprints += `\n**Core SEO & Content Engine:**\n${knowledgeBases.coreSeoEngine}\n`;
+    }
+
+    const videoTranscriptContext = video && video.transcript
+        ? `\n**Reference Video Transcript (for context, facts, and tone):**\n"""\n${video.transcript.substring(0, 8000)}\n"""\n`
+        : '';
 
     const prompt = `
         You are an expert, world-class blog post writer specializing in creating engaging, SEO-optimized content.
-        Your persona is defined by the following style guide:
+        Your persona and writing style are defined by the style guide and knowledge bases provided.
+
+        **Primary Task:** Write a complete, high-quality blog post based on the following idea:
+        - **Title:** "${idea.title}"
+        - **Primary Keyword:** "${idea.primaryKeyword}"
+        - **Description:** "${idea.description}"
+        - **Post Type:** "${idea.postType}"
+        - **Monetization Angle:** "${idea.monetizationOpportunities}"
+
+        **Contextual & Style Resources:**
         ${styleGuidePrompt}
-
-        Your task is to write a full, complete, high-quality blog post based on the following idea:
-        - Title: "${idea.title}"
-        - Primary Keyword: "${idea.primaryKeyword}"
-        - Description: "${idea.description}"
-        - Post Type: "${idea.postType}"
-        - Monetization Angle: "${idea.monetizationOpportunities}"
-
-        ${relatedVideoContext}
+        ${contextualBlueprints}
+        ${videoTranscriptContext}
 
         **WRITING INSTRUCTIONS:**
-        1.  **Length:** The blog post should be comprehensive, typically between 1,500 and 2,500 words.
-        2.  **Structure:** Use clear headings (H2, H3), short paragraphs, and bullet points to improve readability.
-        3.  **SEO:** Naturally integrate the primary keyword and related secondary keywords throughout the text.
-        4.  **Content:** The content must be 100% original, factual, and provide genuine value to the reader.
-        5.  **Images:** Include placeholders like "[Relevant Image: A detailed map of the La Gomera hiking trails]" where an image would enhance the post.
-        6.  **Internal Links:** Include at least one placeholder for an internal link, like "[Internal Link: Read our full guide to the Canary Islands]".
-        7.  **Output:** The final output should be a single string of Markdown-formatted text.
+        1.  **Adherence:** Strictly follow all instructions from the Style Guide, Knowledge Bases, and Blueprints provided.
+        2.  **Length:** The blog post should be comprehensive, typically between 1,500 and 2,500 words.
+        3.  **Structure:** Use clear headings (H2, H3), short paragraphs, and bullet points to improve readability.
+        4.  **SEO:** Naturally integrate the primary keyword and related secondary keywords throughout the text.
+        5.  **Content:** The content must be 100% original, factual, and provide genuine value to the reader. If a video transcript is provided, use it as a primary source for facts, tone, and key points.
+        6.  **Images:** Include placeholders like "[Relevant Image: A detailed map of the La Gomera hiking trails]" where an image would enhance the post.
+        7.  **Internal Links:** Include at least one placeholder for an internal link, like "[Internal Link: Read our full guide to the Canary Islands]".
+        8.  **Output:** The final output should be a single string of Markdown-formatted text.
 
         **CRITICAL OUTPUT FORMATTING RULES:**
         1.  Your ENTIRE output MUST be a single, valid JSON object.
