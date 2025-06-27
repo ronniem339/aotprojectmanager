@@ -1,6 +1,6 @@
 // creators-hub/js/components/GeneratedPostViewer.js
 
-window.GeneratedPostViewer = ({ content, onClose, onPublish, settings }) => {
+window.GeneratedPostViewer = ({ content, onClose, onPublish, settings, idea }) => {
     const { useState, useEffect } = React;
     const [isPublishing, setIsPublishing] = useState(false);
     const [publishStatus, setPublishStatus] = useState(null);
@@ -15,13 +15,11 @@ window.GeneratedPostViewer = ({ content, onClose, onPublish, settings }) => {
         );
     }
     
-    const idea = {}; // Placeholder for idea details if needed for publishing
-
     const handlePublish = async () => {
         setIsPublishing(true);
         setPublishStatus('Publishing...');
         try {
-            await onPublish(idea);
+            await onPublish([idea]); // Pass idea as an array
             setPublishStatus('Post published successfully!');
             // onMarkComplete(task.id);
         } catch (error) {

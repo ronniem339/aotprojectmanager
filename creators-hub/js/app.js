@@ -70,7 +70,8 @@ window.App = () => {
             )}
             {contentToView && (
                 <window.GeneratedPostViewer
-                    content={contentToView}
+                    content={contentToView.blogPostContent}
+                    idea={contentToView} // Pass the entire idea object
                     onClose={() => handlers.setContentToView(null)}
                     onPublish={handlers.handlePublishPostsTask}
                     settings={settings}
