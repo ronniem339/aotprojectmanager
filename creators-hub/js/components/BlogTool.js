@@ -102,6 +102,11 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
 
             if (selectedVideo) {
                 generationParams.video = selectedVideo;
+                const existingIdeasSnapshot = await ideasCollectionRef.where('relatedVideoId', '==', selectedVideo.id).get();
+                const existingIdeas = existingIdeasSnapshot.docs.map(doc => doc.data());
+                generationParams.approvedIdeas = existingIdeas.filter(idea => idea.status === 'approved');
+                generationParams.rejectedIdeas = existingIdeas.filter(idea => idea.status === 'rejected');
+
             } else if (topic || destination) {
                 generationParams.topic = topic;
                 generationParams.destination = destination;
@@ -190,19 +195,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         }
     };
     
-    const handleBulkReject = async () => {
+    const handleBulkReject = () => {
         const ideasToReject = new Set(Array.from(selectedIdeas).filter(id => ideas.find(i => i.id === id)?.status === 'new'));
         if (ideasToReject.size > 0) {
-            const batch = db.batch();
-            ideasToReject.forEach(id => batch.delete(ideasCollectionRef.doc(id)));
-            try {
-                await batch.commit();
-                setSelectedIdeas(new Set());
-                displayNotification(`${ideasToReject.size} idea(s) rejected and deleted.`, 'success');
-            } catch (error) {
-                console.error("Error rejecting ideas:", error);
-                displayNotification(`Error: Could not reject ideas. ${error.message}`, 'error');
-            }
+            handleBulkUpdateStatus(ideasToReject, 'rejected');
         }
     };
 
@@ -282,6 +278,10 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         } else { // 'closed'
             viewFilteredIdeas = ideas.filter(idea => idea.status === 'closed');
         }
+        
+        // Exclude rejected ideas from all views
+        viewFilteredIdeas = viewFilteredIdeas.filter(idea => idea.status !== 'rejected');
+
         if (filterTerm) {
             const lowerCaseFilterTerm = filterTerm.toLowerCase();
             viewFilteredIdeas = viewFilteredIdeas.filter(idea =>

@@ -4,7 +4,7 @@ window.aiUtils = window.aiUtils || {};
  * Generates blog post ideas from a variety of sources (text, video).
  * It automatically includes hotel-monetized ideas if a destination is detected.
  */
-window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, settings }) => {
+window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, settings, approvedIdeas = [], rejectedIdeas = [] }) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     let context_prompt = "";
@@ -20,6 +20,14 @@ window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, setting
         context_prompt = `**Primary Content Source (User Input):**\n- Destination: "${destination || 'Not specified'}"\n- General Topic: "${topic}"`;
     }
 
+    const approvedIdeasPrompt = approvedIdeas.length > 0
+        ? `**Previously Approved Ideas (Do NOT suggest these again):**\n${approvedIdeas.map(idea => `- ${idea.title}`).join('\n')}`
+        : '';
+
+    const rejectedIdeasPrompt = rejectedIdeas.length > 0
+        ? `**Previously Rejected Ideas (Analyze these to understand what to avoid):**\n${rejectedIdeas.map(idea => `- ${idea.title}`).join('\n')}`
+        : '';
+
     const monetizationGoalsPrompt = settings.knowledgeBases?.blog?.monetizationGoals
         ? `**Monetization Strategy:**\n"""\n${settings.knowledgeBases.blog.monetizationGoals}\n"""\nYour monetization suggestions MUST align with this strategy.`
         : "The user has not defined a specific monetization strategy. Suggest a diverse range of common monetization methods (e.g., affiliate links for relevant products, sponsored content, digital product sales, ads).";
@@ -29,18 +37,17 @@ window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, setting
 `${context_prompt}\n\n` +
 `${styleGuidePrompt}\n\n` +
 `${monetizationGoalsPrompt}\n\n` +
+`${approvedIdeasPrompt}\n\n` +
+`${rejectedIdeasPrompt}\n\n` +
 '**Your Task & Output Instructions:**\n' +
 '1.  **Categorization:** For each idea, you MUST assign a `category`. The category must be one of the following four options: "Hotels", "Destinations", "Road Trips", or "Experiences".\n' +
 '2.  **Script-to-Post:** If the source is a video transcript, your FIRST idea MUST be a "Script-to-Post" conversion. This should be a comprehensive article that directly adapts the video\'s content. Title it appropriately (e.g., "Everything We Covered in Our Video on [Topic]") and set the postType to "In-Depth Guide".\n' +
 '3.  Analyze the provided content source to understand the core themes, locations, and topics.\n' +
 '4.  Generate 10-15 blog post ideas. The ideas should be a mix of post types (e.g., Listicle Post, Destination Guide, How-To Guide, Personal Story).\n' +
 '5.  For each idea, determine the most relevant monetization opportunities based on the **Monetization Strategy** provided. The `monetizationOpportunities` field in your response must be a string. If multiple opportunities from the strategy apply, list them in a single comma-separated string (e.g., "Hotel affiliate links, Tour affiliate links").\n' +
-6.  Each idea must be SEO-optimized with a compelling, clickable title. The title should be positive and inspiring, avoiding negative words or phrases (e.g., instead of "Hotels That Don't Suck," use "The Best Hotels for an Unforgettable Stay").
-' +
-'7.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "category", "monetizationOpportunities".
-' +
-'8.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.
-
+'6.  Each idea must be SEO-optimized with a compelling, clickable title. The title should be positive and inspiring, avoiding negative words or phrases (e.g., instead of "Hotels That Don\'t Suck," use "The Best Hotels for an Unforgettable Stay").\n' +
+'7.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "category", "monetizationOpportunities".\n' +
+'8.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.\n';
 
     try {
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
