@@ -169,6 +169,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
     const handleIndividualViewPost = (e, idea) => {
         e.stopPropagation();
         onViewPost(idea);
+    };
 
     const handleBulkUpdateStatus = async (ideaIds, newStatus) => {
         if (ideaIds.size === 0) return;
