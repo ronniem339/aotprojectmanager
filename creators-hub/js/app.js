@@ -17,7 +17,7 @@ const {
     CopyButton,
     CanvaModal,
     Accordion
-} = window;
+} = window.components;
 
 // The main App component is now much cleaner.
 window.App = () => {
