@@ -57,7 +57,7 @@ window.Accordion = ({ title, children, isOpen, onToggle, status = 'pending', isL
                     )}
                 </div>
             </div>
-            <div className={`transition-max-height duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-screen' : 'max-h-0'}`}>
+            <div className={`transition-max-height duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[10000px]' : 'max-h-0'}`}>
                 <div className="p-4 pt-0">
                     {children}
                 </div>
