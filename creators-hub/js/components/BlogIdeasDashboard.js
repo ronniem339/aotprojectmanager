@@ -1,7 +1,6 @@
 // js/components/BlogIdeasDashboard.js
 
 window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onOpenPublisher, processingIdeaId, onViewPost }) => {
-    console.log('BlogIdeasDashboard onOpenPublisher:', onOpenPublisher);
     const { useState, useEffect, useMemo } = React;
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
