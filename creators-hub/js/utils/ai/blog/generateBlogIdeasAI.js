@@ -35,9 +35,12 @@ window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, setting
 '3.  Analyze the provided content source to understand the core themes, locations, and topics.\n' +
 '4.  Generate 10-15 blog post ideas. The ideas should be a mix of post types (e.g., Listicle Post, Destination Guide, How-To Guide, Personal Story).\n' +
 '5.  For each idea, determine the most relevant monetization opportunities based on the **Monetization Strategy** provided. The `monetizationOpportunities` field in your response must be a string. If multiple opportunities from the strategy apply, list them in a single comma-separated string (e.g., "Hotel affiliate links, Tour affiliate links").\n' +
-'6.  Each idea must be SEO-optimized with a compelling, clickable title.\n' +
-'7.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "category", "monetizationOpportunities".\n' +
-'8.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.\n';
+6.  Each idea must be SEO-optimized with a compelling, clickable title. The title should be positive and inspiring, avoiding negative words or phrases (e.g., instead of "Hotels That Don't Suck," use "The Best Hotels for an Unforgettable Stay").
+' +
+'7.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "category", "monetizationOpportunities".
+' +
+'8.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.
+
 
     try {
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
