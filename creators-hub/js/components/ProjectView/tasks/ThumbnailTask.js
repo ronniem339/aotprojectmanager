@@ -92,7 +92,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
             return;
         }
         setError('');
-        // FIX: The task ID was incorrect. It should be 'thumbnailsGenerated' to match the app's task pipeline.
         onUpdateTask('thumbnailsGenerated', 'complete', { 'tasks.thumbnailBrief': finalDesignBrief });
     };
 
@@ -104,7 +103,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const haveIdeasBeenGenerated = ideas.ideas1.length > 0 || ideas.ideas2.length > 0 || ideas.ideas3.length > 0;
 
     return (
-        <div className="task-content flex flex-col" style={{ height: 'calc(100% - 1rem)' }}>
+        <div className="task-content flex flex-col h-full">
             {/* --- TOP PART (FIXED) --- */}
             <div className="flex-shrink-0 space-y-4">
                 <p className="text-sm font-medium text-gray-300">Describe the three images you want to use for A/B testing:</p>
@@ -158,7 +157,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
             </div>
 
             {/* --- BOTTOM PART (FIXED) --- */}
-            <div className="flex-shrink-0 pt-4 border-t border-gray-700 space-y-4">
+            <div className="flex-shrink-0 pt-4 mt-4 border-t border-gray-700 space-y-4">
                 <div className="space-y-2">
                     <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
                         Final Thumbnail Design Brief (for all 3 versions):

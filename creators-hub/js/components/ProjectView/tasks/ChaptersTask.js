@@ -23,17 +23,35 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         return 0;
     };
 
-    // Helper function to format time strings with padded zeros for minutes/seconds.
-    const formatTimeWithPadding = (time) => {
+    // Formats time based on video length.
+    // Long videos (>= 10min) get padded minutes (e.g., 01:23).
+    // Short videos (< 10min) get un-padded minutes (e.g., 1:23).
+    const formatTime = (time, isLongVideo) => {
         const parts = time.split(':');
-        if (parts.length === 2) {
-            const [minutes, seconds] = parts;
-            return `${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
-        }
-        if (parts.length === 3) {
+
+        if (parts.length === 3) { // H:MM:SS format
             const [hours, minutes, seconds] = parts;
             return `${hours}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
         }
+
+        if (parts.length === 2) { // M:SS or MM:SS format
+            let [minutes, seconds] = parts;
+            // The validation regex ensures seconds are always 2 digits, but padStart is safe.
+            seconds = seconds.padStart(2, '0');
+
+            if (isLongVideo) {
+                // For long videos, minutes should be padded to 2 digits.
+                return `${minutes.padStart(2, '0')}:${seconds}`;
+            } else {
+                // For short videos, minutes should be un-padded.
+                // This handles cases where user might input '05:30' for a short video.
+                if (minutes.length > 1 && minutes.startsWith('0')) {
+                    return `${parseInt(minutes, 10)}:${seconds}`;
+                }
+                return `${minutes}:${seconds}`;
+            }
+        }
+
         return time; // Return original if format is unexpected
     };
 
@@ -161,10 +179,10 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         const maxDurationInSeconds = Math.max(...chapters.map(ch => parseTimeToSeconds(ch.time)));
         const isLongVideo = maxDurationInSeconds >= 600; // 10 minutes = 600 seconds
 
-        // 2. Format the chapter string for the description, applying padding if needed.
+        // 2. Format the chapter string for the description, applying padding based on video length.
         const chapterString = chapters
             .map(ch => {
-                const formattedTime = isLongVideo ? formatTimeWithPadding(ch.time) : ch.time;
+                const formattedTime = formatTime(ch.time, isLongVideo);
                 return `${formattedTime} - ${ch.title}`;
             })
             .join('\n');
