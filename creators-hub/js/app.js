@@ -72,6 +72,8 @@ window.App = () => {
                 <window.GeneratedPostViewer
                     content={contentToView}
                     onClose={() => handlers.setContentToView(null)}
+                    onPublish={handlers.handlePublishPostsTask}
+                    settings={settings}
                 />
             )}
             
