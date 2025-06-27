@@ -1,6 +1,6 @@
 // js/components/BlogIdeasDashboard.js
 
-window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts, processingIdeaId, onViewPost }) => {
+window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onOpenPublisher, processingIdeaId, onViewPost }) => {
     const { useState, useEffect, useMemo } = React;
     const [ideas, setIdeas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -106,8 +106,8 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
 
     const handleBulkPublish = () => {
         const ideasToPublish = ideas.filter(idea => selectedIdeas.has(idea.id) && idea.status === 'generated');
-        if (ideasToPublish.length > 0 && window.confirm(`Are you sure you want to publish ${ideasToPublish.length} posts to WordPress?`)) {
-            onPublishPosts(ideasToPublish);
+        if (ideasToPublish.length > 0) {
+            onOpenPublisher(ideasToPublish);
             setSelectedIdeas(new Set());
         }
     };
