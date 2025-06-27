@@ -8,7 +8,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
     const prompt = `
-You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress Gutenberg editor.
+You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress Gutenberg editor, specifically for a user of the Otter Blocks editor.
 
 ${styleGuidePrompt}
 
@@ -22,20 +22,39 @@ ${styleGuidePrompt}
 2.  The structure should be logical with a clear introduction, body, and conclusion.
 3.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments.
 4.  Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content.
-5.  Strategically place placeholders for images and YouTube videos where they would be most effective, using the specific block markup below.
+5.  Strategically place placeholders for images, YouTube videos, and affiliate links where they would be most effective, using the specific block markup below.
 
-    * **Image Placeholder Block:** Use this exact two-block format. This creates a clickable image placeholder and a descriptive paragraph below it.
+    * **Image Placeholder Block:** Use this exact format. This creates a clickable image placeholder and a descriptive paragraph below it.
 
-        <figure class="wp-block-image size-large"><img alt="image placeholder"/></figure>
+        <!-- wp:image {"id":-1,"sizeSlug":"large","linkDestination":"none"} -->
+        <figure class="wp-block-image size-large"><img src="https://via.placeholder.com/1024x576.png?text=Replace+this+image" alt="Image placeholder"/></figure>
+        <!-- /wp:image -->
+
+        <!-- wp:paragraph {"className":"is-style-small-text"} -->
         <p class="is-style-small-text"><em>Image suggestion: [add descriptive keywords for the image here]</em></p>
+        <!-- /wp:paragraph -->
 
     * **YouTube Placeholder Block:** Use this exact format. It creates a proper YouTube embed block with a helpful search link.
 
-        <figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">https://www.youtube.com/results?search_query=[add+descriptive+keywords+for+the+video+here]</div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
+        <!-- wp:embed {"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","type":"video","providerNameSlug":"youtube","responsive":true,"className":"wp-embed-aspect-16-9 wp-has-aspect-ratio"} -->
+        <figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">
+        https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        </div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
+        <!-- /wp:embed -->
+
+    * **Affiliate Link Placeholder Block:** Use this exact format. It creates a visually distinct button that serves as a placeholder for an affiliate link.
+
+        <!-- wp:buttons -->
+        <div class="wp-block-buttons">
+            <!-- wp:button {"backgroundColor":"vivid-cyan-blue","textColor":"white","className":"is-style-outline"} -->
+            <div class="wp-block-button is-style-outline"><a class="wp-block-button__link has-white-color has-vivid-cyan-blue-background-color has-text-color has-background" href="[add affiliate link here]" target="_blank" rel="noopener noreferrer">[add affiliate link text here]</a></div>
+            <!-- /wp:button -->
+        </div>
+        <!-- /wp:buttons -->
 
 6.  Ensure the primary keyword is naturally integrated into the text.
-7.  Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags.
-8.  Your entire response must be only the raw HTML content with Gutenberg block comments.`;
+7.  Do NOT include `<html>`, `<head>`, or `<body>` tags.
+8.  Your entire response must be only the raw HTML content with Gutenberg block comments.`
 
     try {
         const htmlContent = await window.aiUtils.callGeminiAPI(
