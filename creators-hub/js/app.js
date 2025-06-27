@@ -17,7 +17,7 @@ const {
     CopyButton,
     CanvaModal,
     Accordion
-} = window.components;
+} = window;
 
 // The main App component is now much cleaner.
 window.App = () => {
@@ -69,7 +69,7 @@ window.App = () => {
                 />
             )}
             {contentToView && (
-                <GeneratedPostViewer
+                <window.GeneratedPostViewer
                     content={contentToView}
                     onClose={() => handlers.setContentToView(null)}
                 />
