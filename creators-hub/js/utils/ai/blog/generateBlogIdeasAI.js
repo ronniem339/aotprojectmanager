@@ -24,25 +24,20 @@ window.aiUtils.generateBlogIdeasAI = async ({ topic, destination, video, setting
         ? `**Monetization Strategy:**\n"""\n${settings.knowledgeBases.blog.monetizationGoals}\n"""\nYour monetization suggestions MUST align with this strategy.`
         : "The user has not defined a specific monetization strategy. Suggest a diverse range of common monetization methods (e.g., affiliate links for relevant products, sponsored content, digital product sales, ads).";
 
-    const prompt = `You are an expert SEO content strategist for a travel blog.
-Your task is to generate a list of 10-15 highly specific and compelling blog post ideas based on the provided content source.
-
-${context_prompt}
-
-${styleGuidePrompt}
-
-${monetizationGoalsPrompt}
-
-**Your Task & Output Instructions:**
-1.  **Categorization:** For each idea, you MUST assign a `category`. The category must be one of the following four options: "Hotels", "Destinations", "Road Trips", or "Experiences".
-2.  **Script-to-Post:** If the source is a video transcript, your FIRST idea MUST be a "Script-to-Post" conversion. This should be a comprehensive article that directly adapts the video's content. Title it appropriately (e.g., "Everything We Covered in Our Video on [Topic]") and set the postType to "In-Depth Guide".
-3.  Analyze the provided content source to understand the core themes, locations, and topics.
-4.  Generate 10-15 blog post ideas. The ideas should be a mix of post types (e.g., Listicle Post, Destination Guide, How-To Guide, Personal Story).
-5.  For each idea, determine the most relevant monetization opportunities based on the **Monetization Strategy** provided. The `monetizationOpportunities` field in your response must be a string. If multiple opportunities from the strategy apply, list them in a single comma-separated string (e.g., "Hotel affiliate links, Tour affiliate links").
-6.  Each idea must be SEO-optimized with a compelling, clickable title.
-7.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "category", "monetizationOpportunities".
-8.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.
-`;
+    const prompt = 'You are an expert SEO content strategist for a travel blog.\n' +
+'Your task is to generate a list of 10-15 highly specific and compelling blog post ideas based on the provided content source.\n\n' +
+`${context_prompt}\n\n` +
+`${styleGuidePrompt}\n\n` +
+`${monetizationGoalsPrompt}\n\n` +
+'**Your Task & Output Instructions:**\n' +
+'1.  **Categorization:** For each idea, you MUST assign a `category`. The category must be one of the following four options: "Hotels", "Destinations", "Road Trips", or "Experiences".\n' +
+'2.  **Script-to-Post:** If the source is a video transcript, your FIRST idea MUST be a "Script-to-Post" conversion. This should be a comprehensive article that directly adapts the video\'s content. Title it appropriately (e.g., "Everything We Covered in Our Video on [Topic]") and set the postType to "In-Depth Guide".\n' +
+'3.  Analyze the provided content source to understand the core themes, locations, and topics.\n' +
+'4.  Generate 10-15 blog post ideas. The ideas should be a mix of post types (e.g., Listicle Post, Destination Guide, How-To Guide, Personal Story).\n' +
+'5.  For each idea, determine the most relevant monetization opportunities based on the **Monetization Strategy** provided. The `monetizationOpportunities` field in your response must be a string. If multiple opportunities from the strategy apply, list them in a single comma-separated string (e.g., "Hotel affiliate links, Tour affiliate links").\n' +
+'6.  Each idea must be SEO-optimized with a compelling, clickable title.\n' +
+'7.  Your response MUST be a valid JSON object with a single key "ideas" which is an array of blog post idea objects. Each object must have the keys: "title", "description", "primaryKeyword", "postType", "category", "monetizationOpportunities".\n' +
+'8.  **CRITICAL OUTPUT FORMAT:** This is legacy, but for this call, please wrap your entire JSON object in "~~~json" and "~~~" delimiters.\n';
 
     try {
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
