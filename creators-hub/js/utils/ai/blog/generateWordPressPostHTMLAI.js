@@ -18,11 +18,23 @@ ${styleGuidePrompt}
 - **Desired Tone:** ${tone || 'Informative'}
 
 **Instructions:**
-1.  Create a compelling and engaging blog post using standard Gutenberg blocks like paragraphs and headings.
+1.  Create a compelling and engaging blog post using the Gutenberg block formats provided below.
 2.  The structure should be logical with a clear introduction, body, and conclusion.
-3.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments.
+3.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments as shown in the examples.
 4.  Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content.
 5.  Strategically place placeholders for images, YouTube videos, and affiliate links where they would be most effective, using the specific block markup below.
+
+    * **Paragraph Block:** Use this for all standard paragraphs.
+
+        <!-- wp:paragraph -->
+        <p>This is a standard paragraph of text.</p>
+        <!-- /wp:paragraph -->
+
+    * **Heading Block:** Use this format for all headings. Adjust the `level` as needed (e.g., 2 for `<h2>`, 3 for `<h3>`).
+
+        <!-- wp:heading {"level":2} -->
+        <h2>This is a Heading</h2>
+        <!-- /wp:heading -->
 
     * **Image Placeholder Block:** Use this exact format. This creates a clickable image placeholder and a descriptive paragraph below it.
 
