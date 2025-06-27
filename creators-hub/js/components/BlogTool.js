@@ -1,3 +1,5 @@
+const { BlogIdeasDashboard } = window;
+
 window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db, displayNotification }) => {
     const { useState, useEffect, useMemo, useCallback } = React;
 
