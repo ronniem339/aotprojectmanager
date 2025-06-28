@@ -82,6 +82,7 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null, 
                 }
             } catch (e) {
                 console.warn("Initial JSON parsing failed, attempting to repair truncated JSON...", e.message);
+                onProgress('Attempting to repair AI response...');
                 const lastBrace = potentialJson.lastIndexOf('}');
                 if (lastBrace !== -1) {
                     const repairedJsonString = potentialJson.substring(0, lastBrace + 1);
