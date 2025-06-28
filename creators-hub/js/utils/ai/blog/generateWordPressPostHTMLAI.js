@@ -20,7 +20,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
 ${blogPostContent}
 
         **Instructions:**
-        1.  **Format the Content:** Convert the raw text into well-structured HTML using Gutenberg block formats (e.g., `<!-- wp:paragraph -->`, `<!-- wp:heading {"level":2} -->`).
+        1.  **Format the Content:** Convert the raw text into well-structured HTML using Gutenberg block formats.
         2.  **Generate Metadata:** Create a concise excerpt, relevant tags, and suggest one primary WordPress category.
         3.  **Structure the Output:** Your final output must be a single, clean JSON object. Do not include any text or markdown formatting before or after the JSON.
 
