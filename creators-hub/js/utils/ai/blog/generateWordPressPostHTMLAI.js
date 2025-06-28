@@ -51,8 +51,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
         '        <!-- /wp:buttons -->\n\n' +
         '6.  Ensure the primary keyword is naturally integrated into the text.\n' +
         '7.  Do NOT include `<html>`, `<head>`, or `<body>` tags.\n' +
-        8.  Your entire response must be only the raw HTML content with Gutenberg block comments. **Ensure there are NO extra characters, spaces, or newlines before the first `<!-- wp:` comment or after the last `<!-- /wp:` comment.**
-'
+        '8.  Your entire response must be only the raw HTML content with Gutenberg block comments. **Ensure there are NO extra characters, spaces, or newlines before the first `<!-- wp:` comment or after the last `<!-- /wp:` comment.**'
 
     try {
         const htmlContent = await window.aiUtils.callGeminiAPI(
