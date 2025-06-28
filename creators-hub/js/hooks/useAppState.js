@@ -373,6 +373,10 @@ window.useAppState = () => {
             };
             handlers.addTask(task);
         },
+        handleOpenPublisher: (ideas) => {
+            setIdeasToPublish(ideas);
+            setShowPublisherModal(true);
+        },
         handlePublishPostsTask: (ideas) => {
             if (!user || !firebaseDb) return;
             ideas.forEach(idea => {
