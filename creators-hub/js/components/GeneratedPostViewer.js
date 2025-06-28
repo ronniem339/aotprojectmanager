@@ -18,7 +18,6 @@ window.GeneratedPostViewer = ({ content, idea, onClose, settings }) => {
 
                 <div className="flex-shrink-0 p-4 border-t border-gray-700 flex flex-col sm:flex-row justify-end items-center gap-4">
                     
-                    {publishStatus && <p className="text-sm text-gray-300">{publishStatus}</p>}
                     {!settings.wordpress && <p className="text-xs text-yellow-500 mt-2">Note: WordPress settings are not configured. Please configure them in the settings menu to enable publishing.</p>}
                 </div>
             </div>
