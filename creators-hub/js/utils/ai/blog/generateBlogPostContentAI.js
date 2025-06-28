@@ -4,7 +4,7 @@ window.aiUtils = window.aiUtils || {};
  * Generates the full blog post content from an idea.
  * This is a "complex" task that uses the more powerful Gemini model.
  */
-window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) => {
+window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null, onProgress = () => {}) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
     const knowledgeBases = settings.knowledgeBases?.blog || {};
 
@@ -58,7 +58,9 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
     `;
 
     try {
+        onProgress('Sending request to AI...');
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+        onProgress('Received raw response from AI, parsing content...');
 
         // --- RESILIENT PARSING LOGIC ---
         const startIndex = rawResponseText.indexOf('~~~json');
@@ -74,7 +76,10 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
 
             try {
                 const parsed = JSON.parse(potentialJson);
-                if (parsed && parsed.blogPostContent) return parsed;
+                if (parsed && parsed.blogPostContent) {
+                    onProgress('Content generated and parsed successfully.');
+                    return parsed;
+                }
             } catch (e) {
                 console.warn("Initial JSON parsing failed, attempting to repair truncated JSON...", e.message);
                 const lastBrace = potentialJson.lastIndexOf('}');
@@ -84,6 +89,7 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
                         const parsed = JSON.parse(repairedJsonString);
                         if (parsed && parsed.blogPostContent) {
                             console.log("Successfully repaired and parsed truncated JSON.");
+                            onProgress('Content generated and parsed successfully.');
                             return parsed;
                         }
                     } catch (e2) {

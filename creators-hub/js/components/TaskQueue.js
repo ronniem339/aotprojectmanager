@@ -27,7 +27,7 @@ window.TaskQueue = ({ tasks, onView }) => {
     };
     
     return (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-80 z-50 animate-fade-in-up border border-gray-700">
+        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-96 z-50 animate-fade-in-up border border-gray-700">
             <div className="p-3 bg-gray-900 rounded-t-lg">
                 <h4 className="font-bold text-base">Task Queue</h4>
             </div>
@@ -39,10 +39,10 @@ window.TaskQueue = ({ tasks, onView }) => {
                             <span className="truncate" title={task.name}>{task.name}</span>
                         </div>
                         <div className="flex-shrink-0 ml-2">
-                            {task.status === 'completed' && task.result?.link && (
+                            {task.status === 'complete' && task.result?.link && (
                                 <a href={task.result.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-xs">View on WP</a>
                             )}
-                            {task.status === 'completed' && task.result?.viewable && (
+                            {task.status === 'complete' && task.result?.viewable && (
                                 <button onClick={() => onView(task.id)} className="text-blue-400 hover:underline text-xs">View Content</button>
                             )}
                             {task.status === 'failed' && (

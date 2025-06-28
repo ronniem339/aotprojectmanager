@@ -149,22 +149,37 @@ window.useAppState = () => {
             if (isTaskQueueProcessing || taskQueue.length === 0) {
                 return;
             }
-            setIsTaskQueueProcessing(true);
-            const task = taskQueue[0];
-            if (task.status === 'queued') {
-                if (task.type === 'generate-post') {
-                    await handlers.executeGenerateBlogContent(task);
-                } else if (task.type === 'publish-post') {
-                    await handlers.executePublishToWordPress(task);
+
+            // Process the first queued task
+            const taskToProcess = taskQueue[0];
+            if (taskToProcess && taskToProcess.status === 'queued') {
+                setIsTaskQueueProcessing(true);
+                if (taskToProcess.type === 'generate-post') {
+                    await handlers.executeGenerateBlogContent(taskToProcess);
+                } else if (taskToProcess.type === 'publish-post') {
+                    await handlers.executePublishToWordPress(taskToProcess);
                 }
-                // Future task types can be handled here
+                setIsTaskQueueProcessing(false);
             }
-            // Remove the processed task from the queue
-            setTaskQueue(prevQueue => prevQueue.slice(1));
-            setIsTaskQueueProcessing(false);
         };
+
+        // Set a timer to periodically check and clean up the queue
+        const cleanupInterval = setInterval(() => {
+            setTaskQueue(prevQueue => {
+                const now = Date.now();
+                return prevQueue.filter(task => {
+                    if ((task.status === 'complete' || task.status === 'failed') && task.completedAt) {
+                        return (now - task.completedAt) < 120000; // Keep for 120 seconds (2 minutes)
+                    }
+                    return true; // Keep other tasks (queued, generating, publishing)
+                });
+            });
+        }, 5000); // Check every 5 seconds
+
         processTaskQueue();
-    }, [taskQueue, isTaskQueueProcessing]);
+
+        return () => clearInterval(cleanupInterval); // Cleanup interval on unmount
+    }, [taskQueue, isTaskQueueProcessing, handlers]);
 
     // All handler functions are defined here...
     const handlers = {
@@ -301,16 +316,31 @@ window.useAppState = () => {
             setTaskQueue(prevQueue => prevQueue.map(task => {
                 if (task.id === taskId) {
                     let newName = task.name;
-                    if (task.type === 'generate-post') {
-                        if (status === 'generating') newName = `Generating content for: ${task.data.idea.title}`;
-                        else if (status === 'complete') newName = `Content generated for: ${task.data.idea.title}`;
-                        else if (status === 'failed') newName = `Failed to generate content for: ${task.data.idea.title}`;
-                    } else if (task.type === 'publish-post') {
-                        if (status === 'publishing') newName = `Publishing to WordPress: ${task.data.idea.title}`;
-                        else if (status === 'complete') newName = `Published to WordPress: ${task.data.idea.title}`;
-                        else if (status === 'failed') newName = `Failed to publish to WordPress: ${task.data.idea.title}`;
+                    let newStatus = status;
+                    let completedAt = task.completedAt;
+
+                    if (status === 'complete' || status === 'failed') {
+                        completedAt = Date.now();
                     }
-                    return { ...task, status, result, name: newName };
+
+                    if (task.type === 'generate-post') {
+                        if (status === 'generating') {
+                            newName = `Generating content for: ${task.data.idea.title} - ${result?.message || ''}`;
+                        } else if (status === 'complete') {
+                            newName = `Content generated for: ${task.data.idea.title}`;
+                        } else if (status === 'failed') {
+                            newName = `Failed to generate content for: ${task.data.idea.title}`;
+                        }
+                    } else if (task.type === 'publish-post') {
+                        if (status === 'publishing') {
+                            newName = `Publishing to WordPress: ${task.data.idea.title}`;
+                        } else if (status === 'complete') {
+                            newName = `Published to WordPress: ${task.data.idea.title}`;
+                        } else if (status === 'failed') {
+                            newName = `Failed to publish to WordPress: ${task.data.idea.title}`;
+                        }
+                    }
+                    return { ...task, status: newStatus, result, name: newName, completedAt };
                 }
                 return task;
             }));
@@ -320,8 +350,10 @@ window.useAppState = () => {
             const { idea, video } = task.data;
             try {
                 handlers.updateTaskStatus(task.id, 'generating');
-                const result = await window.aiUtils.generateBlogPostContentAI(idea, settings, video);
-                handlers.updateTaskStatus(task.id, 'complete', result);
+                const result = await window.aiUtils.generateBlogPostContentAI(idea, settings, video, (progressMessage) => {
+                    handlers.updateTaskStatus(task.id, 'generating', { message: progressMessage });
+                });
+                handlers.updateTaskStatus(task.id, 'complete', { ...result, viewable: true });
                 // Also update the idea in Firestore
                 const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
                 await ideaRef.update({ status: 'generated', blogPostContent: result.blogPostContent });
