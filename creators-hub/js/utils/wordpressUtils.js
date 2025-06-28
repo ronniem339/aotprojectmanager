@@ -78,10 +78,11 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     const headers = { 'Authorization': `Basic ${token}`, 'Content-Type': 'application/json' };
 
     // 1. Fetch all existing tags
-    const tagsEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
+    const tagsListEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
+    const tagsCreateEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags`;
     let existingTags = [];
     try {
-        const response = await fetch(tagsEndpoint, { headers });
+        const response = await fetch(tagsListEndpoint, { headers });
         existingTags = await response.json();
         if (!response.ok) existingTags = []; // Handle case where tags might not be enabled or user lacks permissions
     } catch (e) {
@@ -116,7 +117,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     // 3. Create new tags in parallel
     if (tagsToCreate.length > 0) {
         const createTagPromises = tagsToCreate.map(tagName => {
-            return fetch(tagsEndpoint, {
+            return fetch(tagsCreateEndpoint, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({ name: tagName })
