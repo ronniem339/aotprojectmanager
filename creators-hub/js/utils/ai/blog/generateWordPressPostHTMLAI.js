@@ -44,7 +44,7 @@ ${blogPostContent}
         console.log("Raw JSON response from AI:", jsonResponse);
 
         // The response should be a JSON object, so we parse it directly.
-        return JSON.parse(jsonResponse);
+        return jsonResponse;
 
     } catch (error) {
         console.error("Error generating WordPress Post HTML:", error);
