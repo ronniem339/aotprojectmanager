@@ -453,6 +453,14 @@ window.useAppState = () => {
         setShowProjectSelection,
         setShowPublisherModal,
         setContentToView,
+        handleRetryTask: (taskId) => {
+            setTaskQueue(prevQueue => prevQueue.map(task => {
+                if (task.id === taskId && task.status === 'failed') {
+                    return { ...task, status: 'queued', completedAt: null, result: null };
+                }
+                return task;
+            }));
+        },
     };
 
     return {

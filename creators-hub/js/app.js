@@ -78,7 +78,7 @@ window.App = () => {
                 />
             )}
             
-            <TaskQueue tasks={taskQueue} onView={handlers.handleViewGeneratedPost} />
+            <TaskQueue tasks={taskQueue} onView={handlers.handleViewGeneratedPost} onRetry={handlers.handleRetryTask} />
 
             <main className="p-4 sm:p-6 lg:p-8">
                 <Router

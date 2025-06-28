@@ -1,5 +1,5 @@
 // creators-hub/js/components/TaskQueue.js
-window.TaskQueue = ({ tasks, onView }) => {
+window.TaskQueue = ({ tasks, onView, onRetry }) => {
     const { useEffect, useState } = React;
     const [visible, setVisible] = useState(false);
 
@@ -46,7 +46,10 @@ window.TaskQueue = ({ tasks, onView }) => {
                                 <button onClick={() => onView(task.id)} className="text-blue-400 hover:underline text-xs">View Content</button>
                             )}
                             {task.status === 'failed' && (
-                                <span className="text-red-400 text-xs" title={task.result?.error}>Failed</span>
+                                <span className="text-red-400 text-xs mr-2" title={task.result?.error}>Failed</span>
+                            )}
+                            {task.status === 'failed' && onRetry && (
+                                <button onClick={() => onRetry(task.id)} className="text-yellow-400 hover:underline text-xs">Retry</button>
                             )}
                         </div>
                     </div>
