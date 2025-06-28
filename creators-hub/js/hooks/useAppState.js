@@ -367,26 +367,54 @@ window.useAppState = () => {
         executePublishToWordPress: async (task) => {
             const { idea } = task.data;
             try {
-                handlers.updateTaskStatus(task.id, 'publishing');
-                const wordpressConfig = settings.wordpress;
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Generating final HTML for WordPress...' });
 
+                // Step 1: Generate the final HTML content and metadata using the AI function
+                const { htmlContent, excerpt, tags, categories } = await window.aiUtils.generateWordPressPostHTMLAI({
+                    idea: idea,
+                    settings: settings
+                });
+
+                const wordpressConfig = settings.wordpress;
                 if (!wordpressConfig || !wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
-                    throw new Error('WordPress settings are not fully configured. Please check your settings.');
+                    throw new Error('WordPress settings are not fully configured.');
                 }
+
+                // Step 2: Get or create tag IDs
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Processing tags...' });
+                const tagIds = await window.wordpressUtils.getAndCreateTags(tags, wordpressConfig);
+
+                // Step 3: Get WordPress category ID
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Processing categories...' });
+                const availableCategories = await window.wordpressUtils.getWordPressCategories(wordpressConfig);
+                const categoryName = categories && categories.length > 0 ? categories[0] : 'Uncategorized';
+                const category = availableCategories.find(cat => cat.name.toLowerCase() === categoryName.toLowerCase());
+                const categoryId = category ? category.id : null; // Default to null if not found
+
+                // Step 4: Post the generated content to WordPress
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Uploading to WordPress...' });
 
                 const postData = {
                     title: idea.title,
-                    htmlContent: idea.blogPostContent,
-                    excerpt: idea.description,
-                    // categoryId: idea.categoryId, // Assuming categoryId might be part of the idea if selected
-                    // tags: idea.tags // Assuming tags might be part of the idea
+                    htmlContent,
+                    excerpt,
+                    tags: tagIds, // Use the retrieved/created tag IDs
+                    categoryId, // Use the found category ID
                 };
 
                 const result = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
+
+                // Step 5: Update task status and Firestore
                 handlers.updateTaskStatus(task.id, 'complete', result);
                 const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
-                await ideaRef.update({ status: 'published' });
+                await ideaRef.update({
+                    status: 'published',
+                    finalHtmlContent: htmlContent, // Optionally save the final HTML
+                    publishedAt: new Date()
+                });
+
                 handlers.displayNotification(`Successfully published "${idea.title}" to WordPress!`, 'success');
+
             } catch (error) {
                 console.error("Error executing publish to WordPress task:", error);
                 handlers.updateTaskStatus(task.id, 'failed', { error: error.message });
@@ -435,18 +463,37 @@ window.useAppState = () => {
             });
             handlers.setShowPublisherModal(false);
         },
-                handleViewGeneratedPost: (idea) => {
-            if (idea && idea.blogPostContent) {
-                setContentToView(idea);
+                handleViewGeneratedPost: (ideaOrTaskId) => {
+            let ideaId;
+
+            if (typeof ideaOrTaskId === 'string') {
+                // It's a taskId from the TaskQueue, e.g., "generate-post-someIdeaId"
+                ideaId = ideaOrTaskId.replace('generate-post-', '');
+            } else if (typeof ideaOrTaskId === 'object' && ideaOrTaskId !== null) {
+                // It's an idea object from the BlogIdeasDashboard
+                ideaId = ideaOrTaskId.id;
             } else {
-                const taskId = `generate-post-${idea.id}`;
-                const task = taskQueue.find(t => t.id === taskId);
-                if (task && task.status === 'complete' && task.result) {
-                    setContentToView(task.result.blogPostContent);
+                handlers.displayNotification('Invalid item provided to view handler.', 'error');
+                return;
+            }
+
+            if (!ideaId) {
+                handlers.displayNotification('Could not determine the idea to view.', 'error');
+                return;
+            }
+
+            // Fetch the latest content directly from Firestore to ensure it's up-to-date.
+            const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+            ideaRef.get().then(doc => {
+                if (doc.exists && doc.data().blogPostContent) {
+                    setContentToView({ id: doc.id, ...doc.data() });
                 } else {
                     handlers.displayNotification('Content not available yet or an error occurred.', 'info');
                 }
-            }
+            }).catch(error => {
+                console.error("Error fetching document from Firestore:", error);
+                handlers.displayNotification('Error fetching content from the database.', 'error');
+            });
         },
         setProjectToDelete,
         setDraftToDelete,
