@@ -57,6 +57,8 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null, 
         5.  **FAILURE TO FOLLOW THESE RULES WILL CAUSE AN ERROR.** Ensure the final '~~~' is present at the very end of your response.
     `;
 
+    onProgress('Preparing AI request...');
+
     try {
         onProgress('Sending request to AI...');
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
