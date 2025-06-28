@@ -27,7 +27,7 @@ window.TaskQueue = ({ tasks, onView }) => {
     };
     
     return (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-96 z-50 animate-fade-in-up border border-gray-700">
+        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-[500px] z-50 animate-fade-in-up border border-gray-700">
             <div className="p-3 bg-gray-900 rounded-t-lg">
                 <h4 className="font-bold text-base">Task Queue</h4>
             </div>

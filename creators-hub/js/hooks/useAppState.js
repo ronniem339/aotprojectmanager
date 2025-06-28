@@ -444,7 +444,7 @@ window.useAppState = () => {
                 if (task && task.status === 'complete' && task.result) {
                     setContentToView(task.result.blogPostContent);
                 } else {
-                    displayNotification('Content not available yet or an error occurred.', 'info');
+                    handlers.displayNotification('Content not available yet or an error occurred.', 'info');
                 }
             }
         },
