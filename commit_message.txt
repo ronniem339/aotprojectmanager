@@ -1,3 +1,0 @@
-refactor: BlogIdeasDashboard - remove console.log
-
-Removed the `console.log` statement from `BlogIdeasDashboard.js` that was used for debugging the `onOpenPublisher` prop.
