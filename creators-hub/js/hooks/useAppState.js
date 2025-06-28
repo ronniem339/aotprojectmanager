@@ -300,7 +300,17 @@ window.useAppState = () => {
         updateTaskStatus: (taskId, status, result = null) => {
             setTaskQueue(prevQueue => prevQueue.map(task => {
                 if (task.id === taskId) {
-                    return { ...task, status, result };
+                    let newName = task.name;
+                    if (task.type === 'generate-post') {
+                        if (status === 'generating') newName = `Generating content for: ${task.data.idea.title}`;
+                        else if (status === 'complete') newName = `Content generated for: ${task.data.idea.title}`;
+                        else if (status === 'failed') newName = `Failed to generate content for: ${task.data.idea.title}`;
+                    } else if (task.type === 'publish-post') {
+                        if (status === 'publishing') newName = `Publishing to WordPress: ${task.data.idea.title}`;
+                        else if (status === 'complete') newName = `Published to WordPress: ${task.data.idea.title}`;
+                        else if (status === 'failed') newName = `Failed to publish to WordPress: ${task.data.idea.title}`;
+                    }
+                    return { ...task, status, result, name: newName };
                 }
                 return task;
             }));
@@ -367,6 +377,7 @@ window.useAppState = () => {
             const task = {
                 id: `generate-post-${idea.id}`,
                 type: 'generate-post',
+                name: `Generating: ${idea.title}`,
                 status: 'queued',
                 data: { idea, video },
                 createdAt: new Date(),
@@ -383,6 +394,7 @@ window.useAppState = () => {
                 const task = {
                     id: `publish-post-${idea.id}`,
                     type: 'publish-post',
+                    name: `Publishing: ${idea.title}`,
                     status: 'queued',
                     data: { idea },
                     createdAt: new Date(),
