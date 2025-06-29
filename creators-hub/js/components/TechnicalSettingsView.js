@@ -1,9 +1,11 @@
 // js/components/TechnicalSettingsView.js
 
+// IMPORTANT: The separate component 'WordPressImportTool.js' is no longer needed
+// and can be safely deleted from your project.
+
 const { useState, useEffect } = React;
 
 window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
-    // This local state now manages all technical settings
     const [localSettings, setLocalSettings] = useState({
         geminiApiKey: '',
         googleMapsApiKey: '',
@@ -13,15 +15,22 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
         proModelName: ''
     });
 
+    // --- NEW: State for the simplified importer UI, managed directly in this component ---
+    const [isImporting, setIsImporting] = useState(false);
+    const [importProgress, setImportProgress] = useState('');
+    const [importError, setImportError] = useState('');
+    const [importSuccess, setImportSuccess] = useState('');
+    // Get the full app state to ensure db/user are loaded when the button is clicked.
+    const appState = window.useAppState();
+
     useEffect(() => {
-        // Populate all fields from the main settings prop
         setLocalSettings({
             geminiApiKey: settings.geminiApiKey || '',
             googleMapsApiKey: settings.googleMapsApiKey || '',
             youtubeApiKey: settings.youtubeApiKey || '',
             useProModelForComplexTasks: settings.useProModelForComplexTasks || false,
-            flashModelName: settings.flashModelName || 'gemini-2.5-flash',
-            proModelName: settings.proModelName || 'gemini-2.5-pro'
+            flashModelName: settings.flashModelName || 'gemini-1.5-flash-latest',
+            proModelName: settings.proModelName || 'gemini-1.5-pro-latest'
         });
     }, [settings]);
 
@@ -32,8 +41,41 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
     };
 
     const handleSaveAll = () => {
-        // The main save function now saves all local settings, including API keys and WordPress
         onSave({ ...settings, ...localSettings });
+    };
+
+    // --- NEW: Handler for the simplified import button ---
+    const handleRunImporter = async () => {
+        const { db, user, settings: currentSettings } = appState;
+        
+        if (!db || !user) {
+            setImportError("Connection not ready. Please wait a moment and try again.");
+            return;
+        }
+        if (!currentSettings?.wordpress?.url) {
+            setImportError("WordPress settings are not configured. Please set them up in the Integrations section.");
+            return;
+        }
+
+        setIsImporting(true);
+        setImportProgress('Starting import...');
+        setImportError('');
+        setImportSuccess('');
+
+        try {
+            const totalImported = await window.wordpressUtils.importAllWordPressPosts({
+                db: db,
+                user: user,
+                wordpressConfig: currentSettings.wordpress,
+                onProgress: (message) => setImportProgress(message) // Pass progress callback
+            });
+            setImportSuccess(`Import complete! Successfully imported ${totalImported} posts.`);
+        } catch (err) {
+            console.error("WordPress Import Failed:", err);
+            setImportError(`Import failed: ${err.message}`);
+        } finally {
+            setIsImporting(false);
+        }
     };
 
     return (
@@ -45,9 +87,8 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                 {/* API Keys & Model Settings Section */}
                 <div className="max-w-2xl">
                     <h1 className="text-3xl font-bold mb-2">Technical Settings</h1>
+                    {/* ... (rest of the API and Model settings UI is unchanged) ... */}
                     <p className="text-gray-400 mb-6">Manage API keys and AI model configurations. Keep API keys secure!</p>
-                    
-                    {/* API Keys */}
                     <div className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Google Gemini API Key</label>
@@ -65,14 +106,10 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                             <p className="text-xs text-gray-500 mt-1">Required for importing existing YouTube playlists/videos.</p>
                         </div>
                     </div>
-
-                    {/* AI Model Settings */}
                     <div className="mt-10 pt-8 border-t border-gray-700">
                         <h2 className="text-2xl font-semibold mb-2">AI Model Configuration</h2>
                         <p className="text-gray-400 mb-6">Control which AI models are used for different tasks. The "Pro" model is more powerful but may be slower and more expensive.</p>
-                        
                         <div className="space-y-6">
-                            {/* Toggle Switch */}
                             <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
                                 <span className="text-md font-medium text-white">Use Pro Model for Complex Tasks</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
@@ -80,17 +117,15 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                                     <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent"></div>
                                 </label>
                             </div>
-                            
-                            {/* Model Name Inputs */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name</label>
                                 <input type="text" name="flashModelName" value={localSettings.flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
-                                <p className="text-xs text-gray-500 mt-1">Used for simple, fast tasks like generating titles, tags, and keywords.</p>
+                                <p className="text-xs text-gray-500 mt-1">Used for simple, fast tasks.</p>
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name</label>
                                 <input type="text" name="proModelName" value={localSettings.proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
-                                <p className="text-xs text-gray-500 mt-1">Used for complex tasks like writing full scripts and detailed plans, if enabled above.</p>
+                                <p className="text-xs text-gray-500 mt-1">Used for complex tasks, if enabled above.</p>
                             </div>
                         </div>
                     </div>
@@ -103,12 +138,41 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                      <window.WordpressSettings settings={settings} onSave={onSave} />
                 </div>
                 
-                {/* --- NEW: Data Management Section --- */}
+                {/* --- NEW, SIMPLIFIED Data Management Section --- */}
                 <div className="border-t border-gray-700 pt-10 max-w-2xl">
                     <h1 className="text-3xl font-bold mb-2">Data Management</h1>
-                    <p className="text-gray-400 mb-6">Perform one-time data operations.</p>
-                    {/* The WordPress importer is self-contained and doesn't need props from this view */}
-                    <window.WordPressImportTool />
+                    <p className="text-gray-400 mb-6">Perform one-time data operations. Use with caution.</p>
+                    <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
+                        <h3 className="text-xl font-bold mb-4">WordPress Content Importer</h3>
+                        <p className="mb-4 text-gray-400">
+                            Import all existing posts from your WordPress blog.
+                        </p>
+                        
+                        {!isImporting && !importSuccess && (
+                            <button 
+                              onClick={handleRunImporter} 
+                              className="btn btn-primary"
+                              disabled={!appState.db || !appState.user} // Directly check for connection
+                            >
+                                { (appState.db && appState.user) ? 'Start WordPress Import' : 'Connecting...' }
+                            </button>
+                        )}
+
+                        {isImporting && (
+                            <div className="flex items-center space-x-2">
+                                <window.LoadingSpinner isButton={false} />
+                                <p className="text-gray-300 font-medium">{importProgress}</p>
+                            </div>
+                        )}
+
+                        {!isImporting && importError && (
+                            <p className="text-red-400 mt-4 font-semibold">{importError}</p>
+                        )}
+
+                        {!isImporting && importSuccess && (
+                            <p className="text-green-400 font-semibold mt-4">{importSuccess}</p>
+                        )}
+                    </div>
                 </div>
                 
                 {/* Unified Save Button */}
@@ -121,3 +185,4 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
         </div>
     );
 };
+
