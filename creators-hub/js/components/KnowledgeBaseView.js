@@ -10,12 +10,13 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
             firstPinnedCommentExpert: '', shortsIdeaGeneration: '',
         },
         blog: {
+            // --- NEW: Added a master KB for the JSON output format ---
+            jsonOutputFormat: '', 
             coreSeoEngine: '',
             ideaGeneration: '',
             destinationGuideBlueprint: '',
             listiclePostFramework: '',
             monetizationGoals: '',
-            // --- NEW KEYS ADDED FOR NEW POST TYPES ---
             videoCompanionPostBlueprint: '',
             roadTripItineraryBlueprint: '',
             toursAndActivitiesBlueprint: '',
@@ -69,35 +70,47 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     ];
     
     const blogKbs = [
+        // --- NEW: Master knowledge base for the JSON output structure ---
+        { 
+            id: 'jsonOutputFormat', 
+            title: 'AI Output Structure (JSON & OtterBlocks)', 
+            description: 'This is the MOST IMPORTANT blueprint. It instructs the AI to return a structured JSON object for every blog post, ensuring consistency and compatibility with WordPress and OtterBlocks.',
+            placeholder: `Your output MUST be a single, valid JSON object with the following structure:
+{
+  "title": "A compelling, SEO-optimized title for the blog post.",
+  "suggestedExcerpt": "A concise, meta-description-friendly summary of the article, under 160 characters.",
+  "suggestedTags": ["tag-one", "tag-two", "relevant-tag"],
+  "suggestedCategory": "The most appropriate single WordPress category for this post.",
+  "htmlContent": "The full blog post content. IMPORTANT: All content must be wrapped in appropriate WordPress block editor comments. For sections of content, use <!-- wp:otter/section --> ... <!-- /wp:otter/section -->. For individual paragraphs, use <!-- wp:paragraph -->...<!-- /wp:paragraph -->. For headings, use <!-- wp:heading --><h2>...</h2><!-- /wp:heading -->."
+}`
+        },
         { id: 'coreSeoEngine', title: 'Core SEO & Content Engine', description: 'Foundational principles for all blog content to ensure high performance in organic search.', placeholder: 'e.g., "Always target a primary keyword. Use LSI keywords. Ensure content answers user intent. Internal link to relevant posts..."'},
         { id: 'monetizationGoals', title: 'Monetization & Content Goals', description: 'Define the primary business goals for your blog content.', placeholder: 'e.g., "Primary Goal: Drive traffic to my YouTube channel. Secondary Goal: Generate revenue through affiliate links for hotels, tours, and car rentals. All relevant posts should include these types of links."'},
-        { id: 'ideaGeneration', title: 'Blog Post Idea Generation', description: 'How to generate a diverse list of SEO-friendly blog post ideas for a given travel destination.', placeholder: 'e.g., "Generate ideas based on question keywords, comparisons (X vs Y), seasonal topics, and different user intents (informational, commercial)..."'},
-        { id: 'destinationGuideBlueprint', title: 'Destination Guide Blueprint (Pillar Page)', description: 'The structure for comprehensive, long-form destination guides that act as pillar pages.', placeholder: 'e.g., "Structure: Intro, Why Visit, Top Attractions, Getting Around, Where to Stay, Best Time to Visit, Sample Itinerary, Conclusion..."'},
-        { id: 'listiclePostFramework', title: 'Generic Listicle Post Framework', description: 'A general framework for list-based articles. Use the more specific blueprints below for monetized content.', placeholder: 'e.g., "Structure: Engaging intro, each list item with a clear heading (H3), detailed description, pros/cons, and a clear call-to-action..."'},
-        // --- NEW DEFINITIONS ADDED FOR UI ---
+        { id: 'destinationGuideBlueprint', title: 'Destination Guide Blueprint (Pillar Page)', description: 'The structure for comprehensive, long-form destination guides that act as pillar pages.', placeholder: 'e.g., "Structure: Intro, Why Visit, Top Attractions, Where to Stay... Remember to format the HTML output with OtterBlocks section comments, as defined in the main JSON Output guide."' },
+        // --- UPDATED: Placeholders now refer back to the main JSON/OtterBlocks guide ---
         { 
             id: 'videoCompanionPostBlueprint', 
             title: 'Video Companion Post Blueprint', 
             description: 'Instructions for rewriting a video script into a detailed, SEO-friendly blog post.',
-            placeholder: 'e.g., "Expand on key points from the video. Add more detail and context. Structure with clear headings and subheadings. Embed the original YouTube video prominently. End with a strong call-to-action to watch the video and subscribe."'
+            placeholder: 'e.g., "Expand on key points from the video. Embed the YouTube video. End with a CTA. Remember to format the HTML output with OtterBlocks section comments, as defined in the main JSON Output guide."'
         },
         { 
             id: 'hotelListicleBlueprint', 
             title: 'Hotel Listicle Blueprint (Expedia)', 
             description: 'The structure for "Top X Hotels" posts, designed for Expedia affiliate links.',
-            placeholder: 'e.g., "Title must be \'Top X [Type] Hotels in [Location] for [Audience]\'. For each hotel, describe its unique selling points and target audience. End each item with the placeholder: [Expedia Affiliate Link Here]."'
+            placeholder: 'e.g., "Title must be \'Top X [Type] Hotels in [Location] for [Audience]\'. End each item with placeholder: [Expedia Affiliate Link Here]. Remember to format the HTML output with OtterBlocks section comments, as defined in the main JSON Output guide."'
         },
         { 
             id: 'roadTripItineraryBlueprint', 
             title: 'Road Trip Itinerary Blueprint (Car Rentals)', 
             description: 'Instructions for creating compelling road trip itineraries that drive car rental affiliate revenue.',
-            placeholder: 'e.g., "Structure as a day-by-day guide. Include key stops, driving times, and activity suggestions. Include a clear call-out box for car rentals with the placeholder: [Car Rental Affiliate Link Here]."'
+            placeholder: 'e.g., "Structure as a day-by-day guide. Include a call-out box with placeholder: [Car Rental Affiliate Link Here]. Remember to format the HTML output with OtterBlocks section comments, as defined in the main JSON Output guide."'
         },
         { 
             id: 'toursAndActivitiesBlueprint', 
             title: 'Tours & Activities Blueprint (Viator)', 
             description: 'The framework for "Best Tours" or "Things to Do" listicles, designed for Viator affiliate links.',
-            placeholder: 'e.g., "Title must be \'X Unmissable Tours in [Location]\' or similar. For each tour, explain the experience and what makes it special. End each item with the placeholder: [Viator Affiliate Link Here]."'
+            placeholder: 'e.g., "Title must be \'X Unmissable Tours in [Location]\'. End each item with placeholder: [Viator Affiliate Link Here]. Remember to format the HTML output with OtterBlocks section comments, as defined in the main JSON Output guide."'
         },
     ];
 
