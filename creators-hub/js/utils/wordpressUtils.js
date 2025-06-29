@@ -1,4 +1,4 @@
-// js/utils/wordpressUtils.js
+// creators-hub/js/utils/wordpressUtils.js
 
 /**
  * Posts a blog post to a WordPress site using the REST API.
@@ -45,7 +45,6 @@ async function postToWordPress(postData, wordpressConfig) {
  * Fetches categories from a WordPress site.
  */
 async function getWordPressCategories(wordpressConfig) {
-    //... (existing function code is unchanged)
     const { url, username, applicationPassword } = wordpressConfig;
     if (!url || !username || !applicationPassword) {
         throw new Error('WordPress settings are not fully configured.');
@@ -73,11 +72,11 @@ async function getWordPressCategories(wordpressConfig) {
  * Fetches existing tags, creates new ones if needed, and returns their IDs.
  */
 async function getAndCreateTags(tagNames, wordpressConfig) {
-    //... (existing function code is unchanged)
     const { url, username, applicationPassword } = wordpressConfig;
     const cleanedUrl = url.replace(/\/+$/, '');
     const token = btoa(`${username}:${applicationPassword}`);
     const headers = { 'Authorization': `Basic ${token}`, 'Content-Type': 'application/json' };
+
     const tagsListEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
     const tagsCreateEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags`;
     let existingTags = [];
@@ -88,13 +87,16 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     } catch (e) {
         console.warn("Could not fetch existing tags, may need to create all.", e);
     }
+
     const existingTagMap = new Map(existingTags.map(tag => [tag.name.toLowerCase(), tag.id]));
     const tagIds = [];
     const tagsToCreate = [];
+
     for (const tagName of tagNames) {
         if (tagName && tagName.trim() !== '') {
             const cleanTagName = tagName.trim();
             const lowerCaseTag = cleanTagName.toLowerCase();
+
             if (existingTagMap.has(lowerCaseTag)) {
                 if (!tagIds.includes(existingTagMap.get(lowerCaseTag))) {
                     tagIds.push(existingTagMap.get(lowerCaseTag));
@@ -106,6 +108,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
             }
         }
     }
+
     if (tagsToCreate.length > 0) {
         const createTagPromises = tagsToCreate.map(tagName => {
             return fetch(tagsCreateEndpoint, {
@@ -125,6 +128,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
                 return res.json();
             });
         });
+
         try {
             const newTags = await Promise.all(createTagPromises);
             newTags.forEach(newTag => {
@@ -136,6 +140,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
             console.error("Error processing tag creation promises in WordPress:", error);
         }
     }
+
     return [...new Set(tagIds)];
 }
 
@@ -143,11 +148,12 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
  * A wrapper that first publishes a post to WordPress and saves to Firestore.
  */
 async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig, firestoreDb, currentUser) {
-    //... (existing function code is unchanged)
     const newWpPost = await postToWordPress(postData, wordpressConfig);
+
     try {
         const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
         const postRef = firestoreDb.collection('artifacts').doc(appId).collection('users').doc(currentUser.uid).collection('blogPosts').doc(newWpPost.id.toString());
+        
         const postDataForFirestore = {
             title: newWpPost.title.rendered,
             content: newWpPost.content.rendered,
@@ -159,11 +165,13 @@ async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig,
             createdAt: newWpPost.date_gmt,
             userId: currentUser.uid,
         };
+        
         await postRef.set(postDataForFirestore);
         console.log(`Post ${newWpPost.id} successfully saved to Firestore.`);
     } catch (firestoreError) {
-        console.error(`CRITICAL: Post ${newWpPost.id} was published to WordPress but FAILED to save to Firestore.`, firestoreError);
+        console.error(`CRITICAL: Post ${newWpPost.id} was published to WordPress but FAILED to save to Firestore. Manual sync may be needed.`, firestoreError);
     }
+    
     return newWpPost;
 }
 
@@ -233,12 +241,12 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
     return totalPostsImported;
 }
 
-// Add all functions to the global utility object
+
+// CORRECTED: Ensure the new function is included in the export.
 window.wordpressUtils = {
     postToWordPress,
     getWordPressCategories,
     getAndCreateTags,
     publishPostAndSaveToDb,
-    importAllWordPressPosts, // Add the new function here
+    importAllWordPressPosts,
 };
-
