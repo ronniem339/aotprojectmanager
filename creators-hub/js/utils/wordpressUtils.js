@@ -181,14 +181,14 @@ async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig,
  * It groups posts by their original 'wordPressId' and keeps only the oldest entry.
  */
 async function deduplicateWordPressPosts({ db, user, onProgress }) {
-    const { collection, getDocs, writeBatch, query, where } = window.firebase.firestore;
-    
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-    const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'blogPosts');
+    // CORRECTED: Use the v8-compatible syntax db.collection(...).where(...)
+    const collectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
     onProgress('Fetching all imported posts to check for duplicates...');
-    const q = query(collectionRef, where("postType", "==", "wordpress-import"));
-    const snapshot = await getDocs(q);
+    const q = collectionRef.where("postType", "==", "wordpress-import");
+    // CORRECTED: Use .get() to execute the query
+    const snapshot = await q.get();
 
     if (snapshot.empty) {
         onProgress('No WordPress posts found to check.');
@@ -211,7 +211,8 @@ async function deduplicateWordPressPosts({ db, user, onProgress }) {
         postsByWpId.get(wpId).push({ ref: doc.ref, createdAt: data.createdAt });
     });
 
-    const batch = writeBatch(db);
+    // CORRECTED: Use db.batch()
+    const batch = db.batch();
     let duplicatesFound = 0;
     
     onProgress('Searching for duplicates...');
@@ -233,6 +234,7 @@ async function deduplicateWordPressPosts({ db, user, onProgress }) {
 
     if (duplicatesFound > 0) {
         onProgress(`Found ${duplicatesFound} duplicate(s). Removing now...`);
+        // CORRECTED: Use batch.commit()
         await batch.commit();
         onProgress(`Successfully removed ${duplicatesFound} duplicate posts.`);
     } else {
@@ -254,15 +256,15 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         throw new Error('WordPress settings are not fully configured.');
     }
 
-    const { collection, getDocs, writeBatch, doc, query, where, Timestamp } = window.firebase.firestore;
-
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-    const blogPostsCollectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'blogPosts');
+    // CORRECTED: Use the v8-compatible syntax db.collection(...)
+    const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
     onProgress('Checking for already imported posts...');
     const existingPostIds = new Set();
-    const q = query(blogPostsCollectionRef, where("postType", "==", "wordpress-import"));
-    const querySnapshot = await getDocs(q);
+    const q = blogPostsCollectionRef.where("postType", "==", "wordpress-import");
+    // CORRECTED: Use .get()
+    const querySnapshot = await q.get();
     querySnapshot.forEach(doc => {
         const data = doc.data();
         if (data.wordPressId) {
@@ -292,7 +294,8 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         
         onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
         
-        const batch = writeBatch(db);
+        // CORRECTED: Use db.batch()
+        const batch = db.batch();
         let postsInThisBatch = 0;
         
         posts.forEach(post => {
@@ -300,7 +303,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
                 return; 
             }
 
-            const postRef = doc(blogPostsCollectionRef, post.id.toString());
+            const postRef = blogPostsCollectionRef.doc(post.id.toString());
             const postData = {
                 title: post.title.rendered,
                 content: post.content.rendered,
@@ -309,7 +312,8 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
                 postType: 'wordpress-import',
                 wordPressId: post.id,
                 url: post.link,
-                createdAt: Timestamp.fromDate(new Date(post.date_gmt)),
+                // CORRECTED: Use window.firebase.firestore.Timestamp for v8-compatible code
+                createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                 userId: user.uid
             };
             batch.set(postRef, postData);
