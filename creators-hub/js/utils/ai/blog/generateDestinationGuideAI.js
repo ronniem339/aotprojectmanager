@@ -1,19 +1,18 @@
 // js/utils/ai/blog/generateDestinationGuideAI.js
 
 /**
- * Generates a comprehensive destination guide (pillar page).
+ * Generates a destination guide (pillar page) as a structured JSON object.
  * @param {object} options - Contains details for the post generation.
  * @param {string} options.location - The target location for the guide.
  * @param {Array<object>} options.existingArticles - An array of existing articles {title, url} to link to.
  * @param {object} settings - The application settings object.
  * @param {object} knowledgeBases - The user's knowledge bases.
- * @returns {Promise<string>} A promise that resolves to the generated blog post content (HTML).
+ * @returns {Promise<object>} A promise that resolves to the generated blog post as a structured JSON object.
  */
 async function generateDestinationGuideAI(options, settings, knowledgeBases) {
     const { location, existingArticles } = options;
     const { blog: blogKb } = knowledgeBases;
 
-    // Use the Pro model for this complex synthesis task if enabled.
     const model = settings.useProModelForComplexTasks
         ? (settings.proModelName || 'gemini-1.5-pro-latest')
         : (settings.flashModelName || 'gemini-1.5-flash-latest');
@@ -21,38 +20,38 @@ async function generateDestinationGuideAI(options, settings, knowledgeBases) {
     const articleListForPrompt = existingArticles.map(article => `- "${article.title}" (URL: ${article.url})`).join('\n');
 
     const prompt = `
-        You are a world-class travel editor, specializing in creating ultimate destination guides that serve as "pillar pages" or content hubs. Your task is to create the definitive guide for a location, seamlessly linking to existing, more detailed articles.
+        You are a world-class travel editor, creating ultimate destination guides that serve as content hubs.
+
+        **Master Output Format (CRITICAL):**
+        You MUST follow these instructions for the output format. This is the most important rule.
+        ${blogKb.jsonOutputFormat || 'Your output MUST be a single, valid JSON object with the keys: "title", "suggestedExcerpt", "suggestedTags", "suggestedCategory", and "htmlContent".'}
 
         **Core Task:**
         Create a comprehensive destination guide for **${location}**.
 
-        **Core SEO Principles:**
-        ${blogKb.coreSeoEngine || 'This is a pillar page. It should be comprehensive, well-structured, and demonstrate expertise. Internal linking is critical.'}
-
-        **Post Blueprint & Structure:**
-        You MUST follow these instructions precisely:
+        **Post Blueprint for 'htmlContent':**
+        Use the following instructions to generate the value for the 'htmlContent' key in the JSON object:
         ${blogKb.destinationGuideBlueprint || `
-            1.  Create an exciting H1 title for the guide.
-            2.  Write a "Why Visit" section that hooks the reader.
-            3.  Create sections covering the location's main highlights (e.g., Top Attractions, Food & Drink, Getting Around).
-            4.  Within these sections, you MUST naturally weave in contextual links to the existing articles provided below. Use the article title or a natural phrase as the anchor text for the link.
-            5.  Do not just list the links. Integrate them into the narrative to encourage click-through.
+            1.  Create an exciting guide that hooks the reader.
+            2.  Create sections covering the location's main highlights.
+            3.  Within these sections, you MUST naturally weave in contextual links to the existing articles provided below.
+            4.  Do not just list the links. Integrate them into the narrative to encourage click-through.
         `}
 
-        **Existing Articles to Link To:**
+        **Existing Articles to Link To (for the 'htmlContent'):**
         You must incorporate links to the following articles within the guide's content. Use the provided URLs for the href attribute of the anchor tags.
         ${articleListForPrompt}
 
-        Now, generate the complete guide as a single block of clean HTML. Do not include \`<html>\` or \`<body>\` tags. Ensure all links to existing articles are included correctly.
+        Now, generate the complete guide as a single, valid JSON object, adhering strictly to the Master Output Format. Ensure all links to existing articles are included correctly in the 'htmlContent'.
     `;
 
     try {
         const response = await window.ai.core.callGeminiAPI(prompt, settings, model);
-        // Clean up the response to ensure it's just the HTML content
-        return response.replace(/```html/g, '').replace(/```/g, '').trim();
+        const jsonString = response.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(jsonString);
     } catch (error) {
-        console.error(`Error generating destination guide for "${location}":`, error);
-        throw new Error('Failed to generate the destination guide.');
+        console.error(`Error generating or parsing destination guide JSON for "${location}":`, error);
+        throw new Error('Failed to generate the destination guide. The AI response was not valid JSON.');
     }
 }
 
