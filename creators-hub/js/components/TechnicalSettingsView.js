@@ -5,7 +5,8 @@ const { useState, useEffect } = React;
 // IMPORTANT: The separate component 'WordPressImportTool.js' is no longer needed
 // and can be safely deleted from your project.
 
-window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
+// CORRECTED: The component now accepts 'appState' as a prop.
+window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     const [localSettings, setLocalSettings] = useState({
         geminiApiKey: '',
         googleMapsApiKey: '',
@@ -15,15 +16,12 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
         proModelName: ''
     });
 
-    // --- NEW: State for the simplified importer UI, managed directly in this component ---
     const [isImporting, setIsImporting] = useState(false);
     const [importProgress, setImportProgress] = useState('');
     const [importError, setImportError] = useState('');
     const [importSuccess, setImportSuccess] = useState('');
-    
-    // Get the full app state to ensure db/user are loaded when the button is clicked.
-    const appState = window.useAppState();
-    // This derived boolean will correctly reflect the connection status on every render.
+
+    // This derived state will now update correctly whenever the appState prop changes.
     const isConnectionReady = appState && appState.db && appState.user;
 
     useEffect(() => {
@@ -47,16 +45,16 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
         onSave({ ...settings, ...localSettings });
     };
 
-    // --- NEW: Handler for the simplified import button ---
     const handleRunImporter = async () => {
+        // Now using the reliable props for db, user, and settings
         const { db, user, settings: currentSettings } = appState;
         
         if (!isConnectionReady) {
-            setImportError("Connection not ready. Please wait a moment and try again.");
+            setImportError("Connection not ready.");
             return;
         }
         if (!currentSettings?.wordpress?.url) {
-            setImportError("WordPress settings are not configured. Please set them up in the Integrations section.");
+            setImportError("WordPress settings are not configured.");
             return;
         }
 
@@ -70,7 +68,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                 db: db,
                 user: user,
                 wordpressConfig: currentSettings.wordpress,
-                onProgress: (message) => setImportProgress(message) // Pass progress callback
+                onProgress: (message) => setImportProgress(message)
             });
             setImportSuccess(`Import complete! Successfully imported ${totalImported} posts.`);
         } catch (err) {
@@ -146,7 +144,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                             <button 
                               onClick={handleRunImporter} 
                               className="btn btn-primary"
-                              // The button is disabled until the connection is ready.
                               disabled={!isConnectionReady}
                             >
                                 {isConnectionReady ? 'Start WordPress Import' : 'Connecting...'}
