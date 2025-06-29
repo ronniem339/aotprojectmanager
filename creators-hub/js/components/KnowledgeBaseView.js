@@ -2,9 +2,8 @@
 
 window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     const { useState, useEffect } = React;
-    const [activeCategory, setActiveCategory] = useState('youtube'); // 'youtube', 'blog', or 'storytelling'
+    const [activeCategory, setActiveCategory] = useState('blog'); // Default to 'blog' as we are working on it
     
-    // NEW: Add 'storytelling' to the default structure
     const defaultKnowledgeBases = {
         youtube: {
             whoAmI: '', videoTitles: '', videoDescriptions: '', thumbnailIdeas: '', videoTags: '',
@@ -16,6 +15,11 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
             destinationGuideBlueprint: '',
             listiclePostFramework: '',
             monetizationGoals: '',
+            // --- NEW KEYS ADDED FOR NEW POST TYPES ---
+            videoCompanionPostBlueprint: '',
+            roadTripItineraryBlueprint: '',
+            toursAndActivitiesBlueprint: '',
+            hotelListicleBlueprint: '',
         },
         storytelling: {
             videoStorytellingPrinciples: '',
@@ -24,7 +28,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
 
     const [localKnowledgeBases, setLocalKnowledgeBases] = useState(() => {
         const savedKbs = settings.knowledgeBases || {};
-        // NEW: Ensure 'storytelling' is merged correctly
         return {
             youtube: { ...defaultKnowledgeBases.youtube, ...savedKbs.youtube },
             blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog },
@@ -34,7 +37,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
 
     useEffect(() => {
         const savedKbs = settings.knowledgeBases || {};
-        // NEW: Ensure 'storytelling' is part of the effect dependency
         setLocalKnowledgeBases({
             youtube: { ...defaultKnowledgeBases.youtube, ...savedKbs.youtube },
             blog: { ...defaultKnowledgeBases.blog, ...savedKbs.blog },
@@ -57,7 +59,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     };
 
     const youtubeKbs = [
-        // ... (this array remains unchanged)
         { id: 'whoAmI', title: 'Who Am I', description: 'Describe your persona, brand voice, and unique perspective.', placeholder: 'e.g., "I am an adventurous travel vlogger focusing on hidden gems and authentic experiences, with a friendly and informative tone."'},
         { id: 'videoTitles', title: 'YouTube Video Titles', description: 'Best practices for crafting engaging video titles.', placeholder: 'e.g., "Titles should be under 70 characters. Use strong verbs. Include numbers where applicable."'},
         { id: 'videoDescriptions', title: 'YouTube Video Descriptions', description: 'Guidelines for writing SEO-rich descriptions.', placeholder: 'e.g., "Always include a strong hook in the first 3 lines. Utilize keywords naturally throughout the description."'},
@@ -68,15 +69,38 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
     ];
     
     const blogKbs = [
-        // ... (this array remains unchanged)
         { id: 'coreSeoEngine', title: 'Core SEO & Content Engine', description: 'Foundational principles for all blog content to ensure high performance in organic search.', placeholder: 'e.g., "Always target a primary keyword. Use LSI keywords. Ensure content answers user intent. Internal link to relevant posts..."'},
         { id: 'monetizationGoals', title: 'Monetization & Content Goals', description: 'Define the primary business goals for your blog content.', placeholder: 'e.g., "Primary Goal: Drive traffic to my YouTube channel. Secondary Goal: Generate revenue through affiliate links for hotels, tours, and car rentals. All relevant posts should include these types of links."'},
         { id: 'ideaGeneration', title: 'Blog Post Idea Generation', description: 'How to generate a diverse list of SEO-friendly blog post ideas for a given travel destination.', placeholder: 'e.g., "Generate ideas based on question keywords, comparisons (X vs Y), seasonal topics, and different user intents (informational, commercial)..."'},
         { id: 'destinationGuideBlueprint', title: 'Destination Guide Blueprint (Pillar Page)', description: 'The structure for comprehensive, long-form destination guides that act as pillar pages.', placeholder: 'e.g., "Structure: Intro, Why Visit, Top Attractions, Getting Around, Where to Stay, Best Time to Visit, Sample Itinerary, Conclusion..."'},
-        { id: 'listiclePostFramework', title: 'Listicle Post Framework', description: 'The framework for shorter, list-based articles (e.g., "Top 10s"), often for commercial investigation topics.', placeholder: 'e.g., "Structure: Engaging intro, each list item with a clear heading (H3), detailed description, pros/cons, and a clear call-to-action..."'},
+        { id: 'listiclePostFramework', title: 'Generic Listicle Post Framework', description: 'A general framework for list-based articles. Use the more specific blueprints below for monetized content.', placeholder: 'e.g., "Structure: Engaging intro, each list item with a clear heading (H3), detailed description, pros/cons, and a clear call-to-action..."'},
+        // --- NEW DEFINITIONS ADDED FOR UI ---
+        { 
+            id: 'videoCompanionPostBlueprint', 
+            title: 'Video Companion Post Blueprint', 
+            description: 'Instructions for rewriting a video script into a detailed, SEO-friendly blog post.',
+            placeholder: 'e.g., "Expand on key points from the video. Add more detail and context. Structure with clear headings and subheadings. Embed the original YouTube video prominently. End with a strong call-to-action to watch the video and subscribe."'
+        },
+        { 
+            id: 'hotelListicleBlueprint', 
+            title: 'Hotel Listicle Blueprint (Expedia)', 
+            description: 'The structure for "Top X Hotels" posts, designed for Expedia affiliate links.',
+            placeholder: 'e.g., "Title must be \'Top X [Type] Hotels in [Location] for [Audience]\'. For each hotel, describe its unique selling points and target audience. End each item with the placeholder: [Expedia Affiliate Link Here]."'
+        },
+        { 
+            id: 'roadTripItineraryBlueprint', 
+            title: 'Road Trip Itinerary Blueprint (Car Rentals)', 
+            description: 'Instructions for creating compelling road trip itineraries that drive car rental affiliate revenue.',
+            placeholder: 'e.g., "Structure as a day-by-day guide. Include key stops, driving times, and activity suggestions. Include a clear call-out box for car rentals with the placeholder: [Car Rental Affiliate Link Here]."'
+        },
+        { 
+            id: 'toursAndActivitiesBlueprint', 
+            title: 'Tours & Activities Blueprint (Viator)', 
+            description: 'The framework for "Best Tours" or "Things to Do" listicles, designed for Viator affiliate links.',
+            placeholder: 'e.g., "Title must be \'X Unmissable Tours in [Location]\' or similar. For each tour, explain the experience and what makes it special. End each item with the placeholder: [Viator Affiliate Link Here]."'
+        },
     ];
 
-    // NEW: Define the structure for the storytelling KB
     const storytellingKbs = [
         { 
             id: 'videoStorytellingPrinciples', 
@@ -86,7 +110,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
         }
     ];
 
-    // NEW: Update this line to be a function that selects the correct KB structure
     const getCurrentKbs = () => {
         switch (activeCategory) {
             case 'youtube': return youtubeKbs;
@@ -120,7 +143,6 @@ window.KnowledgeBaseView = ({ settings, onSave, onBack }) => {
                     >
                         Blog Knowledge Bases
                     </button>
-                    {/* NEW: Add the Storytelling button */}
                     <button 
                         onClick={() => setActiveCategory('storytelling')}
                         className={`py-2 px-4 text-lg font-medium transition-colors ${activeCategory === 'storytelling' ? 'text-primary-accent border-b-2 border-primary-accent' : 'text-gray-400 hover:text-white'}`}
