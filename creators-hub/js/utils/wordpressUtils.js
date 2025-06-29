@@ -176,9 +176,77 @@ async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig,
 }
 
 /**
- * NEW, SIMPLIFIED IMPORTER FUNCTION
- * Fetches all posts from a WordPress site and saves them to Firestore.
- * This is designed to be called directly from a UI component's event handler.
+ * NEW UTILITY FUNCTION
+ * Finds and removes duplicate WordPress posts from the Firestore database.
+ * It groups posts by their original 'wordPressId' and keeps only the oldest entry.
+ */
+async function deduplicateWordPressPosts({ db, user, onProgress }) {
+    const { collection, getDocs, writeBatch, query, where } = window.firebase.firestore;
+    
+    const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+    const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'blogPosts');
+
+    onProgress('Fetching all imported posts to check for duplicates...');
+    const q = query(collectionRef, where("postType", "==", "wordpress-import"));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        onProgress('No WordPress posts found to check.');
+        return { checked: 0, removed: 0 };
+    }
+
+    onProgress(`Found ${snapshot.docs.length} total posts. Analyzing...`);
+
+    // Group documents by wordPressId
+    const postsByWpId = new Map();
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        const wpId = data.wordPressId;
+        if (!wpId) return;
+
+        if (!postsByWpId.has(wpId)) {
+            postsByWpId.set(wpId, []);
+        }
+        // Store the full document reference and its creation date
+        postsByWpId.get(wpId).push({ ref: doc.ref, createdAt: data.createdAt });
+    });
+
+    const batch = writeBatch(db);
+    let duplicatesFound = 0;
+    
+    onProgress('Searching for duplicates...');
+    for (const [wpId, docs] of postsByWpId.entries()) {
+        if (docs.length > 1) {
+            // Sort by creation date to ensure we keep the oldest one
+            docs.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+            
+            // Keep the first one (the original)
+            docs.shift(); 
+            
+            // The rest are duplicates, add their deletion to the batch
+            docs.forEach(dup => {
+                batch.delete(dup.ref);
+                duplicatesFound++;
+            });
+        }
+    }
+
+    if (duplicatesFound > 0) {
+        onProgress(`Found ${duplicatesFound} duplicate(s). Removing now...`);
+        await batch.commit();
+        onProgress(`Successfully removed ${duplicatesFound} duplicate posts.`);
+    } else {
+        onProgress('No duplicates found.');
+    }
+
+    return { checked: postsByWpId.size, removed: duplicatesFound };
+}
+
+
+/**
+ * CORRECTED IMPORTER FUNCTION
+ * Fetches all posts from WordPress, checks for duplicates, and saves only new ones to Firestore.
+ * This function is now idempotent and can be safely re-run.
  */
 async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }) {
     const { url, username, applicationPassword } = wordpressConfig;
@@ -186,11 +254,25 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         throw new Error('WordPress settings are not fully configured.');
     }
 
+    const { collection, getDocs, writeBatch, doc, query, where, Timestamp } = window.firebase.firestore;
+
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-    const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
+    const blogPostsCollectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'blogPosts');
+
+    onProgress('Checking for already imported posts...');
+    const existingPostIds = new Set();
+    const q = query(blogPostsCollectionRef, where("postType", "==", "wordpress-import"));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.wordPressId) {
+            existingPostIds.add(data.wordPressId);
+        }
+    });
+    onProgress(`Found ${existingPostIds.size} existing posts. New content will be added.`);
 
     let page = 1;
-    let totalPostsImported = 0;
+    let totalPostsImportedThisSession = 0;
     let hasMorePosts = true;
 
     while (hasMorePosts) {
@@ -203,15 +285,22 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         }
 
         const posts = await response.json();
-
         if (posts.length === 0) {
             hasMorePosts = false;
             continue;
         }
-
-        const batch = db.batch();
+        
+        onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
+        
+        const batch = writeBatch(db);
+        let postsInThisBatch = 0;
+        
         posts.forEach(post => {
-            const postRef = blogPostsCollectionRef.doc(post.id.toString());
+            if (existingPostIds.has(post.id)) {
+                return; 
+            }
+
+            const postRef = doc(blogPostsCollectionRef, post.id.toString());
             const postData = {
                 title: post.title.rendered,
                 content: post.content.rendered,
@@ -220,27 +309,35 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
                 postType: 'wordpress-import',
                 wordPressId: post.id,
                 url: post.link,
-                createdAt: post.date_gmt + 'Z',
+                createdAt: Timestamp.fromDate(new Date(post.date_gmt)),
                 userId: user.uid
             };
             batch.set(postRef, postData);
+            postsInThisBatch++;
         });
 
-        await batch.commit();
-        totalPostsImported += posts.length;
-        onProgress(`${totalPostsImported} posts imported successfully.`);
+        if (postsInThisBatch > 0) {
+            await batch.commit();
+            totalPostsImportedThisSession += postsInThisBatch;
+            onProgress(`Successfully imported ${postsInThisBatch} new posts.`);
+        } else {
+            onProgress(`Page ${page} contained no new posts.`);
+        }
+        
         page++;
     }
 
-    return totalPostsImported;
+    onProgress(`Import complete. Added ${totalPostsImportedThisSession} new posts this session.`);
+    return totalPostsImportedThisSession;
 }
 
 
-// Add all functions to the global utility object, including the new one.
+// Add all functions to the global utility object, including the new ones.
 window.wordpressUtils = {
     postToWordPress,
     getWordPressCategories,
     getAndCreateTags,
     publishPostAndSaveToDb,
+    deduplicateWordPressPosts, // The new cleanup tool
     importAllWordPressPosts, 
 };
