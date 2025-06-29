@@ -95,18 +95,15 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
 
     // 2. Identify which tags need to be created, ensuring they are valid
     for (const tagName of tagNames) {
-        // Ensure the tag name is not null, empty, or just whitespace
         if (tagName && tagName.trim() !== '') {
             const cleanTagName = tagName.trim();
             const lowerCaseTag = cleanTagName.toLowerCase();
 
             if (existingTagMap.has(lowerCaseTag)) {
-                // Add existing tag ID if not already in the list
                 if (!tagIds.includes(existingTagMap.get(lowerCaseTag))) {
                     tagIds.push(existingTagMap.get(lowerCaseTag));
                 }
             } else {
-                // Add new, unique tag to the creation list
                 if (!tagsToCreate.map(t => t.toLowerCase()).includes(lowerCaseTag)) {
                    tagsToCreate.push(cleanTagName);
                 }
@@ -122,14 +119,11 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
                 headers: headers,
                 body: JSON.stringify({ name: tagName })
             }).then(res => {
-                // Add more detailed error handling inside the promise
                 if (!res.ok) {
                     return res.json().then(err => {
-                        // This error is okay; it means the tag already exists. We can grab its ID.
                         if (err.code === 'term_exists' && err.data?.term_id) {
                             return { id: err.data.term_id };
                         }
-                        // Log other errors but don't crash the entire process
                         console.error(`Failed to create tag "${tagName}":`, err.message || 'Unknown error');
                         return { error: true, message: err.message };
                     });
@@ -141,7 +135,6 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
         try {
             const newTags = await Promise.all(createTagPromises);
             newTags.forEach(newTag => {
-                // Only add tags that were successfully created and have an ID
                 if (newTag && newTag.id) {
                     tagIds.push(newTag.id);
                 }
@@ -151,8 +144,52 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
         }
     }
 
-    // Return a unique set of tag IDs to prevent duplicates
     return [...new Set(tagIds)];
+}
+
+/**
+ * NEW FUNCTION
+ * A wrapper that first publishes a post to WordPress using the existing function,
+ * and upon success, saves the post's data to the Firestore database.
+ * @param {object} postData - The post object (title, htmlContent, etc.) for WordPress.
+ * @param {object} extraDataForDb - Additional data to save to Firestore (e.g., location, postType).
+ * @param {object} wordpressConfig - WP connection settings.
+ * @param {object} firestoreDb - The Firestore database instance.
+ * @param {object} currentUser - The currently authenticated user object.
+ * @returns {Promise<object>} A promise that resolves to the new post data from WordPress.
+ */
+async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig, firestoreDb, currentUser) {
+    // Step 1: Call the existing function to publish to WordPress.
+    const newWpPost = await postToWordPress(postData, wordpressConfig);
+
+    // Step 2: If the above call is successful, save the result to Firestore.
+    // This part will only run if postToWordPress doesn't throw an error.
+    try {
+        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+        const postRef = firestoreDb.collection('artifacts').doc(appId).collection('users').doc(currentUser.uid).collection('blogPosts').doc(newWpPost.id.toString());
+        
+        const postDataForFirestore = {
+            title: newWpPost.title.rendered,
+            content: newWpPost.content.rendered,
+            status: newWpPost.status,
+            location: extraDataForDb.location || '',
+            postType: extraDataForDb.postType || 'general',
+            wordPressId: newWpPost.id,
+            url: newWpPost.link,
+            createdAt: newWpPost.date_gmt,
+            userId: currentUser.uid,
+        };
+        
+        await postRef.set(postDataForFirestore);
+        console.log(`Post ${newWpPost.id} successfully saved to Firestore.`);
+    } catch (firestoreError) {
+        console.error(`CRITICAL: Post ${newWpPost.id} was published to WordPress but FAILED to save to Firestore. Manual sync may be needed.`, firestoreError);
+        // We don't re-throw here because the primary action (WP publish) was successful.
+        // The calling function should be notified of the WP success.
+    }
+    
+    // Step 3: Return the original response from WordPress.
+    return newWpPost;
 }
 
 
@@ -160,4 +197,5 @@ window.wordpressUtils = {
     postToWordPress,
     getWordPressCategories,
     getAndCreateTags,
+    publishPostAndSaveToDb, // Add the new function to the export
 };
