@@ -2,7 +2,6 @@
 
 const { useState, useEffect } = React;
 
-// The component now accepts 'appState' as a prop.
 window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     const [localSettings, setLocalSettings] = useState({
         geminiApiKey: '',
@@ -112,12 +111,49 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
             <div className="space-y-12">
                 {/* API Keys & Model Settings Section */}
                 <div className="max-w-2xl">
-                    {/* ... Omitted for brevity ... */}
+                    <h1 className="text-3xl font-bold mb-2">Technical Settings</h1>
+                    <p className="text-gray-400 mb-6">Manage API keys and AI model configurations. Keep API keys secure!</p>
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Google Gemini API Key</label>
+                            <input type="password" name="geminiApiKey" value={localSettings.geminiApiKey} onChange={handleChange} className="w-full form-input" placeholder="Enter your Google Gemini API Key"/>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Google Maps JavaScript API Key</label>
+                            <input type="password" name="googleMapsApiKey" value={localSettings.googleMapsApiKey} onChange={handleChange} className="w-full form-input" placeholder="Enter your Google Maps JavaScript API Key"/>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">YouTube Data API Key</label>
+                            <input type="password" name="youtubeApiKey" value={localSettings.youtubeApiKey} onChange={handleChange} className="w-full form-input" placeholder="Enter your YouTube Data API Key"/>
+                        </div>
+                    </div>
+                    <div className="mt-10 pt-8 border-t border-gray-700">
+                        <h2 className="text-2xl font-semibold mb-2">AI Model Configuration</h2>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
+                                <span className="text-md font-medium text-white">Use Pro Model for Complex Tasks</span>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="useProModelForComplexTasks" checked={localSettings.useProModelForComplexTasks} onChange={handleChange} className="sr-only peer" />
+                                    <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent"></div>
+                                </label>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name</label>
+                                <input type="text" name="flashModelName" value={localSettings.flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name</label>
+                                <input type="text" name="proModelName" value={localSettings.proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Integrations Section */}
                 <div className="border-t border-gray-700 pt-10 max-w-2xl">
-                     {/* ... Omitted for brevity ... */}
+                     <h1 className="text-3xl font-bold mb-2">Integrations</h1>
+                     <p className="text-gray-400 mb-6">Connect to external services.</p>
+                     <window.WordpressSettings settings={settings} onSave={onSave} />
                 </div>
                 
                 {/* --- UPDATED Data Management Section --- */}
@@ -178,7 +214,9 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                 </div>
                 
                 <div className="mt-12 pt-8 border-t border-gray-700 text-right max-w-2xl">
-                     {/* ... Omitted for brevity ... */}
+                    <button onClick={handleSaveAll} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors text-lg">
+                        Save All Technical Settings
+                    </button>
                 </div>
             </div>
         </div>
