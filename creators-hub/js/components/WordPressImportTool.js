@@ -4,21 +4,29 @@ window.WordPressImportTool = () => {
     const { useState, useCallback, useEffect } = React;
     const appState = window.useAppState();
     
+    // NEW: Local state to reliably track connection status.
+    const [isReady, setIsReady] = useState(false);
+    
     const [isLoading, setIsLoading] = useState(false);
     const [progressMessage, setProgressMessage] = useState('');
     const [error, setError] = useState('');
     const [importCompleted, setImportCompleted] = useState(false);
 
-    // SIMPLIFIED: We no longer need a separate 'isReady' state.
-    // We can directly check for the presence of the db and user objects from appState.
-    const isConnectionReady = appState.db && appState.user;
+    // CORRECTED: This effect hook now correctly listens for the db and user objects.
+    // When they are loaded by the app, this effect will run, update the local 'isReady'
+    // state, and force the component to re-render, enabling the button.
+    useEffect(() => {
+        if (appState.db && appState.user) {
+            setIsReady(true);
+        }
+    }, [appState.db, appState.user]); // The dependency array is key to this fix.
 
     const handleImport = useCallback(async () => {
         const { db, user, settings } = appState;
         const wordpressSettings = settings?.wordpress;
 
-        if (!isConnectionReady) {
-            setError("Connection is not ready. Please wait a moment.");
+        if (!isReady) {
+            setError("Connection not ready. Please wait.");
             return;
         }
 
@@ -87,7 +95,7 @@ window.WordPressImportTool = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [appState, isConnectionReady]); // Depend on the derived boolean
+    }, [appState, isReady]);
 
     return (
         <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
@@ -100,10 +108,10 @@ window.WordPressImportTool = () => {
                 <button 
                   onClick={handleImport} 
                   className="btn btn-primary"
-                  // The button is now disabled based on the direct check.
-                  disabled={isLoading || !isConnectionReady}
+                  // The button is now reliably disabled based on the 'isReady' state.
+                  disabled={isLoading || !isReady}
                 >
-                    {isConnectionReady ? 'Start WordPress Import' : 'Connecting...'}
+                    {isReady ? 'Start WordPress Import' : 'Connecting...'}
                 </button>
             )}
 
