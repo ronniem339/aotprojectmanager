@@ -2,36 +2,23 @@
 
 window.WordPressImportTool = () => {
     const { useState, useCallback, useEffect } = React;
-    // Get the entire state object. This is more stable for context updates.
     const appState = window.useAppState();
-    
-    // NEW: Local state to explicitly track if the required connections are ready.
-    const [isReady, setIsReady] = useState(false);
     
     const [isLoading, setIsLoading] = useState(false);
     const [progressMessage, setProgressMessage] = useState('');
     const [error, setError] = useState('');
     const [importCompleted, setImportCompleted] = useState(false);
 
-    // NEW: Effect hook to listen for changes in the app state.
-    // This will run when the component mounts and anytime db or user changes.
-    useEffect(() => {
-        // If we have both a db connection and a user, we are ready to proceed.
-        if (appState.db && appState.user) {
-            setIsReady(true);
-        } else {
-            setIsReady(false);
-        }
-    }, [appState.db, appState.user]); // Dependencies array ensures this runs when db/user are loaded.
-
+    // SIMPLIFIED: We no longer need a separate 'isReady' state.
+    // We can directly check for the presence of the db and user objects from appState.
+    const isConnectionReady = appState.db && appState.user;
 
     const handleImport = useCallback(async () => {
-        // Now we get the values from the stable appState object.
         const { db, user, settings } = appState;
         const wordpressSettings = settings?.wordpress;
 
-        if (!isReady) {
-            setError("Connection not ready. Please wait.");
+        if (!isConnectionReady) {
+            setError("Connection is not ready. Please wait a moment.");
             return;
         }
 
@@ -46,7 +33,7 @@ window.WordPressImportTool = () => {
         setProgressMessage('Starting import...');
 
         try {
-            const appId = typeof window.__app_id !== 'undefined' ? 'default-app-id' : 'default-app-id';
+            const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
             const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
             let page = 1;
@@ -100,7 +87,7 @@ window.WordPressImportTool = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [appState, isReady]);
+    }, [appState, isConnectionReady]); // Depend on the derived boolean
 
     return (
         <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
@@ -113,10 +100,10 @@ window.WordPressImportTool = () => {
                 <button 
                   onClick={handleImport} 
                   className="btn btn-primary"
-                  // The button is now disabled based on the reliable local 'isReady' state.
-                  disabled={isLoading || !isReady}
+                  // The button is now disabled based on the direct check.
+                  disabled={isLoading || !isConnectionReady}
                 >
-                    {isReady ? 'Start WordPress Import' : 'Connecting...'}
+                    {isConnectionReady ? 'Start WordPress Import' : 'Connecting...'}
                 </button>
             )}
 
