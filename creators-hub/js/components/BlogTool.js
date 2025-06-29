@@ -8,7 +8,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
     const [modalView, setModalView] = useState(null); // null, 'video', 'affiliate', 'guide'
     const [isGenerating, setIsGenerating] = useState(false);
     
-    // This state is now managed within the dashboard, but we keep the collection ref here
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
     const ideasCollectionRef = useMemo(() => {
         if (!userId) return null;
@@ -21,30 +20,43 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
     }, [db, APP_ID, userId]);
 
 
-    // --- NEW: Universal Post Generation Handler ---
+    // --- UNIVERSAL POST GENERATION HANDLER (UPDATED FOR JSON) ---
     const handleGeneratePost = useCallback(async (generationTask) => {
         setIsGenerating(true);
         setModalView(null); // Close the modal
         displayNotification('AI is now generating your post...', 'info');
 
         try {
-            let htmlContent;
-            // The 'generationTask' object contains the AI function to call and its options
-            htmlContent = await generationTask.aiFunction(generationTask.options, settings, settings.knowledgeBases);
+            // The AI function now returns a structured JSON object.
+            const generatedData = await generationTask.aiFunction(generationTask.options, settings, settings.knowledgeBases);
+
+            // Validate the received data
+            if (!generatedData || typeof generatedData !== 'object' || !generatedData.htmlContent) {
+                 throw new Error("AI returned an invalid or empty response.");
+            }
 
             const docRef = ideasCollectionRef.doc();
+            
+            // --- UPDATED: Create a richer post object for Firestore ---
             const postData = {
-                title: generationTask.title,
-                description: generationTask.description,
+                // Data from the AI's JSON response
+                title: generatedData.title || generationTask.title, // Use AI title, fallback to task title
+                blogPostContent: generatedData.htmlContent,
+                excerpt: generatedData.suggestedExcerpt || '',
+                tags: generatedData.suggestedTags || [],
+                category: generatedData.suggestedCategory || '',
+                
+                // Data carried over from the initial generation task
                 postType: generationTask.postType,
                 location: generationTask.location || '',
-                blogPostContent: htmlContent,
-                status: 'generated', // New posts start at 'generated' status
+                
+                // Standard metadata
+                status: 'generated',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
             
             await docRef.set(postData);
-            displayNotification(`Successfully generated post: "${generationTask.title}"`, 'success');
+            displayNotification(`Successfully generated post: "${postData.title}"`, 'success');
 
         } catch (err) {
             console.error(`Failed to generate post: ${err.message}`);
@@ -55,7 +67,7 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
     }, [settings, ideasCollectionRef, displayNotification]);
 
 
-    // --- NEW: UI Components for Creation Modals ---
+    // --- UI MODAL COMPONENTS (No changes needed here) ---
 
     const VideoCompanionModal = () => {
         const [projects, setProjects] = useState([]);
@@ -86,7 +98,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 aiFunction: window.ai.blog.generateBlogPostFromVideo,
                 options: { ...selectedVideo },
                 title: `${selectedVideo.title} - Blog Companion`,
-                description: `A blog post based on the video: "${selectedVideo.title}"`,
                 postType: 'Video Companion',
             });
         };
@@ -130,7 +141,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 aiFunction: window.ai.blog.generateAffiliatePost,
                 options: { postType, location, audience, specifics },
                 title: `${titleMap[postType]} in ${location}`,
-                description: `An affiliate post about ${postType} in ${location}.`,
                 postType: titleMap[postType],
                 location: location,
             });
@@ -169,7 +179,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
             if (!location) return;
             setIsFetching(true);
             try {
-                // CORRECTED: Use the correct collection reference
                 const snapshot = await blogPostsCollectionRef.where('location', '==', location).get();
                 const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setArticles(fetched);
@@ -197,7 +206,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 aiFunction: window.ai.blog.generateDestinationGuide,
                 options: { location, existingArticles: articlesToLink },
                 title: `The Ultimate Guide to ${location}`,
-                description: `A comprehensive pillar page for ${location}.`,
                 postType: 'Destination Guide',
                 location: location,
             });
@@ -245,7 +253,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 </button>
             </header>
 
-            {/* --- NEW Creation Menu --- */}
             <div className="glass-card p-6 rounded-lg mb-8">
                  <h3 className="text-lg font-semibold mb-4 text-white">Content Creation Menu</h3>
                  {isGenerating && <LoadingSpinner text="AI is working its magic... Please wait." />}
@@ -256,12 +263,10 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                  </div>
             </div>
             
-            {/* --- Modals --- */}
             {modalView === 'video' && <VideoCompanionModal />}
             {modalView === 'affiliate' && <AffiliatePostModal />}
             {modalView === 'guide' && <DestinationGuideModal />}
 
-            {/* CORRECTED: Pass only the necessary props to the dashboard */}
             <BlogIdeasDashboard 
                 userId={userId} 
                 db={db} 
