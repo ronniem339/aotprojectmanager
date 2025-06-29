@@ -1,10 +1,6 @@
 // js/components/BlogTool.js
 
 // --- MODAL COMPONENTS (MOVED OUTSIDE) ---
-// By defining these components outside the main BlogTool component, we ensure
-// their state is not reset every time BlogTool re-renders. This is the fix for
-// the text disappearing and dropdowns unselecting.
-
 const VideoCompanionModal = ({ onGenerate, onCancel, db, userId, APP_ID, displayNotification, isGenerating }) => {
     const { useState, useEffect } = React;
     const [projects, setProjects] = useState([]);
@@ -32,7 +28,8 @@ const VideoCompanionModal = ({ onGenerate, onCancel, db, userId, APP_ID, display
             return;
         }
         onGenerate({
-            aiFunction: window.ai.blog.generateBlogPostFromVideo,
+            // CORRECTED: Use window.aiUtils namespace
+            aiFunction: window.aiUtils.blog.generateBlogPostFromVideo,
             options: { ...selectedVideo },
             title: `${selectedVideo.title} - Blog Companion`,
             postType: 'Video Companion',
@@ -74,19 +71,10 @@ const AffiliatePostModal = ({ onGenerate, onCancel, displayNotification, isGener
             displayNotification('Please enter a location.', 'error');
             return;
         }
-        
-        // --- THIS IS THE FIX ---
-        // Safely check that the AI function exists before trying to use it.
-        // This prevents the crash and provides a helpful error if the script isn't loaded.
-        if (!window.ai || !window.ai.blog || typeof window.ai.blog.generateAffiliatePost !== 'function') {
-            console.error("AI function 'generateAffiliatePost' is not available. Check that the script is loaded correctly in your HTML file and that there are no typos.");
-            displayNotification("Error: The AI function for this task is missing.", 'error');
-            return;
-        }
-
         const titleMap = { hotel: 'Top Hotels', 'road-trip': 'Road Trip Itinerary', tours: 'Best Tours' };
         onGenerate({
-            aiFunction: window.ai.blog.generateAffiliatePost,
+            // CORRECTED: Use window.aiUtils namespace
+            aiFunction: window.aiUtils.blog.generateAffiliatePost,
             options: { postType, location, audience, specifics },
             title: `${titleMap[postType]} in ${location}`,
             postType: titleMap[postType],
@@ -152,7 +140,8 @@ const DestinationGuideModal = ({ onGenerate, onCancel, blogPostsCollectionRef, d
         }
         const articlesToLink = articles.filter(a => selectedArticles.has(a.id));
         onGenerate({
-            aiFunction: window.ai.blog.generateDestinationGuide,
+            // CORRECTED: Use window.aiUtils namespace
+            aiFunction: window.aiUtils.blog.generateDestinationGuide,
             options: { location, existingArticles: articlesToLink },
             title: `The Ultimate Guide to ${location}`,
             postType: 'Destination Guide',
@@ -232,7 +221,8 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 blogPostContent: generatedData.htmlContent,
                 excerpt: generatedData.suggestedExcerpt || '',
                 tags: generatedData.suggestedTags || [],
-                category: generated.suggestedCategory || '',
+                // CORRECTED: Typo `generated` changed to `generatedData`
+                category: generatedData.suggestedCategory || '',
                 postType: generationTask.postType,
                 location: generationTask.location || '',
                 status: 'generated',
