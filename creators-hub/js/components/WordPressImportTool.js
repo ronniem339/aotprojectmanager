@@ -2,9 +2,10 @@
 
 window.WordPressImportTool = () => {
     const { useState, useCallback, useEffect } = React;
+    // Get the entire application state object.
     const appState = window.useAppState();
     
-    // NEW: Local state to reliably track connection status.
+    // This local state will be reliably updated by the useEffect hook.
     const [isReady, setIsReady] = useState(false);
     
     const [isLoading, setIsLoading] = useState(false);
@@ -12,21 +13,24 @@ window.WordPressImportTool = () => {
     const [error, setError] = useState('');
     const [importCompleted, setImportCompleted] = useState(false);
 
-    // CORRECTED: This effect hook now correctly listens for the db and user objects.
-    // When they are loaded by the app, this effect will run, update the local 'isReady'
-    // state, and force the component to re-render, enabling the button.
+    // This is the key to the fix. This hook listens for any change to the appState.
+    // When the main app loads the database and user, the appState changes,
+    // this effect runs, and sets isReady to true, forcing this component to update.
     useEffect(() => {
-        if (appState.db && appState.user) {
+        // We only set to true if both db and user are available.
+        if (appState && appState.db && appState.user) {
             setIsReady(true);
+        } else {
+            setIsReady(false);
         }
-    }, [appState.db, appState.user]); // The dependency array is key to this fix.
+    }, [appState]); // Dependency on the entire appState object ensures this runs on any state update.
 
     const handleImport = useCallback(async () => {
         const { db, user, settings } = appState;
         const wordpressSettings = settings?.wordpress;
 
         if (!isReady) {
-            setError("Connection not ready. Please wait.");
+            setError("Connection is not ready. Please wait.");
             return;
         }
 
@@ -95,7 +99,7 @@ window.WordPressImportTool = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [appState, isReady]);
+    }, [appState, isReady]); // Depend on appState and the local isReady flag.
 
     return (
         <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
@@ -108,7 +112,6 @@ window.WordPressImportTool = () => {
                 <button 
                   onClick={handleImport} 
                   className="btn btn-primary"
-                  // The button is now reliably disabled based on the 'isReady' state.
                   disabled={isLoading || !isReady}
                 >
                     {isReady ? 'Start WordPress Import' : 'Connecting...'}
