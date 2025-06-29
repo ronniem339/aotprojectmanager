@@ -1,23 +1,15 @@
 // js/components/BlogTool.js
 
-window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue, onViewPost, userId, db, displayNotification }) => {
+window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, displayNotification }) => {
     const { useState, useEffect, useMemo, useCallback } = React;
     const { BlogIdeasDashboard, LoadingSpinner } = window; // Assuming LoadingSpinner is on window
 
     // --- STATE MANAGEMENT ---
-    // New state to manage which creation modal is open
     const [modalView, setModalView] = useState(null); // null, 'video', 'affiliate', 'guide'
     const [isGenerating, setIsGenerating] = useState(false);
     
-    // State for the dashboard
-    const [ideas, setIdeas] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [sortBy, setSortBy] = useState('createdAt');
-    const [sortOrder, setSortOrder] = useState('desc');
-    
+    // This state is now managed within the dashboard, but we keep the collection ref here
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
-    
-    // --- Firestore References ---
     const ideasCollectionRef = useMemo(() => {
         if (!userId) return null;
         return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
@@ -27,28 +19,6 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
         if (!userId) return null;
         return db.collection(`artifacts/${APP_ID}/users/${userId}/blogPosts`);
     }, [db, APP_ID, userId]);
-
-    // --- Data Fetching ---
-    useEffect(() => {
-        if (!ideasCollectionRef) {
-            setIsLoading(false);
-            return;
-        }
-        setIsLoading(true);
-        // The dashboard now shows items with status 'generated' or higher by default.
-        const unsubscribe = ideasCollectionRef.orderBy(sortBy, sortOrder).onSnapshot(
-            snapshot => {
-                const fetchedIdeas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setIdeas(fetchedIdeas);
-                setIsLoading(false);
-            },
-            err => {
-                console.error("Error fetching blog ideas:", err);
-                setIsLoading(false);
-            }
-        );
-        return () => unsubscribe();
-    }, [ideasCollectionRef, sortBy, sortOrder]);
 
 
     // --- NEW: Universal Post Generation Handler ---
@@ -199,6 +169,7 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             if (!location) return;
             setIsFetching(true);
             try {
+                // CORRECTED: Use the correct collection reference
                 const snapshot = await blogPostsCollectionRef.where('location', '==', location).get();
                 const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setArticles(fetched);
@@ -290,12 +261,11 @@ window.BlogTool = ({ settings, onBack, onGeneratePost, onPublishPosts, taskQueue
             {modalView === 'affiliate' && <AffiliatePostModal />}
             {modalView === 'guide' && <DestinationGuideModal />}
 
-            {/* Existing Dashboard for managing posts */}
+            {/* CORRECTED: Pass only the necessary props to the dashboard */}
             <BlogIdeasDashboard 
                 userId={userId} 
                 db={db} 
                 settings={settings} 
-                onWritePost={onGeneratePost} 
                 onOpenPublisher={onPublishPosts} 
                 onViewPost={onViewPost}
             />
