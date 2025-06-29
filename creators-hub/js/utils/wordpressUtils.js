@@ -179,12 +179,6 @@ async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig,
  * NEW, SIMPLIFIED IMPORTER FUNCTION
  * Fetches all posts from a WordPress site and saves them to Firestore.
  * This is designed to be called directly from a UI component's event handler.
- * @param {object} args - The arguments for the function.
- * @param {object} args.db - The Firestore database instance.
- * @param {object} args.user - The currently authenticated user.
- * @param {object} args.wordpressConfig - The WordPress connection settings.
- * @param {function} args.onProgress - A callback function to report progress messages.
- * @returns {Promise<number>} A promise that resolves with the total number of imported posts.
  */
 async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }) {
     const { url, username, applicationPassword } = wordpressConfig;
@@ -242,11 +236,11 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
 }
 
 
-// CORRECTED: Ensure the new function is included in the export.
+// Add all functions to the global utility object, including the new one.
 window.wordpressUtils = {
     postToWordPress,
     getWordPressCategories,
     getAndCreateTags,
     publishPostAndSaveToDb,
-    importAllWordPressPosts,
+    importAllWordPressPosts, 
 };
