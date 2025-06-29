@@ -3,7 +3,7 @@
 const { useState, useEffect } = React;
 
 window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
-    // MODIFIED: This local state now manages all technical settings
+    // This local state now manages all technical settings
     const [localSettings, setLocalSettings] = useState({
         geminiApiKey: '',
         googleMapsApiKey: '',
@@ -14,14 +14,14 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
     });
 
     useEffect(() => {
-        // MODIFIED: Populate all fields from the main settings prop
+        // Populate all fields from the main settings prop
         setLocalSettings({
             geminiApiKey: settings.geminiApiKey || '',
             googleMapsApiKey: settings.googleMapsApiKey || '',
             youtubeApiKey: settings.youtubeApiKey || '',
             useProModelForComplexTasks: settings.useProModelForComplexTasks || false,
-            flashModelName: settings.flashModelName || 'gemini-1.5-flash-latest',
-            proModelName: settings.proModelName || 'gemini-1.5-pro-latest'
+            flashModelName: settings.flashModelName || 'gemini-2.5-flash',
+            proModelName: settings.proModelName || 'gemini-2.5-pro'
         });
     }, [settings]);
 
@@ -66,7 +66,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                         </div>
                     </div>
 
-                    {/* NEW: AI Model Settings */}
+                    {/* AI Model Settings */}
                     <div className="mt-10 pt-8 border-t border-gray-700">
                         <h2 className="text-2xl font-semibold mb-2">AI Model Configuration</h2>
                         <p className="text-gray-400 mb-6">Control which AI models are used for different tasks. The "Pro" model is more powerful but may be slower and more expensive.</p>
@@ -76,13 +76,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                             <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
                                 <span className="text-md font-medium text-white">Use Pro Model for Complex Tasks</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        name="useProModelForComplexTasks"
-                                        checked={localSettings.useProModelForComplexTasks}
-                                        onChange={handleChange}
-                                        className="sr-only peer" 
-                                    />
+                                    <input type="checkbox" name="useProModelForComplexTasks" checked={localSettings.useProModelForComplexTasks} onChange={handleChange} className="sr-only peer" />
                                     <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent"></div>
                                 </label>
                             </div>
@@ -90,26 +84,12 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                             {/* Model Name Inputs */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name</label>
-                                <input 
-                                    type="text" 
-                                    name="flashModelName" 
-                                    value={localSettings.flashModelName} 
-                                    onChange={handleChange} 
-                                    className="w-full form-input" 
-                                    placeholder="e.g., gemini-1.5-flash-latest"
-                                />
+                                <input type="text" name="flashModelName" value={localSettings.flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
                                 <p className="text-xs text-gray-500 mt-1">Used for simple, fast tasks like generating titles, tags, and keywords.</p>
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name</label>
-                                <input 
-                                    type="text" 
-                                    name="proModelName" 
-                                    value={localSettings.proModelName} 
-                                    onChange={handleChange} 
-                                    className="w-full form-input" 
-                                    placeholder="e.g., gemini-1.5-pro-latest"
-                                />
+                                <input type="text" name="proModelName" value={localSettings.proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
                                 <p className="text-xs text-gray-500 mt-1">Used for complex tasks like writing full scripts and detailed plans, if enabled above.</p>
                             </div>
                         </div>
@@ -123,7 +103,15 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack }) => {
                      <window.WordpressSettings settings={settings} onSave={onSave} />
                 </div>
                 
-                 {/* Unified Save Button */}
+                {/* --- NEW: Data Management Section --- */}
+                <div className="border-t border-gray-700 pt-10 max-w-2xl">
+                    <h1 className="text-3xl font-bold mb-2">Data Management</h1>
+                    <p className="text-gray-400 mb-6">Perform one-time data operations.</p>
+                    {/* The WordPress importer is self-contained and doesn't need props from this view */}
+                    <window.WordPressImportTool />
+                </div>
+                
+                {/* Unified Save Button */}
                 <div className="mt-12 pt-8 border-t border-gray-700 text-right max-w-2xl">
                     <button onClick={handleSaveAll} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors text-lg">
                         Save All Technical Settings
