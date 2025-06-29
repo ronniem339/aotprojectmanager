@@ -1,4 +1,4 @@
-// creators-hub/js/utils/wordpressUtils.js
+// js/utils/wordpressUtils.js
 
 /**
  * Posts a blog post to a WordPress site using the REST API.
@@ -45,6 +45,7 @@ async function postToWordPress(postData, wordpressConfig) {
  * Fetches categories from a WordPress site.
  */
 async function getWordPressCategories(wordpressConfig) {
+    //... (existing function code is unchanged)
     const { url, username, applicationPassword } = wordpressConfig;
     if (!url || !username || !applicationPassword) {
         throw new Error('WordPress settings are not fully configured.');
@@ -72,33 +73,28 @@ async function getWordPressCategories(wordpressConfig) {
  * Fetches existing tags, creates new ones if needed, and returns their IDs.
  */
 async function getAndCreateTags(tagNames, wordpressConfig) {
+    //... (existing function code is unchanged)
     const { url, username, applicationPassword } = wordpressConfig;
     const cleanedUrl = url.replace(/\/+$/, '');
     const token = btoa(`${username}:${applicationPassword}`);
     const headers = { 'Authorization': `Basic ${token}`, 'Content-Type': 'application/json' };
-
-    // 1. Fetch all existing tags
     const tagsListEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
     const tagsCreateEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags`;
     let existingTags = [];
     try {
         const response = await fetch(tagsListEndpoint, { headers });
         existingTags = await response.json();
-        if (!response.ok) existingTags = []; // Handle case where tags might not be enabled or user lacks permissions
+        if (!response.ok) existingTags = [];
     } catch (e) {
         console.warn("Could not fetch existing tags, may need to create all.", e);
     }
-
     const existingTagMap = new Map(existingTags.map(tag => [tag.name.toLowerCase(), tag.id]));
     const tagIds = [];
     const tagsToCreate = [];
-
-    // 2. Identify which tags need to be created, ensuring they are valid
     for (const tagName of tagNames) {
         if (tagName && tagName.trim() !== '') {
             const cleanTagName = tagName.trim();
             const lowerCaseTag = cleanTagName.toLowerCase();
-
             if (existingTagMap.has(lowerCaseTag)) {
                 if (!tagIds.includes(existingTagMap.get(lowerCaseTag))) {
                     tagIds.push(existingTagMap.get(lowerCaseTag));
@@ -110,8 +106,6 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
             }
         }
     }
-
-    // 3. Create new tags in parallel
     if (tagsToCreate.length > 0) {
         const createTagPromises = tagsToCreate.map(tagName => {
             return fetch(tagsCreateEndpoint, {
@@ -131,7 +125,6 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
                 return res.json();
             });
         });
-
         try {
             const newTags = await Promise.all(createTagPromises);
             newTags.forEach(newTag => {
@@ -143,31 +136,18 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
             console.error("Error processing tag creation promises in WordPress:", error);
         }
     }
-
     return [...new Set(tagIds)];
 }
 
 /**
- * NEW FUNCTION
- * A wrapper that first publishes a post to WordPress using the existing function,
- * and upon success, saves the post's data to the Firestore database.
- * @param {object} postData - The post object (title, htmlContent, etc.) for WordPress.
- * @param {object} extraDataForDb - Additional data to save to Firestore (e.g., location, postType).
- * @param {object} wordpressConfig - WP connection settings.
- * @param {object} firestoreDb - The Firestore database instance.
- * @param {object} currentUser - The currently authenticated user object.
- * @returns {Promise<object>} A promise that resolves to the new post data from WordPress.
+ * A wrapper that first publishes a post to WordPress and saves to Firestore.
  */
 async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig, firestoreDb, currentUser) {
-    // Step 1: Call the existing function to publish to WordPress.
+    //... (existing function code is unchanged)
     const newWpPost = await postToWordPress(postData, wordpressConfig);
-
-    // Step 2: If the above call is successful, save the result to Firestore.
-    // This part will only run if postToWordPress doesn't throw an error.
     try {
         const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
         const postRef = firestoreDb.collection('artifacts').doc(appId).collection('users').doc(currentUser.uid).collection('blogPosts').doc(newWpPost.id.toString());
-        
         const postDataForFirestore = {
             title: newWpPost.title.rendered,
             content: newWpPost.content.rendered,
@@ -179,23 +159,86 @@ async function publishPostAndSaveToDb(postData, extraDataForDb, wordpressConfig,
             createdAt: newWpPost.date_gmt,
             userId: currentUser.uid,
         };
-        
         await postRef.set(postDataForFirestore);
         console.log(`Post ${newWpPost.id} successfully saved to Firestore.`);
     } catch (firestoreError) {
-        console.error(`CRITICAL: Post ${newWpPost.id} was published to WordPress but FAILED to save to Firestore. Manual sync may be needed.`, firestoreError);
-        // We don't re-throw here because the primary action (WP publish) was successful.
-        // The calling function should be notified of the WP success.
+        console.error(`CRITICAL: Post ${newWpPost.id} was published to WordPress but FAILED to save to Firestore.`, firestoreError);
     }
-    
-    // Step 3: Return the original response from WordPress.
     return newWpPost;
 }
 
+/**
+ * NEW, SIMPLIFIED IMPORTER FUNCTION
+ * Fetches all posts from a WordPress site and saves them to Firestore.
+ * This is designed to be called directly from a UI component's event handler.
+ * @param {object} args - The arguments for the function.
+ * @param {object} args.db - The Firestore database instance.
+ * @param {object} args.user - The currently authenticated user.
+ * @param {object} args.wordpressConfig - The WordPress connection settings.
+ * @param {function} args.onProgress - A callback function to report progress messages.
+ * @returns {Promise<number>} A promise that resolves with the total number of imported posts.
+ */
+async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }) {
+    const { url, username, applicationPassword } = wordpressConfig;
+    if (!url || !username || !applicationPassword) {
+        throw new Error('WordPress settings are not fully configured.');
+    }
 
+    const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+    const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
+
+    let page = 1;
+    let totalPostsImported = 0;
+    let hasMorePosts = true;
+
+    while (hasMorePosts) {
+        onProgress(`Fetching page ${page} of posts...`);
+        const response = await fetch(`/.netlify/functions/fetch-wp-posts?url=${encodeURIComponent(url)}&user=${encodeURIComponent(username)}&pass=${encodeURIComponent(applicationPassword)}&page=${page}`);
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Failed to fetch posts. Status: ${response.status}. Message: ${errorData.message || 'Check Netlify function logs.'}`);
+        }
+
+        const posts = await response.json();
+
+        if (posts.length === 0) {
+            hasMorePosts = false;
+            continue;
+        }
+
+        const batch = db.batch();
+        posts.forEach(post => {
+            const postRef = blogPostsCollectionRef.doc(post.id.toString());
+            const postData = {
+                title: post.title.rendered,
+                content: post.content.rendered,
+                status: post.status,
+                location: '',
+                postType: 'wordpress-import',
+                wordPressId: post.id,
+                url: post.link,
+                createdAt: post.date_gmt + 'Z',
+                userId: user.uid
+            };
+            batch.set(postRef, postData);
+        });
+
+        await batch.commit();
+        totalPostsImported += posts.length;
+        onProgress(`${totalPostsImported} posts imported successfully.`);
+        page++;
+    }
+
+    return totalPostsImported;
+}
+
+// Add all functions to the global utility object
 window.wordpressUtils = {
     postToWordPress,
     getWordPressCategories,
     getAndCreateTags,
-    publishPostAndSaveToDb, // Add the new function to the export
+    publishPostAndSaveToDb,
+    importAllWordPressPosts, // Add the new function here
 };
+
