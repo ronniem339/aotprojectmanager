@@ -2,7 +2,6 @@
 
 window.WordPressImportTool = () => {
     const { useState, useCallback } = React;
-    // CORRECTED: Get the main 'settings' object from the app state.
     const { db, user, settings } = window.useAppState();
     const [isLoading, setIsLoading] = useState(false);
     const [progressMessage, setProgressMessage] = useState('');
@@ -10,10 +9,13 @@ window.WordPressImportTool = () => {
     const [importCompleted, setImportCompleted] = useState(false);
 
     const handleImport = useCallback(async () => {
-        // CORRECTED: Access the nested 'wordpress' object from the main settings.
         const wordpressSettings = settings?.wordpress;
 
-        // The check now correctly targets the nested settings object.
+        // Double-check for settings and db connection before starting
+        if (!db || !user) {
+            setError("Database connection not ready. Please wait a moment and try again.");
+            return;
+        }
         if (!wordpressSettings?.url || !wordpressSettings?.username || !wordpressSettings?.applicationPassword) {
             setError('WordPress settings are not complete. Please configure them in the "Integrations" section and save.');
             return;
@@ -85,16 +87,17 @@ window.WordPressImportTool = () => {
         <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
             <h3 className="text-xl font-bold mb-4">WordPress Content Importer</h3>
             <p className="mb-4 text-gray-400">
-                Import all existing posts from your WordPress blog into the Creator's Hub. This is a one-time operation to get your content library up to date. This process may take several minutes.
+                Import all existing posts from your WordPress blog into the Creator's Hub. This is a one-time operation.
             </p>
             
             {!isLoading && !importCompleted && (
                 <button 
                   onClick={handleImport} 
                   className="btn btn-primary"
-                  disabled={isLoading}
+                  // CORRECTED: Disable the button until both the user and db connection are ready.
+                  disabled={isLoading || !db || !user}
                 >
-                    Start WordPress Import
+                    {(!db || !user) ? 'Connecting...' : 'Start WordPress Import'}
                 </button>
             )}
 
