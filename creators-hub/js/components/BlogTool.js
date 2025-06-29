@@ -74,6 +74,16 @@ const AffiliatePostModal = ({ onGenerate, onCancel, displayNotification, isGener
             displayNotification('Please enter a location.', 'error');
             return;
         }
+        
+        // --- THIS IS THE FIX ---
+        // Safely check that the AI function exists before trying to use it.
+        // This prevents the crash and provides a helpful error if the script isn't loaded.
+        if (!window.ai || !window.ai.blog || typeof window.ai.blog.generateAffiliatePost !== 'function') {
+            console.error("AI function 'generateAffiliatePost' is not available. Check that the script is loaded correctly in your HTML file and that there are no typos.");
+            displayNotification("Error: The AI function for this task is missing.", 'error');
+            return;
+        }
+
         const titleMap = { hotel: 'Top Hotels', 'road-trip': 'Road Trip Itinerary', tours: 'Best Tours' };
         onGenerate({
             aiFunction: window.ai.blog.generateAffiliatePost,
@@ -222,7 +232,7 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 blogPostContent: generatedData.htmlContent,
                 excerpt: generatedData.suggestedExcerpt || '',
                 tags: generatedData.suggestedTags || [],
-                category: generatedData.suggestedCategory || '',
+                category: generated.suggestedCategory || '',
                 postType: generationTask.postType,
                 location: generationTask.location || '',
                 status: 'generated',
