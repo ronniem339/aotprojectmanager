@@ -108,6 +108,7 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
         const ideasToPublish = ideas.filter(idea => selectedIdeas.has(idea.id) && idea.status === 'generated');
         if (ideasToPublish.length > 0 && window.confirm(`Are you sure you want to publish ${ideasToPublish.length} posts to WordPress?`)) {
             onPublishPosts(ideasToPublish);
+            // **FIX:** This line clears the selection, fixing the UI bug.
             setSelectedIdeas(new Set());
         }
     };
@@ -212,14 +213,14 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
         setSelectedIdeas(newSelection);
     };
 
-    if (isLoading) return <window.LoadingSpinner text="Loading blog ideas..." />;
+    if (isLoading) return React.createElement(window.LoadingSpinner, { text: "Loading blog ideas..." });
 
     if (ideas.length === 0) {
         return (
-            <div className="text-center text-gray-400 py-8">
-                <p>No blog ideas found.</p>
-                <p className="text-sm mt-2">Use the Blog Ideas tool to generate some!</p>
-            </div>
+            React.createElement('div', { className: "text-center text-gray-400 py-8" },
+                React.createElement('p', null, "No blog ideas found."),
+                React.createElement('p', { className: "text-sm mt-2" }, "Use the Blog Ideas tool to generate some!")
+            )
         );
     }
 
@@ -227,32 +228,32 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
     const uniquePostTypes = ['All', ...new Set(ideas.map(idea => idea.postType))];
     
     const ExpandedContent = ({ idea }) => (
-        <div className="p-4 bg-gray-800/30">
-            <div className="space-y-3">
-                <div><h4 className="font-semibold text-gray-400 text-xs">Description</h4><p className="text-sm text-gray-300">{idea.description}</p></div>
-                <div><h4 className="font-semibold text-gray-400 text-xs">Primary Keyword</h4><p className="px-2 py-1 text-sm bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full inline-block">{idea.primaryKeyword}</p></div>
-                {idea.monetizationOpportunities && (<div className="p-2 bg-green-900/20 border-l-2 border-green-500"><h4 className="font-semibold text-green-400 text-xs">Monetization Angle</h4><p className="text-sm text-green-300/90 italic">{idea.monetizationOpportunities}</p></div>)}
-                {idea.blogPostContent && (<div><h4 className="font-semibold text-gray-400 text-xs">Generated Post Content (First 200 chars)</h4><p className="text-sm text-gray-300 border-l-2 border-gray-600 pl-2 italic">{idea.blogPostContent.substring(0, 200)}...</p></div>)}
-            </div>
-        </div>
+        React.createElement('div', { className: "p-4 bg-gray-800/30" },
+            React.createElement('div', { className: "space-y-3" },
+                React.createElement('div', null, React.createElement('h4', { className: "font-semibold text-gray-400 text-xs" }, "Description"), React.createElement('p', { className: "text-sm text-gray-300" }, idea.description)),
+                React.createElement('div', null, React.createElement('h4', { className: "font-semibold text-gray-400 text-xs" }, "Primary Keyword"), React.createElement('p', { className: "px-2 py-1 text-sm bg-secondary-accent-darker-opacity text-secondary-accent-lighter-text rounded-full inline-block" }, idea.primaryKeyword)),
+                idea.monetizationOpportunities && (React.createElement('div', { className: "p-2 bg-green-900/20 border-l-2 border-green-500" }, React.createElement('h4', { className: "font-semibold text-green-400 text-xs" }, "Monetization Angle"), React.createElement('p', { className: "text-sm text-green-300/90 italic" }, idea.monetizationOpportunities))),
+                idea.blogPostContent && (React.createElement('div', null, React.createElement('h4', { className: "font-semibold text-gray-400 text-xs" }, "Generated Post Content (First 200 chars)"), React.createElement('p', { className: "text-sm text-gray-300 border-l-2 border-gray-600 pl-2 italic" }, idea.blogPostContent.substring(0, 200), "...")))
+            )
+        )
     );
     
     const renderBulkActionButtons = () => {
         if (currentDashboardView === 'new') {
             return (
-                <>
-                    <button onClick={handleBulkApprove} className="btn btn-success" disabled={selectedIdeasStats.new === 0}>Approve Selected {selectedIdeasStats.new > 0 ? `(${selectedIdeasStats.new})` : ''}</button>
-                    <button onClick={handleBulkReject} className="btn btn-danger" disabled={selectedIdeasStats.new === 0}>Reject Selected {selectedIdeasStats.new > 0 ? `(${selectedIdeasStats.new})` : ''}</button>
-                </>
+                React.createElement(React.Fragment, null,
+                    React.createElement('button', { onClick: handleBulkApprove, className: "btn btn-success", disabled: selectedIdeasStats.new === 0 }, "Approve Selected ", selectedIdeasStats.new > 0 ? `(${selectedIdeasStats.new})` : ''),
+                    React.createElement('button', { onClick: handleBulkReject, className: "btn btn-danger", disabled: selectedIdeasStats.new === 0 }, "Reject Selected ", selectedIdeasStats.new > 0 ? `(${selectedIdeasStats.new})` : '')
+                )
             );
         }
         if (currentDashboardView === 'active') {
             return (
-                <>
-                    <button onClick={handleBulkGenerate} className="btn btn-secondary" disabled={selectedIdeasStats.approved === 0}>Generate Content {selectedIdeasStats.approved > 0 ? `(${selectedIdeasStats.approved})` : ''}</button>
-                    <button onClick={handleBulkPublish} className="btn btn-secondary" disabled={selectedIdeasStats.generated === 0}>Publish to WP {selectedIdeasStats.generated > 0 ? `(${selectedIdeasStats.generated})` : ''}</button>
-                    <button onClick={handleBulkClose} className="btn btn-secondary" disabled={selectedIdeasStats.published === 0}>Move to Closed {selectedIdeasStats.published > 0 ? `(${selectedIdeasStats.published})` : ''}</button>
-                </>
+                React.createElement(React.Fragment, null,
+                    React.createElement('button', { onClick: handleBulkGenerate, className: "btn btn-secondary", disabled: selectedIdeasStats.approved === 0 }, "Generate Content ", selectedIdeasStats.approved > 0 ? `(${selectedIdeasStats.approved})` : ''),
+                    React.createElement('button', { onClick: handleBulkPublish, className: "btn btn-secondary", disabled: selectedIdeasStats.generated === 0 }, "Publish to WP ", selectedIdeasStats.generated > 0 ? `(${selectedIdeasStats.generated})` : ''),
+                    React.createElement('button', { onClick: handleBulkClose, className: "btn btn-secondary", disabled: selectedIdeasStats.published === 0 }, "Move to Closed ", selectedIdeasStats.published > 0 ? `(${selectedIdeasStats.published})` : '')
+                )
             );
         }
         return null; // No specific actions for 'closed' view besides delete
@@ -273,96 +274,96 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
     }
 
     return (
-        <div className="overflow-x-auto">
-            {/* --- View Toggles --- */}
-            <div className="mb-4 flex items-center border-b border-gray-700">
-                 {['new', 'active', 'closed'].map(view => (
-                    <button 
-                        key={view}
-                        onClick={() => setCurrentDashboardView(view)}
-                        className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400 hover:text-white'}`}>
-                        {view === 'active' ? 'Active Pipeline' : `${view} Ideas`}
-                    </button>
-                 ))}
-            </div>
+        React.createElement('div', { className: "overflow-x-auto" },
+            // --- View Toggles ---
+            React.createElement('div', { className: "mb-4 flex items-center border-b border-gray-700" },
+                 ['new', 'active', 'closed'].map(view => (
+                    React.createElement('button', { 
+                        key: view,
+                        onClick: () => setCurrentDashboardView(view),
+                        className: `px-4 py-2 text-sm font-medium capitalize transition-colors ${currentDashboardView === view ? 'border-b-2 border-primary-accent text-white' : 'text-gray-400 hover:text-white'}`
+                    },
+                    view === 'active' ? 'Active Pipeline' : `${view} Ideas`)
+                 ))
+            ),
 
-            <div className="mb-4 flex flex-col md:flex-row gap-4">
-                <input type="text" placeholder="Search ideas..." value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} className="form-input flex-grow"/>
-                <select value={filterPostType} onChange={(e) => setFilterPostType(e.target.value)} className="form-input w-full md:w-auto">
-                    {uniquePostTypes.map(type => (<option key={type} value={type}>{type}</option>))}
-                </select>
-            </div>
+            React.createElement('div', { className: "mb-4 flex flex-col md:flex-row gap-4" },
+                React.createElement('input', { type: "text", placeholder: "Search ideas...", value: filterTerm, onChange: (e) => setFilterTerm(e.target.value), className: "form-input flex-grow" }),
+                React.createElement('select', { value: filterPostType, onChange: (e) => setFilterPostType(e.target.value), className: "form-input w-full md:w-auto" },
+                    uniquePostTypes.map(type => (React.createElement('option', { key: type, value: type }, type)))
+                )
+            ),
 
-            <div className="mb-4 flex flex-wrap gap-2 items-center">
-                {renderBulkActionButtons()}
-                <button onClick={handleBulkDelete} className="btn btn-danger" disabled={selectedIdeasStats.total === 0}>Delete Selected {selectedIdeasStats.total > 0 ? `(${selectedIdeasStats.total})` : ''}</button>
-            </div>
+            React.createElement('div', { className: "mb-4 flex flex-wrap gap-2 items-center" },
+                renderBulkActionButtons(),
+                React.createElement('button', { onClick: handleBulkDelete, className: "btn btn-danger", disabled: selectedIdeasStats.total === 0 }, "Delete Selected ", selectedIdeasStats.total > 0 ? `(${selectedIdeasStats.total})` : '')
+            ),
             
-            <div className="hidden md:block">
-                <table className="w-full text-left table-auto">
-                    <thead className="bg-gray-800/50">
-                        <tr>
-                            <th className="p-3 w-px"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length}/></th>
-                            <th className="p-3 w-2/5 cursor-pointer" onClick={() => handleSort('title')}>Title {getSortIcon('title')}</th>
-                            <th className="p-3 cursor-pointer" onClick={() => handleSort('postType')}>Post Type {getSortIcon('postType')}</th>
-                            <th className="p-3 cursor-pointer" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
-                            <th className="p-3 cursor-pointer" onClick={() => handleSort('relatedProjectTitle')}>Origin {getSortIcon('relatedProjectTitle')}</th>
-                            <th className="p-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                        {sortedAndFilteredIdeas.map(idea => (
-                            <React.Fragment key={idea.id}>
-                                <tr className="hover:bg-gray-800/50 cursor-pointer" onClick={() => handleRowClick(idea.id)}>
-                                    <td className="p-3"><input type="checkbox" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()}/></td>
-                                    <td className="p-3 font-semibold text-primary-accent">{idea.title}</td>
-                                    <td className="p-3"><span className="px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType}</span></td>
-                                    <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span></td>
-                                    <td className="p-3 text-sm text-gray-300">{idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}</td>
-                                    <td className="p-3 text-right">
-                                        <button className="px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2 disabled:opacity-50 disabled:cursor-not-allowed" onClick={(e) => handleWritePost(e, idea)} disabled={idea.status !== 'approved'}>
-                                            {idea.status === 'approved' ? 'Write Post' : 'View Post'}
-                                        </button>
-                                        <button onClick={(e) => handleDeleteIdea(e, idea.id)} className="px-3 py-1 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold">Delete</button>
-                                    </td>
-                                </tr>
-                                {expandedRow === idea.id && (<tr className="bg-gray-800/30"><td colSpan="6"><ExpandedContent idea={idea} /></td></tr>)}
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            React.createElement('div', { className: "hidden md:block" },
+                React.createElement('table', { className: "w-full text-left table-auto" },
+                    React.createElement('thead', { className: "bg-gray-800/50" },
+                        React.createElement('tr', null,
+                            React.createElement('th', { className: "p-3 w-px" }, React.createElement('input', { type: "checkbox", onChange: toggleSelectAll, checked: selectedIdeas.size > 0 && sortedAndFilteredIdeas.length > 0 && selectedIdeas.size === sortedAndFilteredIdeas.length })),
+                            React.createElement('th', { className: "p-3 w-2/5 cursor-pointer", onClick: () => handleSort('title') }, "Title ", getSortIcon('title')),
+                            React.createElement('th', { className: "p-3 cursor-pointer", onClick: () => handleSort('postType') }, "Post Type ", getSortIcon('postType')),
+                            React.createElement('th', { className: "p-3 cursor-pointer", onClick: () => handleSort('status') }, "Status ", getSortIcon('status')),
+                            React.createElement('th', { className: "p-3 cursor-pointer", onClick: () => handleSort('relatedProjectTitle') }, "Origin ", getSortIcon('relatedProjectTitle')),
+                            React.createElement('th', { className: "p-3 text-right" }, "Actions")
+                        )
+                    ),
+                    React.createElement('tbody', { className: "divide-y divide-gray-800" },
+                        sortedAndFilteredIdeas.map(idea => (
+                            React.createElement(React.Fragment, { key: idea.id },
+                                React.createElement('tr', { className: "hover:bg-gray-800/50 cursor-pointer", onClick: () => handleRowClick(idea.id) },
+                                    React.createElement('td', { className: "p-3" }, React.createElement('input', { type: "checkbox", checked: selectedIdeas.has(idea.id), onChange: () => handleSelectIdea(idea.id), onClick: (e) => e.stopPropagation() })),
+                                    React.createElement('td', { className: "p-3 font-semibold text-primary-accent" }, idea.title),
+                                    React.createElement('td', { className: "p-3" }, React.createElement('span', { className: "px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full" }, idea.postType)),
+                                    React.createElement('td', { className: "p-3" }, React.createElement('span', { className: `px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}` }, idea.status)),
+                                    React.createElement('td', { className: "p-3 text-sm text-gray-300" }, idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'),
+                                    React.createElement('td', { className: "p-3 text-right" },
+                                        React.createElement('button', { className: "px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2 disabled:opacity-50 disabled:cursor-not-allowed", onClick: (e) => handleWritePost(e, idea), disabled: idea.status !== 'approved' },
+                                            idea.status === 'approved' ? 'Write Post' : 'View Post'
+                                        ),
+                                        React.createElement('button', { onClick: (e) => handleDeleteIdea(e, idea.id), className: "px-3 py-1 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold" }, "Delete")
+                                    )
+                                ),
+                                expandedRow === idea.id && (React.createElement('tr', { className: "bg-gray-800/30" }, React.createElement('td', { colSpan: "6" }, React.createElement(ExpandedContent, { idea: idea }))))
+                            )
+                        ))
+                    )
+                )
+            ),
 
-            <div className="md:hidden space-y-4">
-                {sortedAndFilteredIdeas.map(idea => (
-                    <div key={idea.id} className="glass-card rounded-lg overflow-hidden">
-                         <div className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                                 <input type="checkbox" className="mr-4 mt-1" checked={selectedIdeas.has(idea.id)} onChange={() => handleSelectIdea(idea.id)} onClick={(e) => e.stopPropagation()} />
-                                <h3 className="font-bold text-lg text-primary-accent pr-2 flex-grow" onClick={() => handleRowClick(idea.id)}>{idea.title}</h3>
-                                <span className="flex-shrink-0 px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full">{idea.postType}</span>
-                            </div>
-                            <div className="text-sm text-gray-300 mb-3" onClick={() => handleRowClick(idea.id)}>
-                                {idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'}
-                            </div>
-                            <div className="mb-4" onClick={() => handleRowClick(idea.id)}>
-                                <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}`}>{idea.status}</span>
-                            </div>
-                             <div className="flex gap-2">
-                                 <button className="flex-grow px-3 py-2 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed" onClick={(e) => handleWritePost(e, idea)} disabled={idea.status !== 'approved'}>
-                                     {idea.status === 'approved' ? 'Write Post' : 'View Post'}
-                                 </button>
-                                 <button onClick={(e) => handleDeleteIdea(e, idea.id)} className="px-3 py-2 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold">Delete</button>
-                             </div>
-                        </div>
-                        {expandedRow === idea.id && <ExpandedContent idea={idea} />}
-                    </div>
-                ))}
-            </div>
+            React.createElement('div', { className: "md:hidden space-y-4" },
+                sortedAndFilteredIdeas.map(idea => (
+                    React.createElement('div', { key: idea.id, className: "glass-card rounded-lg overflow-hidden" },
+                        React.createElement('div', { className: "p-4" },
+                            React.createElement('div', { className: "flex justify-between items-start mb-2" },
+                                React.createElement('input', { type: "checkbox", className: "mr-4 mt-1", checked: selectedIdeas.has(idea.id), onChange: () => handleSelectIdea(idea.id), onClick: (e) => e.stopPropagation() }),
+                                React.createElement('h3', { className: "font-bold text-lg text-primary-accent pr-2 flex-grow", onClick: () => handleRowClick(idea.id) }, idea.title),
+                                React.createElement('span', { className: "flex-shrink-0 px-2 py-1 text-xs bg-teal-800 text-teal-200 rounded-full" }, idea.postType)
+                            ),
+                            React.createElement('div', { className: "text-sm text-gray-300 mb-3", onClick: () => handleRowClick(idea.id) },
+                                idea.relatedProjectTitle || idea.relatedVideoTitle || 'N/A'
+                            ),
+                            React.createElement('div', { className: "mb-4", onClick: () => handleRowClick(idea.id) },
+                                React.createElement('span', { className: `px-2 py-1 text-xs rounded-full capitalize ${getStatusClass(idea.status)}` }, idea.status)
+                            ),
+                            React.createElement('div', { className: "flex gap-2" },
+                                React.createElement('button', { className: "flex-grow px-3 py-2 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed", onClick: (e) => handleWritePost(e, idea), disabled: idea.status !== 'approved' },
+                                    idea.status === 'approved' ? 'Write Post' : 'View Post'
+                                ),
+                                React.createElement('button', { onClick: (e) => handleDeleteIdea(e, idea.id), className: "px-3 py-2 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold" }, "Delete")
+                            )
+                        ),
+                        expandedRow === idea.id && React.createElement(ExpandedContent, { idea: idea })
+                    )
+                ))
+            ),
 
-            {sortedAndFilteredIdeas.length === 0 && (
-                <div className="text-center text-gray-400 py-8"><p>No matching ideas found for this view.</p></div>
-            )}
-        </div>
+            sortedAndFilteredIdeas.length === 0 && (
+                React.createElement('div', { className: "text-center text-gray-400 py-8" }, React.createElement('p', null, "No matching ideas found for this view."))
+            )
+        )
     );
 };
