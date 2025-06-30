@@ -53,6 +53,30 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onOpenPublisher, onViewPost
 
     const ideasToPublish = generatedIdeas.filter(idea => selectedIdeas.includes(idea.id));
 
+    const handleDeleteSelected = async () => {
+        if (selectedIdeas.length === 0) return;
+
+        if (!confirm(`Are you sure you want to delete ${selectedIdeas.length} selected post(s)? This action cannot be undone.`)) {
+            return;
+        }
+
+        const batch = db.batch();
+        const ideasCollectionRef = db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
+        selectedIdeas.forEach(ideaId => {
+            const docRef = ideasCollectionRef.doc(ideaId);
+            batch.delete(docRef);
+        });
+
+        try {
+            await batch.commit();
+            setSelectedIdeas([]); // Clear selection after deletion
+            alert('Selected post(s) deleted successfully!');
+        } catch (error) {
+            console.error("Error deleting selected ideas:", error);
+            alert('Failed to delete selected post(s). Please try again.');
+        }
+    };
+
     if (isLoading) {
         return React.createElement(LoadingSpinner, { text: 'Loading blog ideas...' });
     }
@@ -83,7 +107,8 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onOpenPublisher, onViewPost
                     ))
                 )
             ) : React.createElement('p', { className: 'text-gray-400' }, 'No generated ideas yet. Use the content creation menu to make some!'),
-            selectedIdeas.length > 0 && React.createElement('div', { className: 'mt-6 flex justify-end' },
+            selectedIdeas.length > 0 && React.createElement('div', { className: 'mt-6 flex justify-end space-x-4' },
+                React.createElement('button', { onClick: handleDeleteSelected, className: 'btn btn-danger' }, `Delete ${selectedIdeas.length} Selected Post(s)`),
                 React.createElement('button', { onClick: () => onOpenPublisher(ideasToPublish), className: 'btn btn-primary' }, `Publish ${selectedIdeas.length} Selected Post(s)`)
             )
         ),
