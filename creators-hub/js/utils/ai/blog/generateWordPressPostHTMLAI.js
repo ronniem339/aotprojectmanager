@@ -18,27 +18,30 @@ ${styleGuidePrompt}
 - **Desired Tone:** ${tone || 'Informative'}
 
 **Formatting Instructions:**
-1.  **Vary Your Block Formats:** Do NOT overuse simple paragraphs and bullet points. Your main goal is to create a visually interesting layout. Use a rich variety of Gutenberg blocks to present information in an engaging way.
-2.  **Utilize Advanced Blocks:** Where appropriate, structure the content using the following blocks. Use the correct Gutenberg block comment syntax (e.g., ):
+1.  **CRITICAL RULE: USE DIVERSE BLOCKS.** Your main goal is to create a visually interesting layout. You MUST use a rich variety of Gutenberg blocks. Do NOT overuse simple paragraphs and bullet points. Be creative and use the advanced blocks listed below wherever the content allows. A simple wall of text or a long list of bullet points is not acceptable.
+2.  **Advanced Blocks to Use:** Where appropriate, structure the content using the following blocks. Use the correct Gutenberg block comment syntax (e.g., ):
     - **Accordions ():** Use for FAQs, detailed itineraries, or any content that can be collapsed.
     - **Tabs ():** Perfect for comparing options, like different neighborhoods to stay in or pros and cons.
     - **Media & Text ():** Combine images with descriptive text.
     - **Spacers ():** Use spacers to improve readability.
     - **Product Reviews ():** If discussing hotels or tours, format them using this block with a star rating.
     - **Google Maps ():** When a specific location is mentioned, embed a map using its name.
-3.  **Content-Driven Formatting:** Let the content guide your choice of block. A list of "Pros and Cons" is better in tabs than a bulleted list. A section on "Frequently Asked Questions" is perfect for an accordion.
-4.  **Placeholders:** Strategically place placeholders for images, YouTube videos, and affiliate links where they would be most effective, using the specific block markup below.
+3.  **Correct List Formatting:** When you MUST use a list, use the following exact syntax. Do NOT invent your own tags like \`\`.
+    <ul><li>List Item 1</li>
+    <li>List Item 2</li>
+    </ul>
+    4.  **Placeholders:** Strategically place placeholders for images, YouTube videos, and affiliate links where they would be most effective, using the specific block markup below.
 
-    * **Image Placeholder Block:** Use this exact format. This creates a clickable image placeholder and a descriptive paragraph below it.
+    * **Image Placeholder Block:** Use this exact format with the placehold.co URL.
 
-        <figure class="wp-block-image size-large"><img src="https://via.placeholder.com/1024x576.png?text=Replace+this+image" alt="Image placeholder"/></figure>
+        <figure class="wp-block-image size-large"><img src="https://placehold.co/1024x576.png?text=Replace+this+image" alt="Image placeholder"/></figure>
         <p class="is-style-small-text"><em>Image suggestion: [add descriptive keywords for the image here]</em></p>
-        * **YouTube Placeholder Block:** Use this exact format. It creates a proper YouTube embed block with a helpful search link.
+        * **YouTube Placeholder Block:** Use this exact format.
 
         <figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">
         https://www.youtube.com/watch?v=dQw4w9WgXcQ
         </div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
-        * **Affiliate Link Placeholder Block:** Use this exact format. It creates a visually distinct button that serves as a placeholder for an affiliate link.
+        * **Affiliate Link Placeholder Block:** Use this exact format.
 
         <div class="wp-block-buttons">
             <div class="wp-block-button is-style-outline"><a class="wp-block-button__link has-white-color has-vivid-cyan-blue-background-color has-text-color has-background" href="[add affiliate link here]" target="_blank" rel="noopener noreferrer">[add affiliate link text here]</a></div>
