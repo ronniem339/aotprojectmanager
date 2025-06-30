@@ -8,7 +8,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
     const prompt = `
-You are an expert travel blogger and content creator. Your task is to write a complete blog post based on the provided title, keywords, and tone. The output must be well-structured HTML, ready for the WordPress Gutenberg editor, specifically for a user of the Otter Blocks editor.
+You are an expert travel blogger and content creator with deep knowledge of the WordPress Gutenberg editor and OtterBlocks. Your task is to write a complete, engaging, and visually appealing blog post based on the provided title and keywords.
 
 ${styleGuidePrompt}
 
@@ -17,44 +17,37 @@ ${styleGuidePrompt}
 - **Primary Keyword:** ${primaryKeyword}
 - **Desired Tone:** ${tone || 'Informative'}
 
-**Instructions:**
-1.  Create a compelling and engaging blog post using standard Gutenberg blocks like paragraphs and headings.
-2.  The structure should be logical with a clear introduction, body, and conclusion.
-3.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments.
-4.  Do NOT include the main post title as a heading (e.g., as an <h1> tag) within the HTML content.
-5.  Strategically place placeholders for images, YouTube videos, and affiliate links where they would be most effective, using the specific block markup below.
+**Formatting Instructions:**
+1.  **Vary Your Block Formats:** Do NOT overuse simple paragraphs and bullet points. Your main goal is to create a visually interesting layout. Use a rich variety of Gutenberg blocks to present information in an engaging way.
+2.  **Utilize Advanced Blocks:** Where appropriate, structure the content using the following blocks. Use the correct Gutenberg block comment syntax (e.g., ):
+    - **Accordions ():** Use for FAQs, detailed itineraries, or any content that can be collapsed.
+    - **Tabs ():** Perfect for comparing options, like different neighborhoods to stay in or pros and cons.
+    - **Media & Text ():** Combine images with descriptive text.
+    - **Spacers ():** Use spacers to improve readability.
+    - **Product Reviews ():** If discussing hotels or tours, format them using this block with a star rating.
+    - **Google Maps ():** When a specific location is mentioned, embed a map using its name.
+3.  **Content-Driven Formatting:** Let the content guide your choice of block. A list of "Pros and Cons" is better in tabs than a bulleted list. A section on "Frequently Asked Questions" is perfect for an accordion.
+4.  **Placeholders:** Strategically place placeholders for images, YouTube videos, and affiliate links where they would be most effective, using the specific block markup below.
 
     * **Image Placeholder Block:** Use this exact format. This creates a clickable image placeholder and a descriptive paragraph below it.
 
-        <!-- wp:image {"id":-1,"sizeSlug":"large","linkDestination":"none"} -->
         <figure class="wp-block-image size-large"><img src="https://via.placeholder.com/1024x576.png?text=Replace+this+image" alt="Image placeholder"/></figure>
-        <!-- /wp:image -->
-
-        <!-- wp:paragraph {"className":"is-style-small-text"} -->
         <p class="is-style-small-text"><em>Image suggestion: [add descriptive keywords for the image here]</em></p>
-        <!-- /wp:paragraph -->
+        * **YouTube Placeholder Block:** Use this exact format. It creates a proper YouTube embed block with a helpful search link.
 
-    * **YouTube Placeholder Block:** Use this exact format. It creates a proper YouTube embed block with a helpful search link.
-
-        <!-- wp:embed {"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","type":"video","providerNameSlug":"youtube","responsive":true,"className":"wp-embed-aspect-16-9 wp-has-aspect-ratio"} -->
         <figure class="wp-block-embed is-type-video is-provider-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">
         https://www.youtube.com/watch?v=dQw4w9WgXcQ
         </div><figcaption><strong>YouTube Placeholder:</strong> [add descriptive keywords for the video here]</figcaption></figure>
-        <!-- /wp:embed -->
+        * **Affiliate Link Placeholder Block:** Use this exact format. It creates a visually distinct button that serves as a placeholder for an affiliate link.
 
-    * **Affiliate Link Placeholder Block:** Use this exact format. It creates a visually distinct button that serves as a placeholder for an affiliate link.
-
-        <!-- wp:buttons -->
         <div class="wp-block-buttons">
-            <!-- wp:button {"backgroundColor":"vivid-cyan-blue","textColor":"white","className":"is-style-outline"} -->
             <div class="wp-block-button is-style-outline"><a class="wp-block-button__link has-white-color has-vivid-cyan-blue-background-color has-text-color has-background" href="[add affiliate link here]" target="_blank" rel="noopener noreferrer">[add affiliate link text here]</a></div>
-            <!-- /wp:button -->
-        </div>
-        <!-- /wp:buttons -->
-
-6.  Ensure the primary keyword is naturally integrated into the text.
-7.  Do NOT include `<html>`, `<head>`, or `<body>` tags.
-8.  Your entire response must be only the raw HTML content with Gutenberg block comments.`
+            </div>
+        5.  **CRITICAL:** Wrap each distinct block of content (paragraphs, headings, lists, placeholders) in Gutenberg block comments.
+6.  **No Main Title:** Do NOT include the main post title as an <h1> tag within the HTML content.
+7.  **Keyword Integration:** Naturally integrate the primary keyword into the text.
+8.  **Output Format:** Your entire response must be only the raw HTML content with Gutenberg block comments. Do NOT use markdown.
+`;
 
     try {
         const htmlContent = await window.aiUtils.callGeminiAPI(
