@@ -10,6 +10,7 @@ window.OneOffWordPressUpdater = ({ appState }) => {
     const [isComplete, setIsComplete] = useState(false);
 
     const { db, user } = appState;
+    const e = React.createElement; // Alias for easier use
 
     useEffect(() => {
         if (appState.currentSettings && appState.currentSettings.wordpress) {
@@ -72,8 +73,8 @@ window.OneOffWordPressUpdater = ({ appState }) => {
                 page++;
             }
             if (batchCount > 0) {
-                await batch.commit();
                 totalPostsProcessed += batchCount;
+                await batch.commit();
             }
             setStatus(`Update complete! Successfully processed and updated ${totalPostsProcessed} posts.`);
             setIsComplete(true);
@@ -84,54 +85,58 @@ window.OneOffWordPressUpdater = ({ appState }) => {
             setIsRunning(false);
         }
     };
+    
+    // --- Render logic using React.createElement (no JSX) ---
 
-    // Simplified JSX rendering logic to avoid transpiler issues
     const renderStatusBox = () => {
+        let statusContent;
         if (isComplete) {
-            return (
-                 <div className="text-center p-4 mt-4 bg-gray-900 rounded-lg">
-                    <p className="text-xl text-green-400 font-bold">✅ All Done!</p>
-                    <p className="text-gray-300 mt-2">The update process has finished. You can now remove this tool.</p>
-                </div>
-            );
+            statusContent = [
+                e('p', { key: '1', className: 'text-xl text-green-400 font-bold' }, '✅ All Done!'),
+                e('p', { key: '2', className: 'text-gray-300 mt-2' }, 'The update process has finished. You can now remove this tool.')
+            ];
+            return e('div', { className: 'text-center p-4 mt-4 bg-gray-900 rounded-lg' }, statusContent);
         }
+        
         if (status || error) {
             const statusPrefix = isRunning ? 'PROGRESS: ' : 'STATUS: ';
-            return (
-                <div className="mt-4 p-4 rounded-lg bg-gray-900">
-                    <p className="font-mono text-sm text-white whitespace-pre-wrap">{statusPrefix}{status}</p>
-                    {error && <p className="font-mono text-sm text-red-400 mt-2 whitespace-pre-wrap">ERROR: {error}</p>}
-                </div>
-            );
+            const errorContent = error ? e('p', { key: 'err', className: 'font-mono text-sm text-red-400 mt-2 whitespace-pre-wrap' }, `ERROR: ${error}`) : null;
+            statusContent = [
+                e('p', { key: 'stat', className: 'font-mono text-sm text-white whitespace-pre-wrap' }, `${statusPrefix}${status}`),
+                errorContent
+            ];
+             return e('div', { className: 'mt-4 p-4 rounded-lg bg-gray-900' }, statusContent);
         }
         return null;
     };
 
-    return (
-        <div className="border-t border-dashed border-blue-500 pt-10 mt-10 max-w-2xl">
-            <h2 className="text-2xl font-bold mb-2 text-blue-400">One-Off WordPress Post Updater</h2>
-            <p className="text-gray-400 mb-6">This tool fetches the latest tags for all posts from WordPress and updates them in Firebase. The location will be set to the first tag found.</p>
-            <div className="space-y-4 bg-gray-800/60 p-6 rounded-lg">
-                <h3 className="text-xl font-semibold">WordPress Credentials</h3>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">WordPress URL</label>
-                    <input type="text" name="url" value={wpConfig.url} onChange={handleConfigChange} className="w-full form-input" placeholder="https://your-blog.com" disabled={isRunning} />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">WordPress Username</label>
-                    <input type="text" name="username" value={wpConfig.username} onChange={handleConfigChange} className="w-full form-input" disabled={isRunning} />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Application Password</label>
-                    <input type="password" name="applicationPassword" value={wpConfig.applicationPassword} onChange={handleConfigChange} className="w-full form-input" disabled={isRunning} />
-                </div>
-                {!isComplete && (
-                    <button onClick={handleRunUpdate} disabled={isRunning} className="btn btn-primary w-full">
-                        {isRunning ? 'Updating...' : 'Fetch Tags & Update Posts'}
-                    </button>
-                )}
-            </div>
-            {renderStatusBox()}
-        </div>
+    const inputs = [
+        e('div', { key: 'url-div' }, 
+            e('label', { className: 'block text-sm font-medium text-gray-300 mb-1' }, 'WordPress URL'),
+            e('input', { type: 'text', name: 'url', value: wpConfig.url, onChange: handleConfigChange, className: 'w-full form-input', placeholder: 'https://your-blog.com', disabled: isRunning })
+        ),
+        e('div', { key: 'user-div' }, 
+            e('label', { className: 'block text-sm font-medium text-gray-300 mb-1' }, 'WordPress Username'),
+            e('input', { type: 'text', name: 'username', value: wpConfig.username, onChange: handleConfigChange, className: 'w-full form-input', disabled: isRunning })
+        ),
+        e('div', { key: 'pass-div' }, 
+            e('label', { className: 'block text-sm font-medium text-gray-300 mb-1' }, 'Application Password'),
+            e('input', { type: 'password', name: 'applicationPassword', value: wpConfig.applicationPassword, onChange: handleConfigChange, className: 'w-full form-input', disabled: isRunning })
+        )
+    ];
+
+    const button = !isComplete ? e('button', { onClick: handleRunUpdate, disabled: isRunning, className: 'btn btn-primary w-full' }, isRunning ? 'Updating...' : 'Fetch Tags & Update Posts') : null;
+
+    const toolUI = e('div', { className: 'space-y-4 bg-gray-800/60 p-6 rounded-lg' },
+        e('h3', { className: 'text-xl font-semibold' }, 'WordPress Credentials'),
+        ...inputs,
+        button
+    );
+    
+    return e('div', { className: 'border-t border-dashed border-blue-500 pt-10 mt-10 max-w-2xl' },
+        e('h2', { className: 'text-2xl font-bold mb-2 text-blue-400' }, 'One-Off WordPress Post Updater'),
+        e('p', { className: 'text-gray-400 mb-6' }, 'This tool fetches the latest tags for all posts from WordPress and updates them in Firebase. The location will be set to the first tag found.'),
+        toolUI,
+        renderStatusBox()
     );
 };
