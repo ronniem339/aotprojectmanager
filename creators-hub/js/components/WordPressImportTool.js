@@ -60,8 +60,12 @@ window.WordPressImportTool = () => {
             }
 
             const [categories, tags] = await Promise.all([catResponse.json(), tagResponse.json()]);
+            console.log("Fetched Categories:", categories);
+            console.log("Fetched Tags:", tags);
             const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
             const tagMap = new Map(tags.map(tag => [tag.id, tag.name]));
+            console.log("Category Map:", categoryMap);
+            console.log("Tag Map:", tagMap);
 
             let page = 1;
             let totalPostsImported = 0;
@@ -74,15 +78,23 @@ window.WordPressImportTool = () => {
                 if (!response.ok) {
                     const errorText = await response.text(); // Get raw text to check for specific message
                     let errorMessage = `Failed to fetch posts. Status: ${response.status}.`;
+                    let isPaginationError = false;
+
                     try {
                         const errorData = JSON.parse(errorText);
                         errorMessage += ` Message: ${errorData.message || 'Check Netlify function logs.'}`;
+                        if (errorData.message && errorData.message.includes('page number requested is larger than the number of pages available')) {
+                            isPaginationError = true;
+                        }
                     } catch (e) {
+                        // If parsing as JSON fails, it's likely a plain text error or malformed JSON
                         errorMessage += ` Raw response: ${errorText}`;
+                        if (errorText.includes('page number requested is larger than the number of pages available')) {
+                            isPaginationError = true;
+                        }
                     }
 
-                    // Check for the specific WordPress pagination error
-                    if (response.status === 400 && errorText.includes('page number requested is larger than the number of pages available')) {
+                    if (response.status === 400 && isPaginationError) {
                         console.warn(`WordPress import: Reached end of posts on page ${page}. Stopping import.`);
                         hasMorePosts = false;
                         continue; // Exit the current iteration and the while loop
@@ -92,6 +104,7 @@ window.WordPressImportTool = () => {
                 }
 
                 const posts = await response.json();
+                console.log(`Fetched ${posts.length} posts from page ${page}:`, posts);
 
                 if (posts.length === 0) {
                     hasMorePosts = false;
@@ -108,6 +121,11 @@ window.WordPressImportTool = () => {
                     const location = postCategoryIds.length > 0 ? categoryMap.get(postCategoryIds[0]) || '' : '';
                     const postTagIds = post.tags || [];
                     const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean).map(tag => tag.toLowerCase()); // Ensure tags are lowercase
+
+                    console.log("Post Categories (IDs):", postCategoryIds);
+                    console.log("Post Tags (IDs):", postTagIds);
+                    console.log("Derived Location:", location);
+                    console.log("Derived Tags:", postTags);
 
                     const postData = {
                         title: post.title.rendered,
