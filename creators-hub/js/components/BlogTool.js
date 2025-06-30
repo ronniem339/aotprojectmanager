@@ -4,7 +4,6 @@
     const { useState, useMemo, useCallback, useEffect } = React;
 
     // --- MODAL COMPONENTS ---
-    // These components are defined locally within the IIFE and are safe to use.
     
     const VideoCompanionModal = ({ onGenerate, onCancel, db, userId, APP_ID, displayNotification, isGenerating }) => {
         const [projects, setProjects] = useState([]);
@@ -186,8 +185,6 @@
     window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, displayNotification }) => {
         const [modalView, setModalView] = useState(null);
         const [isGenerating, setIsGenerating] = useState(false);
-        const [importedPosts, setImportedPosts] = useState([]);
-        const [isLoadingPosts, setIsLoadingPosts] = useState(true);
         
         const { APP_ID } = window.CREATOR_HUB_CONFIG;
 
@@ -195,30 +192,11 @@
             if (!userId) return null;
             return db.collection(`artifacts/${APP_ID}/users/${userId}/blogIdeas`);
         }, [db, APP_ID, userId]);
-
+        
         const blogPostsCollectionRef = useMemo(() => {
             if (!userId) return null;
             return db.collection(`artifacts/${APP_ID}/users/${userId}/blogPosts`);
         }, [db, APP_ID, userId]);
-
-        useEffect(() => {
-            if (!blogPostsCollectionRef) {
-                setIsLoadingPosts(false);
-                return;
-            }
-            setIsLoadingPosts(true);
-            const q = blogPostsCollectionRef.where("postType", "==", "wordpress-import");
-            const unsubscribe = q.onSnapshot(snapshot => {
-                const postsToDisplay = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setImportedPosts(postsToDisplay);
-                setIsLoadingPosts(false);
-            }, error => {
-                console.error("Error fetching imported posts:", error);
-                displayNotification("Error loading imported posts.", 'error');
-                setIsLoadingPosts(false);
-            });
-            return () => unsubscribe();
-        }, [blogPostsCollectionRef, displayNotification]);
 
         const handleGeneratePost = useCallback(async (generationTask) => {
             setIsGenerating(true);
@@ -255,7 +233,6 @@
             }
         }, [settings, ideasCollectionRef, displayNotification]);
 
-        // ** THE FIX IS HERE **
         const buttonClasses = "w-full p-4 bg-gray-800/60 rounded-lg text-white font-semibold text-center transition-all duration-300 ease-in-out hover:bg-gray-700/80 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-3";
 
         return (
@@ -271,7 +248,6 @@
                     React.createElement('h3', { className: "text-lg font-semibold mb-4 text-white" }, "Content Creation Menu"),
                     isGenerating && window.LoadingSpinner && React.createElement(window.LoadingSpinner, { text: "AI is working its magic... Please wait." }),
                     React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" },
-                        // ** THE FIX IS HERE **
                         React.createElement('button', { onClick: () => setModalView('video'), disabled: isGenerating, className: buttonClasses }, "📝 From a Video"),
                         React.createElement('button', { onClick: () => setModalView('affiliate'), disabled: isGenerating, className: buttonClasses }, "💰 Monetizable Post"),
                         React.createElement('button', { onClick: () => setModalView('guide'), disabled: isGenerating, className: buttonClasses }, "🗺️ Destination Guide")
@@ -281,24 +257,9 @@
                 modalView === 'affiliate' && React.createElement(AffiliatePostModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), displayNotification: displayNotification, isGenerating: isGenerating }),
                 modalView === 'guide' && React.createElement(DestinationGuideModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), blogPostsCollectionRef: blogPostsCollectionRef, displayNotification: displayNotification, isGenerating: isGenerating }),
                 
-                window.BlogIdeasDashboard && React.createElement(window.BlogIdeasDashboard, { userId: userId, db: db, settings: settings, onOpenPublisher: onPublishPosts, onViewPost: onViewPost }),
+                window.BlogIdeasDashboard && React.createElement(window.BlogIdeasDashboard, { userId: userId, db: db, settings: settings, onOpenPublisher: onPublishPosts, onViewPost: onViewPost })
                 
-                React.createElement('div', { className: "glass-card p-6 rounded-lg mt-8" },
-                    React.createElement('h3', { className: "text-lg font-semibold mb-4 text-white" }, "Published Posts"),
-                    isLoadingPosts && window.LoadingSpinner && React.createElement(window.LoadingSpinner, { text: "Loading posts..." }),
-                    !isLoadingPosts && importedPosts.length === 0 && React.createElement('p', { className: "text-gray-400" }, "No posts have been published yet."),
-                    !isLoadingPosts && importedPosts.length > 0 && (
-                        React.createElement('div', { className: "space-y-4" },
-                            importedPosts.map(post => (
-                                React.createElement('div', { key: post.id, className: "bg-gray-800/50 p-3 rounded-lg" },
-                                    React.createElement('p', { className: "text-white font-bold" }, post.title),
-                                    React.createElement('p', { className: "text-gray-300 text-sm" }, `Location: ${post.location || 'N/A'}`),
-                                    React.createElement('p', { className: "text-gray-300 text-sm" }, `Tags: ${post.tags && post.tags.length > 0 ? post.tags.join(', ') : 'N/A'}`)
-                                )
-                            ))
-                        )
-                    )
-                )
+                // ** THE FIX IS HERE: The entire "Published Posts" div has been removed. **
             )
         );
     };
