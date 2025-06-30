@@ -118,7 +118,7 @@ window.WordPressImportTool = () => {
                         postType: 'wordpress-import',
                         wordPressId: post.id,
                         url: post.link,
-                        createdAt: post.date_gmt + 'Z',
+                        createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                         userId: user.uid
                     };
                     // Use merge: true to update existing posts without overwriting fields that might have been changed in the app
