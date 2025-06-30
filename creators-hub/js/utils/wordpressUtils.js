@@ -246,51 +246,14 @@ async function deduplicateWordPressPosts({ db, user, onProgress }) {
 
 
 /**
- * Utility function to find the most specific location from a list of tags.
- */
-function getMostSpecificLocation(postTags, locationTagMap) {
-    // Defines the hierarchy of location types, from most to least specific.
-    const locationHierarchy = [
-        'point_of_interest', 
-        'premise', 
-        'subpremise', 
-        'locality', // e.g., city
-        'administrative_area_level_3',
-        'administrative_area_level_2',
-        'administrative_area_level_1', // e.g., state/province
-        'country'
-    ];
-
-    let mostSpecificLocation = '';
-    let lowestRank = Infinity; // Lower rank is more specific
-
-    for (const tagName of postTags) {
-        const locationInfo = locationTagMap[tagName.toLowerCase()]; // Use lowercase for matching
-        if (locationInfo) {
-            for (const type of locationInfo.types) {
-                const rank = locationHierarchy.indexOf(type);
-                if (rank !== -1 && rank < lowestRank) {
-                    lowestRank = rank;
-                    mostSpecificLocation = locationInfo.formatted_address;
-                }
-            }
-        }
-    }
-    return mostSpecificLocation;
-}
-
-
-/**
  * CORRECTED IMPORTER FUNCTION
- * Fetches all posts from WordPress, using a geocoded map of tags to determine the most specific location for each post.
+ * Fetches all posts from WordPress, checks for duplicates, and saves only new ones to Firestore.
+ * This function is now idempotent and can be safely re-run.
  */
-async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, locationTagMap }) {
+async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }) {
     const { url, username, applicationPassword } = wordpressConfig;
     if (!url || !username || !applicationPassword) {
         throw new Error('WordPress settings are not fully configured.');
-    }
-    if (!locationTagMap) {
-        throw new Error('Location tag map is required for import.');
     }
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
@@ -306,7 +269,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
             existingPostIds.add(data.wordPressId);
         }
     });
-    onProgress(`Found ${existingPostIds.size} existing posts. New content will be added/updated.`);
+    onProgress(`Found ${existingPostIds.size} existing posts. New content will be added.`);
 
     let page = 1;
     let totalPostsImportedThisSession = 0;
@@ -324,16 +287,17 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
             try {
                 const errorData = JSON.parse(errorBody);
                 errorMessage += ` Message: ${errorData.message || 'Check Netlify function logs.'}`;
-                if (errorData.code === 'rest_post_invalid_page_number') {
+                if (errorData.message && errorData.message.includes('page number requested is larger than the number of pages available')) {
                     isPaginationError = true;
                 }
             } catch (e) {
-                if (errorBody.includes('rest_post_invalid_page_number')) {
+                errorMessage += ` Raw response: ${errorBody}`;
+                if (errorBody.includes('page number requested is larger than the number of pages available')) {
                     isPaginationError = true;
                 }
             }
 
-            if (isPaginationError) {
+            if (response.status === 400 && isPaginationError) {
                 hasMorePosts = false;
                 continue;
             } else {
@@ -348,21 +312,22 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
             continue;
         }
         
-        onProgress(`Fetched ${posts.length} posts from page ${page}. Processing...`);
+        onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
         
         const batchSize = 20;
         let currentBatch = db.batch();
         let batchCount = 0;
+        let postsProcessedInSession = 0;
         
         for (const post of posts) {
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
             
             const terms = post._embedded['wp:term'] || [];
-            const postCategories = (terms[0] || []).map(cat => cat.name);
-            const postTags = (terms[1] || []).map(tag => tag.name);
+            const categories = terms[0] || [];
+            const tags = terms[1] || [];
 
-            // Determine location from tags using the new logic
-            const location = getMostSpecificLocation(postTags, locationTagMap);
+            const location = categories.length > 0 ? categories[0].name : '';
+            const postTags = tags.map(tag => tag.name.toLowerCase());
 
             const postData = {
                 title: post.title.rendered,
@@ -370,8 +335,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
                 status: post.status,
                 location: location,
                 location_lowercase: location.toLowerCase(),
-                categories: postCategories.map(c => c.toLowerCase()), // Save categories separately
-                tags: postTags.map(t => t.toLowerCase()),
+                tags: postTags,
                 postType: 'wordpress-import',
                 wordPressId: post.id,
                 url: post.link,
@@ -380,9 +344,12 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
             };
 
             currentBatch.set(postRef, postData, { merge: true });
+
             batchCount++;
+            postsProcessedInSession++;
 
             if (batchCount === batchSize) {
+                onProgress(`Committing batch of ${batchCount} posts...`);
                 await currentBatch.commit();
                 currentBatch = db.batch(); 
                 batchCount = 0;
@@ -391,25 +358,27 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
         }
 
         if (batchCount > 0) {
+            onProgress(`Committing final batch of ${batchCount} posts...`);
             await currentBatch.commit();
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        totalPostsImportedThisSession += posts.length;
-        onProgress(`Successfully processed ${posts.length} posts from page ${page}.`);
+        totalPostsImportedThisSession += postsProcessedInSession;
+        onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);
         page++;
     }
 
-    onProgress(`Import complete. Processed ${totalPostsImportedThisSession} posts this session.`);
+    onProgress(`Import complete. Added/updated ${totalPostsImportedThisSession} posts this session.`);
     return totalPostsImportedThisSession;
 }
 
 
-// Add all functions to the global utility object
+// Add all functions to the global utility object, including the new ones.
 window.wordpressUtils = {
     postToWordPress,
     getWordPressCategories,
     getAndCreateTags,
     publishPostAndSaveToDb,
-    deduplicateWordPressPosts,
+    deduplicateWordPressPosts, // The new cleanup tool
     importAllWordPressPosts, 
 };
