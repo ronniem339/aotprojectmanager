@@ -11,7 +11,9 @@ exports.handler = async function(event, context) {
         };
     }
 
-    const apiUrl = `${url}/wp-json/wp/v2/posts?per_page=50&page=${page}&_fields=id,date_gmt,link,title,content,status,categories,tags`;
+    // THIS IS THE FIX: Changed from `&_fields=...` to `&_embed`
+    // This tells WordPress to include the full tag and category data with each post.
+    const apiUrl = `${url}/wp-json/wp/v2/posts?per_page=50&page=${page}&_embed`;
     const credentials = Buffer.from(`${user}:${pass}`).toString('base64');
 
     try {
@@ -22,7 +24,6 @@ exports.handler = async function(event, context) {
         });
 
         if (!response.ok) {
-            // Forward the error from the WordPress API
             const errorBody = await response.text();
             return {
                 statusCode: response.status,
