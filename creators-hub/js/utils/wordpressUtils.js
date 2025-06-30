@@ -266,13 +266,15 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
     const q = blogPostsCollectionRef.where("postType", "==", "wordpress-import");
     // CORRECTED: Use .get()
     const querySnapshot = await q.get();
+    console.log(`importAllWordPressPosts: Query for existing posts returned ${querySnapshot.size} documents.`);
     querySnapshot.forEach(doc => {
         const data = doc.data();
         if (data.wordPressId) {
             existingPostIds.add(data.wordPressId);
+            console.log(`importAllWordPressPosts: Added existing wordPressId: ${data.wordPressId}`);
         }
     });
-    console.log(`importAllWordPressPosts: Found ${existingPostIds.size} existing posts in ${appId} for user ${user.uid}.`);
+    console.log(`importAllWordPressPosts: Final existingPostIds set:`, existingPostIds);
     onProgress(`Found ${existingPostIds.size} existing posts. New content will be added.`);
 
     let page = 1;

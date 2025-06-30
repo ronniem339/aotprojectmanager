@@ -123,6 +123,7 @@ window.WordPressImportTool = () => {
                         userId: user.uid
                     };
                     console.log("Prepared postData for Firebase:", postData);
+                    console.log("Batch setting document:", postRef.path, "with data:", postData);
                     // Use merge: true to update existing posts without overwriting fields that might have been changed in the app
                     batch.set(postRef, postData, { merge: true });
                 });
