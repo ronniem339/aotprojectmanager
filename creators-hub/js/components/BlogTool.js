@@ -1,9 +1,11 @@
-// js/components/BlogTool.js
+// creators-hub/js/components/BlogTool.js
 
 (() => { // Wrapped in an IIFE to prevent variable scope issues
     const { useState, useMemo, useCallback, useEffect } = React;
 
     // --- MODAL COMPONENTS ---
+    // These components are defined locally within the IIFE and are safe to use.
+    
     const VideoCompanionModal = ({ onGenerate, onCancel, db, userId, APP_ID, displayNotification, isGenerating }) => {
         const [projects, setProjects] = useState([]);
         const [videos, setVideos] = useState([]);
@@ -180,9 +182,7 @@
         );
     };
 
-
     // --- MAIN BLOG TOOL COMPONENT ---
-
     window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, displayNotification }) => {
         const [modalView, setModalView] = useState(null);
         const [isGenerating, setIsGenerating] = useState(false);
@@ -190,7 +190,11 @@
         const [isLoadingPosts, setIsLoadingPosts] = useState(true);
         
         const { APP_ID } = window.CREATOR_HUB_CONFIG;
-        const { BlogIdeasDashboard, LoadingSpinner } = window;
+        
+        // ** THE FIX IS HERE **
+        // Instead of destructuring at the top of the function, we access dependencies directly 
+        // from the `window` object inside the return statement. This is more resilient to race conditions.
+        // REMOVED: const { BlogIdeasDashboard, LoadingSpinner } = window;
 
         const ideasCollectionRef = useMemo(() => {
             if (!userId) return null;
@@ -202,41 +206,29 @@
             return db.collection(`artifacts/${APP_ID}/users/${userId}/blogPosts`);
         }, [db, APP_ID, userId]);
 
-        // Fetch imported posts for display
         useEffect(() => {
             if (!blogPostsCollectionRef) {
                 setIsLoadingPosts(false);
                 return;
             }
-
             setIsLoadingPosts(true);
-            const unsubscribe = blogPostsCollectionRef
-                .onSnapshot(snapshot => {
-                    const posts = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return { id: doc.id, ...data };
-                    });
-                    
-                    // ** THIS IS THE CHANGE: Filter out imported WordPress posts. **
-                    const postsToDisplay = posts.filter(post => post.postType !== 'wordpress-import');
-                    
-                    setImportedPosts(postsToDisplay);
-                    setIsLoadingPosts(false);
-                }, error => {
-                    console.error("Error fetching imported posts:", error);
-                    displayNotification("Error loading imported posts.", 'error');
-                    setIsLoadingPosts(false);
-                });
-
+            const q = blogPostsCollectionRef.where("postType", "==", "wordpress-import");
+            const unsubscribe = q.onSnapshot(snapshot => {
+                const postsToDisplay = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setImportedPosts(postsToDisplay);
+                setIsLoadingPosts(false);
+            }, error => {
+                console.error("Error fetching imported posts:", error);
+                displayNotification("Error loading imported posts.", 'error');
+                setIsLoadingPosts(false);
+            });
             return () => unsubscribe();
         }, [blogPostsCollectionRef, displayNotification]);
-
 
         const handleGeneratePost = useCallback(async (generationTask) => {
             setIsGenerating(true);
             setModalView(null);
             displayNotification('AI is now generating your post...', 'info');
-
             try {
                 const generatedData = await generationTask.aiFunction(generationTask.options, settings, settings.knowledgeBases);
 
@@ -245,7 +237,6 @@
                 }
 
                 const docRef = ideasCollectionRef.doc();
-                
                 const postData = {
                     title: generatedData.title || generationTask.title,
                     blogPostContent: generatedData.htmlContent,
@@ -261,7 +252,6 @@
                 
                 await docRef.set(postData);
                 displayNotification(`Successfully generated post: "${postData.title}"`, 'success');
-
             } catch (err) {
                 console.error(`Failed to generate post: ${err.message}`);
                 displayNotification(`Error generating post. ${err.message}`, 'error');
@@ -281,7 +271,7 @@
                 ),
                 React.createElement('div', { className: "glass-card p-6 rounded-lg mb-8" },
                     React.createElement('h3', { className: "text-lg font-semibold mb-4 text-white" }, "Content Creation Menu"),
-                    isGenerating && React.createElement(LoadingSpinner, { text: "AI is working its magic... Please wait." }),
+                    isGenerating && window.LoadingSpinner && React.createElement(window.LoadingSpinner, { text: "AI is working its magic... Please wait." }),
                     React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" },
                         React.createElement('button', { onClick: () => setModalView('video'), disabled: isGenerating, className: "menu-btn" }, "📝 From a Video"),
                         React.createElement('button', { onClick: () => setModalView('affiliate'), disabled: isGenerating, className: "menu-btn" }, "💰 Monetizable Post"),
@@ -291,13 +281,15 @@
                 modalView === 'video' && React.createElement(VideoCompanionModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), db: db, userId: userId, APP_ID: APP_ID, displayNotification: displayNotification, isGenerating: isGenerating }),
                 modalView === 'affiliate' && React.createElement(AffiliatePostModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), displayNotification: displayNotification, isGenerating: isGenerating }),
                 modalView === 'guide' && React.createElement(DestinationGuideModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), blogPostsCollectionRef: blogPostsCollectionRef, displayNotification: displayNotification, isGenerating: isGenerating }),
-                React.createElement(BlogIdeasDashboard, { userId: userId, db: db, settings: settings, onOpenPublisher: onPublishPosts, onViewPost: onViewPost }),
+                
+                // ** THE FIX IS HERE **
+                // Check if the component exists on `window` before attempting to render it.
+                window.BlogIdeasDashboard && React.createElement(window.BlogIdeasDashboard, { userId: userId, db: db, settings: settings, onOpenPublisher: onPublishPosts, onViewPost: onViewPost }),
+                
                 React.createElement('div', { className: "glass-card p-6 rounded-lg mt-8" },
-                    React.createElement('h3', { className: "text-lg font-semibold mb-4 text-white" }, "Published Posts"), // Changed heading for clarity
-                    isLoadingPosts && React.createElement(LoadingSpinner, { text: "Loading posts..." }),
-                    !isLoadingPosts && importedPosts.length === 0 && (
-                        React.createElement('p', { className: "text-gray-400" }, "No posts have been published yet.")
-                    ),
+                    React.createElement('h3', { className: "text-lg font-semibold mb-4 text-white" }, "Published Posts"),
+                    isLoadingPosts && window.LoadingSpinner && React.createElement(window.LoadingSpinner, { text: "Loading posts..." }),
+                    !isLoadingPosts && importedPosts.length === 0 && React.createElement('p', { className: "text-gray-400" }, "No posts have been published yet."),
                     !isLoadingPosts && importedPosts.length > 0 && (
                         React.createElement('div', { className: "space-y-4" },
                             importedPosts.map(post => (
