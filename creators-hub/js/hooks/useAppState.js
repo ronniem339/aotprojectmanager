@@ -370,9 +370,11 @@ window.useAppState = () => {
                 handlers.updateTaskStatus(task.id, 'publishing', { message: 'Generating final HTML for WordPress...' });
 
                 // Step 1: Generate the final HTML content and metadata using the AI function
+                // **FIX:** Added the 'tone' parameter to the function call
                 const { htmlContent, excerpt, tags, categories } = await window.aiUtils.generateWordPressPostHTMLAI({
                     idea: idea,
-                    settings: settings
+                    settings: settings,
+                    tone: settings.tone || 'neutral'
                 });
 
                 const wordpressConfig = settings.wordpress;
@@ -463,7 +465,7 @@ window.useAppState = () => {
             });
             handlers.setShowPublisherModal(false);
         },
-                handleViewGeneratedPost: (ideaOrTaskId) => {
+              handleViewGeneratedPost: (ideaOrTaskId) => {
             let ideaId;
 
             if (typeof ideaOrTaskId === 'string') {
