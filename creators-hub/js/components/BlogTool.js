@@ -190,11 +190,6 @@
         const [isLoadingPosts, setIsLoadingPosts] = useState(true);
         
         const { APP_ID } = window.CREATOR_HUB_CONFIG;
-        
-        // ** THE FIX IS HERE **
-        // Instead of destructuring at the top of the function, we access dependencies directly 
-        // from the `window` object inside the return statement. This is more resilient to race conditions.
-        // REMOVED: const { BlogIdeasDashboard, LoadingSpinner } = window;
 
         const ideasCollectionRef = useMemo(() => {
             if (!userId) return null;
@@ -260,6 +255,9 @@
             }
         }, [settings, ideasCollectionRef, displayNotification]);
 
+        // ** THE FIX IS HERE **
+        const buttonClasses = "w-full p-4 bg-gray-800/60 rounded-lg text-white font-semibold text-center transition-all duration-300 ease-in-out hover:bg-gray-700/80 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-3";
+
         return (
             React.createElement('div', { className: "p-4 sm:p-6 md:p-8" },
                 React.createElement('header', { className: "flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4" },
@@ -273,17 +271,16 @@
                     React.createElement('h3', { className: "text-lg font-semibold mb-4 text-white" }, "Content Creation Menu"),
                     isGenerating && window.LoadingSpinner && React.createElement(window.LoadingSpinner, { text: "AI is working its magic... Please wait." }),
                     React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" },
-                        React.createElement('button', { onClick: () => setModalView('video'), disabled: isGenerating, className: "menu-btn" }, "📝 From a Video"),
-                        React.createElement('button', { onClick: () => setModalView('affiliate'), disabled: isGenerating, className: "menu-btn" }, "💰 Monetizable Post"),
-                        React.createElement('button', { onClick: () => setModalView('guide'), disabled: isGenerating, className: "menu-btn" }, "🗺️ Destination Guide")
+                        // ** THE FIX IS HERE **
+                        React.createElement('button', { onClick: () => setModalView('video'), disabled: isGenerating, className: buttonClasses }, "📝 From a Video"),
+                        React.createElement('button', { onClick: () => setModalView('affiliate'), disabled: isGenerating, className: buttonClasses }, "💰 Monetizable Post"),
+                        React.createElement('button', { onClick: () => setModalView('guide'), disabled: isGenerating, className: buttonClasses }, "🗺️ Destination Guide")
                     )
                 ),
                 modalView === 'video' && React.createElement(VideoCompanionModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), db: db, userId: userId, APP_ID: APP_ID, displayNotification: displayNotification, isGenerating: isGenerating }),
                 modalView === 'affiliate' && React.createElement(AffiliatePostModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), displayNotification: displayNotification, isGenerating: isGenerating }),
                 modalView === 'guide' && React.createElement(DestinationGuideModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), blogPostsCollectionRef: blogPostsCollectionRef, displayNotification: displayNotification, isGenerating: isGenerating }),
                 
-                // ** THE FIX IS HERE **
-                // Check if the component exists on `window` before attempting to render it.
                 window.BlogIdeasDashboard && React.createElement(window.BlogIdeasDashboard, { userId: userId, db: db, settings: settings, onOpenPublisher: onPublishPosts, onViewPost: onViewPost }),
                 
                 React.createElement('div', { className: "glass-card p-6 rounded-lg mt-8" },
