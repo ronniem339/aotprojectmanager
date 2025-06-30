@@ -14,7 +14,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
         ${styleGuidePrompt}
 
         **Blog Post Details:**
-        - **Title:** ${title}
+        - **Title:** ${String(title)}
         - **Raw Content:**
 ${String(blogPostContent)}
 
