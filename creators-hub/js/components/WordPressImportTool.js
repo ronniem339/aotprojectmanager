@@ -91,7 +91,7 @@ window.WordPressImportTool = () => {
                     const postCategoryIds = post.categories || [];
                     const location = postCategoryIds.length > 0 ? categoryMap.get(postCategoryIds[0]) || '' : '';
                     const postTagIds = post.tags || [];
-                    const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean); // .filter(Boolean) removes any undefined if a tag is not found
+                    const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean).map(tag => tag.toLowerCase()); // Ensure tags are lowercase
 
                     const postData = {
                         title: post.title.rendered,
