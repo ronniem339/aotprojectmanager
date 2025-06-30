@@ -12,12 +12,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         proModelName: ''
     });
 
-    // State for the importer
-    const [isImporting, setIsImporting] = useState(false);
-    const [importProgress, setImportProgress] = useState('');
-    const [importError, setImportError] = useState('');
-    const [importSuccess, setImportSuccess] = useState('');
-    
     // State for the deduplication tool
     const [isDeduplicating, setIsDeduplicating] = useState(false);
     const [deduplicationProgress, setDeduplicationProgress] = useState('');
@@ -25,8 +19,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     const [deduplicationSuccess, setDeduplicationSuccess] = useState('');
 
     const { db, user, currentSettings } = appState;
-    // CORRECTED: Connection is ready when db and user are available. Settings are checked later.
-    const isConnectionReady = db && user;
+    const isConnectionReady = db && user && currentSettings;
 
     useEffect(() => {
         if (settings) {
@@ -51,58 +44,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         onSave({ ...settings, ...localSettings });
     };
 
-    const handleRunImporter = async () => {
-        setIsImporting(true);
-        setImportProgress('Starting import process...');
-        setImportError('');
-        setImportSuccess('');
-
-        try {
-            // CORRECTED: Add a guard to ensure settings are loaded before proceeding.
-            if (!currentSettings) {
-                throw new Error("Settings are not loaded yet. Please wait a moment and try again.");
-            }
-
-            const { wordpress, googleMapsApiKey } = currentSettings;
-            if (!wordpress || !wordpress.url || !wordpress.username || !wordpress.applicationPassword) {
-                throw new Error("WordPress settings are incomplete.");
-            }
-            if (!googleMapsApiKey) {
-                throw new Error("Google Maps API key is required for location detection.");
-            }
-
-            // 1. Fetch all tags from WordPress to identify potential locations
-            setImportProgress('Fetching all WordPress tags...');
-            const tagsResponse = await fetch(`/.netlify/functions/fetch-wp-tags?url=${encodeURIComponent(wordpress.url)}&user=${encodeURIComponent(wordpress.username)}&pass=${encodeURIComponent(wordpress.applicationPassword)}`);
-            if (!tagsResponse.ok) throw new Error('Failed to fetch WordPress tags.');
-            const tagsData = await tagsResponse.json();
-            const allTagNames = tagsData.map(tag => tag.name);
-
-            // 2. Batch geocode all tags to create a location map
-            setImportProgress(`Found ${allTagNames.length} unique tags. Geocoding to find locations...`);
-            const geocodeResponse = await fetch(`/.netlify/functions/batch-geocode-tags?tags=${encodeURIComponent(allTagNames.join(','))}&apiKey=${googleMapsApiKey}`);
-            if (!geocodeResponse.ok) throw new Error('Failed to geocode tags for location mapping.');
-            const locationTagMap = await geocodeResponse.json();
-            setImportProgress('Location map created. Starting post import...');
-
-            // 3. Run the importer with the new location map
-            const totalImported = await window.wordpressUtils.importAllWordPressPosts({
-                db: db,
-                user: user,
-                wordpressConfig: wordpress,
-                onProgress: (message) => setImportProgress(message),
-                locationTagMap: locationTagMap
-            });
-
-            setImportSuccess(`Import complete! Successfully imported/updated ${totalImported} posts.`);
-        } catch (err) {
-            console.error("Import Failed:", err);
-            setImportError(`Import failed: ${err.message}`);
-        } finally {
-            setIsImporting(false);
-        }
-    };
-    
     const handleRunDeduplicator = async () => {
         setIsDeduplicating(true);
         setDeduplicationProgress('Starting cleanup...');
@@ -123,27 +64,13 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
             setIsDeduplicating(false);
         }
     };
-   return (
-        <div className="p-8">
-            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ Back to Settings Menu
-            </button>
-
-            {/* ADD THIS ONE-OFF TOOL HERE */}
-            <window.OneOffWordPressUpdater appState={appState} />
-
-            <div className="space-y-12">
-                {/* ... all the other content of the settings page ... */}
-            </div>
-        </div>
-    );
-};
 
     return (
         <div className="p-8">
             <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
                 ⬅️ Back to Settings Menu
             </button>
+
             <div className="space-y-12">
                 {/* API Keys & Model Settings Section */}
                 <div className="max-w-2xl">
@@ -192,11 +119,16 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                      <window.WordpressSettings settings={settings} onSave={onSave} />
                 </div>
                 
-                {/* --- UPDATED Data Management Section --- */}
+                {/* --- Data Management Section --- */}
                 <div className="border-t border-gray-700 pt-10 max-w-2xl">
                     <h1 className="text-3xl font-bold mb-2">Data Management</h1>
 
-                    {/* --- NEW: Cleanup Tool UI --- */}
+                    {/* --- One-Off Updater Tool --- */}
+                    <window.OneOffWordPressUpdater appState={appState} />
+
+                    <hr className="my-8 border-gray-700" />
+                    
+                    {/* --- Data Cleanup Tool --- */}
                     <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
                         <h3 className="text-xl font-bold mb-4">Data Cleanup Tool</h3>
                         <p className="mb-4 text-gray-400">
@@ -206,7 +138,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                             <button 
                               onClick={handleRunDeduplicator} 
                               className="btn btn-secondary"
-                              disabled={!isConnectionReady || isImporting}
+                              disabled={!isConnectionReady}
                             >
                                 {isConnectionReady ? 'Find & Remove Duplicates' : 'Connecting...'}
                             </button>
@@ -219,33 +151,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                         )}
                         {!isDeduplicating && deduplicationError && <p className="text-red-400 mt-4 font-semibold">{deduplicationError}</p>}
                         {!isDeduplicating && deduplicationSuccess && <p className="text-green-400 font-semibold mt-4">{deduplicationSuccess}</p>}
-                    </div>
-
-                    <hr className="my-8 border-gray-700" />
-                    
-                    {/* --- Importer Tool UI --- */}
-                    <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
-                        <h3 className="text-xl font-bold mb-4">WordPress Content Importer</h3>
-                        <p className="mb-4 text-gray-400">
-                            Import all existing posts from your WordPress blog. This tool is now safe to run multiple times.
-                        </p>
-                        {!isImporting && !importSuccess && (
-                            <button 
-                              onClick={handleRunImporter} 
-                              className="btn btn-primary"
-                              disabled={!isConnectionReady || isDeduplicating}
-                            >
-                                {isConnectionReady ? 'Start WordPress Import' : 'Connecting...'}
-                            </button>
-                        )}
-                        {isImporting && (
-                            <div className="flex items-center space-x-2">
-                                <window.LoadingSpinner isButton={false} />
-                                <p className="text-gray-300 font-medium">{importProgress}</p>
-                            </div>
-                        )}
-                        {!isImporting && importError && <p className="text-red-400 mt-4 font-semibold">{importError}</p>}
-                        {!isImporting && importSuccess && <p className="text-green-400 font-semibold mt-4">{importSuccess}</p>}
                     </div>
                 </div>
                 
