@@ -232,7 +232,13 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
         setIsLoadingPosts(true);
         const unsubscribe = blogPostsCollectionRef
             .onSnapshot(snapshot => {
-                const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log("Firestore snapshot received:", snapshot.size, "documents");
+                const posts = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    console.log("Document data:", data);
+                    return { id: doc.id, ...data };
+                });
+                console.log("Processed posts:", posts);
                 setImportedPosts(posts);
                 setIsLoadingPosts(false);
             }, error => {
