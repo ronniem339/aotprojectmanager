@@ -326,10 +326,6 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         let postsInThisBatch = 0;
         
         posts.forEach(post => {
-            if (existingPostIds.has(post.id)) {
-                return; 
-            }
-
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
             const postData = {
                 title: post.title.rendered,
@@ -339,11 +335,10 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
                 postType: 'wordpress-import',
                 wordPressId: post.id,
                 url: post.link,
-                // CORRECTED: Use window.firebase.firestore.Timestamp for v8-compatible code
                 createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                 userId: user.uid
             };
-            batch.set(postRef, postData);
+            batch.set(postRef, postData, { merge: true }); // Always merge to update existing fields
             postsInThisBatch++;
         });
 
