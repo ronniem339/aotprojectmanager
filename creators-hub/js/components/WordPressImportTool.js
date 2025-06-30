@@ -72,8 +72,23 @@ window.WordPressImportTool = () => {
                 const response = await fetch(`/.netlify/functions/fetch-wp-posts?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}&page=${page}`);
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Failed to fetch posts. Status: ${response.status}. Message: ${errorData.message || 'Check Netlify function logs.'}`);
+                    const errorText = await response.text(); // Get raw text to check for specific message
+                    let errorMessage = `Failed to fetch posts. Status: ${response.status}.`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage += ` Message: ${errorData.message || 'Check Netlify function logs.'}`;
+                    } catch (e) {
+                        errorMessage += ` Raw response: ${errorText}`;
+                    }
+
+                    // Check for the specific WordPress pagination error
+                    if (response.status === 400 && errorText.includes('page number requested is larger than the number of pages available')) {
+                        console.warn(`WordPress import: Reached end of posts on page ${page}. Stopping import.`);
+                        hasMorePosts = false;
+                        continue; // Exit the current iteration and the while loop
+                    } else {
+                        throw new Error(errorMessage);
+                    }
                 }
 
                 const posts = await response.json();
