@@ -173,9 +173,9 @@
                     React.createElement('div', { className: "flex-grow overflow-y-auto space-y-2 pr-2" },
                         isFetching && React.createElement(window.LoadingSpinner, { text: "Searching for articles..." }),
                         !isFetching && articles.length > 0 && articles.map(article => (
-                            React.createElement('div', { key: article.id, className: "flex items-center space-x-3 bg-gray-800/50 p-2 rounded" },
-                                React.createElement('input', { type: "checkbox", checked: selectedArticles.has(article.id), onChange: () => handleSelect(article.id), className: "form-checkbox" }),
-                                React.createElement('label', { className: "text-sm text-gray-200" }, article.title)
+                            React.createElement('div', { key: article.id, className: "flex items-center space-x-3 bg-gray-800/50 p-2 rounded cursor-pointer", onClick: () => handleSelect(article.id) },
+                                React.createElement('input', { type: "checkbox", checked: selectedArticles.has(article.id), onChange: () => handleSelect(article.id), className: "form-checkbox pointer-events-none" }),
+                                React.createElement('label', { className: "text-sm text-gray-200 pointer-events-none", dangerouslySetInnerHTML: { __html: article.title } })
                             )
                         )),
                         !isFetching && articles.length === 0 && location && (

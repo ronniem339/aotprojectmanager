@@ -97,12 +97,12 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onOpenPublisher, onViewPost
             generatedIdeas.length > 0 ? (
                 React.createElement('div', { className: 'space-y-4' },
                     generatedIdeas.map(idea => (
-                        React.createElement('div', { key: idea.id, className: 'flex items-center justify-between bg-gray-800 p-3 rounded-lg' },
-                            React.createElement('div', { className: 'flex items-center' },
+                        React.createElement('div', { key: idea.id, className: 'flex items-center justify-between bg-gray-800 p-3 rounded-lg cursor-pointer', onClick: () => handleSelectIdea(idea.id) },
+                            React.createElement('div', { className: 'flex items-center pointer-events-none' },
                                 React.createElement('input', { type: 'checkbox', className: 'form-checkbox h-5 w-5 text-blue-600', checked: selectedIdeas.includes(idea.id), onChange: () => handleSelectIdea(idea.id) }),
-                                React.createElement('span', { className: 'ml-4 text-white' }, idea.title)
+                                React.createElement('span', { className: 'ml-4 text-white', dangerouslySetInnerHTML: { __html: idea.title } })
                             ),
-                            React.createElement('button', { onClick: () => handleViewPost(idea), className: 'btn btn-secondary btn-sm' }, 'View')
+                            React.createElement('button', { onClick: (e) => { e.stopPropagation(); handleViewPost(idea); }, className: 'btn btn-secondary btn-sm' }, 'View')
                         )
                     ))
                 )
