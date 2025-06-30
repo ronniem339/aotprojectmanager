@@ -144,27 +144,46 @@ window.useAppState = () => {
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
     
+    // **FIX:** This useEffect now correctly handles both 'generate-post' and 'publish-post' task types.
     useEffect(() => {
         const processTaskQueue = async () => {
             if (isTaskQueueProcessing || taskQueue.length === 0) {
                 return;
             }
-            setIsTaskQueueProcessing(true);
-            const task = taskQueue[0];
-            if (task.status === 'queued') {
-                if (task.type === 'generate-post') {
-                    await handlers.executeGenerateBlogContent(task);
-                }
-                // Future task types can be handled here
+
+            const taskToProcess = taskQueue.find(t => t.status === 'queued');
+            if (!taskToProcess) {
+                return;
             }
-            // Remove the processed task from the queue
-            setTaskQueue(prevQueue => prevQueue.slice(1));
+            
+            setIsTaskQueueProcessing(true);
+
+            if (taskToProcess.type === 'generate-post') {
+                await handlers.executeGenerateBlogContent(taskToProcess);
+            } else if (taskToProcess.type === 'publish-post') {
+                await handlers.executePublishToWordPress(taskToProcess);
+            }
+            
             setIsTaskQueueProcessing(false);
         };
-        processTaskQueue();
-    }, [taskQueue, isTaskQueueProcessing]);
 
-    // All handler functions are defined here...
+        const cleanupInterval = setInterval(() => {
+            setTaskQueue(prevQueue => {
+                const now = Date.now();
+                return prevQueue.filter(task => {
+                    if ((task.status === 'complete' || task.status === 'failed') && task.completedAt) {
+                        return (now - task.completedAt) < 120000;
+                    }
+                    return true;
+                });
+            });
+        }, 5000);
+
+        processTaskQueue();
+
+        return () => clearInterval(cleanupInterval);
+    }, [taskQueue, isTaskQueueProcessing, handlers]);
+
     const handlers = {
         handleSelectProject: (project) => {
             setSelectedProject(project);
@@ -298,19 +317,36 @@ window.useAppState = () => {
         updateTaskStatus: (taskId, status, result = null) => {
             setTaskQueue(prevQueue => prevQueue.map(task => {
                 if (task.id === taskId) {
-                    return { ...task, status, result };
+                    let newName = task.name;
+                    let newStatus = status;
+                    let completedAt = task.completedAt;
+
+                    if (status === 'complete' || status === 'failed') {
+                        completedAt = Date.now();
+                    }
+
+                    if (task.type === 'generate-post') {
+                        if (status === 'generating') newName = `Generating content for: ${task.data.idea.title} - ${result?.message || ''}`;
+                        else if (status === 'complete') newName = `Content generated for: ${task.data.idea.title}`;
+                        else if (status === 'failed') newName = `Failed to generate content for: ${task.data.idea.title}`;
+                    } else if (task.type === 'publish-post') {
+                        if (status === 'publishing') newName = `Publishing to WordPress: ${task.data.idea.title}`;
+                        else if (status === 'complete') newName = `Published to WordPress: ${task.data.idea.title}`;
+                        else if (status === 'failed') newName = `Failed to publish to WordPress: ${task.data.idea.title}`;
+                    }
+                    return { ...task, status: newStatus, result, name: newName, completedAt };
                 }
                 return task;
             }));
         },
-        // Placeholder for task execution logic
         executeGenerateBlogContent: async (task) => {
             const { idea, video } = task.data;
             try {
                 handlers.updateTaskStatus(task.id, 'generating');
-                const result = await window.aiUtils.generateBlogPostContentAI(idea, settings, video);
-                handlers.updateTaskStatus(task.id, 'complete', result);
-                // Also update the idea in Firestore
+                const result = await window.aiUtils.generateBlogPostContentAI(idea, settings, video, (progressMessage) => {
+                    handlers.updateTaskStatus(task.id, 'generating', { message: progressMessage });
+                });
+                handlers.updateTaskStatus(task.id, 'complete', { ...result, viewable: true });
                 const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
                 await ideaRef.update({ status: 'generated', blogPostContent: result.blogPostContent });
             } catch (error) {
@@ -320,7 +356,62 @@ window.useAppState = () => {
                 await ideaRef.update({ status: 'failed' });
             }
         },
-        executePublishToWordPress: async(data) => {},
+        // **FIX:** Fully implemented the publishing logic with intelligent category selection.
+        executePublishToWordPress: async (task) => {
+            const { idea } = task.data;
+            try {
+                const wordpressConfig = settings.wordpress;
+                if (!wordpressConfig || !wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
+                    throw new Error('WordPress settings are not fully configured.');
+                }
+
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Fetching WordPress categories...' });
+                const availableCategories = await window.wordpressUtils.getWordPressCategories(wordpressConfig);
+                const availableCategoryNames = availableCategories.map(cat => cat.name);
+
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Generating post and selecting category...' });
+                const { htmlContent, excerpt, tags, categories } = await window.aiUtils.generateWordPressPostHTMLAI({
+                    idea: idea,
+                    settings: settings,
+                    tone: settings.tone || 'neutral',
+                    availableCategories: availableCategoryNames
+                });
+
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Processing tags...' });
+                const tagIds = await window.wordpressUtils.getAndCreateTags(tags, wordpressConfig);
+
+                const categoryName = categories && categories.length > 0 ? categories[0] : 'Uncategorized';
+                const category = availableCategories.find(cat => cat.name.toLowerCase() === categoryName.toLowerCase());
+                const categoryId = category ? category.id : null;
+
+                handlers.updateTaskStatus(task.id, 'publishing', { message: 'Uploading to WordPress...' });
+                const postData = {
+                    title: idea.title,
+                    htmlContent,
+                    excerpt,
+                    tags: tagIds,
+                    categoryId,
+                };
+                const result = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
+
+                handlers.updateTaskStatus(task.id, 'complete', result);
+                const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
+                await ideaRef.update({
+                    status: 'published',
+                    finalHtmlContent: htmlContent,
+                    publishedAt: new Date()
+                });
+
+                handlers.displayNotification(`Successfully published "${idea.title}" to WordPress!`, 'success');
+
+            } catch (error) {
+                console.error("Error executing publish to WordPress task:", error);
+                handlers.updateTaskStatus(task.id, 'failed', { error: error.message });
+                const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
+                await ideaRef.update({ status: 'failed' });
+                handlers.displayNotification(`Failed to publish "${idea.title}": ${error.message}`, 'error');
+            }
+        },
         handleGeneratePostTask: async (idea) => {
             if (!user || !firebaseDb) return;
             const { relatedProjectId, relatedVideoId } = idea;
@@ -328,55 +419,73 @@ window.useAppState = () => {
             if (relatedProjectId && relatedVideoId) {
                 const videoRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects/${relatedProjectId}/videos`).doc(relatedVideoId);
                 const videoSnap = await videoRef.get();
-                if (videoSnap.exists) {
-                    video = videoSnap.data();
-                }
+                if (videoSnap.exists) video = videoSnap.data();
             }
             const task = {
-                id: `generate-post-${idea.id}`,
-                type: 'generate-post',
-                status: 'queued',
-                data: { idea, video },
-                createdAt: new Date(),
+                id: `generate-post-${idea.id}`, type: 'generate-post', name: `Generating: ${idea.title}`,
+                status: 'queued', data: { idea, video }, createdAt: new Date(),
             };
             handlers.addTask(task);
         },
-        handlePublishPostsTask: () => {},
-        handleOpenPublisher: () => {},
-        handleViewGeneratedPost: () => {},
+        handleOpenPublisher: (ideas) => {
+            setIdeasToPublish(ideas);
+            setShowPublisherModal(true);
+        },
+        // **FIX:** Implemented the logic to create and queue 'publish-post' tasks.
+        handlePublishPostsTask: (ideas) => {
+            if (!user || !firebaseDb) return;
+            ideas.forEach(idea => {
+                const task = {
+                    id: `publish-post-${idea.id}`, type: 'publish-post', name: `Publishing: ${idea.title}`,
+                    status: 'queued', data: { idea }, createdAt: new Date(),
+                };
+                handlers.addTask(task);
+            });
+            handlers.setShowPublisherModal(false);
+        },
+        handleViewGeneratedPost: (ideaOrTaskId) => {
+            let ideaId;
+            if (typeof ideaOrTaskId === 'string') {
+                ideaId = ideaOrTaskId.replace('generate-post-', '').replace('publish-post-', '');
+            } else if (typeof ideaOrTaskId === 'object' && ideaOrTaskId !== null) {
+                ideaId = ideaOrTaskId.id;
+            } else {
+                return handlers.displayNotification('Invalid item provided to view handler.', 'error');
+            }
+            if (!ideaId) return handlers.displayNotification('Could not determine the idea to view.', 'error');
+            
+            const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
+            ideaRef.get().then(doc => {
+                if (doc.exists && doc.data().blogPostContent) {
+                    setContentToView({ id: doc.id, ...doc.data() });
+                } else {
+                    handlers.displayNotification('Content not available yet or an error occurred.', 'info');
+                }
+            }).catch(error => {
+                console.error("Error fetching document from Firestore:", error);
+                handlers.displayNotification('Error fetching content from the database.', 'error');
+            });
+        },
         setProjectToDelete,
         setDraftToDelete,
         setShowProjectSelection,
         setShowPublisherModal,
         setContentToView,
+        handleRetryTask: (taskId) => {
+            setTaskQueue(prevQueue => prevQueue.map(task => {
+                if (task.id === taskId && task.status === 'failed') {
+                    return { ...task, status: 'queued', completedAt: null, result: null };
+                }
+                return task;
+            }));
+        },
     };
 
     return {
-        user,
-        isAuthReady,
-        currentView,
-        previousView,
-        selectedProject,
-        settings,
-        googleMapsLoaded,
-        activeProjectDraft,
-        activeDraftId,
-        showNotification,
-        notificationMessage,
-        showNewProjectWizard,
-        projectToDelete,
-        draftToDelete,
-        showProjectSelection,
-        isLoading,
-        appError,
-        firebaseAppInstance,
-        firebaseDb,
-        firebaseAuth,
-        taskQueue,
-        isTaskQueueProcessing,
-        showPublisherModal,
-        ideasToPublish,
-        contentToView,
-        handlers,
+        user, isAuthReady, currentView, previousView, selectedProject, settings, googleMapsLoaded,
+        activeProjectDraft, activeDraftId, showNotification, notificationMessage, showNewProjectWizard,
+        projectToDelete, draftToDelete, showProjectSelection, isLoading, appError, firebaseAppInstance,
+        firebaseDb, firebaseAuth, taskQueue, isTaskQueueProcessing, showPublisherModal,
+        ideasToPublish, contentToView, handlers,
     };
 };
