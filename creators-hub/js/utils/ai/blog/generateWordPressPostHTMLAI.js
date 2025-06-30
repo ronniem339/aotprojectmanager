@@ -5,7 +5,7 @@ window.aiUtils = window.aiUtils || {};
  */
 window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
     const { title, blogPostContent } = idea;
-    const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
+    const styleGuidePrompt = String(window.aiUtils.getStyleGuidePrompt(settings));
 
     const prompt =
         `
