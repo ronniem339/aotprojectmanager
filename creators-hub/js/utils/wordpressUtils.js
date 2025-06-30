@@ -322,8 +322,10 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
         
         // CORRECTED: Use db.batch()
-        const batch = db.batch();
-        let postsInThisBatch = 0;
+        const batchSize = 100; // Define batch size
+        let currentBatch = db.batch();
+        let batchCount = 0;
+        let postsProcessedInSession = 0;
         
         posts.forEach(post => {
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
@@ -338,17 +340,26 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
                 createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                 userId: user.uid
             };
-            batch.set(postRef, postData, { merge: true }); // Always merge to update existing fields
-            postsInThisBatch++;
+            currentBatch.set(postRef, postData, { merge: true });
+            batchCount++;
+            postsProcessedInSession++;
+
+            if (batchCount === batchSize) {
+                onProgress(`Committing batch of ${batchCount} posts...`);
+                currentBatch.commit();
+                currentBatch = db.batch(); // Start a new batch
+                batchCount = 0;
+            }
         });
 
-        if (postsInThisBatch > 0) {
-            await batch.commit();
-            totalPostsImportedThisSession += postsInThisBatch;
-            onProgress(`Successfully imported ${postsInThisBatch} new posts.`);
-        } else {
-            onProgress(`Page ${page} contained no new posts.`);
+        // Commit any remaining documents in the last batch
+        if (batchCount > 0) {
+            onProgress(`Committing final batch of ${batchCount} posts...`);
+            await currentBatch.commit();
         }
+
+        totalPostsImportedThisSession += postsProcessedInSession;
+        onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);
         
         page++;
     }
