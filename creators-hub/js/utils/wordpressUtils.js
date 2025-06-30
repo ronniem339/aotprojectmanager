@@ -77,13 +77,19 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     const token = btoa(`${username}:${applicationPassword}`);
     const headers = { 'Authorization': `Basic ${token}`, 'Content-Type': 'application/json' };
 
+    // **FIX:** Add a strict filter at the beginning to ensure we only work with valid strings.
+    const validTagNames = (tagNames || []).filter(tag => typeof tag === 'string' && tag.trim() !== '');
+    if (validTagNames.length === 0) {
+        return [];
+    }
+
     // 1. Fetch all existing tags
     const tagsEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
     let existingTags = [];
     try {
         const response = await fetch(tagsEndpoint, { headers });
         existingTags = await response.json();
-        if (!response.ok) existingTags = []; // Handle case where tags might not be enabled or user lacks permissions
+        if (!response.ok) existingTags = [];
     } catch (e) {
         console.warn("Could not fetch existing tags, may need to create all.", e);
     }
@@ -92,23 +98,18 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     const tagIds = [];
     const tagsToCreate = [];
 
-    // 2. Identify which tags need to be created, ensuring they are valid
-    for (const tagName of tagNames) {
-        // Ensure the tag name is not null, empty, or just whitespace
-        if (tagName && tagName.trim() !== '') {
-            const cleanTagName = tagName.trim();
-            const lowerCaseTag = cleanTagName.toLowerCase();
+    // 2. Identify which tags need to be created
+    for (const tagName of validTagNames) { // Use the validated list
+        const cleanTagName = tagName.trim();
+        const lowerCaseTag = cleanTagName.toLowerCase();
 
-            if (existingTagMap.has(lowerCaseTag)) {
-                // Add existing tag ID if not already in the list
-                if (!tagIds.includes(existingTagMap.get(lowerCaseTag))) {
-                    tagIds.push(existingTagMap.get(lowerCaseTag));
-                }
-            } else {
-                // Add new, unique tag to the creation list
-                if (!tagsToCreate.map(t => t.toLowerCase()).includes(lowerCaseTag)) {
-                   tagsToCreate.push(cleanTagName);
-                }
+        if (existingTagMap.has(lowerCaseTag)) {
+            if (!tagIds.includes(existingTagMap.get(lowerCaseTag))) {
+                tagIds.push(existingTagMap.get(lowerCaseTag));
+            }
+        } else {
+            if (!tagsToCreate.map(t => t.toLowerCase()).includes(lowerCaseTag)) {
+                tagsToCreate.push(cleanTagName);
             }
         }
     }
@@ -121,14 +122,11 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
                 headers: headers,
                 body: JSON.stringify({ name: tagName })
             }).then(res => {
-                // Add more detailed error handling inside the promise
                 if (!res.ok) {
                     return res.json().then(err => {
-                        // This error is okay; it means the tag already exists. We can grab its ID.
                         if (err.code === 'term_exists' && err.data?.term_id) {
                             return { id: err.data.term_id };
                         }
-                        // Log other errors but don't crash the entire process
                         console.error(`Failed to create tag "${tagName}":`, err.message || 'Unknown error');
                         return { error: true, message: err.message };
                     });
@@ -140,7 +138,6 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
         try {
             const newTags = await Promise.all(createTagPromises);
             newTags.forEach(newTag => {
-                // Only add tags that were successfully created and have an ID
                 if (newTag && newTag.id) {
                     tagIds.push(newTag.id);
                 }
@@ -149,8 +146,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
             console.error("Error processing tag creation promises in WordPress:", error);
         }
     }
-
-    // Return a unique set of tag IDs to prevent duplicates
+    
     return [...new Set(tagIds)];
 }
 
