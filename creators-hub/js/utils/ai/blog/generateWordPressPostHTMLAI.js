@@ -16,7 +16,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
         **Blog Post Details:**
         - **Title:** ${title}
         - **Raw Content:**
-${blogPostContent}
+${String(blogPostContent)}
 
         **Instructions:**
         1.  **Format the Content:** Convert the raw text into well-structured HTML. For each distinct content block (e.g., paragraph, heading, list, image), wrap the standard HTML tags with the corresponding Gutenberg block comments (e.g., <p>...</p>, <h2>...</h2>, <ul>...</ul>). For the FAQ section, specifically use the `` block or its equivalent if a more specific FAQ block structure is preferred.
