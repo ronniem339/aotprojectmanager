@@ -256,7 +256,8 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         throw new Error('WordPress settings are not fully configured.');
     }
 
-    const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+    const appId = window.CREATOR_HUB_CONFIG.APP_ID;
+    console.log("importAllWordPressPosts: Using appId", appId);
     // CORRECTED: Use the v8-compatible syntax db.collection(...)
     const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
@@ -271,6 +272,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
             existingPostIds.add(data.wordPressId);
         }
     });
+    console.log(`importAllWordPressPosts: Found ${existingPostIds.size} existing posts in ${appId} for user ${user.uid}.`);
     onProgress(`Found ${existingPostIds.size} existing posts. New content will be added.`);
 
     let page = 1;
