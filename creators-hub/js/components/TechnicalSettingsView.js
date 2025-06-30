@@ -123,7 +123,21 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
             setIsDeduplicating(false);
         }
     };
+   return (
+        <div className="p-8">
+            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
+                ⬅️ Back to Settings Menu
+            </button>
 
+            {/* ADD THIS ONE-OFF TOOL HERE */}
+            <window.OneOffWordPressUpdater appState={appState} />
+
+            <div className="space-y-12">
+                {/* ... all the other content of the settings page ... */}
+            </div>
+        </div>
+    );
+};
 
     return (
         <div className="p-8">
