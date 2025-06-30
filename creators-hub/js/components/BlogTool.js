@@ -203,11 +203,13 @@ const DestinationGuideModal = ({ onGenerate, onCancel, blogPostsCollectionRef, d
 // --- MAIN BLOG TOOL COMPONENT ---
 
 window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, displayNotification }) => {
-    const { useState, useMemo, useCallback } = React;
+    const { useState, useMemo, useCallback, useEffect } = React;
     const { BlogIdeasDashboard, LoadingSpinner } = window;
 
     const [modalView, setModalView] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [importedPosts, setImportedPosts] = useState([]);
+    const [isLoadingPosts, setIsLoadingPosts] = useState(true);
     
     const { APP_ID } = window.CREATOR_HUB_CONFIG;
     const ideasCollectionRef = useMemo(() => {
@@ -219,6 +221,30 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
         if (!userId) return null;
         return db.collection(`artifacts/${APP_ID}/users/${userId}/blogPosts`);
     }, [db, APP_ID, userId]);
+
+    // Fetch imported posts for display
+    useEffect(() => {
+        if (!blogPostsCollectionRef) {
+            setIsLoadingPosts(false);
+            return;
+        }
+
+        setIsLoadingPosts(true);
+        const unsubscribe = blogPostsCollectionRef
+            .where('postType', '==', 'wordpress-import')
+            .orderBy('createdAt', 'desc')
+            .onSnapshot(snapshot => {
+                const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setImportedPosts(posts);
+                setIsLoadingPosts(false);
+            }, error => {
+                console.error("Error fetching imported posts:", error);
+                displayNotification("Error loading imported posts.", 'error');
+                setIsLoadingPosts(false);
+            });
+
+        return () => unsubscribe();
+    }, [blogPostsCollectionRef, displayNotification]);
 
 
     const handleGeneratePost = useCallback(async (generationTask) => {
@@ -311,6 +337,25 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 onOpenPublisher={onPublishPosts} 
                 onViewPost={onViewPost}
             />
+
+            <div className="glass-card p-6 rounded-lg mt-8">
+                <h3 className="text-lg font-semibold mb-4 text-white">Imported WordPress Posts</h3>
+                {isLoadingPosts && <LoadingSpinner text="Loading imported posts..." />}
+                {!isLoadingPosts && importedPosts.length === 0 && (
+                    <p className="text-gray-400">No WordPress posts imported yet.</p>
+                )}
+                {!isLoadingPosts && importedPosts.length > 0 && (
+                    <div className="space-y-4">
+                        {importedPosts.map(post => (
+                            <div key={post.id} className="bg-gray-800/50 p-3 rounded-lg">
+                                <p className="text-white font-bold">{post.title}</p>
+                                <p className="text-gray-300 text-sm">Location: {post.location || 'N/A'} (Lowercase: {post.location_lowercase || 'N/A'})</p>
+                                <p className="text-gray-300 text-sm">Tags: {post.tags && post.tags.length > 0 ? post.tags.join(', ') : 'N/A'}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
