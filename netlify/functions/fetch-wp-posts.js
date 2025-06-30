@@ -11,7 +11,7 @@ exports.handler = async function(event, context) {
         };
     }
 
-    const apiUrl = `${url}/wp-json/wp/v2/posts?per_page=50&page=${page}&_fields=id,date_gmt,link,title,content,status,categories,tags`;
+    const apiUrl = `${url}/wp-json/wp/v2/posts?per_page=50&page=${page}&_embed`;
     const credentials = Buffer.from(`${user}:${pass}`).toString('base64');
 
     try {

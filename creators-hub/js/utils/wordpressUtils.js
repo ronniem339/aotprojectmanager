@@ -250,29 +250,25 @@ async function deduplicateWordPressPosts({ db, user, onProgress }) {
  * Fetches all posts from WordPress, checks for duplicates, and saves only new ones to Firestore.
  * This function is now idempotent and can be safely re-run.
  */
-async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, categoryMap, tagMap }) {
+async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }) {
     const { url, username, applicationPassword } = wordpressConfig;
     if (!url || !username || !applicationPassword) {
         throw new Error('WordPress settings are not fully configured.');
     }
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
-    console.log("importAllWordPressPosts: Using appId", appId);
     const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
     onProgress('Checking for already imported posts...');
     const existingPostIds = new Set();
     const q = blogPostsCollectionRef.where("postType", "==", "wordpress-import");
     const querySnapshot = await q.get();
-    console.log(`importAllWordPressPosts: Query for existing posts returned ${querySnapshot.size} documents.`);
     querySnapshot.forEach(doc => {
         const data = doc.data();
         if (data.wordPressId) {
             existingPostIds.add(data.wordPressId);
-            console.log(`importAllWordPressPosts: Added existing wordPressId: ${data.wordPressId}`);
         }
     });
-    console.log(`importAllWordPressPosts: Final existingPostIds set:`, existingPostIds);
     onProgress(`Found ${existingPostIds.size} existing posts. New content will be added.`);
 
     let page = 1;
@@ -284,7 +280,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
         const response = await fetch(`/.netlify/functions/fetch-wp-posts?url=${encodeURIComponent(url)}&user=${encodeURIComponent(username)}&pass=${encodeURIComponent(applicationPassword)}&page=${page}`);
 
         if (!response.ok) {
-            const errorBody = await response.text(); // Get raw text to check for specific message
+            const errorBody = await response.text(); 
             let errorMessage = `Failed to fetch posts. Status: ${response.status}.`;
             let isPaginationError = false;
 
@@ -295,7 +291,6 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
                     isPaginationError = true;
                 }
             } catch (e) {
-                // If parsing as JSON fails, it's likely a plain text error or malformed JSON
                 errorMessage += ` Raw response: ${errorBody}`;
                 if (errorBody.includes('page number requested is larger than the number of pages available')) {
                     isPaginationError = true;
@@ -303,16 +298,14 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
             }
 
             if (response.status === 400 && isPaginationError) {
-                console.warn(`WordPress import: Reached end of posts on page ${page}. Stopping import.`);
                 hasMorePosts = false;
-                continue; // Exit the current iteration and the while loop
+                continue;
             } else {
                 throw new Error(errorMessage);
             }
         }
 
         const posts = await response.json();
-        console.log(`Fetched ${posts.length} posts from page ${page}:`, posts);
 
         if (posts.length === 0) {
             hasMorePosts = false;
@@ -321,19 +314,20 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
         
         onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
         
-        const batchSize = 20; // Reduced batch size to prevent resource exhaustion
+        const batchSize = 20;
         let currentBatch = db.batch();
         let batchCount = 0;
         let postsProcessedInSession = 0;
         
         for (const post of posts) {
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
+            
+            const terms = post._embedded['wp:term'] || [];
+            const categories = terms[0] || [];
+            const tags = terms[1] || [];
 
-            // Derive location and tags here, directly within the import function
-            const postCategoryIds = post.categories || [];
-            const location = postCategoryIds.length > 0 ? categoryMap.get(postCategoryIds[0]) || '' : '';
-            const postTagIds = post.tags || [];
-            const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean).map(tag => tag.toLowerCase());
+            const location = categories.length > 0 ? categories[0].name : '';
+            const postTags = tags.map(tag => tag.name.toLowerCase());
 
             const postData = {
                 title: post.title.rendered,
@@ -348,49 +342,33 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
                 createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                 userId: user.uid
             };
-            console.log("Prepared postData for Firebase:", postData);
-            console.log("Batch setting document:", postRef.path, "with data:", postData);
 
             currentBatch.set(postRef, postData, { merge: true });
 
-            // No need to check existingPostIds.has(post.id) as we want to update all posts.
-            // The merge: true option will ensure existing documents are updated with new tag information.
-            // If the post is new, it will be created.
-            // If the post exists, its tags will be updated.
             batchCount++;
             postsProcessedInSession++;
 
             if (batchCount === batchSize) {
                 onProgress(`Committing batch of ${batchCount} posts...`);
-                await currentBatch.commit().then(() => {
-                    console.log(`Batch of ${batchCount} posts committed successfully.`);
-                }).catch(error => {
-                    console.error(`Error committing batch:`, error);
-                });
-                currentBatch = db.batch(); // Start a new batch
+                await currentBatch.commit();
+                currentBatch = db.batch(); 
                 batchCount = 0;
-                // Introduce a small delay to prevent resource exhaustion
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
 
-        // Commit any remaining documents in the last batch
         if (batchCount > 0) {
             onProgress(`Committing final batch of ${batchCount} posts...`);
-            await currentBatch.commit().then(() => {
-                console.log(`Final batch of ${batchCount} posts committed successfully.`);
-            }).catch(error => {
-                console.error(`Error committing final batch:`, error);
-            });
-            // Introduce a small delay after the final batch as well
+            await currentBatch.commit();
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         totalPostsImportedThisSession += postsProcessedInSession;
         onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);
+        page++;
     }
 
-    onProgress(`Import complete. Added ${totalPostsImportedThisSession} new posts this session.`);
+    onProgress(`Import complete. Added/updated ${totalPostsImportedThisSession} posts this session.`);
     return totalPostsImportedThisSession;
 }
 
