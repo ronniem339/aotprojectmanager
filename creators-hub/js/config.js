@@ -14,7 +14,7 @@ window.CREATOR_HUB_CONFIG = {
     },
 
     // These are environment variables that will be provided in the runtime environment.
-    APP_ID: typeof __app_id !== 'undefined' ? __app_id : 'creators-hub-deploy',
+    APP_ID: "aot-project-manager", // Use your Firebase projectId directly
     INITIAL_AUTH_TOKEN: typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null,
 
     // NEW: Add a timestamp that gets updated with each deployment.
