@@ -7,6 +7,7 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
     const { title, primaryKeyword } = idea;
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
+    // **FIX:** The instructions in this prompt have been corrected and clarified.
     const prompt = `
 You are an expert travel blogger and content creator with deep knowledge of the WordPress Gutenberg editor and OtterBlocks. Your task is to write a complete, engaging, and visually appealing blog post based on the provided title and keywords.
 
