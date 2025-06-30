@@ -105,7 +105,7 @@
         );
     };
 
-    const DestinationGuideModal = ({ onGenerate, onCancel, blogPostsCollectionRef, displayNotification, isGenerating }) => {
+    const DestinationGuideModal = ({ onGenerate, onCancel, ideasCollectionRef, blogPostsCollectionRef, displayNotification, isGenerating }) => {
         const [location, setLocation] = useState('');
         const [articles, setArticles] = useState([]);
         const [selectedArticles, setSelectedArticles] = useState(new Set());
@@ -116,12 +116,22 @@
             setIsFetching(true);
             try {
                 const lowerCaseLocation = location.toLowerCase();
-                const locationQuery = blogPostsCollectionRef.where('location_lowercase', '==', lowerCaseLocation);
-                const tagsQuery = blogPostsCollectionRef.where('tags', 'array-contains', lowerCaseLocation);
-                const [locationSnapshot, tagsSnapshot] = await Promise.all([locationQuery.get(), tagsQuery.get()]);
                 const articlesMap = new Map();
-                locationSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
-                tagsSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
+                // Query ideasCollectionRef
+                const ideasLocationQuery = ideasCollectionRef.where('location_lowercase', '==', lowerCaseLocation);
+                const ideasTagsQuery = ideasCollectionRef.where('tags', 'array-contains', lowerCaseLocation);
+                const [ideasLocationSnapshot, ideasTagsSnapshot] = await Promise.all([ideasLocationQuery.get(), ideasTagsQuery.get()]);
+                ideasLocationSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+                ideasTagsSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
+                // Query blogPostsCollectionRef (for WordPress imports)
+                const blogPostsLocationQuery = blogPostsCollectionRef.where('location_lowercase', '==', lowerCaseLocation);
+                const blogPostsTagsQuery = blogPostsCollectionRef.where('tags', 'array-contains', lowerCaseLocation);
+                const [blogPostsLocationSnapshot, blogPostsTagsSnapshot] = await Promise.all([blogPostsLocationQuery.get(), blogPostsTagsQuery.get()]);
+                blogPostsLocationSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+                blogPostsTagsSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
                 setArticles(Array.from(articlesMap.values()));
             } catch (e) {
                 console.error("Error fetching articles for guide:", e);
@@ -129,7 +139,7 @@
             } finally {
                 setIsFetching(false);
             }
-        }, [location, blogPostsCollectionRef, displayNotification]);
+        }, [location, ideasCollectionRef, blogPostsCollectionRef, displayNotification]);
 
         const handleSelect = (id) => {
             const newSelection = new Set(selectedArticles);
@@ -255,7 +265,7 @@
                 ),
                 modalView === 'video' && React.createElement(VideoCompanionModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), db: db, userId: userId, APP_ID: APP_ID, displayNotification: displayNotification, isGenerating: isGenerating }),
                 modalView === 'affiliate' && React.createElement(AffiliatePostModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), displayNotification: displayNotification, isGenerating: isGenerating }),
-                modalView === 'guide' && React.createElement(DestinationGuideModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), blogPostsCollectionRef: blogPostsCollectionRef, displayNotification: displayNotification, isGenerating: isGenerating }),
+                modalView === 'guide' && React.createElement(DestinationGuideModal, { onGenerate: handleGeneratePost, onCancel: () => setModalView(null), ideasCollectionRef: ideasCollectionRef, blogPostsCollectionRef: blogPostsCollectionRef, displayNotification: displayNotification, isGenerating: isGenerating }),
                 
                 window.BlogIdeasDashboard && React.createElement(window.BlogIdeasDashboard, { userId: userId, db: db, settings: settings, onOpenPublisher: onPublishPosts, onViewPost: onViewPost })
                 
