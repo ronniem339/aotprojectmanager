@@ -1,8 +1,8 @@
-// netlify/functions/fetch-wp-posts.js
+// netlify/functions/fetch-wp-tags.js
 const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
-    const { url, user, pass, page = 1 } = event.queryStringParameters;
+    const { url, user, pass } = event.queryStringParameters;
 
     if (!url || !user || !pass) {
         return {
@@ -11,7 +11,8 @@ exports.handler = async function(event, context) {
         };
     }
 
-    const apiUrl = `${url}/wp-json/wp/v2/posts?per_page=50&page=${page}&_fields=id,date_gmt,link,title,content,status,categories,tags`;
+    // Fetch up to 100 tags. 
+    const apiUrl = `${url}/wp-json/wp/v2/tags?per_page=100&_fields=id,name`;
     const credentials = Buffer.from(`${user}:${pass}`).toString('base64');
 
     try {
@@ -22,7 +23,6 @@ exports.handler = async function(event, context) {
         });
 
         if (!response.ok) {
-            // Forward the error from the WordPress API
             const errorBody = await response.text();
             return {
                 statusCode: response.status,
@@ -38,7 +38,7 @@ exports.handler = async function(event, context) {
     } catch (error) {
         return {
             statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to fetch from WordPress API.', error: error.message }),
+            body: JSON.stringify({ message: 'Failed to fetch tags from WordPress API.', error: error.message }),
         };
     }
 };

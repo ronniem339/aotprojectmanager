@@ -48,14 +48,20 @@ window.WordPressImportTool = () => {
             const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
             const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
-            // 1. Fetch all categories first
-            setProgressMessage('Fetching categories...');
-            const catResponse = await fetch(`/.netlify/functions/fetch-wp-categories?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}`);
-            if (!catResponse.ok) {
-                throw new Error('Failed to fetch WordPress categories.');
+            // 1. Fetch all categories and tags first
+            setProgressMessage('Fetching categories and tags...');
+            const [catResponse, tagResponse] = await Promise.all([
+                fetch(`/.netlify/functions/fetch-wp-categories?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}`),
+                fetch(`/.netlify/functions/fetch-wp-tags?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}`)
+            ]);
+
+            if (!catResponse.ok || !tagResponse.ok) {
+                throw new Error('Failed to fetch WordPress categories or tags.');
             }
-            const categories = await catResponse.json();
+
+            const [categories, tags] = await Promise.all([catResponse.json(), tagResponse.json()]);
             const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
+            const tagMap = new Map(tags.map(tag => [tag.id, tag.name]));
 
             let page = 1;
             let totalPostsImported = 0;
@@ -81,23 +87,27 @@ window.WordPressImportTool = () => {
                 posts.forEach(post => {
                     const postRef = blogPostsCollectionRef.doc(post.id.toString());
                     
-                    // 2. Determine location from categories
+                    // 2. Determine location from categories and get tags
                     const postCategoryIds = post.categories || [];
                     const location = postCategoryIds.length > 0 ? categoryMap.get(postCategoryIds[0]) || '' : '';
+                    const postTagIds = post.tags || [];
+                    const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean); // .filter(Boolean) removes any undefined if a tag is not found
 
                     const postData = {
                         title: post.title.rendered,
                         content: post.content.rendered,
                         status: post.status,
                         location: location,
-                        location_lowercase: location.toLowerCase(), // 3. Add lowercase location
+                        location_lowercase: location.toLowerCase(),
+                        tags: postTags, // 3. Add tags array
                         postType: 'wordpress-import',
                         wordPressId: post.id,
                         url: post.link,
                         createdAt: post.date_gmt + 'Z',
                         userId: user.uid
                     };
-                    batch.set(postRef, postData);
+                    // Use merge: true to update existing posts without overwriting fields that might have been changed in the app
+                    batch.set(postRef, postData, { merge: true });
                 });
 
                 await batch.commit();
