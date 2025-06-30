@@ -19,10 +19,11 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onOpenPublisher, onViewPost
             .onSnapshot(snapshot => {
                 const ideas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Filter out posts that were imported from WordPress
                 const filteredIdeas = ideas.filter(idea => idea.postType !== 'wordpress-import');
 
-                const generated = filteredIdeas.filter(idea => idea.status === 'generated');
+                // ** THE FIX IS HERE **
+                // Show all posts that are not yet published, including generated, pending, and failed.
+                const generated = filteredIdeas.filter(idea => idea.status !== 'published');
                 const published = filteredIdeas.filter(idea => idea.status === 'published');
                 
                 setGeneratedIdeas(generated);
@@ -67,7 +68,8 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onOpenPublisher, onViewPost
 
     return React.createElement('div', null,
         React.createElement('div', { className: 'glass-card p-6 rounded-lg' },
-            React.createElement('h2', { className: 'text-2xl font-bold mb-4' }, 'Generated Ideas'),
+            // ** THE FIX IS HERE ** - Renamed for clarity
+            React.createElement('h2', { className: 'text-2xl font-bold mb-4' }, 'Drafts & Queued Posts'),
             generatedIdeas.length > 0 ? (
                 React.createElement('div', { className: 'space-y-4' },
                     generatedIdeas.map(idea => (
