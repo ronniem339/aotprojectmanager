@@ -327,7 +327,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         let batchCount = 0;
         let postsProcessedInSession = 0;
         
-        posts.forEach(post => {
+        for (const post of posts) {
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
             const postData = {
                 title: post.title.rendered,
@@ -356,7 +356,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
                 // Introduce a small delay to prevent resource exhaustion
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
-        });
+        }
 
         // Commit any remaining documents in the last batch
         if (batchCount > 0) {
