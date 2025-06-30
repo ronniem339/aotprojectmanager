@@ -44,6 +44,22 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
         onWritePost(idea);
     };
 
+    // **FIX:** Added a working function to delete a single idea.
+    const handleDeleteIdea = async (e, ideaId) => {
+        e.stopPropagation(); // Prevent the row from expanding
+        if (window.confirm('Are you sure you want to permanently delete this idea?')) {
+            try {
+                await db.collection(`artifacts/${appId}/users/${userId}/blogIdeas`).doc(ideaId).delete();
+                const newSelection = new Set(selectedIdeas);
+                newSelection.delete(ideaId);
+                setSelectedIdeas(newSelection);
+            } catch (error) {
+                console.error("Error deleting idea:", error);
+                alert('Failed to delete the idea.');
+            }
+        }
+    };
+
     // --- Bulk Action Handlers ---
 
     const handleBulkUpdateStatus = async (ideaIds, newStatus) => {
@@ -108,7 +124,7 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
         const ideasToPublish = ideas.filter(idea => selectedIdeas.has(idea.id) && idea.status === 'generated');
         if (ideasToPublish.length > 0 && window.confirm(`Are you sure you want to publish ${ideasToPublish.length} posts to WordPress?`)) {
             onPublishPosts(ideasToPublish);
-            // **FIX:** This line clears the selection, fixing the UI bug.
+            // **FIX:** This line clears the selection, fixing the UI bug with the button.
             setSelectedIdeas(new Set());
         }
     };
@@ -324,6 +340,7 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
                                         React.createElement('button', { className: "px-3 py-1 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold mr-2 disabled:opacity-50 disabled:cursor-not-allowed", onClick: (e) => handleWritePost(e, idea), disabled: idea.status !== 'approved' },
                                             idea.status === 'approved' ? 'Write Post' : 'View Post'
                                         ),
+                                        // **FIX:** This button now correctly calls the working delete handler.
                                         React.createElement('button', { onClick: (e) => handleDeleteIdea(e, idea.id), className: "px-3 py-1 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold" }, "Delete")
                                     )
                                 ),
@@ -353,6 +370,7 @@ window.BlogIdeasDashboard = ({ userId, db, settings, onWritePost, onPublishPosts
                                 React.createElement('button', { className: "flex-grow px-3 py-2 text-xs bg-primary-accent hover:bg-primary-accent-darker rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed", onClick: (e) => handleWritePost(e, idea), disabled: idea.status !== 'approved' },
                                     idea.status === 'approved' ? 'Write Post' : 'View Post'
                                 ),
+                                // **FIX:** This button now correctly calls the working delete handler.
                                 React.createElement('button', { onClick: (e) => handleDeleteIdea(e, idea.id), className: "px-3 py-2 text-xs bg-red-800/80 hover:bg-red-700 rounded-md font-semibold" }, "Delete")
                             )
                         ),
