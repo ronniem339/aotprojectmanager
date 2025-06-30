@@ -39,6 +39,8 @@ window.aiUtils.blog.generateAffiliatePost = async (options, settings, knowledgeB
         **Core Task:**
         ${instructions}
 
+        **Length:** The generated blog post should be a minimum of 2,000 words.
+
         **Post Blueprint for 'htmlContent':**
         ${blogKb[blueprintKey] || 'Structure the post as a helpful guide or listicle.'}
 

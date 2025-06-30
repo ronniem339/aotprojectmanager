@@ -41,7 +41,7 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null, 
 
         **WRITING INSTRUCTIONS:**
         1.  **Adherence:** Strictly follow all instructions from the Style Guide, Knowledge Bases, and Blueprints provided.
-        2.  **Length:** The blog post should be comprehensive, typically between 1,500 and 2,500 words.
+        2.  **Length:** The blog post should be comprehensive, with a minimum of 2,000 words.
         3.  **Structure:** Use clear headings (H2, H3), short paragraphs, and bullet points to improve readability.
         4.  **SEO:** Naturally integrate the primary keyword and related secondary keywords throughout the text.
         5.  **Content:** The content must be 100% original, factual, and provide genuine value to the reader. If a video transcript is provided, use it as a primary source for facts, tone, and key points.

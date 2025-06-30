@@ -21,6 +21,8 @@ window.aiUtils.blog.generateDestinationGuide = async (options, settings, knowled
         **Core Task:**
         Create a comprehensive destination guide for **${location}**.
 
+        **Length:** The guide should be between 3,500 and 4,000 words.
+
         **Post Blueprint for 'htmlContent':**
         ${blogKb.destinationGuideBlueprint || 'Create an exciting guide that hooks the reader and integrates links naturally.'}
 
