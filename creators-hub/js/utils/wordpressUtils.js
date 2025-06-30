@@ -283,7 +283,14 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(`Failed to fetch posts. Status: ${response.status}. Message: ${errorData.message || 'Check Netlify function logs.'}`);
+            // Check for the specific WordPress pagination error
+            if (response.status === 400 && errorData.message && errorData.message.includes('page number requested is larger than the number of pages available')) {
+                console.warn(`WordPress import: Reached end of posts on page ${page}. Stopping import.`);
+                hasMorePosts = false;
+                continue; // Exit the current iteration and the while loop
+            } else {
+                throw new Error(`Failed to fetch posts. Status: ${response.status}. Message: ${errorData.message || 'Check Netlify function logs.'}`);
+            }
         }
 
         const posts = await response.json();
