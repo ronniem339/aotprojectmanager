@@ -84,10 +84,12 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     }
 
     // 1. Fetch all existing tags
-    const tagsEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
+    // FIX: Use separate, correct endpoints for listing and creating tags.
+    const tagsListEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
+    const tagsCreateEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags`;
     let existingTags = [];
     try {
-        const response = await fetch(tagsEndpoint, { headers });
+        const response = await fetch(tagsListEndpoint, { headers });
         existingTags = await response.json();
         if (!response.ok) existingTags = [];
     } catch (e) {
@@ -117,7 +119,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     // 3. Create new tags in parallel
     if (tagsToCreate.length > 0) {
         const createTagPromises = tagsToCreate.map(tagName => {
-            return fetch(tagsEndpoint, {
+            return fetch(tagsCreateEndpoint, { // Use the correct endpoint for creation
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({ name: tagName })
