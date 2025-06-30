@@ -45,7 +45,7 @@ window.WordPressImportTool = () => {
         setProgressMessage('Starting import...');
 
         try {
-            const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+            const appId = window.CREATOR_HUB_CONFIG.APP_ID;
             const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
             // 1. Fetch all categories and tags first
