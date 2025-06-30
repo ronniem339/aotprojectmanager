@@ -15,20 +15,21 @@ window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) =>
 
         **Blog Post Details:**
         - **Title:** ${title}
-        - **Primary Keyword:** ${primaryKeyword}
         - **Raw Content:**
 ${blogPostContent}
 
         **Instructions:**
-        1.  **Format the Content:** Convert the raw text into well-structured HTML using Gutenberg block formats.
-        2.  **Generate Metadata:** Create a concise excerpt, relevant tags, and suggest one primary WordPress category.
-        3.  **Structure the Output:** Your final output must be a single, clean JSON object. Do not include any text or markdown formatting before or after the JSON.
+        1.  **Format the Content:** Convert the raw text into well-structured HTML. For each distinct content block (e.g., paragraph, heading, list, image), wrap the standard HTML tags with the corresponding Gutenberg block comments (e.g., <p>...</p>, <h2>...</h2>, <ul>...</ul>). For the FAQ section, specifically use the `` block or its equivalent if a more specific FAQ block structure is preferred.
+        2.  **Handle List Items:** If the raw content uses <br> tags within list items (<li>) to separate text, convert these into nested paragraphs or nested lists if the points are distinct enough, for a more semantic and Gutenberg-friendly approach.
+        3.  **Generate Metadata:** Create a concise excerpt, relevant tags, and suggest one primary WordPress category.
+        4.  **Apply Creator Style Guide:** Ensure the transformed HTML content strictly adheres to the 'Creator Style Guide & Context' provided, incorporating the specified tone, pacing, vocabulary, sentence structure, and humor, while actively avoiding all 'Excluded Phrases'.
+        5.  **Structure the Output:** Your final output must be a single, clean JSON object. Do not include any text or markdown formatting before or after the JSON.
 
         **JSON Output Structure:**
         {
           "htmlContent": "<!-- wp:paragraph --><p>Your formatted HTML content starts here...</p><!-- /wp:paragraph -->...",
-          "excerpt": "A short, compelling summary of the post.",
-          "tags": ["tag1", "tag2", "tag3"],
+          "excerpt": "Generate a concise (under 30 words), compelling, and SEO-friendly summary of the post, drawing on the 'Creator Style Guide' for tone. This should entice readers to click.",
+          "tags": ["Generate 5-8 highly relevant and specific tags (keywords or short phrases) that accurately describe the content and are commonly searched by travelers. Focus on locations, activities, and key attractions mentioned in the post."],
           "categories": ["PrimaryCategory"]
         }
         `;
