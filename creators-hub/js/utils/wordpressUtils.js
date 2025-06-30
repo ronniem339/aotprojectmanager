@@ -77,14 +77,11 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     const token = btoa(`${username}:${applicationPassword}`);
     const headers = { 'Authorization': `Basic ${token}`, 'Content-Type': 'application/json' };
 
-    // **FIX:** Add a strict filter at the beginning to ensure we only work with valid strings.
     const validTagNames = (tagNames || []).filter(tag => typeof tag === 'string' && tag.trim() !== '');
     if (validTagNames.length === 0) {
         return [];
     }
 
-    // 1. Fetch all existing tags
-    // FIX: Use separate, correct endpoints for listing and creating tags.
     const tagsListEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags?per_page=100`;
     const tagsCreateEndpoint = `${cleanedUrl}/wp-json/wp/v2/tags`;
     let existingTags = [];
@@ -100,8 +97,7 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     const tagIds = [];
     const tagsToCreate = [];
 
-    // 2. Identify which tags need to be created
-    for (const tagName of validTagNames) { // Use the validated list
+    for (const tagName of validTagNames) {
         const cleanTagName = tagName.trim();
         const lowerCaseTag = cleanTagName.toLowerCase();
 
@@ -116,22 +112,32 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
         }
     }
 
-    // 3. Create new tags in parallel
     if (tagsToCreate.length > 0) {
         const createTagPromises = tagsToCreate.map(tagName => {
-            return fetch(tagsCreateEndpoint, { // Use the correct endpoint for creation
+            return fetch(tagsCreateEndpoint, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({ name: tagName })
-            }).then(res => {
+            }).then(async (res) => { // Made async to allow awaiting inner parsing
                 if (!res.ok) {
-                    return res.json().then(err => {
+                    // *** ENHANCED ERROR LOGGING ***
+                    console.error(`---WORDPRESS TAG CREATION FAILED---`);
+                    console.error(`Tag Name: "${tagName}"`);
+                    console.error(`Status: ${res.status} (${res.statusText})`);
+                    try {
+                        const err = await res.json();
+                        console.error('Error Response Body:', err);
                         if (err.code === 'term_exists' && err.data?.term_id) {
+                            console.warn(`Tag "${tagName}" already existed. Recovered with ID: ${err.data.term_id}`);
                             return { id: err.data.term_id };
                         }
-                        console.error(`Failed to create tag "${tagName}":`, err.message || 'Unknown error');
-                        return { error: true, message: err.message };
-                    });
+                        return { error: true, message: err.message || 'Unknown WordPress API error' };
+                    } catch (jsonError) {
+                        console.error("Could not parse error response as JSON.", jsonError);
+                        const textResponse = await res.text().catch(() => "Could not read response text.");
+                        console.error("Error Response Text:", textResponse);
+                        return { error: true, message: `HTTP error ${res.status}. See console for response text.` };
+                    }
                 }
                 return res.json();
             });
@@ -151,7 +157,6 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
     
     return [...new Set(tagIds)];
 }
-
 
 window.wordpressUtils = {
     postToWordPress,
