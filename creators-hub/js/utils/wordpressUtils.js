@@ -322,7 +322,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
         
         // CORRECTED: Use db.batch()
-        const batchSize = 100; // Define batch size
+        const batchSize = 20; // Reduced batch size to prevent resource exhaustion
         let currentBatch = db.batch();
         let batchCount = 0;
         let postsProcessedInSession = 0;
@@ -346,7 +346,11 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
 
             if (batchCount === batchSize) {
                 onProgress(`Committing batch of ${batchCount} posts...`);
-                currentBatch.commit();
+                currentBatch.commit().then(() => {
+                    console.log(`Batch of ${batchCount} posts committed successfully.`);
+                }).catch(error => {
+                    console.error(`Error committing batch:`, error);
+                });
                 currentBatch = db.batch(); // Start a new batch
                 batchCount = 0;
             }
@@ -355,7 +359,11 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         // Commit any remaining documents in the last batch
         if (batchCount > 0) {
             onProgress(`Committing final batch of ${batchCount} posts...`);
-            await currentBatch.commit();
+            await currentBatch.commit().then(() => {
+                console.log(`Final batch of ${batchCount} posts committed successfully.`);
+            }).catch(error => {
+                console.error(`Error committing final batch:`, error);
+            });
         }
 
         totalPostsImportedThisSession += postsProcessedInSession;
