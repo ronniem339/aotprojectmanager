@@ -116,10 +116,28 @@ const DestinationGuideModal = ({ onGenerate, onCancel, blogPostsCollectionRef, d
         if (!location) return;
         setIsFetching(true);
         try {
-            // Case-insensitive search by querying a dedicated lowercase field
-            const snapshot = await blogPostsCollectionRef.where('location_lowercase', '==', location.toLowerCase()).get();
-            const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const lowerCaseLocation = location.toLowerCase();
+
+            // Query 1: Match against the location_lowercase field
+            const locationQuery = blogPostsCollectionRef.where('location_lowercase', '==', lowerCaseLocation);
+
+            // Query 2: Match against the tags array
+            const tagsQuery = blogPostsCollectionRef.where('tags', 'array-contains', lowerCaseLocation);
+
+            // Execute both queries in parallel
+            const [locationSnapshot, tagsSnapshot] = await Promise.all([
+                locationQuery.get(),
+                tagsQuery.get()
+            ]);
+
+            // Merge and deduplicate results
+            const articlesMap = new Map();
+            locationSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+            tagsSnapshot.docs.forEach(doc => articlesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
+            const fetched = Array.from(articlesMap.values());
             setArticles(fetched);
+
         } catch (e) {
             console.error("Error fetching articles for guide:", e);
             displayNotification("Could not fetch existing articles.", 'error');
