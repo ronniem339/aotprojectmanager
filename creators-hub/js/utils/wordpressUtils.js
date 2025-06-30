@@ -352,6 +352,11 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
             console.log("Batch setting document:", postRef.path, "with data:", postData);
 
             currentBatch.set(postRef, postData, { merge: true });
+
+            // No need to check existingPostIds.has(post.id) as we want to update all posts.
+            // The merge: true option will ensure existing documents are updated with new tag information.
+            // If the post is new, it will be created.
+            // If the post exists, its tags will be updated.
             batchCount++;
             postsProcessedInSession++;
 
