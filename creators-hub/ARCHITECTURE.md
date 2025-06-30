@@ -10,7 +10,17 @@ Frontend:
 
 React: For building the user interface.
 
-Tailwind CSS: For styling the application.
+Primary Styling (Tailwind CSS): The application's styling is primarily managed by Tailwind CSS. This is a utility-first CSS framework, which means that styling is applied directly within the HTML/JSX of the React components using classes (e.g., <div class="bg-blue-500 text-white p-4">). This approach is used for most of the layout, spacing, color, and typography.
+
+Global Styles & Overrides (style.css): The creators-hub/style.css file is used for styles that are not easily handled by Tailwind's utility classes. This typically includes:
+
+Base Styles: Setting default styles for basic HTML elements like body, h1, p, etc.
+
+Custom CSS Components: Classes for complex, reusable UI elements that would be cumbersome to build with utility classes alone.
+
+External Library Overrides: Customizing the styles of third-party components that might be used in the project.
+
+Animations: Defining complex @keyframes animations.
 
 Backend:
 
