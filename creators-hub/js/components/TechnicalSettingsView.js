@@ -25,17 +25,20 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     const [deduplicationSuccess, setDeduplicationSuccess] = useState('');
 
     const { db, user, currentSettings } = appState;
-    const isConnectionReady = db && user && currentSettings;
+    // CORRECTED: Connection is ready when db and user are available. Settings are checked later.
+    const isConnectionReady = db && user;
 
     useEffect(() => {
-        setLocalSettings({
-            geminiApiKey: settings.geminiApiKey || '',
-            googleMapsApiKey: settings.googleMapsApiKey || '',
-            youtubeApiKey: settings.youtubeApiKey || '',
-            useProModelForComplexTasks: settings.useProModelForComplexTasks || false,
-            flashModelName: settings.flashModelName || 'gemini-1.5-flash-latest',
-            proModelName: settings.proModelName || 'gemini-1.5-pro-latest'
-        });
+        if (settings) {
+            setLocalSettings({
+                geminiApiKey: settings.geminiApiKey || '',
+                googleMapsApiKey: settings.googleMapsApiKey || '',
+                youtubeApiKey: settings.youtubeApiKey || '',
+                useProModelForComplexTasks: settings.useProModelForComplexTasks || false,
+                flashModelName: settings.flashModelName || 'gemini-1.5-flash-latest',
+                proModelName: settings.proModelName || 'gemini-1.5-pro-latest'
+            });
+        }
     }, [settings]);
 
     const handleChange = (e) => {
@@ -55,6 +58,11 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         setImportSuccess('');
 
         try {
+            // CORRECTED: Add a guard to ensure settings are loaded before proceeding.
+            if (!currentSettings) {
+                throw new Error("Settings are not loaded yet. Please wait a moment and try again.");
+            }
+
             const { wordpress, googleMapsApiKey } = currentSettings;
             if (!wordpress || !wordpress.url || !wordpress.username || !wordpress.applicationPassword) {
                 throw new Error("WordPress settings are incomplete.");
@@ -83,7 +91,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                 user: user,
                 wordpressConfig: wordpress,
                 onProgress: (message) => setImportProgress(message),
-                locationTagMap: locationTagMap // Pass the new map
+                locationTagMap: locationTagMap
             });
 
             setImportSuccess(`Import complete! Successfully imported/updated ${totalImported} posts.`);
@@ -223,7 +231,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                             </div>
                         )}
                         {!isImporting && importError && <p className="text-red-400 mt-4 font-semibold">{importError}</p>}
-                        {!isImporting && importSuccess && <p className="text-green-400 mt-4 font-semibold">{importSuccess}</p>}
+                        {!isImporting && importSuccess && <p className="text-green-400 font-semibold mt-4">{importSuccess}</p>}
                     </div>
                 </div>
                 

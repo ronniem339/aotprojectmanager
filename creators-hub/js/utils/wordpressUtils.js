@@ -281,8 +281,59 @@ function getMostSpecificLocation(postTags, locationTagMap) {
 
 
 /**
+ * Utility function to find the most specific location from a list of tags.
+ */
+function getMostSpecificLocation(postTags, locationTagMap) {
+    // Defines the hierarchy of location types, from most to least specific.
+    const locationHierarchy = [
+        'point_of_interest', 
+        'premise', 
+        'subpremise', 
+        'locality', // e.g., city
+        'administrative_area_level_3',
+        'administrative_area_level_2',
+        'administrative_area_level_1', // e.g., state/province
+        'country'
+    ];
+
+    let mostSpecificLocation = '';
+    let lowestRank = Infinity; // Lower rank is more specific
+
+    for (const tagName of postTags) {
+        const locationInfo = locationTagMap[tagName.toLowerCase()]; // Use lowercase for matching
+        if (locationInfo) {
+            for (const type of locationInfo.types) {
+                const rank = locationHierarchy.indexOf(type);
+                if (rank !== -1 && rank < lowestRank) {
+                    lowestRank = rank;
+                    mostSpecificLocation = locationInfo.formatted_address;
+                }
+            }
+        }
+    }
+    return mostSpecificLocation;
+}
+
+/**
+ * Retries a given async function with exponential backoff.
+ */
+async function retryOperation(operation, maxRetries = 5, delay = 1000) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (i === maxRetries - 1) throw error; // Re-throw if last attempt
+            console.warn(`Attempt ${i + 1} failed. Retrying in ${delay / 1000}s...`, error);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 2; // Exponential backoff
+        }
+    }
+}
+
+/**
  * CORRECTED IMPORTER FUNCTION
  * Fetches all posts from WordPress, using a geocoded map of tags to determine the most specific location for each post.
+ * Includes resume functionality and retry mechanism for Firestore operations.
  */
 async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, locationTagMap }) {
     const { url, username, applicationPassword } = wordpressConfig;
@@ -295,6 +346,18 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
+    const settingsDocRef = db.collection(`artifacts/${appId}/users/${user.uid}/settings`).doc('styleGuide');
+
+    // 1. Get last processed post ID for resuming
+    let lastProcessedPostId = null;
+    try {
+        const settingsSnap = await settingsDocRef.get();
+        if (settingsSnap.exists) {
+            lastProcessedPostId = settingsSnap.data().lastProcessedWordPressPostId || null;
+        }
+    } catch (error) {
+        console.warn("Could not retrieve last processed post ID:", error);
+    }
 
     onProgress('Checking for already imported posts...');
     const existingPostIds = new Set();
@@ -311,6 +374,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
     let page = 1;
     let totalPostsImportedThisSession = 0;
     let hasMorePosts = true;
+    let foundLastProcessedPost = !lastProcessedPostId; // If no last ID, start from beginning
 
     while (hasMorePosts) {
         onProgress(`Fetching page ${page} of posts...`);
@@ -353,8 +417,18 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
         const batchSize = 20;
         let currentBatch = db.batch();
         let batchCount = 0;
-        
+        let lastPostIdInBatch = null;
+
         for (const post of posts) {
+            // Skip posts until we find the last processed one
+            if (!foundLastProcessedPost) {
+                if (post.id.toString() === lastProcessedPostId) {
+                    foundLastProcessedPost = true;
+                    onProgress(`Resuming import from post ID: ${lastProcessedPostId}`);
+                }
+                continue; // Skip this post if not yet found
+            }
+
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
             
             const terms = post._embedded['wp:term'] || [];
@@ -381,9 +455,12 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
 
             currentBatch.set(postRef, postData, { merge: true });
             batchCount++;
+            lastPostIdInBatch = post.id.toString();
 
             if (batchCount === batchSize) {
-                await currentBatch.commit();
+                await retryOperation(() => currentBatch.commit());
+                onProgress(`Committed batch. Last processed post ID: ${lastPostIdInBatch}`);
+                await settingsDocRef.set({ lastProcessedWordPressPostId: lastPostIdInBatch }, { merge: true });
                 currentBatch = db.batch(); 
                 batchCount = 0;
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -391,7 +468,9 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
         }
 
         if (batchCount > 0) {
-            await currentBatch.commit();
+            await retryOperation(() => currentBatch.commit());
+            onProgress(`Committed final batch. Last processed post ID: ${lastPostIdInBatch}`);
+            await settingsDocRef.set({ lastProcessedWordPressPostId: lastPostIdInBatch }, { merge: true });
         }
 
         totalPostsImportedThisSession += posts.length;
@@ -399,6 +478,8 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, 
         page++;
     }
 
+    // Clear the last processed ID after a full successful import
+    await settingsDocRef.set({ lastProcessedWordPressPostId: null }, { merge: true });
     onProgress(`Import complete. Processed ${totalPostsImportedThisSession} posts this session.`);
     return totalPostsImportedThisSession;
 }
