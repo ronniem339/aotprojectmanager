@@ -282,14 +282,30 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         const response = await fetch(`/.netlify/functions/fetch-wp-posts?url=${encodeURIComponent(url)}&user=${encodeURIComponent(username)}&pass=${encodeURIComponent(applicationPassword)}&page=${page}`);
 
         if (!response.ok) {
-            const errorData = await response.json();
-            // Check for the specific WordPress pagination error
-            if (response.status === 400 && errorData.message && errorData.message.includes('page number requested is larger than the number of pages available')) {
+            const errorBody = await response.text(); // Get raw text to check for specific message
+            let errorMessage = `Failed to fetch posts. Status: ${response.status}.`;
+            let isPaginationError = false;
+
+            try {
+                const errorData = JSON.parse(errorBody);
+                errorMessage += ` Message: ${errorData.message || 'Check Netlify function logs.'}`;
+                if (errorData.message && errorData.message.includes('page number requested is larger than the number of pages available')) {
+                    isPaginationError = true;
+                }
+            } catch (e) {
+                // If parsing as JSON fails, it's likely a plain text error or malformed JSON
+                errorMessage += ` Raw response: ${errorBody}`;
+                if (errorBody.includes('page number requested is larger than the number of pages available')) {
+                    isPaginationError = true;
+                }
+            }
+
+            if (response.status === 400 && isPaginationError) {
                 console.warn(`WordPress import: Reached end of posts on page ${page}. Stopping import.`);
                 hasMorePosts = false;
                 continue; // Exit the current iteration and the while loop
             } else {
-                throw new Error(`Failed to fetch posts. Status: ${response.status}. Message: ${errorData.message || 'Check Netlify function logs.'}`);
+                throw new Error(errorMessage);
             }
         }
 

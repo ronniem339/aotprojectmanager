@@ -100,6 +100,7 @@ window.WordPressImportTool = () => {
 
                 const batch = db.batch();
                 posts.forEach(post => {
+                    console.log("Processing WordPress post:", post);
                     const postRef = blogPostsCollectionRef.doc(post.id.toString());
                     
                     // 2. Determine location from categories and get tags
@@ -121,6 +122,7 @@ window.WordPressImportTool = () => {
                         createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                         userId: user.uid
                     };
+                    console.log("Prepared postData for Firebase:", postData);
                     // Use merge: true to update existing posts without overwriting fields that might have been changed in the app
                     batch.set(postRef, postData, { merge: true });
                 });
