@@ -59,11 +59,13 @@ window.WordPressImportTool = () => {
                 throw new Error('Failed to fetch WordPress categories or tags.');
             }
 
-            const [categories, tags] = await Promise.all([catResponse.json(), tagResponse.json()]);
-            console.log("Fetched Categories:", categories);
-            console.log("Fetched Tags:", tags);
-            const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
-            const tagMap = new Map(tags.map(tag => [tag.id, tag.name]));
+            const categoriesData = await catResponse.json();
+            const tagsData = await tagResponse.json();
+
+            console.log("Fetched Categories:", categoriesData);
+            console.log("Fetched Tags:", tagsData);
+            const categoryMap = new Map(categoriesData.map(cat => [cat.id, cat.name]));
+            const tagMap = new Map(tagsData.map(tag => [tag.id, tag.name]));
             console.log("Category Map:", categoryMap);
             console.log("Tag Map:", tagMap);
 
