@@ -346,13 +346,15 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
 
             if (batchCount === batchSize) {
                 onProgress(`Committing batch of ${batchCount} posts...`);
-                currentBatch.commit().then(() => {
+                await currentBatch.commit().then(() => {
                     console.log(`Batch of ${batchCount} posts committed successfully.`);
                 }).catch(error => {
                     console.error(`Error committing batch:`, error);
                 });
                 currentBatch = db.batch(); // Start a new batch
                 batchCount = 0;
+                // Introduce a small delay to prevent resource exhaustion
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
         });
 
@@ -364,10 +366,12 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
             }).catch(error => {
                 console.error(`Error committing final batch:`, error);
             });
+            // Introduce a small delay after the final batch as well
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         totalPostsImportedThisSession += postsProcessedInSession;
-        onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);
+        onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);;
         
         page++;
     }
