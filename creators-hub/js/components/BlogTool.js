@@ -232,7 +232,6 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
         setIsLoadingPosts(true);
         const unsubscribe = blogPostsCollectionRef
             .where('postType', '==', 'wordpress-import')
-            .orderBy('createdAt', 'desc')
             .onSnapshot(snapshot => {
                 const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setImportedPosts(posts);
