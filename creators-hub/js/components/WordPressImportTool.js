@@ -55,12 +55,12 @@ window.WordPressImportTool = () => {
                 fetch(`/.netlify/functions/fetch-wp-tags?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}`)
             ]);
 
-            if (!catResponse.ok || !tagResponse.ok) {
+            if (!categories.ok || !tags.ok) {
                 throw new Error('Failed to fetch WordPress categories or tags.');
             }
 
-            const categoriesData = await catResponse.json();
-            const tagsData = await tagResponse.json();
+            const categoriesData = await categories.json();
+            const tagsData = await tags.json();
 
             console.log("Fetched Categories:", categoriesData);
             console.log("Fetched Tags:", tagsData);
