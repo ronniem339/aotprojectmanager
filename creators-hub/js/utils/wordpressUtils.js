@@ -250,7 +250,7 @@ async function deduplicateWordPressPosts({ db, user, onProgress }) {
  * Fetches all posts from WordPress, checks for duplicates, and saves only new ones to Firestore.
  * This function is now idempotent and can be safely re-run.
  */
-async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }) {
+async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress, categoryMap, tagMap }) {
     const { url, username, applicationPassword } = wordpressConfig;
     if (!url || !username || !applicationPassword) {
         throw new Error('WordPress settings are not fully configured.');
@@ -258,13 +258,11 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     console.log("importAllWordPressPosts: Using appId", appId);
-    // CORRECTED: Use the v8-compatible syntax db.collection(...)
     const blogPostsCollectionRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('blogPosts');
 
     onProgress('Checking for already imported posts...');
     const existingPostIds = new Set();
     const q = blogPostsCollectionRef.where("postType", "==", "wordpress-import");
-    // CORRECTED: Use .get()
     const querySnapshot = await q.get();
     console.log(`importAllWordPressPosts: Query for existing posts returned ${querySnapshot.size} documents.`);
     querySnapshot.forEach(doc => {
@@ -314,6 +312,8 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         }
 
         const posts = await response.json();
+        console.log(`Fetched ${posts.length} posts from page ${page}:`, posts);
+
         if (posts.length === 0) {
             hasMorePosts = false;
             continue;
@@ -321,7 +321,6 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         
         onProgress(`Fetched ${posts.length} posts from page ${page}. Checking for new content...`);
         
-        // CORRECTED: Use db.batch()
         const batchSize = 20; // Reduced batch size to prevent resource exhaustion
         let currentBatch = db.batch();
         let batchCount = 0;
@@ -329,17 +328,29 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         
         for (const post of posts) {
             const postRef = blogPostsCollectionRef.doc(post.id.toString());
+
+            // Derive location and tags here, directly within the import function
+            const postCategoryIds = post.categories || [];
+            const location = postCategoryIds.length > 0 ? categoryMap.get(postCategoryIds[0]) || '' : '';
+            const postTagIds = post.tags || [];
+            const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean).map(tag => tag.toLowerCase());
+
             const postData = {
                 title: post.title.rendered,
                 content: post.content.rendered,
                 status: post.status,
-                location: '',
+                location: location,
+                location_lowercase: location.toLowerCase(),
+                tags: postTags,
                 postType: 'wordpress-import',
                 wordPressId: post.id,
                 url: post.link,
                 createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
                 userId: user.uid
             };
+            console.log("Prepared postData for Firebase:", postData);
+            console.log("Batch setting document:", postRef.path, "with data:", postData);
+
             currentBatch.set(postRef, postData, { merge: true });
             batchCount++;
             postsProcessedInSession++;
@@ -371,9 +382,7 @@ async function importAllWordPressPosts({ db, user, wordpressConfig, onProgress }
         }
 
         totalPostsImportedThisSession += postsProcessedInSession;
-        onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);;
-        
-        page++;
+        onProgress(`Successfully processed ${postsProcessedInSession} posts from page ${page}.`);
     }
 
     onProgress(`Import complete. Added ${totalPostsImportedThisSession} new posts this session.`);

@@ -50,7 +50,7 @@ window.WordPressImportTool = () => {
 
             // 1. Fetch all categories and tags first
             setProgressMessage('Fetching categories and tags...');
-            const [catResponse, tagResponse] = await Promise.all([
+            const [categories, tags] = await Promise.all([
                 fetch(`/.netlify/functions/fetch-wp-categories?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}`),
                 fetch(`/.netlify/functions/fetch-wp-tags?url=${encodeURIComponent(wordpressSettings.url)}&user=${encodeURIComponent(wordpressSettings.username)}&pass=${encodeURIComponent(wordpressSettings.applicationPassword)}`)
             ]);
@@ -111,44 +111,16 @@ window.WordPressImportTool = () => {
                     continue;
                 }
 
-                const batch = db.batch();
-                posts.forEach(post => {
-                    console.log("Processing WordPress post:", post);
-                    const postRef = blogPostsCollectionRef.doc(post.id.toString());
-                    
-                    // 2. Determine location from categories and get tags
-                    const postCategoryIds = post.categories || [];
-                    const location = postCategoryIds.length > 0 ? categoryMap.get(postCategoryIds[0]) || '' : '';
-                    const postTagIds = post.tags || [];
-                    const postTags = postTagIds.map(tagId => tagMap.get(tagId)).filter(Boolean).map(tag => tag.toLowerCase()); // Ensure tags are lowercase
-
-                    console.log("Post Categories (IDs):", postCategoryIds);
-                    console.log("Post Tags (IDs):", postTagIds);
-                    console.log("Derived Location:", location);
-                    console.log("Derived Tags:", postTags);
-
-                    const postData = {
-                        title: post.title.rendered,
-                        content: post.content.rendered,
-                        status: post.status,
-                        location: location,
-                        location_lowercase: location.toLowerCase(),
-                        tags: postTags, // 3. Add tags array
-                        postType: 'wordpress-import',
-                        wordPressId: post.id,
-                        url: post.link,
-                        createdAt: window.firebase.firestore.Timestamp.fromDate(new Date(post.date_gmt)),
-                        userId: user.uid
-                    };
-                    console.log("Prepared postData for Firebase:", postData);
-                    console.log("Batch setting document:", postRef.path, "with data:", postData);
-                    // Use merge: true to update existing posts without overwriting fields that might have been changed in the app
-                    batch.set(postRef, postData, { merge: true });
+                // Call the centralized import function with the maps
+                const importedCount = await window.wordpressUtils.importAllWordPressPosts({
+                    db,
+                    user,
+                    wordpressConfig: wordpressSettings,
+                    onProgress: (msg) => setProgressMessage(msg),
+                    categoryMap,
+                    tagMap,
                 });
-
-                await batch.commit();
-                totalPostsImported += posts.length;
-                setProgressMessage(`${totalPostsImported} posts imported successfully.`);
+                totalPostsImported += importedCount;
                 page++;
             }
             
