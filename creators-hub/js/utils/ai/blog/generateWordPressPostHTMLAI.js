@@ -4,7 +4,7 @@ window.aiUtils = window.aiUtils || {};
  * Generates a full blog post in HTML format, ready for WordPress, with OtterBlocks support.
  */
 window.aiUtils.generateWordPressPostHTMLAI = async ({ idea, settings, tone }) => {
-    const { title, primaryKeyword, blogPostContent } = idea;
+    const { title, blogPostContent } = idea;
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings, tone);
 
     const prompt =
