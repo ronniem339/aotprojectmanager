@@ -116,7 +116,8 @@ const DestinationGuideModal = ({ onGenerate, onCancel, blogPostsCollectionRef, d
         if (!location) return;
         setIsFetching(true);
         try {
-            const snapshot = await blogPostsCollectionRef.where('location', '==', location).get();
+            // Case-insensitive search by querying a dedicated lowercase field
+            const snapshot = await blogPostsCollectionRef.where('location_lowercase', '==', location.toLowerCase()).get();
             const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setArticles(fetched);
         } catch (e) {
@@ -225,6 +226,7 @@ window.BlogTool = ({ settings, onBack, onPublishPosts, onViewPost, userId, db, d
                 category: generatedData.suggestedCategory || '',
                 postType: generationTask.postType,
                 location: generationTask.location || '',
+                location_lowercase: (generationTask.location || '').toLowerCase(),
                 status: 'generated',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
