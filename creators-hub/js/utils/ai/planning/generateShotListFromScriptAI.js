@@ -12,96 +12,81 @@
  * @param {string} options.script - The full text of the video script.
  * @param {string} options.videoTitle - The title of the video.
  * @param {string} options.videoConcept - The concept of the video.
- * @param {Array<string>} options.onCameraLocations - A list of location names where on-camera footage was shot.
+ * @param {object} options.onCameraDescriptions - An object where keys are location names and values are the on-camera dialogue for that location.
  * @param {object} options.footageInventory - An object detailing available footage, keyed by location name.
  * @param {object} options.settings - The application settings.
  *
  * @returns {Promise<{shotList: Array<object>}>} A promise that resolves to an object
  * containing the structured shot list.
  */
-window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, videoConcept, onCameraLocations, footageInventory, settings }) => {
+window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, videoConcept, onCameraDescriptions, footageInventory, settings }) => {
     console.log("AI: Generating shot list from existing script.", { videoTitle });
 
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-    // Ensure onCameraLocations is an array before joining
-    const onCameraNotes = Array.isArray(onCameraLocations) ? onCameraLocations.join(', ') : '';
-    
-    // Ensure footageInventory is an object before getting entries
-    const footageNotes = typeof footageInventory === 'object' && footageInventory !== null 
-        ? Object.entries(footageInventory)
-            .map(([location, details]) => {
-                // Defensive check for details object and its properties
-                const footageList = details && Array.isArray(details.footage) ? details.footage.join(', ') : 'N/A';
-                const onCameraStatus = details ? (details.onCamera ? 'Yes' : 'No') : 'N/A';
-                return `
-- **${location}:**
-  - Available Footage: ${footageList}
-  - On-Camera Segments: ${onCameraStatus}
-`;
-            })
-            .join('')
-        : 'No footage inventory provided.';
+    // Create a clear summary of the on-camera dialogue segments.
+    const onCameraNotes = Object.entries(onCameraDescriptions || {})
+        .map(([location, dialogue]) => `- At "${location}", the on-camera dialogue is: "${dialogue}"`)
+        .join('\n');
 
+    // Create a clear summary of the footage inventory.
+    const footageNotes = Object.entries(footageInventory || {})
+        .map(([locationKey, details]) => {
+            const footageTypes = [];
+            if (details.bRoll) footageTypes.push('B-Roll');
+            if (details.onCamera) footageTypes.push('On-Camera');
+            if (details.drone) footageTypes.push('Drone');
+            return `- **${details.name}:** Available Footage: ${footageTypes.join(', ') || 'None'}`;
+        })
+        .join('\n');
 
     const prompt = `
-You are an expert video producer and editor. Your task is to create a detailed shot list for a video based on its final script and a list of available footage.
+You are an expert video producer and editor. Your task is to create a detailed shot list for a video by combining a voiceover script with on-camera dialogue segments and mapping them to available footage.
 
 **Video Title:** "${videoTitle}"
 **Video Concept:** "${videoConcept}"
 ${styleGuidePrompt}
 
-**Available On-Camera Locations:**
-${onCameraNotes}
+---
+**SOURCE MATERIALS**
 
-**Available Footage Inventory:**
-${footageNotes}
-
-**Final Script:**
-This is the complete script, including both voiceover (VO) and on-camera dialogue. You must break this down into individual shots.
+**1. Voiceover Script (VO):**
+This is the main script that will be read as a voiceover.
 \`\`\`
 ${script}
 \`\`\`
 
-**Your Task:**
-Create a comprehensive shot list as a JSON array of objects. Each object in the JSON array should represent a single shot or a small, continuous sequence of shots.
+**2. On-Camera Dialogue Segments:**
+These are segments where the host speaks directly to the camera at specific locations.
+${onCameraNotes || 'No on-camera segments provided.'}
 
-**JSON Object Structure:**
+**3. Footage Inventory:**
+This is a list of locations and the types of footage available for each.
+${footageNotes || 'No footage inventory provided.'}
+---
+
+**YOUR TASK**
+
+Create a comprehensive shot list in JSON format. You must merge the "Voiceover Script" and the "On-Camera Dialogue" into a single, chronological narrative. Each object in the JSON array represents a single shot.
+
+**JSON Object Structure (STRICT):**
 Each object in the array must have the following fields:
 - \`scene\` (string): A brief, descriptive name for the scene (e.g., "Introduction," "Exploring the Market").
-- \`shotType\` (string): The type of shot. Use one of the following values: "On-Camera," "Voiceover B-Roll," "Voiceover Drone," "Voiceover Mix."
-- \`location\` (string): The primary location for the shot. This must match one of the locations from the footage inventory. If it's a general shot, use "N/A".
-- \`dialogue\` (string): The exact dialogue or voiceover line(s) for this shot.
-- \`visuals\` (string): A detailed description of what should be on screen. Be specific. For b-roll, suggest specific shots from the inventory (e.g., "Close-up of a coffee cup," "Wide shot of the beach"). For on-camera, describe the action.
+- \`shotType\` (string): Use **"On-Camera"** for dialogue from the "On-Camera Dialogue Segments". Use **"Voiceover"** for dialogue from the "Voiceover Script".
+- \`location\` (string): The location name where the shot takes place. This must match a location from the Footage Inventory. If it's a general voiceover, use "N/A".
+- \`dialogue\` (string): The exact dialogue or voiceover line(s) for this specific shot.
+- \`visuals\` (string): A detailed description of what should be on screen. For "Voiceover", suggest specific shots from the Footage Inventory (e.g., "Drone shot of Nicosia's old town," "Close-up of a street sign on the Green Line"). For "On-Camera", describe the action (e.g., "Host stands in front of the checkpoint, talking to the camera.").
 
 **Instructions:**
-1.  **Follow the Script:** The shot list must follow the narrative flow of the provided script.
-2.  **Be Specific:** For "visuals," provide concrete and actionable descriptions.
-3.  **Use the Inventory:** Ensure the suggested visuals align with the available footage.
-4.  **Output ONLY JSON:** The final output must be a valid JSON array of objects, and nothing else.
-
-**Example JSON Output:**
-[
-  {
-    "scene": "Introduction",
-    "shotType": "On-Camera",
-    "location": "Main Street Cafe",
-    "dialogue": "Hey everyone, welcome back to the channel! Today, we're exploring the beautiful city of Paris.",
-    "visuals": "Host is sitting at a cafe, smiling and talking directly to the camera. A cup of coffee is on the table."
-  },
-  {
-    "scene": "City Overview",
-    "shotType": "Voiceover Drone",
-    "location": "Eiffel Tower",
-    "dialogue": "Paris is a city that needs no introduction, but it's a place that always has new secrets to reveal.",
-    "visuals": "Sweeping drone shot of the Eiffel Tower at sunrise, with the city stretching out below."
-  }
-]
+1.  **Integrate:** Weave the on-camera segments into the voiceover script to create a natural flow. The voiceover should lead into and out of the on-camera parts.
+2.  **Dialogue Source:** For rows with \`shotType: "Voiceover"\`, the \`dialogue\` MUST come from the "Voiceover Script". For rows with \`shotType: "On-Camera"\`, the \`dialogue\` MUST come from the "On-Camera Dialogue Segments".
+3.  **Location Matching:** Correctly assign the \`location\` for each shot based on the dialogue and the available inventory.
+4.  **Visuals:** Suggest specific visuals based on the dialogue and the known available footage for that location.
+5.  **Output ONLY JSON:** The final output must be a valid JSON array of shot objects and nothing else.
 `;
 
     try {
-        // FIX: Calling callGeminiAPI with the correct 4-argument signature.
-        // The third argument is the generationConfig, and the fourth is the isComplex boolean.
+        // Correctly call the Gemini API with 4 arguments: prompt, settings, generationConfig, isComplex
         const generationConfig = { responseMimeType: "application/json" };
         const isComplex = true;
 
