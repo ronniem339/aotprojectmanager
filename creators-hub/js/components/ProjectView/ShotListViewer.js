@@ -1,8 +1,9 @@
 // creators-hub/js/components/ProjectView/ShotListViewer.js
 
 window.ShotListViewer = ({ video, project }) => {
-  const { useAppState } = window;
-  const { callGeminiAPI } = window;
+  // THIS IS THE FIX: Correctly assign functions from the window object.
+  const useAppState = window.useAppState;
+  const callGeminiAPI = window.callGeminiAPI;
   const { React } = window;
   const LoadingSpinner = window.LoadingSpinner;
 
@@ -11,7 +12,6 @@ window.ShotListViewer = ({ video, project }) => {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // THIS IS THE FIX: Check for video.script, which is the correct field name.
     if (video && project && video.script) {
       generateShotList();
     }
