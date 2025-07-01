@@ -1,22 +1,19 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
-// NEW: Import the ShotListViewer component
 const ShotListViewer = window.ShotListViewer; 
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails }) => {
     const { useState, useEffect, useCallback } = React;
-    const { Button, Dialog, DialogContent, DialogTitle, IconButton, Box } = MaterialUI;
-    const { Close: CloseIcon } = MaterialUI.Icons;
-
+    
     const [openTask, setOpenTask] = useState(null);
-    const [showShotList, setShowShotList] = useState(false); // NEW: State to control the Shot List modal
+    const [showShotList, setShowShotList] = useState(false); 
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
 
     useEffect(() => {
         setOpenTask(null);
-        setShowShotList(false); // Reset when video changes
+        setShowShotList(false);
     }, [video.id]);
 
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
@@ -152,20 +149,17 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     return (
         <main className="flex-grow">
-            {/* NEW: Title and Shot List button container */}
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <div className="flex items-center mb-4">
                 <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
                 {video.finalScript && (
-                    <Button 
-                        variant="contained" 
-                        size="small"
+                    <button 
                         onClick={() => setShowShotList(true)}
-                        sx={{ ml: 2, backgroundColor: 'secondary.main', '&:hover': { backgroundColor: 'secondary.dark' } }}
+                        className="ml-4 px-3 py-1 bg-secondary hover:bg-secondary-dark text-white text-sm font-semibold rounded-lg shadow-md transition-colors"
                     >
                         View Shot List
-                    </Button>
+                    </button>
                 )}
-            </Box>
+            </div>
 
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
@@ -194,33 +188,30 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 })}
             </div>
 
-            {/* NEW: Modal for displaying the Shot List Viewer */}
-            <Dialog 
-                open={showShotList} 
-                onClose={() => setShowShotList(false)} 
-                fullWidth={true}
-                maxWidth="lg"
-            >
-                <DialogTitle>
-                    Shot List for: {video.chosenTitle || video.title}
-                    <IconButton
-                        aria-label="close"
-                        onClick={() => setShowShotList(false)}
-                        sx={{
-                            position: 'absolute',
-                            right: 8,
-                            top: 8,
-                            color: (theme) => theme.palette.grey[500],
-                        }}
+            {showShotList && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"
+                    onMouseDown={() => setShowShotList(false)}
+                >
+                    <div 
+                        className="glass-card rounded-lg p-6 w-full max-w-5xl text-left"
+                        onMouseDown={e => e.stopPropagation()}
                     >
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent dividers>
-                    {/* Render the new component inside the modal */}
-                    <ShotListViewer video={video} project={project} />
-                </DialogContent>
-            </Dialog>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
+                            <button 
+                                onClick={() => setShowShotList(false)}
+                                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="max-h-[75vh] overflow-y-auto">
+                            <ShotListViewer video={video} project={project} />
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 });
