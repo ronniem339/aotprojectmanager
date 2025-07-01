@@ -324,6 +324,7 @@ const ScriptingWorkspaceModal = ({
                 });
                 setParsedTranscript(parsed);
                 handleDataChange('onCameraDescriptions', parsed); // Save the parsed transcript to be used by the script generator
+                handleDataChange('scriptingStage', 'review_parsed_transcript'); // Persist the new stage
                 setCurrentStage('review_parsed_transcript');
             } catch (err) {
                 setError(err.message);

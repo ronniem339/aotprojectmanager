@@ -1,5 +1,4 @@
-fix(scripting): Persist on-camera input mode and transcript data
+fix(scripting): Persist scripting stage after transcript parsing
 
-- Ensured `onCameraInputMode` and `fullTranscript` are saved to `video.tasks` in the database.
-- Updated `ScriptingWorkspaceModal` to initialize `onCameraInputMode` and `parsedTranscript` from `taskData` when the modal opens.
-- This allows the scripting workspace to correctly resume from the `review_parsed_transcript` stage and retain the user's input mode and full transcript content across sessions.
+- Ensured that the `scriptingStage` is explicitly updated to `review_parsed_transcript` after the successful parsing of the full transcript.
+- This resolves the issue where the scripting workspace would revert to the initial input screen instead of the review stage upon reopening, requiring the user to re-parse the transcript.
