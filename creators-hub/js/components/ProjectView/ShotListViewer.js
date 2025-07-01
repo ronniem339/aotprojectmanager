@@ -1,18 +1,17 @@
 // creators-hub/js/components/ProjectView/ShotListViewer.js
 
-window.ShotListViewer = ({ video, project }) => {
-  const useAppState = window.useAppState;
-  const callGeminiAPI = window.aiUtils.callGeminiAPI;
+window.ShotListViewer = ({ video, project, settings }) => {
   const { React } = window;
+  const { useState, useEffect } = React;
+  const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const LoadingSpinner = window.LoadingSpinner;
 
-  // Defensively get the entire app state object
-  const appState = useAppState();
-  const [shotListData, setShotListData] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
-  const [errorState, setErrorState] = React.useState(null);
+  const [shotListData, setShotListData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  // FIX: Use local state for error handling, just like in TitleTask.js
+  const [error, setError] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (video && project && video.script) {
       generateShotList();
     }
@@ -20,11 +19,8 @@ window.ShotListViewer = ({ video, project }) => {
 
   const generateShotList = async () => {
     setLoading(true);
-    setErrorState(null);
+    setError(''); // Clear previous errors
     try {
-      // Access settings directly from the appState object
-      const settings = appState.settings;
-
       const onCameraTranscripts = project.onCameraDescriptions || {};
       const prompt = `
         You are an expert video editor and production assistant. Your task is to create a "Shot List" by analyzing a video script and mapping each part of it to a specific location and any corresponding on-camera dialogue.
@@ -62,11 +58,13 @@ window.ShotListViewer = ({ video, project }) => {
         Now, generate the JSON shot list based on the script, locations, and dialogue provided.
       `;
 
+      // FIX: Call the API with the settings prop, as seen in TitleTask.js
       const parsedResponse = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
       
       const enhancedShotList = parsedResponse.map(shot => {
         const location = project.locations.find(loc => loc.name === shot.locationName);
-        const footage = location ? project.footageInventory[location.place_id] : null;
+        const footage = location && project.footageInventory ? project.footageInventory[location.place_id] : null;
+
         return {
           ...shot,
           availableFootage: footage ? {
@@ -76,25 +74,13 @@ window.ShotListViewer = ({ video, project }) => {
           } : { bRoll: false, onCamera: false, drone: false },
         };
       });
+
       setShotListData(enhancedShotList);
 
-    } catch (error) {
-      console.error('Error generating shot list:', error);
-      if (error.message.includes("Gemini API Key is not set")) {
-        setErrorState({ type: 'apiKeyMissing', message: error.message });
-      } else {
-        setErrorState({ type: 'generalError', message: 'An unexpected error occurred.' });
-      }
-
-      // THIS IS THE FIX: Safely check if dispatch is a function before calling it.
-      if (appState && typeof appState.dispatch === 'function') {
-        appState.dispatch({
-          type: 'ADD_ALERT',
-          payload: { type: 'error', message: `Failed to generate shot list: ${error.message}` }
-        });
-      } else {
-        console.error("Could not dispatch alert because dispatch function was not available in the application state.");
-      }
+    } catch (err) {
+      console.error('Error generating shot list:', err);
+      // FIX: Set the local error state to display the message in the UI
+      setError(`Failed to generate shot list: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -109,14 +95,15 @@ window.ShotListViewer = ({ video, project }) => {
     );
   }
 
-  if (errorState && errorState.type === 'apiKeyMissing') {
-      return (
-        <div className="p-8 text-center text-gray-300 bg-red-900/20 rounded-lg">
-            <p className="font-bold text-lg text-red-400 mb-2">Configuration Error</p>
-            <p>{errorState.message}</p>
-            <p className="mt-2 text-sm text-gray-400">Please go to "My Studio" > "Settings" to add your API key.</p>
-        </div>
-      );
+  // FIX: Display the error message from the local state
+  if (error) {
+    return (
+      <div className="p-8 text-center text-gray-300 bg-red-900/20 rounded-lg">
+          <p className="font-bold text-lg text-red-400 mb-2">An Error Occurred</p>
+          <p>{error}</p>
+          <p className="mt-2 text-sm text-gray-400">Please check your settings (especially your API key) and try again.</p>
+      </div>
+    );
   }
 
   if (!shotListData || shotListData.length === 0) {
