@@ -7,27 +7,35 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   const LoadingSpinner = window.LoadingSpinner;
 
   const [shotListData, setShotListData] = useState(video.tasks?.shotList || null);
-  const [isLoading, setIsLoading] = useState(!shotListData);
+  const [isLoading, setIsLoading] = useState(!video.tasks?.shotList);
   const [error, setError] = useState('');
   const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
   useEffect(() => {
+    // If the shotList is missing from the video object, generate it.
+    // This hook will re-run if the video object updates (e.g., after regeneration)
     if (!video.tasks?.shotList && video.script) {
       generateAndSaveShotList();
+    } else {
+        // If the data already exists, ensure we are not in a loading state.
+        setIsLoading(false);
     }
   }, [video.id, video.tasks?.shotList]);
 
   const generateAndSaveShotList = async () => {
+    // Reset state for regeneration
     setIsLoading(true);
     setError('');
+    setShotListData(null);
+    setLoadingMessage('Step 1/3: Assembling content from your script...');
+    
     try {
-        // --- STEP 1: Assemble all content blocks using existing data ---
-        setLoadingMessage('Step 1/3: Assembling content...');
+        // --- STEP 1: Assemble all content blocks using the definitive, user-provided data ---
         const allContentBlocks = [];
         const locationAnswers = video.tasks?.locationAnswers || {};
-
-        // Add on-camera blocks
         const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
+
+        // Add on-camera blocks first
         for (const locationName in onCameraDescriptions) {
             const dialogueObject = onCameraDescriptions[locationName];
             const transcript = dialogueObject?.transcript;
@@ -43,11 +51,10 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
             }
         }
 
-        // Add voiceover blocks, using pre-assigned locations from the scripting workflow
-        const voiceoverParagraphs = video.script.split('\n\n').filter(p => p.trim() !== '');
-        voiceoverParagraphs.forEach((p, index) => {
-            const cue = p.trim();
-            const locationName = locationAnswers[cue] || 'General'; // Use the location the user already assigned
+        // Add voiceover blocks using the definitive 'locationQuestions' as the source of truth
+        const voiceoverQuestions = video.tasks?.locationQuestions || [];
+        voiceoverQuestions.forEach((cue, index) => {
+            const locationName = locationAnswers[cue] || 'General';
             const locationData = project.locations.find(l => l.name === locationName);
             allContentBlocks.push({
                 id: `vo-${index}`,
@@ -63,17 +70,17 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
         const sequencingPrompt = `
             You are an expert video editor. Your only task is to sequence a list of pre-made content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline.
 
-            **Input:**
+            Input:
             You will receive a JSON array of "Content Blocks". Each block is pre-tagged with its type, content, and location.
 
-            **Your Task:**
+            Your Task:
             Arrange all the provided content blocks into the correct storytelling order. The on-camera segments should be placed logically within the flow of the voiceover.
             Your final output MUST be a valid JSON array containing ALL of the original content block objects, now in the correct order. Do not change any properties of the objects.
 
-            **CONTEXT - SCRIPT PLAN (for structure):**
+            CONTEXT - SCRIPT PLAN (for structure):
             ${video.tasks?.scriptPlan || 'No plan provided.'}
 
-            **CONTENT BLOCKS TO SEQUENCE:**
+            CONTENT BLOCKS TO SEQUENCE:
             ${JSON.stringify(allContentBlocks.map(({id, type, cue, locationName}) => ({id, type, cue, locationName})), null, 2)}
 
             Now, return the complete, sequenced JSON array of content blocks.
