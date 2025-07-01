@@ -11,7 +11,8 @@ window.ShotListViewer = ({ video, project }) => {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (video && project && video.finalScript) {
+    // THIS IS THE FIX: Check for video.script, which is the correct field name.
+    if (video && project && video.script) {
       generateShotList();
     }
   }, [video, project]);
@@ -40,7 +41,7 @@ window.ShotListViewer = ({ video, project }) => {
 
         **Full Video Script:**
         ---
-        ${video.finalScript}
+        ${video.script} 
         ---
 
         **Available Locations:**
