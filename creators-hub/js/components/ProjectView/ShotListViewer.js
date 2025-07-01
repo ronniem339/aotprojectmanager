@@ -13,17 +13,15 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
 
   useEffect(() => {
     // If the shotList is missing from the video object, generate it.
-    // This hook will re-run if the video object updates (e.g., after regeneration)
     if (!video.tasks?.shotList && video.script) {
       generateAndSaveShotList();
-    } else {
-        // If the data already exists, ensure we are not in a loading state.
-        setIsLoading(false);
+    } else if (video.tasks?.shotList) {
+      // If data exists, ensure we are not in a loading state.
+      setIsLoading(false);
     }
   }, [video.id, video.tasks?.shotList]);
 
   const generateAndSaveShotList = async () => {
-    // Reset state for regeneration
     setIsLoading(true);
     setError('');
     setShotListData(null);
@@ -35,7 +33,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
         const locationAnswers = video.tasks?.locationAnswers || {};
         const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
 
-        // Add on-camera blocks first
+        // Add on-camera blocks
         for (const locationName in onCameraDescriptions) {
             const dialogueObject = onCameraDescriptions[locationName];
             const transcript = dialogueObject?.transcript;
@@ -51,18 +49,22 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
             }
         }
 
-        // Add voiceover blocks using the definitive 'locationQuestions' as the source of truth
+        // THIS IS THE CRITICAL FIX:
+        // Correctly access the .question property from the locationQuestions array of objects.
         const voiceoverQuestions = video.tasks?.locationQuestions || [];
-        voiceoverQuestions.forEach((cue, index) => {
-            const locationName = locationAnswers[cue] || 'General';
-            const locationData = project.locations.find(l => l.name === locationName);
-            allContentBlocks.push({
-                id: `vo-${index}`,
-                type: 'voiceover',
-                cue: cue,
-                locationName: locationName,
-                place_id: locationData?.place_id || null,
-            });
+        voiceoverQuestions.forEach((questionObj, index) => {
+            const cue = questionObj.question; // Access the text cue correctly
+            if (cue && typeof cue === 'string' && cue.trim() !== '') {
+                const locationName = locationAnswers[cue] || 'General';
+                const locationData = project.locations.find(l => l.name === locationName);
+                allContentBlocks.push({
+                    id: `vo-${index}`,
+                    type: 'voiceover',
+                    cue: cue,
+                    locationName: locationName,
+                    place_id: locationData?.place_id || null,
+                });
+            }
         });
 
         // --- STEP 2: Use AI for the final task of sequencing all blocks ---
@@ -91,6 +93,9 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
         setLoadingMessage('Step 3/3: Finalizing and saving...');
         const finalShotList = sequencedBlocks.map(block => {
             const originalBlock = allContentBlocks.find(b => b.id === block.id);
+            // This check is crucial because the AI might hallucinate an ID.
+            if (!originalBlock) return null; 
+            
             const footage = originalBlock.place_id && project.footageInventory ? project.footageInventory[originalBlock.place_id] : null;
             return {
                 ...originalBlock,
@@ -101,7 +106,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
                     drone: !!(footage.drone && footage.drone.length > 0),
                 } : { bRoll: false, onCamera: false, drone: false },
             };
-        });
+        }).filter(Boolean); // Filter out any null entries from mismatched IDs
 
         setShotListData(finalShotList);
         onUpdateTask('scripting', 'complete', { 'tasks.shotList': finalShotList });
