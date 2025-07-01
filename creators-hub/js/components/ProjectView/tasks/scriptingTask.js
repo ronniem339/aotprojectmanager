@@ -277,6 +277,8 @@ const ScriptingWorkspaceModal = ({
     const [showDebugMenu, setShowDebugMenu] = useState(false);
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isComplete = currentStage === 'complete';
+    const [onCameraInputMode, setOnCameraInputMode] = useState('per-location'); // 'per-location' or 'transcript'
+    const [parsedTranscript, setParsedTranscript] = useState(null);
 
     useEffect(() => {
         setLocalTaskData(taskData);
@@ -303,8 +305,28 @@ const ScriptingWorkspaceModal = ({
 
 
     const initiateScriptGeneration = async () => {
-        setCurrentStage('full_script_review');
-        await handleAction(onGenerateFullScript, localTaskData);
+        if (onCameraInputMode === 'transcript' && localTaskData.fullTranscript) {
+            setIsLoading(true);
+            setError('');
+            try {
+                const parsed = await window.aiUtils.parseTranscriptAI({
+                    fullTranscript: localTaskData.fullTranscript,
+                    onCameraLocations: onCameraLocationObjects,
+                    settings: settings
+                });
+                setParsedTranscript(parsed);
+                handleDataChange('onCameraDescriptions', parsed); // Save the parsed transcript to be used by the script generator
+                setCurrentStage('review_parsed_transcript');
+            } catch (err) {
+                setError(err.message);
+                console.error("Error during transcript parsing:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            setCurrentStage('full_script_review');
+            await handleAction(onGenerateFullScript, localTaskData);
+        }
     };
 
     const handleDataChange = (field, value) => {
@@ -383,6 +405,7 @@ const ScriptingWorkspaceModal = ({
         { id: 'draft_outline_review', name: 'Review Outline' },
         { id: 'refinement_qa', name: 'Refinement Q&A' },
         { id: 'on_camera_qa', name: 'On-Camera Notes' },
+        { id: 'review_parsed_transcript', name: 'Review Transcript' },
         { id: 'full_script_review', name: 'Final Script' },
         { id: 'complete', name: 'Complete' }
     ];
@@ -556,20 +579,87 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
                         <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
-                        <div className="space-y-6">
-                            {onCameraLocationObjects.map((location) => (
-                                <LocationDetailsCard
-                                    key={location.place_id}
-                                    location={location}
-                                    onDescriptionChange={handleOnCameraDescriptionChange}
-                                    onRemove={onInitiateRemoveLocation}
-                                    description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
-                                />
-                            ))}
+                        
+                        {/* Input Mode Toggle */}
+                        <div className="flex justify-center items-center space-x-4 mb-6">
+                            <button 
+                                onClick={() => setOnCameraInputMode('per-location')} 
+                                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                    onCameraInputMode === 'per-location' 
+                                        ? 'bg-primary-accent text-white' 
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}>
+                                Notes Per Location
+                            </button>
+                            <button 
+                                onClick={() => setOnCameraInputMode('transcript')} 
+                                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                    onCameraInputMode === 'transcript' 
+                                        ? 'bg-primary-accent text-white' 
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}>
+                                Full Transcript
+                            </button>
                         </div>
+
+                        {onCameraInputMode === 'per-location' ? (
+                            <div className="space-y-6">
+                                {onCameraLocationObjects.map((location) => (
+                                    <LocationDetailsCard
+                                        key={location.place_id}
+                                        location={location}
+                                        onDescriptionChange={handleOnCameraDescriptionChange}
+                                        onRemove={onInitiateRemoveLocation}
+                                        description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-gray-400 mb-4">Paste your full on-camera transcript below. The AI will clean it up and attempt to match the dialogue to the correct locations.</p>
+                                <textarea
+                                    value={localTaskData.fullTranscript || ''}
+                                    onChange={(e) => handleDataChange('fullTranscript', e.target.value)}
+                                    rows="20"
+                                    className="w-full form-textarea"
+                                    placeholder="Paste your entire on-camera script here..."
+                                />
+                            </div>
+                        )}
+
                         <div className="text-center mt-8">
                             <button onClick={initiateScriptGeneration} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
+                            </button>
+                        </div>
+                    </div>
+                );
+            case 'review_parsed_transcript':
+                return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Review AI-Parsed Transcript</h3>
+                        <p className="text-gray-400 mb-6">The AI has analyzed your transcript. Review the assignments and make any necessary corrections before proceeding.</p>
+                        <div className="space-y-6">
+                            {Object.entries(parsedTranscript || {}).map(([locationName, dialogues]) => (
+                                <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                                    <label className="block text-gray-200 text-md font-medium mb-2">{locationName}</label>
+                                    <textarea
+                                        value={dialogues.join('\n')}
+                                        onChange={(e) => {
+                                            const newParsedTranscript = { ...parsedTranscript };
+                                            newParsedTranscript[locationName] = e.target.value.split('\n');
+                                            setParsedTranscript(newParsedTranscript);
+                                            handleDataChange('onCameraDescriptions', newParsedTranscript);
+                                        }}
+                                        rows="5"
+                                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                                    ></textarea>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="text-center mt-8">
+                            <button onClick={() => handleAction(onGenerateFullScript, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Confirm and Generate Script'}
                             </button>
                         </div>
                     </div>
@@ -891,10 +981,15 @@ const handleOpenWorkspace = async (startStage = null) => {
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        const onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
-        for (const key in onCameraDescriptionsToUse) {
-            if (!currentTaskData.onCameraLocations.includes(key)) {
-                delete onCameraDescriptionsToUse[key];
+        let onCameraDescriptionsToUse = {};
+        if (onCameraInputMode === 'transcript') {
+            onCameraDescriptionsToUse = parsedTranscript;
+        } else {
+            onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
+            for (const key in onCameraDescriptionsToUse) {
+                if (!currentTaskData.onCameraLocations.includes(key)) {
+                    delete onCameraDescriptionsToUse[key];
+                }
             }
         }
 
