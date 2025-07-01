@@ -325,7 +325,7 @@ const ScriptingWorkspaceModal = ({
             }
         } else {
             setCurrentStage('full_script_review');
-            await handleAction(onGenerateFullScript, localTaskData);
+            await handleAction(onGenerateFullScript, localTaskData, onCameraInputMode);
         }
     };
 
@@ -658,7 +658,7 @@ const ScriptingWorkspaceModal = ({
                             ))}
                         </div>
                         <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateFullScript, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                            <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Confirm and Generate Script'}
                             </button>
                         </div>
@@ -976,13 +976,13 @@ const handleOpenWorkspace = async (startStage = null) => {
         });
     };
 
-    const handleGenerateFullScript = async (currentTaskData) => {
+    const handleGenerateFullScript = async (currentTaskData, inputMode) => {
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
         let onCameraDescriptionsToUse = {};
-        if (onCameraInputMode === 'transcript') {
+        if (inputMode === 'transcript') {
             onCameraDescriptionsToUse = parsedTranscript;
         } else {
             onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };

@@ -1,4 +1,4 @@
-fix(ai): Improve transcript parsing and model selection
+fix(scripting): Resolve ReferenceError for onCameraInputMode
 
-- **Model Selection:** Switched `parseTranscriptAI` to use the `gemini-pro` model (by setting `isComplex: true`) for more accurate and reliable transcript analysis, as it's a complex task requiring nuanced understanding and structured output.
-- **JSON Parsing Error:** Removed redundant `JSON.parse()` call in `parseTranscriptAI.js`. The `callGeminiAPI` function already handles JSON parsing when `response_mime_type` is set, leading to a `SyntaxError` when `JSON.parse()` was called on an already-parsed JavaScript object.
+- Passed `onCameraInputMode` explicitly to `handleGenerateFullScript` from `initiateScriptGeneration` and the `review_parsed_transcript` stage to resolve a `ReferenceError`.
+- This ensures the `onCameraInputMode` is always accessible within the `handleGenerateFullScript` function, allowing correct logic for both per-location notes and full transcript input.
