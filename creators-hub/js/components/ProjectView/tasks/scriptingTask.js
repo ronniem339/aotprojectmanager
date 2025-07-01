@@ -1000,7 +1000,8 @@ const handleOpenWorkspace = async (startStage = null) => {
 
         let onCameraDescriptionsToUse = {};
         if (inputMode === 'transcript') {
-            onCameraDescriptionsToUse = parsedTranscript;
+            // Use the data directly from localTaskData.onCameraDescriptions
+            onCameraDescriptionsToUse = currentTaskData.onCameraDescriptions;
         } else {
             onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
             for (const key in onCameraDescriptionsToUse) {
