@@ -44,13 +44,8 @@ window.aiUtils.parseTranscriptAI = async (options) => {
     const aiResponse = await window.aiUtils.callGeminiAPI(prompt, settings, {
         temperature: 0.2, // Lower temperature for more deterministic, structured output
         response_mime_type: "application/json",
-    });
+    }, true); // Set isComplex to true to use Pro model if configured
 
-    try {
-        // The response should be a JSON string, so we parse it.
-        return JSON.parse(aiResponse);
-    } catch (error) {
-        console.error("Error parsing AI response for transcript analysis:", error);
-        throw new Error("The AI returned an invalid format for the transcript analysis.");
-    }
+    // The aiResponse is already a parsed JSON object due to response_mime_type
+    return aiResponse;
 };
