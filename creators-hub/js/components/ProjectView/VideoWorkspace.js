@@ -1,13 +1,22 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
+// NEW: Import the ShotListViewer component
+const ShotListViewer = window.ShotListViewer; 
+
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails }) => {
     const { useState, useEffect, useCallback } = React;
+    const { Button, Dialog, DialogContent, DialogTitle, IconButton, Box } = MaterialUI;
+    const { Close: CloseIcon } = MaterialUI.Icons;
+
     const [openTask, setOpenTask] = useState(null);
+    const [showShotList, setShowShotList] = useState(false); // NEW: State to control the Shot List modal
+
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
 
     useEffect(() => {
         setOpenTask(null);
+        setShowShotList(false); // Reset when video changes
     }, [video.id]);
 
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
@@ -18,7 +27,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
         try {
-            // Using a transaction for a robust read-modify-write operation
             await db.runTransaction(async (transaction) => {
                 const videoDoc = await transaction.get(videoDocRef);
                 if (!videoDoc.exists) {
@@ -30,14 +38,12 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 const topLevelUpdates = {};
                 const updatesForTasks = {};
 
-                // Set the primary task status, e.g., 'scripting': 'in-progress'
                 updatesForTasks[taskName] = status;
 
-                // Process extraData to separate keys meant for the 'tasks' object from top-level keys
                 for (const key in extraData) {
                     if (Object.prototype.hasOwnProperty.call(extraData, key)) {
                         if (key.startsWith('tasks.')) {
-                            const subKey = key.substring(6); // Remove 'tasks.' prefix
+                            const subKey = key.substring(6);
                             updatesForTasks[subKey] = extraData[key];
                         } else {
                             topLevelUpdates[key] = extraData[key];
@@ -45,7 +51,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     }
                 }
 
-                // Merge the updates with the existing tasks object to avoid overwriting other task data
                 const newTasksObject = { ...currentTasks, ...updatesForTasks };
 
                 const payload = {
@@ -53,7 +58,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     tasks: newTasksObject
                 };
                 
-                // Perform the update within the transaction
                 transaction.update(videoDocRef, payload);
             });
         } catch (e) {
@@ -87,8 +91,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             case 'chaptersGenerated':
                  dataToReset = { 'tasks.chaptersFinalized': false };
                  break;
-            case 'tagsGenerated': { // Scoping the constant to the case
-                // FIX: Safely handle metadata whether it's an object or a string.
+            case 'tagsGenerated': {
                 const currentMeta = (typeof video.metadata === 'string' && video.metadata)
                     ? JSON.parse(video.metadata)
                     : video.metadata || {};
@@ -112,26 +115,17 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         updateTask(taskId, 'pending', dataToReset);
     }, [updateTask, video.title, video.metadata]);
 
-
-    // **UPDATED**: This function now checks the `dependsOn` array from the config.
     const isTaskLocked = (task) => {
-        // A task is locked if it has dependencies that are not yet complete.
         if (!task.dependsOn || task.dependsOn.length === 0) {
-            return false; // No dependencies means it's never locked.
+            return false;
         }
-    
-        // It checks if EVERY task in the 'dependsOn' array has a status of 'complete'.
-        // If even one is not complete, the task remains locked.
         return !task.dependsOn.every(dependencyId => 
             video.tasks?.[dependencyId] === 'complete'
         );
     };
 
     const renderTaskComponent = (task, index) => {
-        const locked = isTaskLocked(task); // Pass the entire task object
-
-        // ** THIS IS THE FIX **
-        // The 'project={project}' prop is now correctly passed down to all task components that need it for context.
+        const locked = isTaskLocked(task);
         switch (task.id) {
             case 'scripting':
                 return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
@@ -158,7 +152,21 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     return (
         <main className="flex-grow">
-            <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent mb-4">{video.chosenTitle || video.title}</h3>
+            {/* NEW: Title and Shot List button container */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
+                {video.finalScript && (
+                    <Button 
+                        variant="contained" 
+                        size="small"
+                        onClick={() => setShowShotList(true)}
+                        sx={{ ml: 2, backgroundColor: 'secondary.main', '&:hover': { backgroundColor: 'secondary.dark' } }}
+                    >
+                        View Shot List
+                    </Button>
+                )}
+            </Box>
+
             <div className="space-y-4">
                 {taskPipeline.map((task, index) => {
                     let status = video.tasks?.[task.id] || 'pending';
@@ -167,7 +175,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
                         status = 'in-progress';
                     }
-                    const locked = isTaskLocked(task); // Use the updated function
+                    const locked = isTaskLocked(task);
 
                     return (
                         <window.Accordion
@@ -185,6 +193,34 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     );
                 })}
             </div>
+
+            {/* NEW: Modal for displaying the Shot List Viewer */}
+            <Dialog 
+                open={showShotList} 
+                onClose={() => setShowShotList(false)} 
+                fullWidth={true}
+                maxWidth="lg"
+            >
+                <DialogTitle>
+                    Shot List for: {video.chosenTitle || video.title}
+                    <IconButton
+                        aria-label="close"
+                        onClick={() => setShowShotList(false)}
+                        sx={{
+                            position: 'absolute',
+                            right: 8,
+                            top: 8,
+                            color: (theme) => theme.palette.grey[500],
+                        }}
+                    >
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers>
+                    {/* Render the new component inside the modal */}
+                    <ShotListViewer video={video} project={project} />
+                </DialogContent>
+            </Dialog>
         </main>
     );
 });
