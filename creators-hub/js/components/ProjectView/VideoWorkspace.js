@@ -151,7 +151,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         <main className="flex-grow">
             <div className="flex items-center mb-4">
                 <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
-                {video.finalScript && (
+                {/* THIS IS THE FIX: Check for video.script instead of video.finalScript */}
+                {video.script && (
                     <button 
                         onClick={() => setShowShotList(true)}
                         className="ml-4 px-3 py-1 bg-secondary hover:bg-secondary-dark text-white text-sm font-semibold rounded-lg shadow-md transition-colors"
