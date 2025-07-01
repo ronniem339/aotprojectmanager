@@ -1000,8 +1000,14 @@ const handleOpenWorkspace = async (startStage = null) => {
 
         let onCameraDescriptionsToUse = {};
         if (inputMode === 'transcript') {
-            // Use the data directly from localTaskData.onCameraDescriptions
-            onCameraDescriptionsToUse = currentTaskData.onCameraDescriptions;
+            // Transform parsedTranscript (object with arrays) into object with joined strings
+            for (const locationName in currentTaskData.onCameraDescriptions) {
+                if (Array.isArray(currentTaskData.onCameraDescriptions[locationName])) {
+                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName].join('\n');
+                } else {
+                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName];
+                }
+            }
         } else {
             onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
             for (const key in onCameraDescriptionsToUse) {

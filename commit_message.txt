@@ -1,4 +1,4 @@
-fix(scripting): Ensure parsed transcript data is accessible for script generation
+fix(scripting): Correctly format onCameraDescriptions for script generation
 
-- Modified `handleGenerateFullScript` to directly use `currentTaskData.onCameraDescriptions` when the `onCameraInputMode` is 'transcript'.
-- This resolves the `ReferenceError: parsedTranscript is not defined` that occurred when attempting to generate the full script after reopening the modal at the `review_parsed_transcript` stage, as `parsedTranscript` (a state variable) was not reliably re-initialized, but `onCameraDescriptions` (a property of `localTaskData`) is correctly persisted and reloaded.
+- Transformed `onCameraDescriptions` from an object with arrays of dialogue segments to an object with single string values (by joining the arrays with newlines) when using the full transcript input mode.
+- This resolves the `TypeError: desc.trim is not a function` error in `generateFinalScriptAI.js`, as it now receives the expected string format for on-camera descriptions.
