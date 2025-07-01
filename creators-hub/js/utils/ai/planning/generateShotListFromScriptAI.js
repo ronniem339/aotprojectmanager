@@ -26,14 +26,14 @@ window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, video
 
     const onCameraNotes = onCameraLocations.join(', ');
     const footageNotes = Object.entries(footageInventory)
-        .map(([location, details]) => `
+        .map(([location, details]) => '
 - **${location}:**
   - Available Footage: ${details.footage.join(', ')}
   - On-Camera Segments: ${details.onCamera ? 'Yes' : 'No'}
-`)
+')
         .join('');
 
-    const prompt = `
+    const prompt = '
 You are an expert video producer and editor. Your task is to create a detailed shot list for a video based on its final script and a list of available footage.
 
 **Video Title:** "${videoTitle}"
@@ -57,11 +57,11 @@ Create a comprehensive shot list in JSON format. Each object in the JSON array s
 
 **JSON Object Structure:**
 Each object in the array must have the following fields:
-- `scene` (string): A brief, descriptive name for the scene (e.g., "Introduction," "Exploring the Market").
-- `shotType` (string): The type of shot. Use one of the following values: "On-Camera," "Voiceover B-Roll," "Voiceover Drone," "Voiceover Mix."
-- `location` (string): The primary location for the shot. This must match one of the locations from the footage inventory. If it's a general shot, use "N/A".
-- `dialogue` (string): The exact dialogue or voiceover line(s) for this shot.
-- `visuals` (string): A detailed description of what should be on screen. Be specific. For b-roll, suggest specific shots from the inventory (e.g., "Close-up of a coffee cup," "Wide shot of the beach"). For on-camera, describe the action.
+- 'scene' (string): A brief, descriptive name for the scene (e.g., "Introduction," "Exploring the Market").
+- 'shotType' (string): The type of shot. Use one of the following values: "On-Camera," "Voiceover B-Roll," "Voiceover Drone," "Voiceover Mix."
+- 'location' (string): The primary location for the shot. This must match one of the locations from the footage inventory. If it's a general shot, use "N/A".
+- 'dialogue' (string): The exact dialogue or voiceover line(s) for this shot.
+- 'visuals' (string): A detailed description of what should be on screen. Be specific. For b-roll, suggest specific shots from the inventory (e.g., "Close-up of a coffee cup," "Wide shot of the beach"). For on-camera, describe the action.
 
 **Instructions:**
 1.  **Follow the Script:** The shot list must follow the narrative flow of the provided script.
@@ -88,7 +88,7 @@ Each object in the array must have the following fields:
   }
 ]
 '
-`;
+';
 
     try {
         const response = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
@@ -97,6 +97,6 @@ Each object in the array must have the following fields:
         return { shotList };
     } catch (error) {
         console.error("Error in generateShotListFromScriptAI:", error);
-        throw new Error(`Failed to generate shot list from script. ${error.message}`);
+        throw new Error('Failed to generate shot list from script. ${error.message}');
     }
 };

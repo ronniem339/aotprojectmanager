@@ -28,15 +28,15 @@ window.aiUtils.generateRefinedScriptPlanAI = async ({ scriptPlan, onCameraDescri
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     const onCameraNotes = Object.entries(onCameraDescriptions)
-        .map(([location, description]) => `
+        .map(([location, description]) => '
 ---
 Location: ${location}
 On-Camera Action/Dialogue:
 ${description}
 ---
-`).join('\n');
+').join('\n');
 
-    const prompt = `
+    const prompt = '
 You are an expert video scriptwriter and producer. Your task is to refine a video script plan to seamlessly integrate pre-recorded on-camera segments.
 
 **Video Title:** "${videoTitle}"
@@ -86,7 +86,7 @@ Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown 
 - Build anticipation for what the host will do there.
 
 ...and so on.
-`;
+';
 
     try {
         const response = await window.aiUtils.callGeminiAPI(prompt, settings);
@@ -96,6 +96,6 @@ Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown 
         return { refinedScriptPlan: response };
     } catch (error) {
         console.error("Error in generateRefinedScriptPlanAI:", error);
-        throw new Error(`Failed to generate refined script plan. ${error.message}`);
+        throw new Error('Failed to generate refined script plan. ${error.message}');
     }
 };
