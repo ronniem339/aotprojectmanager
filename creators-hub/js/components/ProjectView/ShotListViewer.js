@@ -24,23 +24,25 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
         // --- STEP 1: Programmatically create a master list of all content blocks ---
         const contentBlocks = [];
 
-        // Add all on-camera dialogue blocks, pre-enriched with place_id
-        const onCameraTranscripts = video.tasks?.onCameraDescriptions || {};
-        for (const locationName in onCameraTranscripts) {
-            const dialogue = onCameraTranscripts[locationName];
-            if (dialogue && dialogue.trim() !== '') {
+        // FIX: Correctly access the .transcript property from the dialogue object
+        const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
+        for (const locationName in onCameraDescriptions) {
+            const dialogueObject = onCameraDescriptions[locationName];
+            const transcript = dialogueObject?.transcript; // Safely access the transcript
+
+            if (transcript && typeof transcript === 'string' && transcript.trim() !== '') {
                 const locationData = project.locations.find(l => l.name === locationName);
                 contentBlocks.push({
                     id: `oncamera-${locationData?.place_id || locationName}`,
                     type: 'onCamera',
-                    cue: dialogue,
+                    cue: transcript, // Use the actual transcript string
                     locationName: locationName,
                     place_id: locationData?.place_id || null,
                 });
             }
         }
 
-        // Add all voiceover paragraphs as blocks
+        // Add all voiceover paragraphs as blocks, splitting by double newline for better paragraphs
         const voiceoverParagraphs = video.script.split('\n\n').filter(p => p.trim() !== '');
         voiceoverParagraphs.forEach((p, index) => {
             contentBlocks.push({
@@ -124,7 +126,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
       <div className="p-8 text-center text-gray-300 bg-red-900/20 rounded-lg">
         <p className="font-bold text-lg text-red-400 mb-2">An Error Occurred</p>
         <p>{error}</p>
-        <p className="mt-2 text-sm text-gray-400">Please check your settings and try again. You can reset by going back to the Scripting task and re-saving the script.</p>
+        <p className="mt-2 text-sm text-gray-400">Please check your settings and try again. You can reset by clicking "Regenerate".</p>
       </div>
     );
   }
