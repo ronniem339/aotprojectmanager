@@ -151,7 +151,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         <main className="flex-grow">
             <div className="flex items-center mb-4">
                 <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
-                {/* THIS IS THE FIX: Check for video.script instead of video.finalScript */}
                 {video.script && (
                     <button 
                         onClick={() => setShowShotList(true)}
@@ -208,7 +207,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                             </button>
                         </div>
                         <div className="max-h-[75vh] overflow-y-auto">
-                            <ShotListViewer video={video} project={project} />
+                            {/* THIS IS THE FIX: Pass the 'settings' prop down to the viewer */}
+                            <ShotListViewer video={video} project={project} settings={settings} />
                         </div>
                     </div>
                 </div>
