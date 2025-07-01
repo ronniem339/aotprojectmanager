@@ -25,12 +25,10 @@ window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, video
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     const onCameraNotes = onCameraLocations.join(', ');
-    
-    // FIX: Replaced single quotes with backticks for the multi-line template literal.
     const footageNotes = Object.entries(footageInventory)
         .map(([location, details]) => `
 - **${location}:**
-  - Available Footage: ${details.footage.join(', ')}
+  - Available Footage: ${(details.footage || []).join(', ') || 'N/A'}
   - On-Camera Segments: ${details.onCamera ? 'Yes' : 'No'}
 `)
         .join('');
@@ -99,6 +97,6 @@ Each object in the array must have the following fields:
         return { shotList };
     } catch (error) {
         console.error("Error in generateShotListFromScriptAI:", error);
-        throw new Error('Failed to generate shot list from script. ${error.message}');
+        throw new Error(`Failed to generate shot list from script. ${error.message}`);
     }
 };
