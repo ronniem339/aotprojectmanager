@@ -1,10 +1,11 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
+// FIX: Import ReactDOM for portal functionality
+const { useState, useEffect, useCallback } = React;
+const ReactDOM = window.ReactDOM;
 const ShotListViewer = window.ShotListViewer; 
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails }) => {
-    const { useState, useEffect, useCallback } = React;
-    
     const [openTask, setOpenTask] = useState(null);
     const [showShotList, setShowShotList] = useState(false); 
 
@@ -29,12 +30,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 if (!videoDoc.exists) {
                     throw "Document does not exist!";
                 }
-
                 const currentData = videoDoc.data();
                 const currentTasks = currentData.tasks || {};
                 const topLevelUpdates = {};
                 const updatesForTasks = {};
-
                 updatesForTasks[taskName] = status;
 
                 for (const key in extraData) {
@@ -47,14 +46,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         }
                     }
                 }
-
                 const newTasksObject = { ...currentTasks, ...updatesForTasks };
-
-                const payload = {
-                    ...topLevelUpdates,
-                    tasks: newTasksObject
-                };
-                
+                const payload = { ...topLevelUpdates, tasks: newTasksObject };
                 transaction.update(videoDocRef, payload);
             });
         } catch (e) {
@@ -64,42 +57,43 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
-        // Add a case for resetting the shot list if needed in the future
         if (taskId === 'shotList') {
-            dataToReset = { 'tasks.shotList': null };
+            // Use a sentinel value to delete the field from Firestore
+            dataToReset = { 'tasks.shotList': firebase.firestore.FieldValue.delete() };
+            updateTask('scripting', 'complete', dataToReset); // Keep task complete, just remove data
         } else {
             switch (taskId) {
                 case 'scripting':
                     dataToReset = {
-                        script: '',
-                        'tasks.scriptingStage': 'pending',
-                        'tasks.initialQuestions': [],
-                        'tasks.initialAnswers': [],
-                        'tasks.scriptPlan': '',
-                        'tasks.locationQuestions': [],
-                        'tasks.userExperiences': {},
-                        'tasks.shotList': null // Also clear the shot list when resetting script
+                        script: '', 'tasks.scriptingStage': 'pending', 'tasks.initialQuestions': [],
+                        'tasks.initialAnswers': [], 'tasks.scriptPlan': '', 'tasks.locationQuestions': [],
+                        'tasks.userExperiences': {}, 'tasks.shotList': firebase.firestore.FieldValue.delete()
                     };
+                    updateTask(taskId, 'pending', dataToReset);
                     break;
+                // other cases...
                 case 'videoEdited':
                     dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
+                    updateTask(taskId, 'pending', dataToReset);
                     break;
                 case 'titleGenerated':
                     dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false };
+                    updateTask(taskId, 'pending', dataToReset);
                     break;
                 case 'descriptionGenerated':
-                     dataToReset = { metadata: '', chapters: [] };
-                     break;
+                    dataToReset = { metadata: '', chapters: [] };
+                    updateTask(taskId, 'pending', dataToReset);
+                    break;
                 case 'chaptersGenerated':
-                     dataToReset = { 'tasks.chaptersFinalized': false };
-                     break;
+                    dataToReset = { 'tasks.chaptersFinalized': false };
+                    updateTask(taskId, 'pending', dataToReset);
+                    break;
                 case 'tagsGenerated': {
                     const currentMeta = (typeof video.metadata === 'string' && video.metadata)
-                        ? JSON.parse(video.metadata)
-                        : video.metadata || {};
-
+                        ? JSON.parse(video.metadata) : video.metadata || {};
                     delete currentMeta.tags;
                     dataToReset = { metadata: JSON.stringify(currentMeta) };
+                    updateTask(taskId, 'pending', dataToReset);
                     break;
                 }
                 case 'thumbnailsGenerated':
@@ -107,53 +101,50 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
                         'tasks.rejectedConcepts': [], 'tasks.currentConceptIndex': 0
                     };
+                    updateTask(taskId, 'pending', dataToReset);
                     break;
                 case 'firstCommentGenerated':
                     dataToReset = { 'tasks.firstComment': '' };
+                    updateTask(taskId, 'pending', dataToReset);
                     break;
                 default:
-                    break;
+                    return; // Do nothing if the task id doesn't match
             }
         }
-        updateTask(taskId, 'pending', dataToReset);
     }, [updateTask, video.title, video.metadata]);
 
     const isTaskLocked = (task) => {
-        if (!task.dependsOn || task.dependsOn.length === 0) {
-            return false;
-        }
-        return !task.dependsOn.every(dependencyId => 
-            video.tasks?.[dependencyId] === 'complete'
-        );
+        if (!task.dependsOn || task.dependsOn.length === 0) return false;
+        return !task.dependsOn.every(dependencyId => video.tasks?.[dependencyId] === 'complete');
     };
 
     const renderTaskComponent = (task, index) => {
         const locked = isTaskLocked(task);
+        const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
         switch (task.id) {
             case 'scripting':
-                return <window.ScriptingTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+                return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
             case 'videoEdited':
-                return <window.EditVideoTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.EditVideoTask {...commonProps} />;
             case 'titleGenerated':
-                return <window.TitleTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
+                return <window.TitleTask {...commonProps} />;
             case 'descriptionGenerated':
-                return <window.DescriptionTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} studioDetails={studioDetails} />;
+                return <window.DescriptionTask {...commonProps} studioDetails={studioDetails} />;
             case 'chaptersGenerated':
-                return <window.ChaptersTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.ChaptersTask {...commonProps} />;
             case 'tagsGenerated':
-                return <window.TagsTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
+                return <window.TagsTask {...commonProps} />;
             case 'thumbnailsGenerated':
-                return <window.ThumbnailTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} project={project} />;
+                return <window.ThumbnailTask {...commonProps} />;
             case 'videoUploaded':
-                return <window.UploadToYouTubeTask video={video} onUpdateTask={updateTask} isLocked={locked} />;
+                return <window.UploadToYouTubeTask {...commonProps} />;
             case 'firstCommentGenerated':
-                 return <window.FirstCommentTask video={video} settings={settings} onUpdateTask={updateTask} isLocked={locked} />;
+                 return <window.FirstCommentTask {...commonProps} />;
             default:
                 return <p>Task component for '{task.id}' not found.</p>;
         }
     };
 
-    // FIX: Use React.Fragment to allow the modal to be a sibling of the main content, enabling true fullscreen
     return (
         <>
             <main className="flex-grow">
@@ -168,25 +159,20 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         </button>
                     )}
                 </div>
-
                 <div className="space-y-4">
                     {taskPipeline.map((task, index) => {
                         let status = video.tasks?.[task.id] || 'pending';
-                        if (task.id === 'scripting' && video.tasks?.scriptingStage && video.tasks.scriptingStage !== 'pending' && video.tasks.scriptingStage !== 'complete') {
+                        if (task.id === 'scripting' && video.tasks?.scriptingStage && !['pending', 'complete'].includes(video.tasks.scriptingStage)) {
                             status = 'in-progress';
                         } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
                             status = 'in-progress';
                         }
                         const locked = isTaskLocked(task);
-
                         return (
                             <window.Accordion
-                                key={task.id}
-                                title={`${index + 1}. ${task.title}`}
-                                isOpen={openTask === task.id}
-                                onToggle={() => setOpenTask(openTask === task.id ? null : task.id)}
-                                status={locked ? 'locked' : status}
-                                isLocked={locked}
+                                key={task.id} title={`${index + 1}. ${task.title}`}
+                                isOpen={openTask === task.id} onToggle={() => setOpenTask(openTask === task.id ? null : task.id)}
+                                status={locked ? 'locked' : status} isLocked={locked}
                                 onRevisit={status === 'complete' ? () => handleResetTask(task.id) : null}
                                 onRestart={status === 'in-progress' ? () => handleResetTask(task.id) : null}
                             >
@@ -196,37 +182,27 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     })}
                 </div>
             </main>
-
-            {/* FIX: Modal is now outside the main element to prevent constrained positioning */}
-            {showShotList && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"
-                    onMouseDown={() => setShowShotList(false)}
-                >
-                    <div 
-                        className="glass-card rounded-lg p-6 w-full max-w-6xl text-left flex flex-col"
-                        onMouseDown={e => e.stopPropagation()}
-                    >
+            
+            {showShotList && ReactDOM.createPortal(
+                <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4">
+                    <div className="glass-card rounded-lg p-6 w-full max-w-6xl text-left flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
-                            <button 
-                                onClick={() => setShowShotList(false)}
-                                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold"
-                            >
+                            <button onClick={() => setShowShotList(false)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
                                 Close
                             </button>
                         </div>
-                        <div className="max-h-[80vh] overflow-y-auto">
+                        <div className="overflow-y-auto">
                             <ShotListViewer 
                                 video={video} 
                                 project={project} 
                                 settings={settings} 
-                                // FIX: Pass the updateTask function so the component can save its results
                                 onUpdateTask={updateTask} 
                             />
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );
