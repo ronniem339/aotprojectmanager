@@ -6,94 +6,111 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const LoadingSpinner = window.LoadingSpinner;
 
-  // FIX: Use shotListData from the video object if it exists, otherwise null.
   const [shotListData, setShotListData] = useState(video.tasks?.shotList || null);
-  // FIX: Only show loading if we don't have data already.
-  const [loading, setLoading] = useState(!shotListData);
+  const [isLoading, setIsLoading] = useState(!shotListData);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // FIX: Only generate the list if it doesn't already exist.
-    if (!shotListData && video.script) {
-      generateShotList();
+    // Only generate the list if it doesn't already exist in the video data
+    if (!video.tasks?.shotList && video.script) {
+      generateAndSaveShotList();
     }
-  }, [video, project, shotListData]);
+  }, [video.id, video.tasks?.shotList]); // Rerun if the video changes or shotlist is reset
 
-  const generateShotList = async () => {
-    setLoading(true);
+  const generateAndSaveShotList = async () => {
+    setIsLoading(true);
     setError('');
     try {
-      const onCameraTranscripts = project.onCameraDescriptions || {};
-      
-      // FIX: New, more comprehensive prompt to build a unified timeline.
-      const prompt = `
-        You are an expert video editor creating a "paper edit" timeline. Your task is to merge a voiceover script with on-camera dialogue sections into a single, sequential shot list.
+        // --- STEP 1: Programmatically create a master list of all content blocks ---
+        const contentBlocks = [];
 
-        You will be given:
-        1.  **Script Plan:** A high-level outline of the video's structure.
-        2.  **Voiceover Script:** The full text for the narration.
-        3.  **On-Camera Dialogue:** A JSON object of transcripts for segments where the host speaks to the camera, keyed by location name.
+        // Add all on-camera dialogue blocks, pre-enriched with place_id
+        const onCameraTranscripts = video.tasks?.onCameraDescriptions || {};
+        for (const locationName in onCameraTranscripts) {
+            const dialogue = onCameraTranscripts[locationName];
+            if (dialogue && dialogue.trim() !== '') {
+                const locationData = project.locations.find(l => l.name === locationName);
+                contentBlocks.push({
+                    id: `oncamera-${locationData?.place_id || locationName}`,
+                    type: 'onCamera',
+                    cue: dialogue,
+                    locationName: locationName,
+                    place_id: locationData?.place_id || null,
+                });
+            }
+        }
 
-        **Your Task:**
-        Create a timeline that correctly interleaves the voiceover and on-camera segments. The final output MUST be a valid JSON array of objects. Each object represents a scene and MUST have the following properties:
+        // Add all voiceover paragraphs as blocks
+        const voiceoverParagraphs = video.script.split('\n\n').filter(p => p.trim() !== '');
+        voiceoverParagraphs.forEach((p, index) => {
+            contentBlocks.push({
+                id: `vo-${index}`,
+                type: 'voiceover',
+                cue: p.trim(),
+                locationName: 'Unknown',
+                place_id: null
+            });
+        });
 
-        -   "type": (string) Must be either "voiceover" or "onCamera".
-        -   "locationName": (string) The name of the location that best matches this scene. Use a location from the provided list.
-        -   "cue": (string) The text for this scene. For "voiceover", this is a paragraph from the voiceover script. For "onCamera", this is the full transcript from the On-Camera Dialogue.
+        // --- STEP 2: Use AI for the simpler task of sequencing and location tagging ---
+        const prompt = `
+            You are an expert video editor. Your task is to sequence a list of content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline. You also need to assign the correct location to each voiceover block.
 
-        **CRITICAL INSTRUCTIONS:**
-        -   Analyze the Script Plan and Voiceover Script to understand the narrative flow.
-        -   Place the "onCamera" segments where they logically fit within the voiceover narration.
-        -   Every piece of the Voiceover Script and every On-Camera Dialogue transcript must be included in the final shot list exactly once.
-        -   Do not invent new content. Only use the text provided.
+            **Input:**
+            You will receive a JSON array of "Content Blocks". Each block has an "id", "type" ('onCamera' or 'voiceover'), and the "cue" (the text content). On-camera blocks are already assigned to a location.
 
-        ---
-        **1. SCRIPT PLAN (for structure):**
-        ${video.tasks?.scriptPlan || 'No plan provided.'}
-        ---
-        **2. VOICEOVER SCRIPT (for narration):**
-        ${video.script}
-        ---
-        **3. ON-CAMERA DIALOGUE (to be inserted):**
-        ${JSON.stringify(onCameraTranscripts, null, 2)}
-        ---
-        **4. AVAILABLE LOCATIONS:**
-        ${project.locations.map(loc => `- ${loc.name}`).join('\n')}
-        - General
-        ---
+            **Your Tasks:**
+            1.  **Sequence:** Arrange all the provided content blocks into the correct storytelling order. The on-camera segments should be placed logically within the flow of the voiceover.
+            2.  **Assign Locations:** For each "voiceover" block, determine which location it best describes from the "Available Locations" list and update its "locationName" field.
+            3.  **Return Ordered List:** Your final output MUST be a valid JSON array containing ALL of the original content block objects, now in the correct order and with updated "locationName" fields for the voiceovers. Do not change the 'id' or 'cue' of any block.
 
-        Now, generate the complete JSON shot list timeline.
-      `;
+            ---
+            **CONTEXT - AVAILABLE LOCATIONS:**
+            ${project.locations.map(loc => `- ${loc.name}`).join('\n')}
+            - General
+            ---
+            **CONTEXT - SCRIPT PLAN (for structure):**
+            ${video.tasks?.scriptPlan || 'No plan provided.'}
+            ---
+            **CONTENT BLOCKS TO SEQUENCE AND TAG:**
+            ${JSON.stringify(contentBlocks, null, 2)}
+            ---
 
-      const parsedResponse = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
-      
-      const enhancedShotList = parsedResponse.map(shot => {
-        const location = project.locations.find(loc => loc.name === shot.locationName);
-        const footage = location && project.footageInventory ? project.footageInventory[location.place_id] : null;
+            Now, return the complete, sequenced, and location-tagged JSON array of content blocks.
+        `;
+        
+        // --- STEP 3: Call AI (as a complex task) and Enrich the Sequenced Data ---
+        const sequencedBlocks = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" }, true);
+        
+        const enrichedShotList = sequencedBlocks.map(block => {
+            const location = project.locations.find(l => l.name === block.locationName);
+            const placeId = location ? location.place_id : null;
+            const footage = placeId && project.footageInventory ? project.footageInventory[placeId] : null;
 
-        return {
-          ...shot,
-          availableFootage: footage ? {
-            bRoll: footage.bRoll && footage.bRoll.length > 0,
-            onCamera: footage.onCamera && footage.onCamera.length > 0,
-            drone: footage.drone && footage.drone.length > 0,
-          } : { bRoll: false, onCamera: false, drone: false },
-        };
-      });
+            return {
+                ...block,
+                place_id: placeId,
+                availableFootage: footage ? {
+                    bRoll: !!(footage.bRoll && footage.bRoll.length > 0),
+                    onCamera: !!(footage.onCamera && footage.onCamera.length > 0),
+                    drone: !!(footage.drone && footage.drone.length > 0),
+                } : { bRoll: false, onCamera: false, drone: false },
+            };
+        });
 
-      // FIX: Save the generated list to Firestore so we don't generate it again.
-      onUpdateTask('scripting', 'complete', { 'tasks.shotList': enhancedShotList });
-      setShotListData(enhancedShotList);
+        setShotListData(enrichedShotList);
+        // Save the generated and enriched list to Firestore
+        onUpdateTask('scripting', 'complete', { 'tasks.shotList': enrichedShotList });
 
     } catch (err) {
-      console.error('Error generating shot list:', err);
-      setError(`Failed to generate shot list: ${err.message}`);
+        console.error('Error generating shot list:', err);
+        setError(`Failed to generate shot list: ${err.message}`);
     } finally {
-      setLoading(false);
+        setIsLoading(false);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
         <LoadingSpinner />
@@ -105,9 +122,9 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   if (error) {
     return (
       <div className="p-8 text-center text-gray-300 bg-red-900/20 rounded-lg">
-          <p className="font-bold text-lg text-red-400 mb-2">An Error Occurred</p>
-          <p>{error}</p>
-          <p className="mt-2 text-sm text-gray-400">Please check your settings (especially your API key) and try again.</p>
+        <p className="font-bold text-lg text-red-400 mb-2">An Error Occurred</p>
+        <p>{error}</p>
+        <p className="mt-2 text-sm text-gray-400">Please check your settings and try again. You can reset by going back to the Scripting task and re-saving the script.</p>
       </div>
     );
   }
@@ -117,33 +134,39 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   }
 
   return (
-    <div className="p-4">
+    <div className="p-1">
       <div className="overflow-x-auto rounded-lg shadow">
         <table className="w-full text-sm text-left text-gray-300">
-          <thead className="bg-gray-700/50 text-xs text-gray-400 uppercase">
+          <thead className="bg-gray-700/50 text-xs text-gray-400 uppercase sticky top-0 z-10">
             <tr>
-              <th scope="col" className="px-6 py-3">Type</th>
-              <th scope="col" className="px-6 py-3">Cue / Transcript</th>
-              <th scope="col" className="px-6 py-3">Scene Location</th>
-              <th scope="col" className="px-6 py-3">Available Footage</th>
+              <th scope="col" className="px-4 py-3">Type</th>
+              <th scope="col" className="px-4 py-3 w-1/2">Cue / Transcript</th>
+              <th scope="col" className="px-4 py-3">Scene Location</th>
+              <th scope="col" className="px-4 py-3">Available Footage</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
             {shotListData.map((row, index) => (
-              <tr key={index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/20' : ''}`}>
-                <td className="px-6 py-4 font-medium">
+              <tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/30' : ''}`}>
+                <td className="px-4 py-4 font-medium align-top">
                   {row.type === 'onCamera' ? (
                     <span className="px-2 py-1 text-xs font-bold text-blue-300 bg-blue-800/50 rounded-full">On-Camera</span>
                   ) : (
                     <span className="px-2 py-1 text-xs text-gray-400">Voiceover</span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-pre-wrap">{row.cue}</td>
-                <td className="px-6 py-4">{row.locationName}</td>
-                <td className="px-6 py-4">
-                  {row.availableFootage.bRoll && <p>✅ B-Roll</p>}
-                  {row.availableFootage.drone && <p>✅ Drone Footage</p>}
-                  {row.availableFootage.onCamera && <p>✅ On-Camera Segment</p>}
+                <td className="px-4 py-4 whitespace-pre-wrap">{row.cue}</td>
+                <td className="px-4 py-4 align-top">{row.locationName}</td>
+                <td className="px-4 py-4 align-top">
+                  {(row.availableFootage.bRoll || row.availableFootage.onCamera || row.availableFootage.drone) ? (
+                    <>
+                      {row.availableFootage.bRoll && <p>✅ B-Roll</p>}
+                      {row.availableFootage.onCamera && <p>✅ On-Camera</p>}
+                      {row.availableFootage.drone && <p>✅ Drone</p>}
+                    </>
+                  ) : (
+                    <p className="text-gray-500 text-xs italic">None</p>
+                  )}
                 </td>
               </tr>
             ))}
