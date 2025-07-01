@@ -15,26 +15,27 @@
  * @param {object} options - The options for the AI call.
  * @param {string} options.scriptPlan - The existing high-level script plan or outline.
  * @param {object} options.onCameraDescriptions - An object where keys are location names
- *   and values are strings describing the on-camera action or dialogue at that location.
+ * and values are strings describing the on-camera action or dialogue at that location.
  * @param {string} options.videoTitle - The title of the video.
  * @param {object} options.settings - The application settings, including the style guide.
  *
  * @returns {Promise<{refinedScriptPlan: string}>} A promise that resolves to an object
- *   containing the refined script plan.
+ * containing the refined script plan.
  */
 window.aiUtils.generateRefinedScriptPlanAI = async ({ scriptPlan, onCameraDescriptions, videoTitle, settings }) => {
     console.log("AI: Generating refined script plan with on-camera details.", { scriptPlan, onCameraDescriptions, videoTitle });
 
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
+    // FIX: Replaced single quotes with backticks for the multi-line template literal.
     const onCameraNotes = Object.entries(onCameraDescriptions)
-        .map(([location, description]) => '
+        .map(([location, description]) => `
 ---
 Location: ${location}
 On-Camera Action/Dialogue:
 ${description}
 ---
-').join('\n');
+`).join('\n');
 
     const prompt = `
 You are an expert video scriptwriter and producer. Your task is to refine a video script plan to seamlessly integrate pre-recorded on-camera segments.
@@ -46,15 +47,15 @@ ${styleGuidePrompt}
 
 **High-Level Script Plan:**
 This is the original plan for the video's structure and narrative flow.
-```
+\`\`\`
 ${scriptPlan}
-```
+\`\`\`
 
 **On-Camera Segments:**
 These are the segments that have already been filmed, featuring a person on camera. You must build the voiceover script around them. The voiceover should connect these on-camera parts, provide context, and cover other parts of the video (like b-roll or drone shots) as outlined in the high-level plan.
-```
+\`\`\`
 ${onCameraNotes}
-```
+\`\`\`
 
 **Your Task:**
 Review the high-level plan and the specific on-camera segments. Then, create a **Refined Script Plan**. This new plan should be a detailed, scene-by-scene outline for the *entire* video, explicitly marking where the on-camera segments fit and what the voiceover should cover in between.
