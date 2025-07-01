@@ -1,10 +1,5 @@
-feat(scripting): Add full transcript input for on-camera notes
+fix(scripting): Load parseTranscriptAI script
 
-This commit introduces a new workflow for providing on-camera dialogue during the scripting process. Users can now choose between two modes:
+The `parseTranscriptAI.js` file was not being loaded in `index.html`, which caused a "function not found" error when trying to use the full transcript feature.
 
-1.  **Notes per Location (Existing):** The original method of adding notes for each on-camera location individually.
-2.  **Full Transcript (New):** A new option to paste a complete on-camera transcript.
-
-When the full transcript option is used, a new AI utility (`parseTranscriptAI.js`) analyzes the text, cleans it up by removing filler words, and automatically assigns dialogue segments to the most likely on-camera location.
-
-A new "Review Transcript" step has been added to the scripting workspace, allowing users to review and correct the AI's parsing before the final script is generated. This provides a more flexible and streamlined experience for users who prefer to write their on-camera dialogue in a single document.
+This commit adds the necessary script tag to `index.html` to ensure the `parseTranscriptAI` function is available to the application.
