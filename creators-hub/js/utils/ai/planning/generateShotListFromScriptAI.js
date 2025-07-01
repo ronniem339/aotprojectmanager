@@ -48,9 +48,9 @@ ${footageNotes}
 
 **Final Script:**
 This is the complete script, including both voiceover (VO) and on-camera dialogue. You must break this down into individual shots.
-```
+\```
 ${script}
-```
+\```
 
 **Your Task:**
 Create a comprehensive shot list in JSON format. Each object in the JSON array should represent a single shot or a small, continuous sequence of shots.
@@ -70,7 +70,7 @@ Each object in the array must have the following fields:
 4.  **Output ONLY JSON:** The final output must be a valid JSON array of shot objects, and nothing else.
 
 **Example JSON Output:**
-```json
+\```json
 [
   {
     "scene": "Introduction",
@@ -87,7 +87,7 @@ Each object in the array must have the following fields:
     "visuals": "Sweeping drone shot of the Eiffel Tower at sunrise, with the city stretching out below."
   }
 ]
-```
+\```
 `;
 
     try {

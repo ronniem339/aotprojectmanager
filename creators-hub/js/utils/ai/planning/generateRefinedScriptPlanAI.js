@@ -46,15 +46,15 @@ ${styleGuidePrompt}
 
 **High-Level Script Plan:**
 This is the original plan for the video's structure and narrative flow.
-```
+\```
 ${scriptPlan}
-```
+\```
 
 **On-Camera Segments:**
 These are the segments that have already been filmed, featuring a person on camera. You must build the voiceover script around them. The voiceover should connect these on-camera parts, provide context, and cover other parts of the video (like b-roll or drone shots) as outlined in the high-level plan.
-```
+\```
 ${onCameraNotes}
-```
+\```
 
 **Your Task:**
 Review the high-level plan and the specific on-camera segments. Then, create a **Refined Script Plan**. This new plan should be a detailed, scene-by-scene outline for the *entire* video, explicitly marking where the on-camera segments fit and what the voiceover should cover in between.
