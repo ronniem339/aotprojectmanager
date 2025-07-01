@@ -6,11 +6,10 @@ window.ShotListViewer = ({ video, project }) => {
   const { React } = window;
   const LoadingSpinner = window.LoadingSpinner;
 
-  // FIX: Get dispatch from state, not the non-existent addAlert function.
-  const { settings, dispatch } = useAppState();
+  // Defensively get the entire app state object
+  const appState = useAppState();
   const [shotListData, setShotListData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  // FIX: Add state to handle specific errors gracefully in the UI.
   const [errorState, setErrorState] = React.useState(null);
 
   React.useEffect(() => {
@@ -23,13 +22,44 @@ window.ShotListViewer = ({ video, project }) => {
     setLoading(true);
     setErrorState(null);
     try {
+      // Access settings directly from the appState object
+      const settings = appState.settings;
+
       const onCameraTranscripts = project.onCameraDescriptions || {};
       const prompt = `
-        You are an expert video editor... [Prompt unchanged] ...
+        You are an expert video editor and production assistant. Your task is to create a "Shot List" by analyzing a video script and mapping each part of it to a specific location and any corresponding on-camera dialogue.
+
+        You will be given:
+        1. A full video script.
+        2. A list of available locations for the project.
+        3. A JSON object containing transcripts of on-camera dialogue, keyed by location.
+
+        Your task is to break down the script into paragraphs (cues for the voiceover). For each paragraph, you must identify the most appropriate location from the provided list.
+
+        **RULES:**
+        - The output must be a valid JSON array of objects.
+        - Each object in the array represents a "shot" and must have the following properties:
+          - "scriptCue": The paragraph from the voiceover script.
+          - "locationName": The name of the location that best matches the script cue. If no specific location matches, use "General".
+          - "onCameraTranscript": If the script cue corresponds to a piece of on-camera dialogue, provide the exact transcript for that location. If it's a voiceover-only cue, this must be null.
+
+        **Full Video Script:**
         ---
         ${video.script} 
         ---
-        ... [Rest of prompt unchanged] ...
+
+        **Available Locations:**
+        ---
+        ${project.locations.map(loc => `- ${loc.name}`).join('\n')}
+        - General
+        ---
+
+        **On-Camera Dialogue Transcripts:**
+        ---
+        ${JSON.stringify(onCameraTranscripts, null, 2)}
+        ---
+
+        Now, generate the JSON shot list based on the script, locations, and dialogue provided.
       `;
 
       const parsedResponse = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
@@ -50,17 +80,21 @@ window.ShotListViewer = ({ video, project }) => {
 
     } catch (error) {
       console.error('Error generating shot list:', error);
-      // FIX: If the specific API key error occurs, set it in state to show a custom message.
       if (error.message.includes("Gemini API Key is not set")) {
         setErrorState({ type: 'apiKeyMissing', message: error.message });
       } else {
         setErrorState({ type: 'generalError', message: 'An unexpected error occurred.' });
       }
-      // FIX: Use the correct dispatch function to show a global alert.
-      dispatch({
-        type: 'ADD_ALERT',
-        payload: { type: 'error', message: `Failed to generate shot list: ${error.message}` }
-      });
+
+      // THIS IS THE FIX: Safely check if dispatch is a function before calling it.
+      if (appState && typeof appState.dispatch === 'function') {
+        appState.dispatch({
+          type: 'ADD_ALERT',
+          payload: { type: 'error', message: `Failed to generate shot list: ${error.message}` }
+        });
+      } else {
+        console.error("Could not dispatch alert because dispatch function was not available in the application state.");
+      }
     } finally {
       setLoading(false);
     }
@@ -75,7 +109,6 @@ window.ShotListViewer = ({ video, project }) => {
     );
   }
 
-  // FIX: Render a user-friendly message if the API key is missing.
   if (errorState && errorState.type === 'apiKeyMissing') {
       return (
         <div className="p-8 text-center text-gray-300 bg-red-900/20 rounded-lg">
