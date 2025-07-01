@@ -333,7 +333,7 @@ const ScriptingWorkspaceModal = ({
                 setIsLoading(false);
             }
         } else {
-            setCurrentStage('full_script_review');
+            setCurrentStage('refined_plan_review');
             await handleAction(onGenerateFullScript, localTaskData, onCameraInputMode);
         }
     };
@@ -415,6 +415,7 @@ const ScriptingWorkspaceModal = ({
         { id: 'refinement_qa', name: 'Refinement Q&A' },
         { id: 'on_camera_qa', name: 'On-Camera Notes' },
         { id: 'review_parsed_transcript', name: 'Review Transcript' },
+        { id: 'refined_plan_review', name: 'Review Refined Plan' },
         { id: 'full_script_review', name: 'Final Script' },
         { id: 'complete', name: 'Complete' }
     ];
@@ -679,6 +680,25 @@ const ScriptingWorkspaceModal = ({
                         </div>
                     </div>
                 );
+            case 'refined_plan_review':
+                return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 6: Review Refined Plan</h3>
+                        <p className="text-gray-400 mb-4">Here is the refined plan that integrates your on-camera segments. Review it before the final script is generated.</p>
+                        <textarea
+                            value={localTaskData.refinedScriptPlan || ''}
+                            onChange={e => handleDataChange('refinedScriptPlan', e.target.value)}
+                            rows="25"
+                            className="w-full form-textarea leading-relaxed"
+                            placeholder="The refined script plan will appear here."
+                        />
+                        <div className="text-center mt-8">
+                            <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Final Script'}
+                            </button>
+                        </div>
+                    </div>
+                );
                 case 'complete':
             case 'full_script_review':
                 return (
@@ -844,6 +864,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         initialQuestions: video.tasks?.initialQuestions || [],
         initialAnswers: video.tasks?.initialAnswers || {},
         scriptPlan: video.tasks?.scriptPlan || '',
+        refinedScriptPlan: video.tasks?.refinedScriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
         onCameraLocations: localOnCameraLocations !== null ? localOnCameraLocations : video.tasks?.onCameraLocations || [],
@@ -993,6 +1014,43 @@ const handleOpenWorkspace = async (startStage = null) => {
         });
     };
 
+    const handleGenerateRefinedScriptPlan = async (currentTaskData, inputMode) => {
+        let onCameraDescriptionsToUse = {};
+        if (inputMode === 'transcript') {
+            // Transform parsedTranscript (object with arrays) into object with joined strings
+            for (const locationName in currentTaskData.onCameraDescriptions) {
+                if (Array.isArray(currentTaskData.onCameraDescriptions[locationName])) {
+                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName].join('\n');
+                } else {
+                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName];
+                }
+            }
+        } else {
+            onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
+            for (const key in onCameraDescriptionsToUse) {
+                if (!currentTaskData.onCameraLocations.includes(key)) {
+                    delete onCameraDescriptionsToUse[key];
+                }
+            }
+        }
+
+        const response = await window.aiUtils.generateRefinedScriptPlanAI({
+            scriptPlan: currentTaskData.scriptPlan,
+            onCameraDescriptions: onCameraDescriptionsToUse,
+            videoTitle: video.chosenTitle || video.title,
+            settings: settings,
+        });
+
+        if (!response || typeof response.refinedScriptPlan !== 'string') {
+            throw new Error("The AI failed to generate the refined script plan.");
+        }
+
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptingStage': 'refined_plan_review',
+            'tasks.refinedScriptPlan': response.refinedScriptPlan
+        });
+    };
+
     const handleGenerateFullScript = async (currentTaskData, inputMode) => {
         const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
             `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
@@ -1017,8 +1075,27 @@ const handleOpenWorkspace = async (startStage = null) => {
             }
         }
 
-        const response = await window.aiUtils.generateFinalScriptAI({
+        // First, generate the refined script plan
+        const refinedPlanResponse = await window.aiUtils.generateRefinedScriptPlanAI({
             scriptPlan: currentTaskData.scriptPlan,
+            onCameraDescriptions: onCameraDescriptionsToUse,
+            videoTitle: video.chosenTitle || video.title,
+            settings: settings,
+        });
+
+        if (!refinedPlanResponse || typeof refinedPlanResponse.refinedScriptPlan !== 'string') {
+            throw new Error("The AI failed to generate the refined script plan.");
+        }
+
+        // Update the task data with the new refined plan
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.refinedScriptPlan': refinedPlanResponse.refinedScriptPlan,
+            'tasks.scriptingStage': 'refined_plan_review',
+        });
+
+        // Now, generate the final script using the refined plan
+        const response = await window.aiUtils.generateFinalScriptAI({
+            scriptPlan: refinedPlanResponse.refinedScriptPlan, // Use the refined plan here
             userAnswers: answersText,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
@@ -1085,6 +1162,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
             'tasks.initialQuestions': updatedTaskData.initialQuestions,
             'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
+            'tasks.refinedScriptPlan': updatedTaskData.refinedScriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'tasks.onCameraLocations': localOnCameraLocations,
@@ -1108,9 +1186,10 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
-            'tasks.initialQuestions': finalTaskData.initialQuestions,
+            'tasks.initialQuestions': finalTaskAata.initialQuestions,
             'tasks.initialAnswers': finalTaskData.initialAnswers,
             'tasks.scriptPlan': finalTaskData.scriptPlan,
+            'tasks.refinedScriptPlan': finalTaskData.refinedScriptPlan,
             'tasks.locationQuestions': finalTaskData.locationQuestions,
             'tasks.userExperiences': finalTaskData.userExperiences,
             'tasks.onCameraLocations': finalTaskData.onCameraLocations,
@@ -1169,6 +1248,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
                     onRefineOutline={handleRefineOutline}
                     onGenerateRefinementQuestions={handleGenerateRefinementQuestions}
                     onProceedToOnCamera={handleProceedToOnCamera}
+                    onGenerateRefinedScriptPlan={handleGenerateRefinedScriptPlan}
                     onGenerateFullScript={handleGenerateFullScript}
                     onRefineScript={handleRefineScript}
                     settings={settings}

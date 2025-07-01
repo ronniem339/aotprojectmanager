@@ -11,6 +11,42 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   const [error, setError] = useState('');
   const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
+  const generateShotListFromExistingScript = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    setShotListData(null);
+    setLoadingMessage('Generating shot list from your existing script...');
+
+    try {
+      const onCameraLocations = (video.locations_featured || []).filter(locName => {
+        const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
+        return inventoryItem && inventoryItem.onCamera;
+      });
+
+      const response = await window.aiUtils.generateShotListFromScriptAI({
+        script: video.script,
+        videoTitle: video.chosenTitle || video.title,
+        videoConcept: video.concept,
+        onCameraLocations: onCameraLocations,
+        footageInventory: project.footageInventory || {},
+        settings: settings,
+      });
+
+      if (!response || !Array.isArray(response.shotList)) {
+        throw new Error("The AI failed to generate a valid shot list.");
+      }
+
+      setShotListData(response.shotList);
+      onUpdateTask('scripting', 'complete', { 'tasks.shotList': response.shotList });
+
+    } catch (err) {
+      console.error('Error generating shot list from script:', err);
+      setError(`Failed to generate shot list: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [video, project, settings, onUpdateTask]);
+
   const generateAndSaveShotList = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -117,15 +153,13 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   }, [video, project, settings, callGeminiAPI, onUpdateTask]);
 
   useEffect(() => {
-    // If the shotList is missing from the video object but a script exists, generate it.
-    if (!video.tasks?.shotList && video.script) {
-      generateAndSaveShotList();
-    } else if (video.tasks?.shotList) {
-      // If data exists, ensure we are not in a loading state.
+    // If the shotList is missing from the video object but a script exists, we don't auto-generate.
+    // We let the user decide.
+    if (video.tasks?.shotList) {
       setShotListData(video.tasks.shotList);
       setIsLoading(false);
     }
-  }, [video.id, video.tasks?.shotList, video.script, generateAndSaveShotList]);
+  }, [video.id, video.tasks?.shotList]);
 
   const handleRegenerate = () => {
     onRegenerate().then(() => {
@@ -155,6 +189,16 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   }
 
   if (!shotListData || shotListData.length === 0) {
+    if (video.script) {
+      return (
+        <div className="p-8 text-center text-gray-400">
+          <p>This video has a script, but no shot list. You can generate one now.</p>
+          <button onClick={generateShotListFromExistingScript} className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg">
+            Generate Shot List
+          </button>
+        </div>
+      );
+    }
     return (
         <div className="p-8 text-center text-gray-400">
             <p>Could not generate a shot list for this script.</p>
