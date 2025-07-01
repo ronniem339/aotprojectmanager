@@ -1,22 +1,10 @@
 // creators-hub/js/components/ProjectView/ShotListViewer.js
 
 window.ShotListViewer = ({ video, project }) => {
-  // Dependencies are now accessed from global objects like 'window' and 'MaterialUI'
   const { useAppState } = window;
   const { callGeminiAPI } = window;
   const { React } = window;
-  const {
-    Box,
-    CircularProgress,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Typography,
-  } = MaterialUI;
+  const LoadingSpinner = window.LoadingSpinner;
 
   const { addAlert } = useAppState();
   const [shotListData, setShotListData] = React.useState(null);
@@ -31,7 +19,6 @@ window.ShotListViewer = ({ video, project }) => {
   const generateShotList = async () => {
     setLoading(true);
     try {
-      // Note: project.onCameraDescriptions might not exist on older projects. Default to empty object.
       const onCameraTranscripts = project.onCameraDescriptions || {};
 
       const prompt = `
@@ -98,48 +85,45 @@ window.ShotListViewer = ({ video, project }) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Generating Shot List...</Typography>
-      </Box>
+      <div className="flex justify-center items-center p-8">
+        <LoadingSpinner />
+        <p className="ml-2 text-gray-300">Generating Shot List...</p>
+      </div>
     );
   }
 
   if (!shotListData || shotListData.length === 0) {
-    return <Typography sx={{ my: 4, textAlign: 'center' }}>No shot list could be generated for this script.</Typography>;
+    return <p className="p-8 text-center text-gray-400">No shot list could be generated for this script.</p>;
   }
 
   return (
-    <Box sx={{ p: 2 }}>
-        <Typography variant="h5" gutterBottom>Shot List</Typography>
-        <TableContainer component={Paper}>
-            <Table sx={{ minWidth: 650 }} aria-label="shot list table">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>Voiceover Script Cue</TableCell>
-                        <TableCell>Scene Location</TableCell>
-                        <TableCell>Available Footage</TableCell>
-                        <TableCell>On-Camera Dialogue Transcript</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {shotListData.map((row, index) => (
-                        <TableRow key={index}>
-                            <TableCell component="th" scope="row">
-                                {row.scriptCue}
-                            </TableCell>
-                            <TableCell>{row.locationName}</TableCell>
-                            <TableCell>
-                                {row.availableFootage.bRoll && <Typography variant="body2">✅ B-Roll</Typography>}
-                                {row.availableFootage.drone && <Typography variant="body2">✅ Drone Footage</Typography>}
-                                {row.availableFootage.onCamera && <Typography variant="body2">✅ On-Camera Segment</Typography>}
-                            </TableCell>
-                            <TableCell>{row.onCameraTranscript || 'N/A'}</TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </TableContainer>
-    </Box>
+    <div className="p-4">
+      <div className="overflow-x-auto rounded-lg shadow">
+        <table className="w-full text-sm text-left text-gray-300">
+          <thead className="bg-gray-700/50 text-xs text-gray-400 uppercase">
+            <tr>
+              <th scope="col" className="px-6 py-3">Voiceover Script Cue</th>
+              <th scope="col" className="px-6 py-3">Scene Location</th>
+              <th scope="col" className="px-6 py-3">Available Footage</th>
+              <th scope="col" className="px-6 py-3">On-Camera Dialogue Transcript</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            {shotListData.map((row, index) => (
+              <tr key={index} className="hover:bg-gray-800/50">
+                <td className="px-6 py-4 whitespace-pre-wrap">{row.scriptCue}</td>
+                <td className="px-6 py-4">{row.locationName}</td>
+                <td className="px-6 py-4">
+                  {row.availableFootage.bRoll && <p>✅ B-Roll</p>}
+                  {row.availableFootage.drone && <p>✅ Drone Footage</p>}
+                  {row.availableFootage.onCamera && <p>✅ On-Camera Segment</p>}
+                </td>
+                <td className="px-6 py-4 whitespace-pre-wrap">{row.onCameraTranscript || 'N/A'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
