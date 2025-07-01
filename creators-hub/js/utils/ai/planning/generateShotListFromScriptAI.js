@@ -24,14 +24,25 @@ window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, video
 
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-    const onCameraNotes = onCameraLocations.join(', ');
-    const footageNotes = Object.entries(footageInventory)
-        .map(([location, details]) => `
+    // Ensure onCameraLocations is an array before joining
+    const onCameraNotes = Array.isArray(onCameraLocations) ? onCameraLocations.join(', ') : '';
+    
+    // Ensure footageInventory is an object before getting entries
+    const footageNotes = typeof footageInventory === 'object' && footageInventory !== null 
+        ? Object.entries(footageInventory)
+            .map(([location, details]) => {
+                // Defensive check for details object and its properties
+                const footageList = details && Array.isArray(details.footage) ? details.footage.join(', ') : 'N/A';
+                const onCameraStatus = details ? (details.onCamera ? 'Yes' : 'No') : 'N/A';
+                return `
 - **${location}:**
-  - Available Footage: ${(details.footage || []).join(', ') || 'N/A'}
-  - On-Camera Segments: ${details.onCamera ? 'Yes' : 'No'}
-`)
-        .join('');
+  - Available Footage: ${footageList}
+  - On-Camera Segments: ${onCameraStatus}
+`;
+            })
+            .join('')
+        : 'No footage inventory provided.';
+
 
     const prompt = `
 You are an expert video producer and editor. Your task is to create a detailed shot list for a video based on its final script and a list of available footage.
@@ -53,7 +64,7 @@ ${script}
 \`\`\`
 
 **Your Task:**
-Create a comprehensive shot list in JSON format. Each object in the JSON array should represent a single shot or a small, continuous sequence of shots.
+Create a comprehensive shot list as a JSON array of objects. Each object in the JSON array should represent a single shot or a small, continuous sequence of shots.
 
 **JSON Object Structure:**
 Each object in the array must have the following fields:
@@ -70,7 +81,6 @@ Each object in the array must have the following fields:
 4.  **Output ONLY JSON:** The final output must be a valid JSON array of objects, and nothing else.
 
 **Example JSON Output:**
-\`\`\`json
 [
   {
     "scene": "Introduction",
@@ -87,43 +97,34 @@ Each object in the array must have the following fields:
     "visuals": "Sweeping drone shot of the Eiffel Tower at sunrise, with the city stretching out below."
   }
 ]
-\`\`\`
 `;
 
-    let response;
     try {
-        // FIX: Because this is a complex task prone to errors with the Flash model,
-        // we will call the API using settings that force the Pro model for this task only.
-        // This avoids changing the shared callGeminiAPI utility.
-        const tempSettingsForPro = { ...settings, useProModel: true };
-        
-        response = await window.aiUtils.callGeminiAPI(prompt, tempSettingsForPro, {
-            responseMimeType: "application/json",
-            isComplexTask: true // This flag is used by callGeminiAPI to select the model
-        });
+        // FIX: Calling callGeminiAPI with the correct 4-argument signature.
+        // The third argument is the generationConfig, and the fourth is the isComplex boolean.
+        const generationConfig = { responseMimeType: "application/json" };
+        const isComplex = true;
 
-        let jsonString = response;
+        const result = await window.aiUtils.callGeminiAPI(prompt, settings, generationConfig, isComplex);
 
-        // The AI can sometimes wrap its response in markdown, so we extract the raw JSON.
-        const jsonMatch = typeof jsonString === 'string' ? jsonString.match(/```json\n([\s\S]*?)\n```/) : null;
-        if (jsonMatch && jsonMatch[1]) {
-            jsonString = jsonMatch[1];
+        // The callGeminiAPI utility already parses the JSON, so we just need to validate the structure.
+        if (Array.isArray(result)) {
+            return { shotList: result };
         }
-
-        const shotList = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
-
-        // Handle cases where the AI wraps the array in an object, e.g., { "shots": [...] }
-        if (!Array.isArray(shotList)) {
-            const key = Object.keys(shotList).find(k => Array.isArray(shotList[k]));
+        
+        // Handle cases where the AI might wrap the array in an object, e.g., { "shotList": [...] }
+        if (typeof result === 'object' && result !== null) {
+            const key = Object.keys(result).find(k => Array.isArray(result[k]));
             if (key) {
-                return { shotList: shotList[key] };
+                return { shotList: result[key] };
             }
         }
+        
+        console.error("Final result was not a valid shot list array:", result);
+        throw new Error("AI response was not a valid shot list array.");
 
-        return { shotList };
     } catch (error) {
         console.error("Error in generateShotListFromScriptAI:", error);
-        console.error("Original AI response that caused the error:", response);
         throw new Error(`Failed to generate shot list from script. ${error.message}`);
     }
 };
