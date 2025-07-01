@@ -9,89 +9,100 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   const [shotListData, setShotListData] = useState(video.tasks?.shotList || null);
   const [isLoading, setIsLoading] = useState(!shotListData);
   const [error, setError] = useState('');
+  const [loadingMessage, setLoadingMessage] = useState('Generating Shot List for the first time...');
 
   useEffect(() => {
-    // Only generate the list if it doesn't already exist in the video data
     if (!video.tasks?.shotList && video.script) {
       generateAndSaveShotList();
     }
-  }, [video.id, video.tasks?.shotList]); // Rerun if the video changes or shotlist is reset
+  }, [video.id, video.tasks?.shotList]);
 
   const generateAndSaveShotList = async () => {
     setIsLoading(true);
     setError('');
     try {
-        // --- STEP 1: Programmatically create a master list of all content blocks ---
-        const contentBlocks = [];
-
-        // FIX: Correctly access the .transcript property from the dialogue object
+        // --- STEP 1: Programmatically create a list of all voiceover and on-camera blocks ---
+        setLoadingMessage('Step 1/4: Assembling content blocks...');
+        const onCameraBlocks = [];
         const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
         for (const locationName in onCameraDescriptions) {
             const dialogueObject = onCameraDescriptions[locationName];
-            const transcript = dialogueObject?.transcript; // Safely access the transcript
-
+            const transcript = dialogueObject?.transcript;
             if (transcript && typeof transcript === 'string' && transcript.trim() !== '') {
                 const locationData = project.locations.find(l => l.name === locationName);
-                contentBlocks.push({
+                onCameraBlocks.push({
                     id: `oncamera-${locationData?.place_id || locationName}`,
                     type: 'onCamera',
-                    cue: transcript, // Use the actual transcript string
+                    cue: transcript,
                     locationName: locationName,
                     place_id: locationData?.place_id || null,
                 });
             }
         }
+        const voiceoverBlocks = video.script.split('\n\n').filter(p => p.trim() !== '').map((p, index) => ({
+            id: `vo-${index}`,
+            type: 'voiceover',
+            cue: p.trim(),
+        }));
 
-        // Add all voiceover paragraphs as blocks, splitting by double newline for better paragraphs
-        const voiceoverParagraphs = video.script.split('\n\n').filter(p => p.trim() !== '');
-        voiceoverParagraphs.forEach((p, index) => {
-            contentBlocks.push({
-                id: `vo-${index}`,
-                type: 'voiceover',
-                cue: p.trim(),
-                locationName: 'Unknown',
-                place_id: null
-            });
-        });
+        // --- STEP 2: Use a targeted AI call to assign locations to voiceover blocks ---
+        setLoadingMessage('Step 2/4: Tagging locations to voiceover...');
+        const locationTaggingPrompt = `
+            You are a production assistant. Your task is to assign a location to each paragraph of a voiceover script.
+            Based on the script's content and the overall plan, match each voiceover cue to the most appropriate location from the provided list.
 
-        // --- STEP 2: Use AI for the simpler task of sequencing and location tagging ---
-        const prompt = `
-            You are an expert video editor. Your task is to sequence a list of content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline. You also need to assign the correct location to each voiceover block.
+            **CONTEXT - SCRIPT PLAN:**
+            ${video.tasks?.scriptPlan || 'No plan provided.'}
 
-            **Input:**
-            You will receive a JSON array of "Content Blocks". Each block has an "id", "type" ('onCamera' or 'voiceover'), and the "cue" (the text content). On-camera blocks are already assigned to a location.
-
-            **Your Tasks:**
-            1.  **Sequence:** Arrange all the provided content blocks into the correct storytelling order. The on-camera segments should be placed logically within the flow of the voiceover.
-            2.  **Assign Locations:** For each "voiceover" block, determine which location it best describes from the "Available Locations" list and update its "locationName" field.
-            3.  **Return Ordered List:** Your final output MUST be a valid JSON array containing ALL of the original content block objects, now in the correct order and with updated "locationName" fields for the voiceovers. Do not change the 'id' or 'cue' of any block.
-
-            ---
             **CONTEXT - AVAILABLE LOCATIONS:**
             ${project.locations.map(loc => `- ${loc.name}`).join('\n')}
             - General
-            ---
+
+            **VOICEOVER CUES TO TAG:**
+            ${JSON.stringify(voiceoverBlocks.map(b => ({id: b.id, cue: b.cue})), null, 2)}
+
+            Your output MUST be a valid JSON object that maps each voiceover 'id' to its 'locationName'. Example: {"vo-0": "Green Line", "vo-1": "Venetian Walls"}
+        `;
+        const locationMap = await callGeminiAPI(locationTaggingPrompt, settings, { responseMimeType: "application/json" }, false);
+
+        const allContentBlocks = [
+            ...onCameraBlocks,
+            ...voiceoverBlocks.map(block => ({...block, locationName: locationMap[block.id] || 'General' }))
+        ].map(block => {
+            const location = project.locations.find(l => l.name === block.locationName);
+            return {...block, place_id: location?.place_id || null };
+        });
+
+        // --- STEP 3: Use AI for the final, simpler task of sequencing all blocks ---
+        setLoadingMessage('Step 3/4: Sequencing timeline...');
+        const sequencingPrompt = `
+            You are an expert video editor. Your only task is to sequence a list of content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline.
+
+            **Input:**
+            You will receive a JSON array of "Content Blocks". Each block is pre-tagged with its type, content, and location.
+
+            **Your Task:**
+            Arrange all the provided content blocks into the correct storytelling order. The on-camera segments should be placed logically within the flow of the voiceover.
+            Your final output MUST be a valid JSON array containing ALL of the original content block objects, now in the correct order. Do not change any properties of the objects.
+
             **CONTEXT - SCRIPT PLAN (for structure):**
             ${video.tasks?.scriptPlan || 'No plan provided.'}
-            ---
-            **CONTENT BLOCKS TO SEQUENCE AND TAG:**
-            ${JSON.stringify(contentBlocks, null, 2)}
-            ---
 
-            Now, return the complete, sequenced, and location-tagged JSON array of content blocks.
+            **CONTENT BLOCKS TO SEQUENCE:**
+            ${JSON.stringify(allContentBlocks.map(({id, type, cue, locationName}) => ({id, type, cue, locationName})), null, 2)}
+
+            Now, return the complete, sequenced JSON array of content blocks.
         `;
-        
-        // --- STEP 3: Call AI (as a complex task) and Enrich the Sequenced Data ---
-        const sequencedBlocks = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" }, true);
-        
-        const enrichedShotList = sequencedBlocks.map(block => {
-            const location = project.locations.find(l => l.name === block.locationName);
-            const placeId = location ? location.place_id : null;
-            const footage = placeId && project.footageInventory ? project.footageInventory[placeId] : null;
+        const sequencedBlocks = await callGeminiAPI(sequencingPrompt, settings, { responseMimeType: "application/json" }, true);
 
+        // --- STEP 4: Final enrichment and saving ---
+        setLoadingMessage('Step 4/4: Finalizing and saving...');
+        const finalShotList = sequencedBlocks.map(block => {
+            const originalBlock = allContentBlocks.find(b => b.id === block.id);
+            const footage = originalBlock.place_id && project.footageInventory ? project.footageInventory[originalBlock.place_id] : null;
             return {
-                ...block,
-                place_id: placeId,
+                ...originalBlock, // Use the original block to preserve place_id
+                ...block, // Overlay the sequenced data (which just confirms order and locationName)
                 availableFootage: footage ? {
                     bRoll: !!(footage.bRoll && footage.bRoll.length > 0),
                     onCamera: !!(footage.onCamera && footage.onCamera.length > 0),
@@ -100,9 +111,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
             };
         });
 
-        setShotListData(enrichedShotList);
-        // Save the generated and enriched list to Firestore
-        onUpdateTask('scripting', 'complete', { 'tasks.shotList': enrichedShotList });
+        setShotListData(finalShotList);
+        onUpdateTask('scripting', 'complete', { 'tasks.shotList': finalShotList });
 
     } catch (err) {
         console.error('Error generating shot list:', err);
@@ -116,7 +126,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
     return (
       <div className="flex justify-center items-center p-8">
         <LoadingSpinner />
-        <p className="ml-2 text-gray-300">Generating Shot List for the first time...</p>
+        <p className="ml-2 text-gray-300">{loadingMessage}</p>
       </div>
     );
   }
@@ -160,7 +170,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
                 <td className="px-4 py-4 whitespace-pre-wrap">{row.cue}</td>
                 <td className="px-4 py-4 align-top">{row.locationName}</td>
                 <td className="px-4 py-4 align-top">
-                  {(row.availableFootage.bRoll || row.availableFootage.onCamera || row.availableFootage.drone) ? (
+                  {(row.availableFootage?.bRoll || row.availableFootage?.onCamera || row.availableFootage?.drone) ? (
                     <>
                       {row.availableFootage.bRoll && <p>✅ B-Roll</p>}
                       {row.availableFootage.onCamera && <p>✅ On-Camera</p>}
