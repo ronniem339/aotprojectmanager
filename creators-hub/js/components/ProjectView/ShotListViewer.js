@@ -9,7 +9,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   const [shotListData, setShotListData] = useState(video.tasks?.shotList || null);
   const [isLoading, setIsLoading] = useState(!shotListData);
   const [error, setError] = useState('');
-  const [loadingMessage, setLoadingMessage] = useState('Generating Shot List for the first time...');
+  const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
   useEffect(() => {
     if (!video.tasks?.shotList && video.script) {
@@ -21,16 +21,19 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
     setIsLoading(true);
     setError('');
     try {
-        // --- STEP 1: Programmatically create a list of all voiceover and on-camera blocks ---
-        setLoadingMessage('Step 1/4: Assembling content blocks...');
-        const onCameraBlocks = [];
+        // --- STEP 1: Assemble all content blocks using existing data ---
+        setLoadingMessage('Step 1/3: Assembling content...');
+        const allContentBlocks = [];
+        const locationAnswers = video.tasks?.locationAnswers || {};
+
+        // Add on-camera blocks
         const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
         for (const locationName in onCameraDescriptions) {
             const dialogueObject = onCameraDescriptions[locationName];
             const transcript = dialogueObject?.transcript;
             if (transcript && typeof transcript === 'string' && transcript.trim() !== '') {
                 const locationData = project.locations.find(l => l.name === locationName);
-                onCameraBlocks.push({
+                allContentBlocks.push({
                     id: `oncamera-${locationData?.place_id || locationName}`,
                     type: 'onCamera',
                     cue: transcript,
@@ -39,44 +42,26 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
                 });
             }
         }
-        const voiceoverBlocks = video.script.split('\n\n').filter(p => p.trim() !== '').map((p, index) => ({
-            id: `vo-${index}`,
-            type: 'voiceover',
-            cue: p.trim(),
-        }));
 
-        // --- STEP 2: Use a targeted AI call to assign locations to voiceover blocks ---
-        setLoadingMessage('Step 2/4: Tagging locations to voiceover...');
-        const locationTaggingPrompt = `
-            You are a production assistant. Your task is to assign a location to each paragraph of a voiceover script.
-            Based on the script's content and the overall plan, match each voiceover cue to the most appropriate location from the provided list.
-
-            **CONTEXT - SCRIPT PLAN:**
-            ${video.tasks?.scriptPlan || 'No plan provided.'}
-
-            **CONTEXT - AVAILABLE LOCATIONS:**
-            ${project.locations.map(loc => `- ${loc.name}`).join('\n')}
-            - General
-
-            **VOICEOVER CUES TO TAG:**
-            ${JSON.stringify(voiceoverBlocks.map(b => ({id: b.id, cue: b.cue})), null, 2)}
-
-            Your output MUST be a valid JSON object that maps each voiceover 'id' to its 'locationName'. Example: {"vo-0": "Green Line", "vo-1": "Venetian Walls"}
-        `;
-        const locationMap = await callGeminiAPI(locationTaggingPrompt, settings, { responseMimeType: "application/json" }, false);
-
-        const allContentBlocks = [
-            ...onCameraBlocks,
-            ...voiceoverBlocks.map(block => ({...block, locationName: locationMap[block.id] || 'General' }))
-        ].map(block => {
-            const location = project.locations.find(l => l.name === block.locationName);
-            return {...block, place_id: location?.place_id || null };
+        // Add voiceover blocks, using pre-assigned locations from the scripting workflow
+        const voiceoverParagraphs = video.script.split('\n\n').filter(p => p.trim() !== '');
+        voiceoverParagraphs.forEach((p, index) => {
+            const cue = p.trim();
+            const locationName = locationAnswers[cue] || 'General'; // Use the location the user already assigned
+            const locationData = project.locations.find(l => l.name === locationName);
+            allContentBlocks.push({
+                id: `vo-${index}`,
+                type: 'voiceover',
+                cue: cue,
+                locationName: locationName,
+                place_id: locationData?.place_id || null,
+            });
         });
 
-        // --- STEP 3: Use AI for the final, simpler task of sequencing all blocks ---
-        setLoadingMessage('Step 3/4: Sequencing timeline...');
+        // --- STEP 2: Use AI for the final task of sequencing all blocks ---
+        setLoadingMessage('Step 2/3: Sequencing timeline...');
         const sequencingPrompt = `
-            You are an expert video editor. Your only task is to sequence a list of content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline.
+            You are an expert video editor. Your only task is to sequence a list of pre-made content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline.
 
             **Input:**
             You will receive a JSON array of "Content Blocks". Each block is pre-tagged with its type, content, and location.
@@ -95,14 +80,14 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
         `;
         const sequencedBlocks = await callGeminiAPI(sequencingPrompt, settings, { responseMimeType: "application/json" }, true);
 
-        // --- STEP 4: Final enrichment and saving ---
-        setLoadingMessage('Step 4/4: Finalizing and saving...');
+        // --- STEP 3: Final enrichment and saving ---
+        setLoadingMessage('Step 3/3: Finalizing and saving...');
         const finalShotList = sequencedBlocks.map(block => {
             const originalBlock = allContentBlocks.find(b => b.id === block.id);
             const footage = originalBlock.place_id && project.footageInventory ? project.footageInventory[originalBlock.place_id] : null;
             return {
-                ...originalBlock, // Use the original block to preserve place_id
-                ...block, // Overlay the sequenced data (which just confirms order and locationName)
+                ...originalBlock,
+                ...block,
                 availableFootage: footage ? {
                     bRoll: !!(footage.bRoll && footage.bRoll.length > 0),
                     onCamera: !!(footage.onCamera && footage.onCamera.length > 0),
