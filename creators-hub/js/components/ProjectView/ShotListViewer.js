@@ -1,64 +1,70 @@
 // creators-hub/js/components/ProjectView/ShotListViewer.js
 
-window.ShotListViewer = ({ video, project, settings }) => {
+window.ShotListViewer = ({ video, project, settings, onUpdateTask }) => {
   const { React } = window;
   const { useState, useEffect } = React;
   const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const LoadingSpinner = window.LoadingSpinner;
 
-  const [shotListData, setShotListData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  // FIX: Use local state for error handling, just like in TitleTask.js
+  // FIX: Use shotListData from the video object if it exists, otherwise null.
+  const [shotListData, setShotListData] = useState(video.tasks?.shotList || null);
+  // FIX: Only show loading if we don't have data already.
+  const [loading, setLoading] = useState(!shotListData);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (video && project && video.script) {
+    // FIX: Only generate the list if it doesn't already exist.
+    if (!shotListData && video.script) {
       generateShotList();
     }
-  }, [video, project]);
+  }, [video, project, shotListData]);
 
   const generateShotList = async () => {
     setLoading(true);
-    setError(''); // Clear previous errors
+    setError('');
     try {
       const onCameraTranscripts = project.onCameraDescriptions || {};
+      
+      // FIX: New, more comprehensive prompt to build a unified timeline.
       const prompt = `
-        You are an expert video editor and production assistant. Your task is to create a "Shot List" by analyzing a video script and mapping each part of it to a specific location and any corresponding on-camera dialogue.
+        You are an expert video editor creating a "paper edit" timeline. Your task is to merge a voiceover script with on-camera dialogue sections into a single, sequential shot list.
 
         You will be given:
-        1. A full video script.
-        2. A list of available locations for the project.
-        3. A JSON object containing transcripts of on-camera dialogue, keyed by location.
+        1.  **Script Plan:** A high-level outline of the video's structure.
+        2.  **Voiceover Script:** The full text for the narration.
+        3.  **On-Camera Dialogue:** A JSON object of transcripts for segments where the host speaks to the camera, keyed by location name.
 
-        Your task is to break down the script into paragraphs (cues for the voiceover). For each paragraph, you must identify the most appropriate location from the provided list.
+        **Your Task:**
+        Create a timeline that correctly interleaves the voiceover and on-camera segments. The final output MUST be a valid JSON array of objects. Each object represents a scene and MUST have the following properties:
 
-        **RULES:**
-        - The output must be a valid JSON array of objects.
-        - Each object in the array represents a "shot" and must have the following properties:
-          - "scriptCue": The paragraph from the voiceover script.
-          - "locationName": The name of the location that best matches the script cue. If no specific location matches, use "General".
-          - "onCameraTranscript": If the script cue corresponds to a piece of on-camera dialogue, provide the exact transcript for that location. If it's a voiceover-only cue, this must be null.
+        -   "type": (string) Must be either "voiceover" or "onCamera".
+        -   "locationName": (string) The name of the location that best matches this scene. Use a location from the provided list.
+        -   "cue": (string) The text for this scene. For "voiceover", this is a paragraph from the voiceover script. For "onCamera", this is the full transcript from the On-Camera Dialogue.
 
-        **Full Video Script:**
+        **CRITICAL INSTRUCTIONS:**
+        -   Analyze the Script Plan and Voiceover Script to understand the narrative flow.
+        -   Place the "onCamera" segments where they logically fit within the voiceover narration.
+        -   Every piece of the Voiceover Script and every On-Camera Dialogue transcript must be included in the final shot list exactly once.
+        -   Do not invent new content. Only use the text provided.
+
         ---
-        ${video.script} 
+        **1. SCRIPT PLAN (for structure):**
+        ${video.tasks?.scriptPlan || 'No plan provided.'}
         ---
-
-        **Available Locations:**
+        **2. VOICEOVER SCRIPT (for narration):**
+        ${video.script}
         ---
+        **3. ON-CAMERA DIALOGUE (to be inserted):**
+        ${JSON.stringify(onCameraTranscripts, null, 2)}
+        ---
+        **4. AVAILABLE LOCATIONS:**
         ${project.locations.map(loc => `- ${loc.name}`).join('\n')}
         - General
         ---
 
-        **On-Camera Dialogue Transcripts:**
-        ---
-        ${JSON.stringify(onCameraTranscripts, null, 2)}
-        ---
-
-        Now, generate the JSON shot list based on the script, locations, and dialogue provided.
+        Now, generate the complete JSON shot list timeline.
       `;
 
-      // FIX: Call the API with the settings prop, as seen in TitleTask.js
       const parsedResponse = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
       
       const enhancedShotList = parsedResponse.map(shot => {
@@ -75,11 +81,12 @@ window.ShotListViewer = ({ video, project, settings }) => {
         };
       });
 
+      // FIX: Save the generated list to Firestore so we don't generate it again.
+      onUpdateTask('scripting', 'complete', { 'tasks.shotList': enhancedShotList });
       setShotListData(enhancedShotList);
 
     } catch (err) {
       console.error('Error generating shot list:', err);
-      // FIX: Set the local error state to display the message in the UI
       setError(`Failed to generate shot list: ${err.message}`);
     } finally {
       setLoading(false);
@@ -90,12 +97,11 @@ window.ShotListViewer = ({ video, project, settings }) => {
     return (
       <div className="flex justify-center items-center p-8">
         <LoadingSpinner />
-        <p className="ml-2 text-gray-300">Generating Shot List...</p>
+        <p className="ml-2 text-gray-300">Generating Shot List for the first time...</p>
       </div>
     );
   }
 
-  // FIX: Display the error message from the local state
   if (error) {
     return (
       <div className="p-8 text-center text-gray-300 bg-red-900/20 rounded-lg">
@@ -107,7 +113,7 @@ window.ShotListViewer = ({ video, project, settings }) => {
   }
 
   if (!shotListData || shotListData.length === 0) {
-    return <p className="p-8 text-center text-gray-400">No shot list could be generated for this script.</p>;
+    return <p className="p-8 text-center text-gray-400">Could not generate a shot list for this script.</p>;
   }
 
   return (
@@ -116,23 +122,29 @@ window.ShotListViewer = ({ video, project, settings }) => {
         <table className="w-full text-sm text-left text-gray-300">
           <thead className="bg-gray-700/50 text-xs text-gray-400 uppercase">
             <tr>
-              <th scope="col" className="px-6 py-3">Voiceover Script Cue</th>
+              <th scope="col" className="px-6 py-3">Type</th>
+              <th scope="col" className="px-6 py-3">Cue / Transcript</th>
               <th scope="col" className="px-6 py-3">Scene Location</th>
               <th scope="col" className="px-6 py-3">Available Footage</th>
-              <th scope="col" className="px-6 py-3">On-Camera Dialogue Transcript</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
             {shotListData.map((row, index) => (
-              <tr key={index} className="hover:bg-gray-800/50">
-                <td className="px-6 py-4 whitespace-pre-wrap">{row.scriptCue}</td>
+              <tr key={index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/20' : ''}`}>
+                <td className="px-6 py-4 font-medium">
+                  {row.type === 'onCamera' ? (
+                    <span className="px-2 py-1 text-xs font-bold text-blue-300 bg-blue-800/50 rounded-full">On-Camera</span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs text-gray-400">Voiceover</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-pre-wrap">{row.cue}</td>
                 <td className="px-6 py-4">{row.locationName}</td>
                 <td className="px-6 py-4">
                   {row.availableFootage.bRoll && <p>✅ B-Roll</p>}
                   {row.availableFootage.drone && <p>✅ Drone Footage</p>}
                   {row.availableFootage.onCamera && <p>✅ On-Camera Segment</p>}
                 </td>
-                <td className="px-6 py-4 whitespace-pre-wrap">{row.onCameraTranscript || 'N/A'}</td>
               </tr>
             ))}
           </tbody>
