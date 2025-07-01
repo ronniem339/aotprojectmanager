@@ -67,7 +67,7 @@ Each object in the array must have the following fields:
 1.  **Follow the Script:** The shot list must follow the narrative flow of the provided script.
 2.  **Be Specific:** For "visuals," provide concrete and actionable descriptions.
 3.  **Use the Inventory:** Ensure the suggested visuals align with the available footage.
-4.  **Output ONLY JSON:** The final output must be a valid JSON array of shot objects, and nothing else.
+4.  **Output ONLY JSON:** The final output must be a valid JSON array of objects, and nothing else.
 
 **Example JSON Output:**
 \`\`\`json
@@ -90,13 +90,33 @@ Each object in the array must have the following fields:
 \`\`\`
 `;
 
+    let response;
     try {
-        const response = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
-        // The Gemini API should return a JSON string, which we then parse.
-        const shotList = JSON.parse(response);
+        // FIX: Mark this as a complex task to encourage the use of the Pro model.
+        response = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "application/json", isComplexTask: true });
+
+        // FIX: Add robust parsing to handle cases where the AI returns non-JSON text.
+        let jsonString = response;
+
+        // Extract JSON from markdown code blocks if present
+        const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+        if (jsonMatch && jsonMatch[1]) {
+            jsonString = jsonMatch[1];
+        }
+
+        // Find the start and end of the JSON array as a fallback
+        const firstBracket = jsonString.indexOf('[');
+        const lastBracket = jsonString.lastIndexOf(']');
+        if (firstBracket !== -1 && lastBracket !== -1) {
+            jsonString = jsonString.substring(firstBracket, lastBracket + 1);
+        }
+
+        const shotList = JSON.parse(jsonString);
         return { shotList };
     } catch (error) {
         console.error("Error in generateShotListFromScriptAI:", error);
+        // Log the original response for easier debugging
+        console.error("Original AI response that caused the error:", response);
         throw new Error(`Failed to generate shot list from script. ${error.message}`);
     }
 };
