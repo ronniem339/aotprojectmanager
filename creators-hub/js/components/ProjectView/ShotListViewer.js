@@ -1,20 +1,23 @@
-import { useAppState } from '../../hooks/useAppState.js';
-import { callGeminiAPI } from '../../utils/ai/core/callGeminiAPI.js';
+// creators-hub/js/components/ProjectView/ShotListViewer.js
 
-const {
-  Box,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} = MaterialUI;
+window.ShotListViewer = ({ video, project }) => {
+  // Dependencies are now accessed from global objects like 'window' and 'MaterialUI'
+  const { useAppState } = window;
+  const { callGeminiAPI } = window;
+  const { React } = window;
+  const {
+    Box,
+    CircularProgress,
+    Paper,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Typography,
+  } = MaterialUI;
 
-const ShotListViewer = ({ video, project }) => {
   const { addAlert } = useAppState();
   const [shotListData, setShotListData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -28,6 +31,7 @@ const ShotListViewer = ({ video, project }) => {
   const generateShotList = async () => {
     setLoading(true);
     try {
+      // Note: project.onCameraDescriptions might not exist on older projects. Default to empty object.
       const onCameraTranscripts = project.onCameraDescriptions || {};
 
       const prompt = `
