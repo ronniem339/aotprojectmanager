@@ -106,9 +106,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     }, [updateTask, video.title, video.metadata]);
 
     const handleRegenerateShotList = () => {
-        // Use the special FieldValue.delete() to remove the shotList from the database.
-        // The ShotListViewer component will detect this change and trigger regeneration.
-        onUpdateTask('scripting', 'complete', { 'tasks.shotList': firebase.firestore.FieldValue.delete() });
+        // THIS IS THE FIX: Call the correct 'updateTask' function that is in scope.
+        updateTask('scripting', 'complete', { 'tasks.shotList': firebase.firestore.FieldValue.delete() });
     };
 
     const isTaskLocked = (task) => {
@@ -187,7 +186,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
                             <div className="flex items-center gap-4">
-                                {/* THIS IS THE NEW BUTTON */}
                                 <button onClick={handleRegenerateShotList} className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold rounded-lg transition-colors">
                                     Regenerate
                                 </button>
