@@ -139,11 +139,6 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
 
 // Moved LocationDetailsCard outside of ScriptingWorkspaceModal
 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
-    const [localDescription, setLocalDescription] = useState(description);
-
-    useEffect(() => {
-        setLocalDescription(description);
-    }, [description]);
 
     return (
         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -156,9 +151,8 @@ const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemov
 
             <textarea
                 key={`on-camera-notes-${location.place_id}`}
-                value={localDescription}
-                onChange={(e) => setLocalDescription(e.target.value)}
-                onBlur={(e) => onDescriptionChange(location.name, e.target.value)}
+                value={description}
+                onChange={(e) => onDescriptionChange(location.name, e.target.value)}
                 rows="3"
                 className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
                 placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
