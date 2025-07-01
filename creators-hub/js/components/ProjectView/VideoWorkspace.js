@@ -6,7 +6,10 @@ const ShotListViewer = window.ShotListViewer;
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails }) => {
     const [openTask, setOpenTask] = useState(null);
-    const [showShotList, setShowShotList] = useState(false); 
+    const [showShotList, setShowShotList] = useState(false);
+    // FIX: Add state to track regeneration loading status
+    const [isRegenerating, setIsRegenerating] = useState(false);
+    const [regenerationError, setRegenerationError] = useState(null);
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
@@ -14,6 +17,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     useEffect(() => {
         setOpenTask(null);
         setShowShotList(false);
+        setRegenerationError(null); // Reset error when video changes
     }, [video.id]);
 
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
@@ -65,6 +69,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 };
                 updateTask(taskId, 'pending', dataToReset);
                 break;
+            // ... (rest of the cases remain the same)
             case 'videoEdited':
                 dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
                 updateTask(taskId, 'pending', dataToReset);
@@ -105,19 +110,31 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     }, [updateTask, video.title, video.metadata]);
 
+    // FIX: Implement the full regeneration logic
     const handleRegenerateShotList = async () => {
-        if (!db) {
-            console.error("Firestore DB not available for update.");
+        if (!video.script) {
+            setRegenerationError("Cannot regenerate shot list without a script.");
             return;
         }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
-        
+        setIsRegenerating(true);
+        setRegenerationError(null);
         try {
-            await videoDocRef.update({
-                'tasks.shotList': firebase.firestore.FieldValue.delete()
-            });
+            const options = {
+                script: video.script,
+                videoTitle: video.chosenTitle || video.title,
+                videoConcept: video.concept,
+                onCameraLocations: video.onCameraLocations || [],
+                footageInventory: project.footageInventory || {},
+                settings
+            };
+            const { shotList: newShotList } = await window.aiUtils.generateShotListFromScriptAI(options);
+            // Use the existing updateTask utility to save the new shot list
+            await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': newShotList });
         } catch (e) {
-            console.error("Failed to delete shot list for regeneration:", e);
+            console.error("Failed to regenerate shot list:", e);
+            setRegenerationError(e.message || "An unknown error occurred during regeneration.");
+        } finally {
+            setIsRegenerating(false);
         }
     };
 
@@ -197,8 +214,12 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
                             <div className="flex items-center gap-4">
-                                <button onClick={handleRegenerateShotList} className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                                    Regenerate
+                                <button 
+                                    onClick={handleRegenerateShotList} 
+                                    className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:bg-gray-500"
+                                    disabled={isRegenerating}
+                                >
+                                    {isRegenerating ? 'Regenerating...' : 'Regenerate'}
                                 </button>
                                 <button onClick={() => setShowShotList(false)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
                                     Close
@@ -206,11 +227,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                             </div>
                         </div>
                         <div className="overflow-y-auto">
+                            {isRegenerating && <div className="absolute inset-0 bg-gray-900/50 flex justify-center items-center"><LoadingSpinner /></div>}
+                            {regenerationError && <div className="text-red-400 p-3 bg-red-900/40 rounded-md mb-4">Error: {regenerationError}</div>}
                             <ShotListViewer 
                                 video={video} 
                                 project={project} 
                                 settings={settings} 
                                 onUpdateTask={updateTask}
+                                // This prop is now primarily for the button in the modal's header
                                 onRegenerate={handleRegenerateShotList}
                             />
                         </div>
