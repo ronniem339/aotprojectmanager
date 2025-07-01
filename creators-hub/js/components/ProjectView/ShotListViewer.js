@@ -1,13 +1,14 @@
 // creators-hub/js/components/ProjectView/ShotListViewer.js
 
 window.ShotListViewer = ({ video, project }) => {
-  // THIS IS THE FIX: Correctly assign functions from the window object.
   const useAppState = window.useAppState;
-  const callGeminiAPI = window.callGeminiAPI;
+  // FIX: Correctly reference the callGeminiAPI function from the global aiUtils object.
+  const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const { React } = window;
   const LoadingSpinner = window.LoadingSpinner;
 
-  const { addAlert } = useAppState();
+  // Get settings and addAlert from the global state.
+  const { settings, addAlert } = useAppState();
   const [shotListData, setShotListData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -58,8 +59,9 @@ window.ShotListViewer = ({ video, project }) => {
         Now, generate the JSON shot list based on the script, locations, and dialogue provided.
       `;
 
-      const aiResponse = await callGeminiAPI(prompt);
-      const parsedResponse = JSON.parse(aiResponse);
+      // FIX: Call the API with the correct arguments (prompt, settings, and generationConfig).
+      // The shared API function handles JSON parsing, so we await the final result directly.
+      const parsedResponse = await callGeminiAPI(prompt, settings, { responseMimeType: "application/json" });
 
       const enhancedShotList = parsedResponse.map(shot => {
         const location = project.locations.find(loc => loc.name === shot.locationName);
@@ -78,7 +80,7 @@ window.ShotListViewer = ({ video, project }) => {
       setShotListData(enhancedShotList);
     } catch (error) {
       console.error('Error generating shot list:', error);
-      addAlert('error', 'Failed to generate the shot list. Please try again.');
+      addAlert('error', `Failed to generate shot list: ${error.message}`);
     } finally {
       setLoading(false);
     }
