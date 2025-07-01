@@ -105,9 +105,23 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     }, [updateTask, video.title, video.metadata]);
 
-    const handleRegenerateShotList = () => {
-        // THIS IS THE FIX: Call the correct 'updateTask' function that is in scope.
-        updateTask('scripting', 'complete', { 'tasks.shotList': firebase.firestore.FieldValue.delete() });
+    const handleRegenerateShotList = async () => {
+        if (!db) {
+            console.error("Firestore DB not available for update.");
+            return;
+        }
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        
+        try {
+            // THIS IS THE FIX: To delete a nested field, we must use dot notation
+            // directly in the update call. The generic 'updateTask' function
+            // was not designed for this specific operation.
+            await videoDocRef.update({
+                'tasks.shotList': firebase.firestore.FieldValue.delete()
+            });
+        } catch (e) {
+            console.error("Failed to delete shot list for regeneration:", e);
+        }
     };
 
     const isTaskLocked = (task) => {
