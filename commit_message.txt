@@ -1,0 +1,5 @@
+fix(scripting): prevent brain dump from clearing on re-render
+
+The text area in the scripting workspace's 'brain dump' step was clearing due to its state being unintentionally reset on re-renders. This was caused by the parent component passing down a new `taskData` prop on every render.
+
+To resolve this, the `taskData` object is now wrapped in a `useMemo` hook. This memoization ensures that the `taskData` object is only recreated when its dependencies (`video` or `localOnCameraLocations`) change, preventing unnecessary re-renders of the `ScriptingWorkspaceModal` and preserving the user's input in the text area.

@@ -739,7 +739,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             setLocationToModify(null);
         }
     };
-    const taskData = {
+    const taskData = useMemo(() => ({
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
         initialQuestions: video.tasks?.initialQuestions || [],
@@ -752,7 +752,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         script: video.script || '',
         outlineRefinementText: '',
         scriptRefinementText: '',
-    };
+    }), [video, localOnCameraLocations]);
 
 
     // creators-hub/js/components/ProjectView/tasks/scriptingTask.js
