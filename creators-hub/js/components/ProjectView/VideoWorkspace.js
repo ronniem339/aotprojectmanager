@@ -64,50 +64,56 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
-        switch (taskId) {
-            case 'scripting':
-                dataToReset = {
-                    script: '',
-                    'tasks.scriptingStage': 'pending',
-                    'tasks.initialQuestions': [],
-                    'tasks.initialAnswers': [],
-                    'tasks.scriptPlan': '',
-                    'tasks.locationQuestions': [],
-                    'tasks.userExperiences': {}
-                };
-                break;
-            case 'videoEdited':
-                dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
-                break;
-            case 'titleGenerated':
-                dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false };
-                break;
-            case 'descriptionGenerated':
-                 dataToReset = { metadata: '', chapters: [] };
-                 break;
-            case 'chaptersGenerated':
-                 dataToReset = { 'tasks.chaptersFinalized': false };
-                 break;
-            case 'tagsGenerated': {
-                const currentMeta = (typeof video.metadata === 'string' && video.metadata)
-                    ? JSON.parse(video.metadata)
-                    : video.metadata || {};
+        // Add a case for resetting the shot list if needed in the future
+        if (taskId === 'shotList') {
+            dataToReset = { 'tasks.shotList': null };
+        } else {
+            switch (taskId) {
+                case 'scripting':
+                    dataToReset = {
+                        script: '',
+                        'tasks.scriptingStage': 'pending',
+                        'tasks.initialQuestions': [],
+                        'tasks.initialAnswers': [],
+                        'tasks.scriptPlan': '',
+                        'tasks.locationQuestions': [],
+                        'tasks.userExperiences': {},
+                        'tasks.shotList': null // Also clear the shot list when resetting script
+                    };
+                    break;
+                case 'videoEdited':
+                    dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
+                    break;
+                case 'titleGenerated':
+                    dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false };
+                    break;
+                case 'descriptionGenerated':
+                     dataToReset = { metadata: '', chapters: [] };
+                     break;
+                case 'chaptersGenerated':
+                     dataToReset = { 'tasks.chaptersFinalized': false };
+                     break;
+                case 'tagsGenerated': {
+                    const currentMeta = (typeof video.metadata === 'string' && video.metadata)
+                        ? JSON.parse(video.metadata)
+                        : video.metadata || {};
 
-                delete currentMeta.tags;
-                dataToReset = { metadata: JSON.stringify(currentMeta) };
-                break;
+                    delete currentMeta.tags;
+                    dataToReset = { metadata: JSON.stringify(currentMeta) };
+                    break;
+                }
+                case 'thumbnailsGenerated':
+                    dataToReset = {
+                        'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
+                        'tasks.rejectedConcepts': [], 'tasks.currentConceptIndex': 0
+                    };
+                    break;
+                case 'firstCommentGenerated':
+                    dataToReset = { 'tasks.firstComment': '' };
+                    break;
+                default:
+                    break;
             }
-            case 'thumbnailsGenerated':
-                dataToReset = {
-                    'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
-                    'tasks.rejectedConcepts': [], 'tasks.currentConceptIndex': 0
-                };
-                break;
-            case 'firstCommentGenerated':
-                dataToReset = { 'tasks.firstComment': '' };
-                break;
-            default:
-                break;
         }
         updateTask(taskId, 'pending', dataToReset);
     }, [updateTask, video.title, video.metadata]);
@@ -147,57 +153,61 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     };
 
+    // FIX: Use React.Fragment to allow the modal to be a sibling of the main content, enabling true fullscreen
     return (
-        <main className="flex-grow">
-            <div className="flex items-center mb-4">
-                <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
-                {video.script && (
-                    <button 
-                        onClick={() => setShowShotList(true)}
-                        className="ml-4 px-3 py-1 bg-secondary hover:bg-secondary-dark text-white text-sm font-semibold rounded-lg shadow-md transition-colors"
-                    >
-                        View Shot List
-                    </button>
-                )}
-            </div>
-
-            <div className="space-y-4">
-                {taskPipeline.map((task, index) => {
-                    let status = video.tasks?.[task.id] || 'pending';
-                    if (task.id === 'scripting' && video.tasks?.scriptingStage && video.tasks.scriptingStage !== 'pending' && video.tasks.scriptingStage !== 'complete') {
-                        status = 'in-progress';
-                    } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
-                        status = 'in-progress';
-                    }
-                    const locked = isTaskLocked(task);
-
-                    return (
-                        <window.Accordion
-                            key={task.id}
-                            title={`${index + 1}. ${task.title}`}
-                            isOpen={openTask === task.id}
-                            onToggle={() => setOpenTask(openTask === task.id ? null : task.id)}
-                            status={locked ? 'locked' : status}
-                            isLocked={locked}
-                            onRevisit={status === 'complete' ? () => handleResetTask(task.id) : null}
-                            onRestart={status === 'in-progress' ? () => handleResetTask(task.id) : null}
+        <>
+            <main className="flex-grow">
+                <div className="flex items-center mb-4">
+                    <h3 className="text-2xl lg:text-3xl font-bold text-primary-accent">{video.chosenTitle || video.title}</h3>
+                    {video.script && (
+                        <button 
+                            onClick={() => setShowShotList(true)}
+                            className="ml-4 px-3 py-1 bg-secondary hover:bg-secondary-dark text-white text-sm font-semibold rounded-lg shadow-md transition-colors"
                         >
-                            {renderTaskComponent(task, index)}
-                        </window.Accordion>
-                    );
-                })}
-            </div>
+                            View Shot List
+                        </button>
+                    )}
+                </div>
 
+                <div className="space-y-4">
+                    {taskPipeline.map((task, index) => {
+                        let status = video.tasks?.[task.id] || 'pending';
+                        if (task.id === 'scripting' && video.tasks?.scriptingStage && video.tasks.scriptingStage !== 'pending' && video.tasks.scriptingStage !== 'complete') {
+                            status = 'in-progress';
+                        } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
+                            status = 'in-progress';
+                        }
+                        const locked = isTaskLocked(task);
+
+                        return (
+                            <window.Accordion
+                                key={task.id}
+                                title={`${index + 1}. ${task.title}`}
+                                isOpen={openTask === task.id}
+                                onToggle={() => setOpenTask(openTask === task.id ? null : task.id)}
+                                status={locked ? 'locked' : status}
+                                isLocked={locked}
+                                onRevisit={status === 'complete' ? () => handleResetTask(task.id) : null}
+                                onRestart={status === 'in-progress' ? () => handleResetTask(task.id) : null}
+                            >
+                                {renderTaskComponent(task, index)}
+                            </window.Accordion>
+                        );
+                    })}
+                </div>
+            </main>
+
+            {/* FIX: Modal is now outside the main element to prevent constrained positioning */}
             {showShotList && (
                 <div 
                     className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60] p-4"
                     onMouseDown={() => setShowShotList(false)}
                 >
                     <div 
-                        className="glass-card rounded-lg p-6 w-full max-w-5xl text-left"
+                        className="glass-card rounded-lg p-6 w-full max-w-6xl text-left flex flex-col"
                         onMouseDown={e => e.stopPropagation()}
                     >
-                        <div className="flex justify-between items-center mb-4">
+                        <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
                             <button 
                                 onClick={() => setShowShotList(false)}
@@ -206,13 +216,18 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                                 Close
                             </button>
                         </div>
-                        <div className="max-h-[75vh] overflow-y-auto">
-                            {/* THIS IS THE FIX: Pass the 'settings' prop down to the viewer */}
-                            <ShotListViewer video={video} project={project} settings={settings} />
+                        <div className="max-h-[80vh] overflow-y-auto">
+                            <ShotListViewer 
+                                video={video} 
+                                project={project} 
+                                settings={settings} 
+                                // FIX: Pass the updateTask function so the component can save its results
+                                onUpdateTask={updateTask} 
+                            />
                         </div>
                     </div>
                 </div>
             )}
-        </main>
+        </>
     );
 });
