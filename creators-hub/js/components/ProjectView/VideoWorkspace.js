@@ -1,6 +1,5 @@
 // creators-hub/js/components/ProjectView/VideoWorkspace.js
 
-// FIX: Import ReactDOM for portal functionality
 const { useState, useEffect, useCallback } = React;
 const ReactDOM = window.ReactDOM;
 const ShotListViewer = window.ShotListViewer; 
@@ -57,61 +56,60 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
-        if (taskId === 'shotList') {
-            // Use a sentinel value to delete the field from Firestore
-            dataToReset = { 'tasks.shotList': firebase.firestore.FieldValue.delete() };
-            updateTask('scripting', 'complete', dataToReset); // Keep task complete, just remove data
-        } else {
-            switch (taskId) {
-                case 'scripting':
-                    dataToReset = {
-                        script: '', 'tasks.scriptingStage': 'pending', 'tasks.initialQuestions': [],
-                        'tasks.initialAnswers': [], 'tasks.scriptPlan': '', 'tasks.locationQuestions': [],
-                        'tasks.userExperiences': {}, 'tasks.shotList': firebase.firestore.FieldValue.delete()
-                    };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                // other cases...
-                case 'videoEdited':
-                    dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                case 'titleGenerated':
-                    dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                case 'descriptionGenerated':
-                    dataToReset = { metadata: '', chapters: [] };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                case 'chaptersGenerated':
-                    dataToReset = { 'tasks.chaptersFinalized': false };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                case 'tagsGenerated': {
-                    const currentMeta = (typeof video.metadata === 'string' && video.metadata)
-                        ? JSON.parse(video.metadata) : video.metadata || {};
-                    delete currentMeta.tags;
-                    dataToReset = { metadata: JSON.stringify(currentMeta) };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                }
-                case 'thumbnailsGenerated':
-                    dataToReset = {
-                        'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
-                        'tasks.rejectedConcepts': [], 'tasks.currentConceptIndex': 0
-                    };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                case 'firstCommentGenerated':
-                    dataToReset = { 'tasks.firstComment': '' };
-                    updateTask(taskId, 'pending', dataToReset);
-                    break;
-                default:
-                    return; // Do nothing if the task id doesn't match
+        switch (taskId) {
+            case 'scripting':
+                dataToReset = {
+                    script: '', 'tasks.scriptingStage': 'pending', 'tasks.initialQuestions': [],
+                    'tasks.initialAnswers': [], 'tasks.scriptPlan': '', 'tasks.locationQuestions': [],
+                    'tasks.userExperiences': {}, 'tasks.shotList': firebase.firestore.FieldValue.delete()
+                };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            case 'videoEdited':
+                dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            case 'titleGenerated':
+                dataToReset = { chosenTitle: video.title, 'tasks.titleConfirmed': false };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            case 'descriptionGenerated':
+                dataToReset = { metadata: '', chapters: [] };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            case 'chaptersGenerated':
+                dataToReset = { 'tasks.chaptersFinalized': false };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            case 'tagsGenerated': {
+                const currentMeta = (typeof video.metadata === 'string' && video.metadata)
+                    ? JSON.parse(video.metadata) : video.metadata || {};
+                delete currentMeta.tags;
+                dataToReset = { metadata: JSON.stringify(currentMeta) };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
             }
+            case 'thumbnailsGenerated':
+                dataToReset = {
+                    'tasks.thumbnailConcepts': [], 'tasks.acceptedConcepts': [],
+                    'tasks.rejectedConcepts': [], 'tasks.currentConceptIndex': 0
+                };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            case 'firstCommentGenerated':
+                dataToReset = { 'tasks.firstComment': '' };
+                updateTask(taskId, 'pending', dataToReset);
+                break;
+            default:
+                return;
         }
     }, [updateTask, video.title, video.metadata]);
+
+    const handleRegenerateShotList = () => {
+        // Use the special FieldValue.delete() to remove the shotList from the database.
+        // The ShotListViewer component will detect this change and trigger regeneration.
+        onUpdateTask('scripting', 'complete', { 'tasks.shotList': firebase.firestore.FieldValue.delete() });
+    };
 
     const isTaskLocked = (task) => {
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
@@ -188,9 +186,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     <div className="glass-card rounded-lg p-6 w-full max-w-6xl text-left flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
-                            <button onClick={() => setShowShotList(false)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
-                                Close
-                            </button>
+                            <div className="flex items-center gap-4">
+                                {/* THIS IS THE NEW BUTTON */}
+                                <button onClick={handleRegenerateShotList} className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                                    Regenerate
+                                </button>
+                                <button onClick={() => setShowShotList(false)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
+                                    Close
+                                </button>
+                            </div>
                         </div>
                         <div className="overflow-y-auto">
                             <ShotListViewer 
