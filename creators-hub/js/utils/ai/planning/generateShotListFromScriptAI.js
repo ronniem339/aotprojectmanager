@@ -92,30 +92,37 @@ Each object in the array must have the following fields:
 
     let response;
     try {
-        // FIX: Mark this as a complex task to encourage the use of the Pro model.
-        response = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "application/json", isComplexTask: true });
+        // FIX: Because this is a complex task prone to errors with the Flash model,
+        // we will call the API using settings that force the Pro model for this task only.
+        // This avoids changing the shared callGeminiAPI utility.
+        const tempSettingsForPro = { ...settings, useProModel: true };
+        
+        response = await window.aiUtils.callGeminiAPI(prompt, tempSettingsForPro, {
+            responseMimeType: "application/json",
+            isComplexTask: true // This flag is used by callGeminiAPI to select the model
+        });
 
-        // FIX: Add robust parsing to handle cases where the AI returns non-JSON text.
         let jsonString = response;
 
-        // Extract JSON from markdown code blocks if present
-        const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+        // The AI can sometimes wrap its response in markdown, so we extract the raw JSON.
+        const jsonMatch = typeof jsonString === 'string' ? jsonString.match(/```json\n([\s\S]*?)\n```/) : null;
         if (jsonMatch && jsonMatch[1]) {
             jsonString = jsonMatch[1];
         }
 
-        // Find the start and end of the JSON array as a fallback
-        const firstBracket = jsonString.indexOf('[');
-        const lastBracket = jsonString.lastIndexOf(']');
-        if (firstBracket !== -1 && lastBracket !== -1) {
-            jsonString = jsonString.substring(firstBracket, lastBracket + 1);
+        const shotList = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+
+        // Handle cases where the AI wraps the array in an object, e.g., { "shots": [...] }
+        if (!Array.isArray(shotList)) {
+            const key = Object.keys(shotList).find(k => Array.isArray(shotList[k]));
+            if (key) {
+                return { shotList: shotList[key] };
+            }
         }
 
-        const shotList = JSON.parse(jsonString);
         return { shotList };
     } catch (error) {
         console.error("Error in generateShotListFromScriptAI:", error);
-        // Log the original response for easier debugging
         console.error("Original AI response that caused the error:", response);
         throw new Error(`Failed to generate shot list from script. ${error.message}`);
     }
