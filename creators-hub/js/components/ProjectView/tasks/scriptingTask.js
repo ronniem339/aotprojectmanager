@@ -282,6 +282,14 @@ const ScriptingWorkspaceModal = ({
 
     useEffect(() => {
         setLocalTaskData(taskData);
+        // Initialize onCameraInputMode from taskData if available
+        if (taskData.onCameraInputMode) {
+            setOnCameraInputMode(taskData.onCameraInputMode);
+        }
+        // Initialize parsedTranscript if we are in the review stage and data exists
+        if (taskData.scriptingStage === 'review_parsed_transcript' && taskData.onCameraDescriptions) {
+            setParsedTranscript(taskData.onCameraDescriptions);
+        }
     }, [taskData]);
 
     useEffect(() => {
@@ -583,7 +591,10 @@ const ScriptingWorkspaceModal = ({
                         {/* Input Mode Toggle */}
                         <div className="flex justify-center items-center space-x-4 mb-6">
                             <button 
-                                onClick={() => setOnCameraInputMode('per-location')} 
+                                onClick={() => {
+                                    setOnCameraInputMode('per-location');
+                                    handleDataChange('onCameraInputMode', 'per-location');
+                                }} 
                                 className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                                     onCameraInputMode === 'per-location' 
                                         ? 'bg-primary-accent text-white' 
@@ -592,7 +603,10 @@ const ScriptingWorkspaceModal = ({
                                 Notes Per Location
                             </button>
                             <button 
-                                onClick={() => setOnCameraInputMode('transcript')} 
+                                onClick={() => {
+                                    setOnCameraInputMode('transcript');
+                                    handleDataChange('onCameraInputMode', 'transcript');
+                                }} 
                                 className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                                     onCameraInputMode === 'transcript' 
                                         ? 'bg-primary-accent text-white' 
@@ -833,6 +847,8 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         userExperiences: video.tasks?.userExperiences || {},
         onCameraLocations: localOnCameraLocations !== null ? localOnCameraLocations : video.tasks?.onCameraLocations || [],
         onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
+        onCameraInputMode: video.tasks?.onCameraInputMode || 'per-location',
+        fullTranscript: video.tasks?.fullTranscript || '',
         script: video.script || '',
         outlineRefinementText: '',
         scriptRefinementText: '',
@@ -1065,6 +1081,8 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'tasks.onCameraLocations': localOnCameraLocations,
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
+            'tasks.onCameraInputMode': updatedTaskData.onCameraInputMode,
+            'tasks.fullTranscript': updatedTaskData.fullTranscript,
             'script': updatedTaskData.script,
         };
 

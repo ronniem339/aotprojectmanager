@@ -1,4 +1,5 @@
-fix(scripting): Resolve ReferenceError for onCameraInputMode
+fix(scripting): Persist on-camera input mode and transcript data
 
-- Passed `onCameraInputMode` explicitly to `handleGenerateFullScript` from `initiateScriptGeneration` and the `review_parsed_transcript` stage to resolve a `ReferenceError`.
-- This ensures the `onCameraInputMode` is always accessible within the `handleGenerateFullScript` function, allowing correct logic for both per-location notes and full transcript input.
+- Ensured `onCameraInputMode` and `fullTranscript` are saved to `video.tasks` in the database.
+- Updated `ScriptingWorkspaceModal` to initialize `onCameraInputMode` and `parsedTranscript` from `taskData` when the modal opens.
+- This allows the scripting workspace to correctly resume from the `review_parsed_transcript` stage and retain the user's input mode and full transcript content across sessions.
