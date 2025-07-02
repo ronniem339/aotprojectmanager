@@ -992,12 +992,27 @@ const handleOpenWorkspace = async (startStage = null) => {
             throw new Error("The AI failed to generate refinement questions. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'refinement_qa',
-            'tasks.locationQuestions': response.locationQuestions,
-            'tasks.userExperiences': {}
-        });
-    };
+         // --- NEW LOGIC TO CREATE locationAnswers ---
+
+    // 1. Initialize an empty object for our new map
+    const locationAnswers = {};
+
+    // 2. Loop through the AI's response to build the map
+    response.locationQuestions.forEach(item => {
+        // The key is the question text, the value is the location name
+        if (item.question && item.location) {
+            locationAnswers[item.question] = item.location;
+        }
+    });
+
+    // 3. Save BOTH the questions AND the new locationAnswers map to Firebase
+    await onUpdateTask('scripting', 'in-progress', {
+        'tasks.scriptingStage': 'refinement_qa',
+        'tasks.locationQuestions': response.locationQuestions,
+        'tasks.locationAnswers': locationAnswers, // <-- Save the new map
+        'tasks.userExperiences': {} // Reset answers for the new questions
+    });
+};
 
     const handleProceedToOnCamera = async (currentTaskData) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
