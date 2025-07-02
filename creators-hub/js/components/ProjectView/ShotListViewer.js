@@ -231,8 +231,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
           </thead>
           <tbody className="divide-y divide-gray-700">
             {shotListData.map((row, index) => (
-              <tr key={row.id || index} className={\`hover:bg-gray-800/50 \${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}\`}>
-                <td className="px-4 py-4 font-medium align-top">
+<tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}`}>
+  <td className="px-4 py-4 font-medium align-top">
                   {row.type === 'onCamera' ? (
                     <span className="px-2 py-1 text-xs font-bold text-blue-300 bg-blue-800/50 rounded-full">On-Camera</span>
                   ) : (
