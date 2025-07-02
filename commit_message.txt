@@ -1,4 +1,5 @@
-fix: Ensure onCameraDescriptions is correctly passed to AI function
+fix(shotlist): Add data readiness check before generation
 
-- Modified `ShotListViewer.js` to directly pass `video.tasks.onCameraDescriptions` to `generateShotListFromScriptAI`.
-- Removed the now-redundant `onCameraLocations` variable and its associated logging from `ShotListViewer.js`.
+The ShotListViewer component was attempting to generate a shot list before the required data (`video.tasks.onCameraDescriptions`) was fully loaded, leading to the value being `undefined`.
+
+This commit introduces a loading state that explicitly checks for the presence of `video.tasks` and either a script or on-camera descriptions before enabling the "Generate Shot List" button. This prevents the AI call from being made with incomplete data, ensuring the shot list generation process is more robust and reliable.
