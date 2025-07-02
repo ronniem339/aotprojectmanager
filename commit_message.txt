@@ -1,5 +1,5 @@
-fix(shotlist): Correct syntax error from previous commit
+fix(shotlist): Correct syntax from previous commits
 
-A previous commit to remove `useCallback` left trailing dependency arrays, causing a syntax error.
+Previous commits introduced syntax errors by incorrectly removing `useCallback` hooks. This commit corrects the function definitions for `generateShotListFromExistingScript` and `generateAndSaveShotList`, resolving the parsing errors.
 
-This commit removes the leftover arrays, correcting the syntax and ensuring the component renders correctly. This is part of the effort to resolve the stale closure issue causing `onCameraDescriptions` to be `undefined`.
+This is the third attempt to fix the underlying stale closure issue, and this commit focuses solely on correcting the syntax to get the component rendering again.

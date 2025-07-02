@@ -42,7 +42,6 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     } finally {
       setIsLoading(false);
     }
-  }
   };
 
   const generateAndSaveShotList = async () => {
