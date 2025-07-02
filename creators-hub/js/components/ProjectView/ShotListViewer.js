@@ -213,17 +213,21 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
           </thead>
           <tbody className="divide-y divide-gray-700">
             {shotListData.map((row, index) => (
-              <tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}`}>
+              <tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.shotType === 'On-Camera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}`}>
                 <td className="px-4 py-4 font-medium align-top">
-                  {row.type === 'onCamera' ? (
+                  {/* FIX: Use row.shotType */}
+                  {row.shotType === 'On-Camera' ? (
                     <span className="px-2 py-1 text-xs font-bold text-blue-300 bg-blue-800/50 rounded-full">On-Camera</span>
                   ) : (
                     <span className="px-2 py-1 text-xs text-green-300 bg-green-800/50 rounded-full">Voiceover</span>
                   )}
                 </td>
-                <td className="px-4 py-4 whitespace-pre-wrap">{row.cue}</td>
-                <td className="px-4 py-4 align-top">{row.locationName}</td>
+                {/* FIX: Use row.dialogue instead of row.cue */}
+                <td className="px-4 py-4 whitespace-pre-wrap">{row.dialogue}</td>
+                {/* FIX: Use row.location instead of row.locationName */}
+                <td className="px-4 py-4 align-top">{row.location}</td>
                 <td className="px-4 py-4 align-top">
+                  {/* FIX: Safely access availableFootage which may not exist */}
                   {(row.availableFootage?.bRoll || row.availableFootage?.onCamera || row.availableFootage?.drone) ? (
                     <div className="flex flex-col space-y-1">
                       {row.availableFootage.bRoll && <span className="text-xs text-gray-300">✅ B-Roll</span>}
