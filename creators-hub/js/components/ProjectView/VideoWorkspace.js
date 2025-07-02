@@ -25,18 +25,18 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setStagedScenes([]); // Reset staged scenes when video changes
     }, [video.id]);
 
+    // FIXED: Reverted to use Firebase v8 compat syntax
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
         if (!db) {
             console.error("Firestore DB not available for updateTask.");
             return;
         }
-        // Using the fully qualified path for the document reference
-        const videoDocRef = doc(db, `artifacts/${appId}/users/${userId}/projects/${project.id}/videos`, video.id);
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
         try {
-            await runTransaction(db, async (transaction) => {
+            await db.runTransaction(async (transaction) => {
                 const videoDoc = await transaction.get(videoDocRef);
-                if (!videoDoc.exists()) {
+                if (!videoDoc.exists) {
                     throw "Document does not exist!";
                 }
                 const currentData = videoDoc.data();
@@ -61,6 +61,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             });
         } catch (e) {
             console.error("Database transaction failed: ", e);
+            setRegenerationError(`Failed to save changes: ${e.message}`);
         }
     }, [userId, project.id, video.id, appId, db]);
 
