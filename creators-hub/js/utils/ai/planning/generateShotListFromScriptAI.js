@@ -30,9 +30,12 @@ window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, video
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
     // Create a clear summary of the on-camera dialogue segments.
-    const onCameraNotes = Object.entries(onCameraDescriptions || {})
-        .map(([location, dialogue]) => `- At "${location}", the on-camera dialogue is: "${dialogue}"`)
-        .join('\n');
+const onCameraNotes = Object.entries(onCameraDescriptions || {})
+    .map(([location, dialogue]) => {
+        const dialogueText = Array.isArray(dialogue) ? dialogue.join(' ') : dialogue;
+        return `- At "${location}", the on-camera dialogue is: "${dialogueText}"`;
+    })
+    .join('\n');
 
     // Create a clear summary of the footage inventory.
     const footageNotes = Object.entries(footageInventory || {})
