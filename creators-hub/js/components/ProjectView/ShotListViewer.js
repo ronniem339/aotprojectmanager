@@ -11,7 +11,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   const [error, setError] = useState('');
   const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
-  const generateShotListFromExistingScript = useCallback(async () => {
+  const generateShotListFromExistingScript = async () => {
     console.log('ShotListViewer (Existing Script): Function called.');
     setIsLoading(true);
     setError('');
@@ -44,7 +44,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     }
   }, [video, project, settings, onUpdateTask]);
 
-  const generateAndSaveShotList = useCallback(async () => {
+  const generateAndSaveShotList = async () => {
     setIsLoading(true);
     setError('');
     setShotListData(null);

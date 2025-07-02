@@ -1,5 +1,5 @@
-fix(shotlist): Add data readiness check before generation
+fix(shotlist): Remove useCallback to prevent stale closures
 
-The ShotListViewer component was attempting to generate a shot list before the required data (`video.tasks.onCameraDescriptions`) was fully loaded, leading to the value being `undefined`.
+The `useCallback` hook was causing the `generateShotListFromExistingScript` and `generateAndSaveShotList` functions to retain a stale version of the `video` prop, where `onCameraDescriptions` was `undefined`.
 
-This commit introduces a loading state that explicitly checks for the presence of `video.tasks` and either a script or on-camera descriptions before enabling the "Generate Shot List" button. This prevents the AI call from being made with incomplete data, ensuring the shot list generation process is more robust and reliable.
+This commit removes the `useCallback` wrapper from these functions. This ensures that the functions are recreated on every render, guaranteeing they always have access to the latest `video` prop and preventing the stale closure issue. This resolves the bug where `onCameraDescriptions` was being passed as `undefined` to the AI generation function.
