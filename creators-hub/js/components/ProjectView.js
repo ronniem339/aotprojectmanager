@@ -29,10 +29,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
 
     const isSingleVideoProject = useMemo(() => localProject?.videoCount === 1, [localProject]);
     const activeVideo = useMemo(() => videos.find(v => v.id === activeVideoId), [videos, activeVideoId]);
-
-    useEffect(() => {
-        console.log('ProjectView: activeVideo prop:', JSON.stringify(activeVideo));
-    }, [activeVideo]);
     
     const overallProgress = useMemo(() => {
         if (!videos.length || !window.CREATOR_HUB_CONFIG.TASK_PIPELINE.length) {

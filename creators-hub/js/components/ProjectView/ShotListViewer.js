@@ -12,11 +12,13 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
   const generateShotListFromExistingScript = useCallback(async () => {
+    console.log('ShotListViewer (Existing Script): Function called.');
     setIsLoading(true);
     setError('');
     setShotListData(null);
     setLoadingMessage('Generating shot list from your existing script...');
 
+    console.log('ShotListViewer (Existing Script): Entering try block.');
     try {
       const onCameraLocations = (video.locations_featured || []).filter(locName => {
         const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
@@ -46,7 +48,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
       onUpdateTask('scripting', 'complete', { 'tasks.shotList': response.shotList });
 
     } catch (err) {
-      console.error('Error generating shot list from script:', err);
+      console.error('ShotListViewer (Existing Script): Error caught:', err);
       setError(`Failed to generate shot list: ${err.message}`);
     } finally {
       setIsLoading(false);
