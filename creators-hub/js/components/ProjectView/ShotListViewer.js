@@ -12,6 +12,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
   const generateShotListFromExistingScript = useCallback(async () => {
+    console.log('ShotListViewer (Existing Script): Entering generateShotListFromExistingScript. video.script:', video.script);
     setIsLoading(true);
     setError('');
     setShotListData(null);
@@ -35,6 +36,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         footageInventory: project.footageInventory || {},
         settings: settings,
       });
+
+      console.log('ShotListViewer (Existing Script): AI Response:', response);
 
       if (!response || !Array.isArray(response.shotList)) {
         throw new Error("The AI failed to generate a valid shot list.");
