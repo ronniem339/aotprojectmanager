@@ -185,8 +185,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
 
   if (!shotListData || shotListData.length === 0) {
     // NEW: Check if the necessary data is available. If not, show a loading or placeholder state.
-    const isDataReady = video && (video.script || video.onCameraDescriptions);
-
+    const isDataReady = video && (video.script || video.tasks?.onCameraDescriptions);
     if (!isDataReady) {
       return (
         <div className="p-8 text-center text-gray-400">
