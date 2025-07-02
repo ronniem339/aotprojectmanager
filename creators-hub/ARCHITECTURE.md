@@ -2,6 +2,7 @@ Creator's Hub Technical Architecture
 This document provides a deep dive into the architecture, functionality, and technical details of the Creator's Hub application. It is intended to be a comprehensive reference for developers and Large Language Models (LLMs) to understand the application's structure, data flow, state management, and key interdependencies.
 
 1. High-Level Overview
+
 The Creator's Hub is a Single Page Application (SPA) built with React, leveraging Firebase for its backend-as-a-service (BaaS) capabilities and Netlify for hosting and serverless functions. At its core, it is an AI-powered co-pilot designed to streamline the workflow for content creators.
 
 The architecture can be broken down into three main layers:
@@ -19,6 +20,7 @@ Firebase Storage: Stores user-uploaded files like thumbnails and cover images.
 Serverless Functions (API Layer): Netlify Functions act as a secure intermediary between the frontend and external APIs (like Google Places and WordPress), protecting sensitive API keys.
 
 2. Core Technologies
+
 The application is built on a modern web stack, leveraging the following technologies:
 
 Frontend:
@@ -42,6 +44,7 @@ Deployment & Serverless Functions:
 Netlify: Hosts the application and provides a platform for running serverless functions.
 
 3. Core Application Flow & State Management
+
 The application's logic is orchestrated by js/app.js and the custom hook js/hooks/useAppState.js.
 
 js/hooks/useAppState.js: This is the brain of the application. It's a monolithic state management hook that centralizes almost all application state and the handlers that modify it. This includes user authentication status, the current view, global settings, the selected project, UI state flags, the background task queue, and all functions to manipulate this state.
@@ -63,6 +66,7 @@ The state change triggers a re-render of App.js.
 Router.js now receives 'project' as the currentView and renders the ProjectView.js component, passing the selectedProject object to it.
 
 4. Directory & File Structure Deep Dive
+
 creators-hub/ (Root Directory)
 
 index.html: The application's entry point. It loads React, ReactDOM, Firebase, and all the application's JavaScript files via <script> tags. The order of script loading is important.
@@ -102,6 +106,7 @@ Sub-directories (planning/, blog/, shorts/): Contain functions that craft specif
 netlify/functions/: Contains serverless Node.js functions that act as a secure proxy for client-side requests to external APIs (Google Places, WordPress), preventing API key exposure.
 
 5. Firebase Data Model
+
 All data is stored in Firestore under a structured path: artifacts/{appId}/users/{userId}/...
 
 .../projects/{projectId}: Each document represents a project. It contains a subcollection videos/{videoId} for each video within that project. The video document holds the script, concept, and a tasks object to track workflow progress.
@@ -113,6 +118,7 @@ All data is stored in Firestore under a structured path: artifacts/{appId}/users
 .../blogIdeas/{ideaId}: Stores generated blog post ideas and their content.
 
 6. Key Functionality
+
 User Authentication: Secure user registration and login via Firebase Authentication.
 
 Project Management: Create projects from scratch or import from YouTube, manage videos within projects, and track progress via a task-based workflow.
@@ -126,6 +132,7 @@ Google Maps Integration: Use the Google Maps API for location-based features.
 Offline Capabilities: A service worker enables offline access and asset caching.
 
 7. Key Interdependencies & Design Patterns
+
 Prop Drilling: The application extensively uses prop drilling to pass state and handlers down from useAppState. This centralizes state management.
 
 Component-based Architecture: The UI is broken down into reusable React components.
