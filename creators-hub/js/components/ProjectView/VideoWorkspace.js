@@ -112,31 +112,59 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     // FIX: Implement the full regeneration logic
     const handleRegenerateShotList = async () => {
-        if (!video.script) {
-            setRegenerationError("Cannot regenerate shot list without a script.");
-            return;
-        }
-        setIsRegenerating(true);
-        setRegenerationError(null);
-        try {
-            const options = {
-    script: video.script,
-    videoTitle: video.chosenTitle || video.title,
-    videoConcept: video.concept,
-    onCameraDescriptions: video.tasks?.onCameraDescriptions || {}, // Correct property and path
-    footageInventory: project.footageInventory || {},
-    settings
+    if (!video.script) {
+        setRegenerationError("Cannot regenerate shot list without a script.");
+        return;
+    }
+    setIsRegenerating(true);
+    setRegenerationError(null);
+    try {
+        const options = {
+            script: video.script,
+            videoTitle: video.chosenTitle || video.title,
+            videoConcept: video.concept,
+            onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
+            footageInventory: project.footageInventory || {},
+            settings
+        };
+        
+        // 1. Get the basic shot list from the AI
+        const { shotList: newShotList } = await window.aiUtils.generateShotListFromScriptAI(options);
+
+        // 2. Enrich the shot list with available footage data
+        const enrichedShotList = newShotList.map(shot => {
+            const availableFootage = { bRoll: false, onCamera: false, drone: false };
+
+            if (shot.shotType === 'On-Camera') {
+                // For On-Camera shots, always mark on-camera footage as available.
+                availableFootage.onCamera = true;
+            } 
+            
+            // For Voiceover shots, find the matching location in the project's inventory.
+            if (shot.shotType === 'Voiceover' && shot.location) {
+                const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === shot.location);
+                if (inventoryItem) {
+                    availableFootage.bRoll = !!inventoryItem.bRoll;
+                    availableFootage.drone = !!inventoryItem.drone;
+                }
+            }
+
+            return {
+                ...shot,
+                availableFootage: availableFootage,
+            };
+        });
+
+        // 3. Save the final, ENRICHED shot list to the database
+        await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': enrichedShotList });
+
+    } catch (e) {
+        console.error("Failed to regenerate shot list:", e);
+        setRegenerationError(e.message || "An unknown error occurred during regeneration.");
+    } finally {
+        setIsRegenerating(false);
+    }
 };
-            const { shotList: newShotList } = await window.aiUtils.generateShotListFromScriptAI(options);
-            // Use the existing updateTask utility to save the new shot list
-            await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': newShotList });
-        } catch (e) {
-            console.error("Failed to regenerate shot list:", e);
-            setRegenerationError(e.message || "An unknown error occurred during regeneration.");
-        } finally {
-            setIsRegenerating(false);
-        }
-    };
 
     const isTaskLocked = (task) => {
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
