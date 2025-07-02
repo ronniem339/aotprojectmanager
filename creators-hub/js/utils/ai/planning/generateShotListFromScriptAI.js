@@ -19,7 +19,12 @@
  * @returns {Promise<{shotList: Array<object>}>} A promise that resolves to an object
  * containing the structured shot list.
  */
-window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, videoConcept, onCameraDescriptions, footageInventory, settings }) => {
+window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, videoConcept, onCameraLocations, footageInventory, settings }) => {
+    console.log("AI: generateShotListFromScriptAI received - script:", JSON.stringify(script));
+    console.log("AI: generateShotListFromScriptAI received - videoTitle:", JSON.stringify(videoTitle));
+    console.log("AI: generateShotListFromScriptAI received - videoConcept:", JSON.stringify(videoConcept));
+    console.log("AI: generateShotListFromScriptAI received - onCameraLocations:", JSON.stringify(onCameraLocations));
+    console.log("AI: generateShotListFromScriptAI received - footageInventory:", JSON.stringify(footageInventory));
     console.log("AI: Generating shot list from existing script.", { videoTitle });
 
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
