@@ -2,7 +2,8 @@
 
 window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate }) => {
   const { React } = window;
-  const { useState, useEffect } = React;
+  // FIX: Added useCallback to the list of imported hooks
+  const { useState, useEffect, useCallback } = React;
   const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const LoadingSpinner = window.LoadingSpinner;
 
@@ -24,6 +25,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
         videoConcept: video.concept,
+        // FIX: Correctly access onCameraDescriptions from the top-level video object
         onCameraDescriptions: video.onCameraDescriptions || {},
         footageInventory: project.footageInventory || {},
         settings: settings,
@@ -44,7 +46,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     }
   };
 
-  const generateAndSaveShotList = async () => {
+  // FIX: Wrapped the entire function in useCallback and provided a proper dependency array
+  const generateAndSaveShotList = useCallback(async () => {
     setIsLoading(true);
     setError('');
     setShotListData(null);
@@ -54,7 +57,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         // --- STEP 1: Assemble all content blocks using the definitive, user-provided data ---
         const allContentBlocks = [];
         const locationAnswers = video.tasks?.locationAnswers || {};
-        const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
+        // FIX: Correctly access onCameraDescriptions from the top-level video object
+        const onCameraDescriptions = video.onCameraDescriptions || {};
 
         // Add on-camera blocks
         for (const locationName in onCameraDescriptions) {
@@ -147,7 +151,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     } finally {
         setIsLoading(false);
     }
-  }, [video.id, video.tasks?.shotList]);
+  }, [video, project, settings, onUpdateTask, callGeminiAPI]);
 
   const handleRegenerate = () => {
     onRegenerate().then(() => {
@@ -182,7 +186,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
 
   if (!shotListData || shotListData.length === 0) {
     // NEW: Check if the necessary data is available. If not, show a loading or placeholder state.
-    const isDataReady = video && video.tasks && (video.script || video.tasks.onCameraDescriptions);
+    const isDataReady = video && (video.script || video.onCameraDescriptions);
 
     if (!isDataReady) {
       return (
@@ -227,7 +231,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
           </thead>
           <tbody className="divide-y divide-gray-700">
             {shotListData.map((row, index) => (
-              <tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}`}>
+              <tr key={row.id || index} className={\`hover:bg-gray-800/50 \${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}\`}>
                 <td className="px-4 py-4 font-medium align-top">
                   {row.type === 'onCamera' ? (
                     <span className="px-2 py-1 text-xs font-bold text-blue-300 bg-blue-800/50 rounded-full">On-Camera</span>
@@ -256,5 +260,3 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     </div>
   );
 };
-
-
