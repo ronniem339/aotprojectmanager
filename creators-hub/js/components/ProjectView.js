@@ -422,3 +422,5 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         </div>
     );
 };
+
+console.log('ProjectView: activeVideo prop:', JSON.stringify(activeVideo));

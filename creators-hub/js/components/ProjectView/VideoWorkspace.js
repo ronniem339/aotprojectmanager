@@ -246,4 +246,4 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     );
 });
 
-console.log('VideoWorkspace: video prop passed to ShotListViewer:', JSON.stringify(video));
+
