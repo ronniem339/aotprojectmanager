@@ -23,7 +23,7 @@ window.aiUtils.generateShotListFromScriptAI = async ({ script, videoTitle, video
     console.log("AI: generateShotListFromScriptAI received - script:", JSON.stringify(script));
     console.log("AI: generateShotListFromScriptAI received - videoTitle:", JSON.stringify(videoTitle));
     console.log("AI: generateShotListFromScriptAI received - videoConcept:", JSON.stringify(videoConcept));
-    console.log("AI: generateShotListFromScriptAI received - onCameraLocations:", JSON.stringify(onCameraLocations));
+    console.log("AI: generateShotListFromScriptAI received - onCameraDescriptions:", JSON.stringify(onCameraDescriptions));
     console.log("AI: generateShotListFromScriptAI received - footageInventory:", JSON.stringify(footageInventory));
     console.log("AI: Generating shot list from existing script.", { videoTitle });
 
