@@ -23,6 +23,10 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         return inventoryItem && inventoryItem.onCamera;
       });
 
+      console.log('ShotListViewer (Existing Script): video.script:', video.script);
+      console.log('ShotListViewer (Existing Script): onCameraLocations:', onCameraLocations);
+      console.log('ShotListViewer (Existing Script): project.footageInventory:', project.footageInventory);
+
       const response = await window.aiUtils.generateShotListFromScriptAI({
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
@@ -59,6 +63,11 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         const locationAnswers = video.tasks?.locationAnswers || {};
         const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
 
+        console.log('ShotListViewer: onCameraDescriptions:', onCameraDescriptions);
+        console.log('ShotListViewer: locationAnswers:', locationAnswers);
+        console.log('ShotListViewer: video.tasks?.locationQuestions:', video.tasks?.locationQuestions);
+        console.log('ShotListViewer: video.tasks?.userExperiences:', video.tasks?.userExperiences);
+
         // Add on-camera blocks
         for (const locationName in onCameraDescriptions) {
             // Handle both direct strings and the object format from transcript parsing
@@ -94,6 +103,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
                 });
             }
         });
+
+        console.log('ShotListViewer: allContentBlocks before AI sequencing:', allContentBlocks);
 
         if (allContentBlocks.length === 0) {
             setError("No content found to generate a shot list. Please ensure you have answered the scripting questions and/or provided on-camera dialogue.");
