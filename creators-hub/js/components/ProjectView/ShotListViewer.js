@@ -24,7 +24,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
         videoConcept: video.concept,
-        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
+        onCameraDescriptions: video.onCameraDescriptions || {},
         footageInventory: project.footageInventory || {},
         settings: settings,
       });
