@@ -12,7 +12,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   const [loadingMessage, setLoadingMessage] = useState('Generating Shot List...');
 
   const generateShotListFromExistingScript = useCallback(async () => {
-    console.log('ShotListViewer (Existing Script): Entering generateShotListFromExistingScript. video.script:', video.script);
+    console.log('ShotListViewer (Existing Script): Entering generateShotListFromExistingScript. video.script (type: '+ typeof video.script + '):', video.script);
     setIsLoading(true);
     setError('');
     setShotListData(null);
@@ -24,9 +24,9 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         return inventoryItem && inventoryItem.onCamera;
       });
 
-      console.log('ShotListViewer (Existing Script): video.script:', video.script);
-      console.log('ShotListViewer (Existing Script): onCameraLocations:', onCameraLocations);
-      console.log('ShotListViewer (Existing Script): project.footageInventory:', project.footageInventory);
+      console.log('ShotListViewer (Existing Script): video.script (type: '+ typeof video.script + '):', video.script);
+      console.log('ShotListViewer (Existing Script): onCameraLocations (type: '+ typeof onCameraLocations + '):', onCameraLocations);
+      console.log('ShotListViewer (Existing Script): project.footageInventory (type: '+ typeof project.footageInventory + '):', project.footageInventory);
 
       const response = await window.aiUtils.generateShotListFromScriptAI({
         script: video.script,
