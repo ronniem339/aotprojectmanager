@@ -2,14 +2,18 @@
 
 const { useState, useEffect, useCallback } = React;
 const ReactDOM = window.ReactDOM;
-const ShotListViewer = window.ShotListViewer; 
+const ShotListViewer = window.ShotListViewer;
+const AddSceneModal = window.AddSceneModal; // Import the new modal component
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails }) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded }) => {
     const [openTask, setOpenTask] = useState(null);
     const [showShotList, setShowShotList] = useState(false);
-    // FIX: Add state to track regeneration loading status
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [regenerationError, setRegenerationError] = useState(null);
+    
+    // New state for the "Add Scene" feature
+    const [showAddSceneModal, setShowAddSceneModal] = useState(false);
+    const [stagedScenes, setStagedScenes] = useState([]);
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
@@ -17,7 +21,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     useEffect(() => {
         setOpenTask(null);
         setShowShotList(false);
-        setRegenerationError(null); // Reset error when video changes
+        setRegenerationError(null);
+        setStagedScenes([]); // Reset staged scenes when video changes
     }, [video.id]);
 
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
@@ -25,12 +30,13 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             console.error("Firestore DB not available for updateTask.");
             return;
         }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        // Using the fully qualified path for the document reference
+        const videoDocRef = doc(db, `artifacts/${appId}/users/${userId}/projects/${project.id}/videos`, video.id);
 
         try {
-            await db.runTransaction(async (transaction) => {
+            await runTransaction(db, async (transaction) => {
                 const videoDoc = await transaction.get(videoDocRef);
-                if (!videoDoc.exists) {
+                if (!videoDoc.exists()) {
                     throw "Document does not exist!";
                 }
                 const currentData = videoDoc.data();
@@ -58,6 +64,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     }, [userId, project.id, video.id, appId, db]);
 
+
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
         switch (taskId) {
@@ -69,7 +76,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 };
                 updateTask(taskId, 'pending', dataToReset);
                 break;
-            // ... (rest of the cases remain the same)
             case 'videoEdited':
                 dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
                 updateTask(taskId, 'pending', dataToReset);
@@ -110,61 +116,91 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     }, [updateTask, video.title, video.metadata]);
 
-    // FIX: Implement the full regeneration logic
     const handleRegenerateShotList = async () => {
-    if (!video.script) {
-        setRegenerationError("Cannot regenerate shot list without a script.");
-        return;
-    }
-    setIsRegenerating(true);
-    setRegenerationError(null);
-    try {
-        const options = {
-            script: video.script,
-            videoTitle: video.chosenTitle || video.title,
-            videoConcept: video.concept,
-            onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
-            footageInventory: project.footageInventory || {},
-            settings
-        };
-        
-        // 1. Get the basic shot list from the AI
-        const { shotList: newShotList } = await window.aiUtils.generateShotListFromScriptAI(options);
-
-        // 2. Enrich the shot list with available footage data
-        const enrichedShotList = newShotList.map(shot => {
-            const availableFootage = { bRoll: false, onCamera: false, drone: false };
-
-            if (shot.shotType === 'On-Camera') {
-                // For On-Camera shots, always mark on-camera footage as available.
-                availableFootage.onCamera = true;
-            } 
-            
-            // For Voiceover shots, find the matching location in the project's inventory.
-            if (shot.shotType === 'Voiceover' && shot.location) {
-                const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === shot.location);
-                if (inventoryItem) {
-                    availableFootage.bRoll = !!inventoryItem.bRoll;
-                    availableFootage.drone = !!inventoryItem.drone;
-                }
-            }
-
-            return {
-                ...shot,
-                availableFootage: availableFootage,
+        if (!video.script) {
+            setRegenerationError("Cannot regenerate shot list without a script.");
+            return;
+        }
+        setIsRegenerating(true);
+        setRegenerationError(null);
+        try {
+            const options = {
+                script: video.script,
+                videoTitle: video.chosenTitle || video.title,
+                videoConcept: video.concept,
+                onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
+                footageInventory: project.footageInventory || {},
+                settings
             };
-        });
+            
+            const { shotList: newShotList } = await window.aiUtils.generateShotListFromScriptAI(options);
 
-        // 3. Save the final, ENRICHED shot list to the database
-        await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': enrichedShotList });
+            const enrichedShotList = newShotList.map(shot => {
+                const availableFootage = { bRoll: false, onCamera: false, drone: false };
+                if (shot.shotType === 'On-Camera') {
+                    availableFootage.onCamera = true;
+                } 
+                if (shot.shotType === 'Voiceover' && shot.location) {
+                    const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === shot.location);
+                    if (inventoryItem) {
+                        availableFootage.bRoll = !!inventoryItem.bRoll;
+                        availableFootage.drone = !!inventoryItem.drone;
+                    }
+                }
+                return { ...shot, availableFootage };
+            });
 
-    } catch (e) {
-        console.error("Failed to regenerate shot list:", e);
-        setRegenerationError(e.message || "An unknown error occurred during regeneration.");
-    } finally {
-        setIsRegenerating(false);
-    }
-};
+            await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': enrichedShotList });
+
+        } catch (e) {
+            console.error("Failed to regenerate shot list:", e);
+            setRegenerationError(e.message || "An unknown error occurred during regeneration.");
+        } finally {
+            setIsRegenerating(false);
+        }
+    };
+    
+    // New function to handle staging a new scene
+    const handleStageScene = async (sceneData) => {
+        setIsRegenerating(true); // Reuse the loading state
+        try {
+            const { newLocation, onCameraDialogue, integrationNote } = sceneData;
+            // Get context from the last shot in the current list
+            const previousSceneContext = video.tasks?.shotList?.slice(-1)[0]?.dialogue || 'the video has just started';
+
+            const newSceneShots = await window.aiUtils.generateSceneSnippetAI({
+                newLocation,
+                onCameraDialogue,
+                integrationNote,
+                previousSceneContext,
+                settings,
+            });
+
+            // Add a unique ID to the staged scene for keying and management
+            setStagedScenes(prev => [...prev, { id: Date.now(), shots: newSceneShots }]);
+        } catch (error) {
+            console.error("Error staging scene:", error);
+            setRegenerationError("Failed to generate the new scene. Please try again.");
+        } finally {
+            setIsRegenerating(false);
+        }
+    };
+
+    // New function to integrate a staged scene into the main shot list
+    const handleIntegrateScene = async (scene, insertAtIndex) => {
+        const currentShotList = video.tasks?.shotList || [];
+        const newShotList = [...currentShotList];
+        
+        // Insert the shots from the staged scene at the specified index
+        newShotList.splice(insertAtIndex, 0, ...scene.shots);
+
+        // Update the database with the new combined shot list
+        await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': newShotList });
+        
+        // Remove the integrated scene from the staging area
+        setStagedScenes(prev => prev.filter(s => s.id !== scene.id));
+    };
+
 
     const isTaskLocked = (task) => {
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
@@ -242,12 +278,19 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
                             <div className="flex items-center gap-4">
+                                {/* Add Scene Button */}
+                                <button
+                                    onClick={() => setShowAddSceneModal(true)}
+                                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                                >
+                                    Add Scene
+                                </button>
                                 <button 
                                     onClick={handleRegenerateShotList} 
                                     className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:bg-gray-500"
                                     disabled={isRegenerating}
                                 >
-                                    {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+                                    {isRegenerating ? 'Working...' : 'Regenerate'}
                                 </button>
                                 <button onClick={() => setShowShotList(false)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
                                     Close
@@ -255,23 +298,34 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                             </div>
                         </div>
                         <div className="overflow-y-auto">
-                            {isRegenerating && <div className="absolute inset-0 bg-gray-900/50 flex justify-center items-center"><LoadingSpinner /></div>}
+                            {isRegenerating && <div className="absolute inset-0 bg-gray-900/50 flex justify-center items-center z-50"><window.LoadingSpinner /></div>}
                             {regenerationError && <div className="text-red-400 p-3 bg-red-900/40 rounded-md mb-4">Error: {regenerationError}</div>}
                             <ShotListViewer 
                                 video={video} 
                                 project={project} 
                                 settings={settings} 
                                 onUpdateTask={updateTask}
-                                // This prop is now primarily for the button in the modal's header
                                 onRegenerate={handleRegenerateShotList}
+                                // Pass new props for staging and integration
+                                stagedScenes={stagedScenes}
+                                onIntegrateScene={handleIntegrateScene}
                             />
                         </div>
                     </div>
                 </div>,
                 document.body
             )}
+
+            {/* Portal for the new Add Scene Modal */}
+            {showAddSceneModal && ReactDOM.createPortal(
+                <AddSceneModal
+                    isOpen={showAddSceneModal}
+                    onClose={() => setShowAddSceneModal(false)}
+                    onStageScene={handleStageScene}
+                    googleMapsLoaded={googleMapsLoaded}
+                />,
+                document.body
+            )}
         </>
     );
 });
-
-
