@@ -163,7 +163,11 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
 
   const handleRegenerate = () => {
     onRegenerate().then(() => {
+      if (video.script) {
+        generateShotListFromExistingScript();
+      } else {
         generateAndSaveShotList();
+      }
     });
   };
 
@@ -252,3 +256,5 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     </div>
   );
 };
+
+console.log('ShotListViewer.js loaded and window.ShotListViewer set:', window.ShotListViewer);
