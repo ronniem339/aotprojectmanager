@@ -24,7 +24,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
         videoConcept: video.concept,
-        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
+        onCameraDescriptions: video.onCameraDescriptions || {},
         footageInventory: project.footageInventory || {},
         settings: settings,
       });
@@ -54,7 +54,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         // --- STEP 1: Assemble all content blocks using the definitive, user-provided data ---
         const allContentBlocks = [];
         const locationAnswers = video.tasks?.locationAnswers || {};
-        const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
+        const onCameraDescriptions = video.onCameraDescriptions || {};
 
         // Add on-camera blocks
         for (const locationName in onCameraDescriptions) {
