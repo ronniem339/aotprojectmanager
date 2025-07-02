@@ -1,3 +1,3 @@
-feat: Relocate video prop logging in VideoWorkspace.js
+fix: Correct console log parameter in generateShotListFromScriptAI.js
 
-- Moved `console.log` for `video` prop inside the `VideoWorkspace` component to ensure correct scope.
+- Updated the console log in `generateShotListFromScriptAI.js` to correctly reference `onCameraDescriptions` instead of `onCameraLocations`.
