@@ -1,4 +1,4 @@
-fix: Pass correct onCameraDescriptions to AI function
+fix: Ensure onCameraDescriptions is correctly passed to AI function
 
-- Modified `ShotListViewer.js` to pass `video.tasks.onCameraDescriptions` directly to `generateShotListFromScriptAI`.
-- Removed the intermediate `onCameraLocations` variable and associated console logs.
+- Modified `ShotListViewer.js` to directly pass `video.tasks.onCameraDescriptions` to `generateShotListFromScriptAI`.
+- Removed the now-redundant `onCameraLocations` variable and its associated logging from `ShotListViewer.js`.
