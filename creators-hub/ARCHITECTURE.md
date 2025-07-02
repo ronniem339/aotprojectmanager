@@ -1,240 +1,84 @@
-Creator's Hub: A Deep Architectural Reference
-1. Introduction & Document Purpose
-
-This document provides an exhaustive technical deep dive into the Creator's Hub application. Its primary purpose is to serve as the ultimate source of truth for understanding the application's architecture, data flows, and core philosophies. It is intended for two main audiences:
-
-Human Developers: To rapidly onboard new developers, providing them with a detailed map of the codebase, its patterns, and its interdependencies.
-
-AI Assistants / LLMs: To provide a rich, detailed context, enabling the AI to understand the complex relationships within the code and provide more accurate, helpful, and less hallucinatory assistance with development, debugging, and feature creation.
-
-2. Core Philosophy & Design Principles
-
-The application's architecture is guided by a set of deliberate design principles that favour simplicity and centralization over more complex, distributed patterns.
-
-Centralized State Management (useAppState): The entire application's state is managed within a single, monolithic React hook (useAppState.js). This acts as the "single source of truth." Any change to the application's state originates from or is handled by this hook.
-
-Prop-Drilling as a Deliberate Choice: Instead of using a state management library like Redux or the Context API, the application intentionally passes state and handler functions down the component tree via props. This makes the data flow explicit and easy to trace, albeit verbose.
-
-Configuration-Driven UI (TASK_PIPELINE): The core workflow of a video project is not hardcoded. Instead, it is driven by a JavaScript array in js/config.js called TASK_PIPELINE. This configuration file is not just for constants; it's an active blueprint that the UI (specifically VideoWorkspace.js) uses to dynamically render the correct task components in the correct order.
-
-Centralized AI Interface (callGeminiAPI): Every single call to the Google Gemini API is funnelled through a single utility function: js/utils/ai/core/callGeminiAPI.js. This creates a powerful choke point for logging, error handling, model selection, and the consistent injection of contextual data (like the Style Guide).
-
-Secure API Gateway (Netlify Functions): All interactions with third-party APIs that require secret keys (Google Places, WordPress) are routed through serverless functions in the netlify/functions/ directory. The frontend never has direct access to these keys, providing a critical layer of security.
-
-3. Technology Stack (Expanded)
-
-React (via CDN): The application uses React for its component-based UI. Crucially, it is not built using a standard Node.js/webpack toolchain. Instead, React and ReactDOM are loaded directly from a CDN in index.html. JSX syntax in the .js files is transformed in the browser by the Babel Standalone library, also loaded from a CDN.
-
-Firebase:
-
-Authentication: Manages user sign-up, login, and session persistence via email and password. The user's authentication state is the primary gate for accessing the application.
-
-Firestore: The NoSQL database for all application data. This includes projects, videos, user settings, AI-generated content, and more. The data model is structured hierarchically under a user's unique ID.
-
-Storage: Used exclusively for storing user-uploaded binary files, primarily project thumbnails and cover images.
-
-Netlify:
-
-Static Hosting: Hosts the creators-hub directory (the frontend application).
-
-Serverless Functions: Executes the Node.js functions in the netlify/ directory, acting as the secure backend API layer.
-
-4. State Management Deep Dive: js/hooks/useAppState.js
-
-This file is the single most important file for understanding the application's runtime behaviour. It exclusively uses React's useState and useCallback hooks to manage everything.
-
-Managed State Categories:
-
-Authentication & User State:
-
-user: The Firebase user object.
-
-isLoggedIn: A boolean flag derived from the user object.
-
-isLoading: A boolean to show a global loading spinner, especially during app initialization.
-
-View & Routing State:
-
-currentView: A string that dictates which main component Router.js should render (e.g., 'dashboard', 'project', 'settings').
-
-previousView: The last view the user was on, used for "back" button functionality.
-
-Project & Video State:
-
-projects: The array of all projects for the current user.
-
-selectedProject: The single project object the user is currently working on.
-
-selectedVideo: The single video object within the selectedProject that is active.
-
-UI & Modal State:
-
-isNewProjectWizardOpen: Boolean to control the visibility of the new project wizard modal.
-
-isEditProjectModalOpen: Boolean for the edit project modal.
-
-Many other booleans for controlling various modals and UI states.
-
-Global Settings & Data:
-
-settings: The user's application settings, loaded from Firestore.
-
-styleGuide: A crucial object containing the user's defined brand voice, tone, and knowledge base, which is injected into AI prompts.
-
-Task Management State:
-
-taskQueue: An array that holds background tasks (primarily AI generation calls) to be processed.
-
-currentTask: The task currently being processed by the queue.
-
-Key State Handlers (The Hook's "API"):
-
-The hook returns a massive object containing dozens of handler functions. These are the only functions that should be used to modify the state. Examples include:
-
-handleLogin, handleLogout, handleSignUp
-
-handleSelectProject, handleUpdateProject, handleDeleteProject
-
-handleSelectVideo, handleUpdateVideo
-
-handleUpdateTaskStatus
-
-setCurrentView
-
-enqueueTask, processTaskQueue
-
-5. Data Flow & Routing
-
-Overall Architecture:
-
-   User   <-->   React UI Components   <-->   `useAppState` Hook   <-->   Firebase (DB/Auth)
-                                                   |
-                                                   |
-                                                   +-------------------->   Netlify Functions (API Gateway)
-State Propagation (Prop Drilling):
-
-The useAppState hook is called once in js/app.js. The resulting state object and handlers are then passed down through the component tree.
-
-<App>
-  (state, handlers) = useAppState()
-  <Router currentView={state.currentView} ...props={state, handlers} />
-    <Dashboard projects={props.projects} handleSelectProject={props.handleSelectProject} />
-      <ProjectCard project={project} onClick={() => props.handleSelectProject(project)} />
-6. Exhaustive File & Directory Structure
-
-This is a detailed breakdown of the purpose of each significant file and directory.
-
-creators-hub/
-
-ARCHITECTURE.md: This document.
-
-index.html: The main entry point. Loads all CDN scripts (React, Firebase, Babel) and the application's own JS files. The order of <script> tags is critical.
-
-style.css: Global CSS, base styles, and overrides for styles not easily handled by Tailwind CSS.
-
-service-worker.js: Implements PWA offline capabilities.
-
-manifest.json: PWA metadata.
-
-js/
-
-app.js: The root React component. Initializes useAppState and passes props to the Router. Renders global elements like modals.
-
-auth.js: Contains all direct calls to Firebase Authentication (signInWithEmailAndPassword, etc.).
-
-config.js: CRITICAL FILE. Contains Firebase config and the TASK_PIPELINE array that defines the video workflow.
-
-components/
-
-Dashboard.js: Main view showing the list of user projects.
-
-ProjectView.js: The main workspace for a single project. A container for VideoList, VideoWorkspace, and VideoDetailsSidebar.
-
-VideoWorkspace.js: KEY COMPONENT. Dynamically renders the current task's component based on the TASK_PIPELINE.
-
-Router.js: Simple conditional router that renders a component based on the currentView string.
-
-NewProjectWizard.js: The multi-step modal for creating new projects.
-
-ProjectView/
-
-VideoList.js: The sidebar listing videos in the current project.
-
-tasks/: Contains a component for each task defined in TASK_PIPELINE (e.g., TitleTask.js, scriptingTask.js).
-
-auth/
-
-LoginScreen.js: The login and registration form component.
-
-ui/
-
-LoadingSpinner.js: A reusable loading spinner.
-
-Accordion.js: A reusable accordion component.
-
-hooks/
-
-useAppState.js: The monolithic global state management hook. The heart of the app.
-
-useDebounce.js: A utility hook to debounce user input.
-
-utils/
-
-ai/
-
-core/
-
-callGeminiAPI.js: The single, centralized function for all Gemini API calls.
-
-getStyleGuidePrompt.js: Utility to get the user's style guide to prepend to prompts.
-
-blog/, planning/, shorts/, style/: Directories containing specific AI prompt-building functions. Each function gathers context, constructs a detailed prompt, and then calls callGeminiAPI.js.
-
-googleMapsLoader.js: Handles loading the Google Maps script.
-
-imageUploadUtils.js: Utilities for uploading images to Firebase Storage.
-
-wordpressUtils.js: Client-side functions for interacting with the WordPress serverless functions.
-
-netlify/
-
-functions/
-
-fetch-image.js, fetch-place-details.js, etc.: Individual Node.js serverless functions that act as a secure proxy to external APIs. They receive requests from the frontend, securely attach API keys, call the external service, and return the response.
-
-7. The TASK_PIPELINE: The Application's Engine
-
-The TASK_PIPELINE constant in js/config.js is arguably the most unique architectural feature of this app. It is an array of objects, where each object represents a step in the video production workflow.
-
-Example TASK_PIPELINE entry:
-
-JavaScript
-
-{
-  id: 'title',
-  title: 'Video Title',
-  component: 'TitleTask', // The name of the React component in the tasks/ directory
-  description: 'Generate and refine the video title.',
-  // ... other metadata
+Creator's Hub: The Ultimate Developer's Manual1. Introduction & Document PurposeThis document provides an exhaustive technical deep dive into the Creator's Hub application. Its primary purpose is to serve as the ultimate source of truth for understanding the application's architecture, data flows, and core philosophies. It is intended for two main audiences:Human Developers: To rapidly onboard new developers, providing them with a detailed map of the codebase, its patterns, and its interdependencies.AI Assistants / LLMs: To provide a rich, detailed context, enabling the AI to understand the complex relationships within the code and provide more accurate, helpful, and less hallucinatory assistance with development, debugging, and feature creation.2. Architectural Rationale & Trade-offsThis section explains the why behind the architecture, providing deep context into the design decisions.No-Build-Step (CDN-First) Rationale:Why: The application intentionally avoids a Node.js/webpack build toolchain. React and other libraries are loaded directly from a CDN in index.html. This was chosen for maximum simplicity and speed of initial setup, allowing for development without a local server or package management overhead. JSX is transpiled in the browser by Babel Standalone.Trade-offs: This approach offers simplicity at the cost of performance (in-browser transpilation is slower) and a more limited development ecosystem (no access to the vast npm library of build-time tools and packages). A future migration to a build tool like Vite or Create React App could improve performance and developer experience.Monolithic State (useAppState) Rationale:Why: A single, monolithic custom hook, useAppState.js, manages nearly the entire application state. This was chosen over a distributed state management solution (like multiple Contexts or Zustand/Jotai) to enforce a single, traceable source of truth. Every state change is explicitly handled by a function returned from this one hook.Trade-offs: This pattern provides excellent traceability but leads to extensive prop-drilling, where state and handlers must be passed down through many component layers. It also means the root <App> component re-renders on almost any state change, requiring careful use of React.memo in child components to prevent performance bottlenecks.3. State Management Deep Dive (useAppState.js)This file is the single most important file for understanding the application's runtime behaviour. All state is managed via useState, and all handler functions are memoized with useCallback.Performance, Concurrency, and HydrationPerformance & Memoization: The application does not use useMemo for derived data within useAppState.js. Filtering operations (e.g., finding "published" videos) happen directly within components during their render cycles. Performance is managed primarily through React.memo on components and useCallback on all handlers in useAppState to prevent unnecessary re-renders of child components when their props have not changed.Concurrency & Race Conditions: The application operates on a "last-write-wins" basis. There is no explicit state locking mechanism. If a user action and a background task attempt to update the same video document simultaneously, the last function to complete its write to Firestore will be the final persisted state.State Hydration Order: There is a guaranteed order of operations for loading initial state:Firebase Init: The Firebase app, auth, and db instances are initialized.Auth State Check: An onAuthStateChanged listener confirms the user's authentication status. Nothing else proceeds until this is complete.Settings Load: Once a user is confirmed, a useEffect hook triggers a real-time listener for the user's settings document (/settings/styleGuide), as API keys are essential for subsequent operations.Project Load: Other parts of the app (e.g., the Dashboard) depend on the user being logged in and can now safely fetch project data.Hook API ReferenceThe useAppState hook returns a large object containing state values and handler functions. Below are the key handlers that form its "public API" for the rest of the application.handleSelectProject(project): Sets the selectedProject and changes the currentView to 'project'.handleUpdateVideo(videoId, updatedFields): Merges the updatedFields object with the specified video in the selectedProject and triggers a write to Firestore.handleSaveSettings(updatedSettings): Saves the entire settings object to Firestore.setCurrentView(viewName): The primary function for application routing.addTask(taskObject): Adds a new task to the background processing queue.updateTaskStatus(taskId, status, result): Updates the status and result of a task in the queue.displayNotification(message): Shows a global notification message for a few seconds.4. Firestore Data ModelThis is the definitive schema for the Firestore database, located at the path artifacts/{appId}/users/{userId}/. Firestore is schema-less, so some fields may be optional.Data Cleanup: There are no automated cleanup processes like Firebase Cloud Function triggers for user deletion. If a user is deleted from Firebase Authentication, their data will remain in Firestore.{
+  "artifacts": {
+    "{appId}": {
+      "users": {
+        "{userId}": {
+          "projects": {
+            "{projectId}": {
+              "playlistTitle": "Europe Trip 2025",
+              "playlistDescription": "A 5-part series exploring the best of Europe.",
+              "coverImageUrl": "https://firebasestorage.googleapis.com/...",
+              "createdAt": "ISO 8601 String",
+              "lastAccessed": "Timestamp",
+              "videoCount": 5,
+              "locations": [
+                {
+                  "name": "Paris, France",
+                  "place_id": "ChIJD7fiBh9u5kcRYJk",
+                  "lat": 48.8566,
+                  "lng": 2.3522,
+                  "types": ["locality", "political"]
+                }
+              ],
+              "footageInventory": {
+                "ChIJD7fiBh9u5kcRYJk": {
+                  "name": "Paris, France",
+                  "bRoll": true,
+                  "onCamera": true,
+                  "drone": false,
+                  "importance": "major"
+                }
+              },
+              "videos": {
+                "{videoId}": {
+                  "title": "Exploring the Louvre",
+                  "chosenTitle": "I Saw The MONA LISA! (And So Can You)",
+                  "concept": "A detailed walkthrough of the Louvre...",
+                  "script": "The full text of the video script...",
+                  "order": 0,
+                  "tasks": {
+                    "scripting": "complete",
+                    "videoEdited": "in-progress",
+                    "feedbackText": "Combined the intro and first segment.",
+                    "shotList": [ { "type": "onCamera", "cue": "Hello!" } ]
+                  },
+                  "metadata": "{\"description\":\"...\",\"tags\":[\"tag1\"]}"
+                }
+              }
+            }
+          },
+          "settings": {
+            "styleGuide": {
+              "geminiApiKey": "...",
+              "googleMapsApiKey": "...",
+              "knowledgeBases": {
+                 "youtube": { "whoAmI": "..." },
+                 "blog": { "coreSeoEngine": "..." }
+              },
+              "wordpress": {
+                "url": "https://...",
+                "applicationPassword": "..."
+              }
+            }
+          },
+          "blogIdeas": { },
+          "wizards": { }
+        }
+      }
+    }
+  }
 }
-The ProjectView/VideoWorkspace.js component receives the selectedVideo object. It finds the current incomplete task for that video by checking the video.tasks object against the TASK_PIPELINE. It then dynamically renders the corresponding component specified in the component property. This makes the workflow incredibly flexible and easy to modify without changing core application logic.
-
-8. AI Integration: The Funnel Pattern
-
-The AI strategy is built around a "funnel" pattern to ensure consistency, maintainability, and control.
-
-UI Interaction: A user clicks a button (e.g., "Generate Script").
-
-Prompt Builder Function: The component's event handler calls a specific "prompt builder" function (e.g., generateFinalScriptAI from js/utils/ai/planning/).
-
-Context Gathering: This function gathers all necessary context: the project details, selected video concept, user's writing style from getStyleGuidePrompt.js, and any specific user input.
-
-Prompt Construction: It assembles these pieces into a detailed, structured prompt for the Gemini API.
-
-The Funnel: The prompt builder function does not call the API directly. Instead, it calls the central callGeminiAPI.js function, passing the constructed prompt.
-
-Centralized API Call: callGeminiAPI.js handles the actual fetch request, adds the API key (from the user's settings), specifies the model, and manages the response and any potential errors.
-
-Data Return: The result is passed back up the chain to the UI for display.
-
-This pattern ensures that every single AI call can be easily logged, and changes to the API model or error handling logic only need to be made in one place.
+5. The TASK_PIPELINEThe TASK_PIPELINE constant in js/config.js is the engine that drives the video production workflow.Task Object SchemaEach object in the TASK_PIPELINE array has the following properties:id: string - A unique ID used as the key in the video.tasks object (e.g., 'titleGenerated').title: string - The user-facing name displayed in the UI (e.g., 'Finalize Title').dependsOn: string[] - An array of task ids that must be complete before this task is unlocked.Task Data FlowData flows sequentially through the pipeline via the central activeVideo state object.Task A (TitleTask.js) completes.Its onUpdateTask handler is called, which updates the central state in useAppState.js and writes to Firestore (e.g., db.collection(...).update({ chosenTitle: 'My Final Title' })).The activeVideo object in the React state now contains the new title.Task B (DescriptionTask.js), which was previously disabled, now becomes unlocked because its dependency (titleGenerated) is complete.DescriptionTask.js re-renders and receives the updated activeVideo object as a prop.It can now access props.video.chosenTitle to use as context for generating the description.6. AI Integration & API InteractionsFunction SignaturesCentral API Funnel:// Location: js/utils/ai/core/callGeminiAPI.js
+async function callGeminiAPI(prompt, settings, generationConfig = {}, isComplex = false)
+This function is the single entry point for all Gemini calls. It selects the model based on the isComplex flag and user settings, injects the API key from the settings object, and handles the fetch request.Prompt Builder Example:// Location: js/utils/ai/planning/generateKeywordsAI.js
+async function generateKeywordsAI({ title, concept, locationsFeatured, projectTitle, projectDescription, settings })
+This is a representative "prompt builder" function. It gathers context from its arguments, constructs a detailed prompt string, and then calls the central callGeminiAPI function, passing the settings object along.Error HandlingThe API interaction contract relies on thrown Errors.callGeminiAPI will throw new Error(...) if the network request fails, times out, or if the API returns a non-200 status code.All component-level functions that trigger an AI call (e.g., a button's onClick handler) are responsible for wrapping the call in a try...catch block to manage loading states and display error messages to the user.Example from FirstCommentTask.js:try {
+    setGenerating(true);
+    const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
+    setComment(parsedJson.comment || '');
+} catch (err) {
+    setError(`Failed to generate comment: ${err.message}`);
+} finally {
+    setGenerating(false);
+}
+7. Exhaustive File & Directory Structurecreators-hub/ARCHITECTURE.md: This document.index.html: The main entry point. Loads all CDN scripts (React, Firebase, Babel) and the application's own JS files. The order of <script> tags is critical.js/app.js: The root React component. Initializes useAppState and passes props to the Router. Renders global elements like modals.auth.js: Contains all direct calls to Firebase Authentication (signInWithEmailAndPassword, etc.).config.js: CRITICAL FILE. Contains Firebase config and the TASK_PIPELINE array that defines the video workflow.components/Dashboard.js: Main view showing the list of user projects.ProjectView.js: The main workspace for a single project. A container for VideoList, VideoWorkspace, and VideoDetailsSidebar.VideoWorkspace.js: KEY COMPONENT. Dynamically renders the current task's component based on the TASK_PIPELINE.Router.js: Simple conditional router that renders a component based on the currentView string.ProjectView/tasks/: Contains a component for each task defined in TASK_PIPELINE (e.g., TitleTask.js, scriptingTask.js).hooks/useAppState.js: The monolithic global state management hook. The heart of the app.utils/ai/core/callGeminiAPI.js: The single, centralized function for all Gemini API calls.netlify/functions/: Individual Node.js serverless functions that act as a secure proxy to external APIs.
