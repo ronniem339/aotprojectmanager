@@ -1,3 +1,4 @@
-fix: Correct console log parameter in generateShotListFromScriptAI.js
+fix: Pass correct onCameraDescriptions to AI function
 
-- Updated the console log in `generateShotListFromScriptAI.js` to correctly reference `onCameraDescriptions` instead of `onCameraLocations`.
+- Modified `ShotListViewer.js` to pass `video.tasks.onCameraDescriptions` directly to `generateShotListFromScriptAI`.
+- Removed the intermediate `onCameraLocations` variable and associated console logs.
