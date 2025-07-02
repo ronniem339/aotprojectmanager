@@ -20,25 +20,14 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
 
     console.log('ShotListViewer (Existing Script): Entering try block.');
     try {
-      const onCameraLocations = (video.locations_featured || []).filter(locName => {
-        const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === locName);
-        return inventoryItem && inventoryItem.onCamera;
-      });
-
-      console.log('ShotListViewer (Existing Script): video.script:', JSON.stringify(video.script));
-      console.log('ShotListViewer (Existing Script): onCameraLocations:', JSON.stringify(onCameraLocations));
-      console.log('ShotListViewer (Existing Script): project.footageInventory:', JSON.stringify(project.footageInventory));
-
       const response = await window.aiUtils.generateShotListFromScriptAI({
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
         videoConcept: video.concept,
-        onCameraLocations: onCameraLocations,
+        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
         footageInventory: project.footageInventory || {},
         settings: settings,
       });
-
-      console.log('ShotListViewer (Existing Script): AI Response:', JSON.stringify(response));
 
       if (!response || !Array.isArray(response.shotList)) {
         throw new Error("The AI failed to generate a valid shot list.");
