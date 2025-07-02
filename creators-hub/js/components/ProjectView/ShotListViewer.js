@@ -25,8 +25,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
         videoConcept: video.concept,
-        // FIX: Correctly access onCameraDescriptions from the top-level video object
-        onCameraDescriptions: video.onCameraDescriptions || {},
+        onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
         footageInventory: project.footageInventory || {},
         settings: settings,
       });
