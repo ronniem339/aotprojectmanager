@@ -2,8 +2,8 @@
 
 window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate }) => {
   const { React } = window;
-  // FIX: Added useCallback to the list of imported hooks
-  const { useState, useEffect, useCallback } = React;
+  // FIX: Removed useCallback to prevent stale closures
+  const { useState, useEffect } = React;
   const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const LoadingSpinner = window.LoadingSpinner;
 
@@ -25,6 +25,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         script: video.script,
         videoTitle: video.chosenTitle || video.title,
         videoConcept: video.concept,
+        // FIX: Consistently use the correct data path
         onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
         footageInventory: project.footageInventory || {},
         settings: settings,
@@ -45,23 +46,20 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     }
   };
 
-  // FIX: Wrapped the entire function in useCallback and provided a proper dependency array
-  const generateAndSaveShotList = useCallback(async () => {
+  // FIX: Reverted to a simple async function, removing useCallback and the dependency array.
+  const generateAndSaveShotList = async () => {
     setIsLoading(true);
     setError('');
     setShotListData(null);
     setLoadingMessage('Step 1/3: Assembling content from your script...');
     
     try {
-        // --- STEP 1: Assemble all content blocks using the definitive, user-provided data ---
         const allContentBlocks = [];
         const locationAnswers = video.tasks?.locationAnswers || {};
-        // FIX: Correctly access onCameraDescriptions from the top-level video object
-        const onCameraDescriptions = video.onCameraDescriptions || {};
+        // FIX: Consistently use the correct data path
+        const onCameraDescriptions = video.tasks?.onCameraDescriptions || {};
 
-        // Add on-camera blocks
         for (const locationName in onCameraDescriptions) {
-            // Handle both direct strings and the object format from transcript parsing
             const descriptionData = onCameraDescriptions[locationName];
             const transcript = Array.isArray(descriptionData) ? descriptionData.join('\n') : (typeof descriptionData === 'string' ? descriptionData : '');
 
@@ -77,18 +75,16 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
             }
         }
 
-        // Add voiceover blocks
         const voiceoverQuestions = video.tasks?.locationQuestions || [];
         voiceoverQuestions.forEach((questionObj, index) => {
-            const cue = questionObj.question; // Access the text cue correctly
+            const cue = questionObj.question;
             const userAnswer = (video.tasks?.userExperiences || {})[index];
             
-            // Only include voiceover sections that have been answered by the user.
             if (cue && typeof cue === 'string' && cue.trim() !== '') {
                 allContentBlocks.push({
                     id: `vo-${index}`,
                     type: 'voiceover',
-                    cue: userAnswer, // Use the user's answer as the cue
+                    cue: userAnswer,
                     locationName: locationAnswers[cue] || 'General',
                     place_id: project.locations.find(l => l.name === (locationAnswers[cue] || 'General'))?.place_id || null,
                 });
@@ -101,38 +97,25 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
             return;
         }
 
-        // --- STEP 2: Use AI for the final task of sequencing all blocks ---
         setLoadingMessage('Step 2/3: Sequencing timeline...');
         const sequencingPrompt = `
             You are an expert video editor. Your only task is to sequence a list of pre-made content blocks (voiceover and on-camera dialogue) into a coherent narrative timeline.
-
-            Input:
-            You will receive a JSON array of "Content Blocks". Each block is pre-tagged with its type, content, and location.
-
-            Your Task:
-            Arrange all the provided content blocks into the correct storytelling order. The on-camera segments should be placed logically within the flow of the voiceover.
             Your final output MUST be a valid JSON array containing ALL of the original content block objects, now in the correct order. Do not change any properties of the objects.
-
             CONTEXT - SCRIPT PLAN (for structure):
             ${video.tasks?.scriptPlan || 'No plan provided.'}
-
             CONTENT BLOCKS TO SEQUENCE:
             ${JSON.stringify(allContentBlocks.map(({id, type, cue, locationName}) => ({id, type, cue, locationName})), null, 2)}
-
             Now, return the complete, sequenced JSON array of content blocks.
         `;
         const sequencedBlocks = await callGeminiAPI(sequencingPrompt, settings, { responseMimeType: "application/json" }, true);
 
-        // --- STEP 3: Final enrichment and saving ---
         setLoadingMessage('Step 3/3: Finalizing and saving...');
         const finalShotList = sequencedBlocks.map(block => {
             const originalBlock = allContentBlocks.find(b => b.id === block.id);
             if (!originalBlock) return null; 
-            
             const footage = originalBlock.place_id && project.footageInventory ? project.footageInventory[originalBlock.place_id] : null;
             return {
-                ...originalBlock,
-                ...block,
+                ...originalBlock, ...block,
                 availableFootage: footage ? {
                     bRoll: !!(footage.bRoll && footage.bRoll.length > 0),
                     onCamera: !!(footage.onCamera && footage.onCamera.length > 0),
@@ -150,7 +133,7 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     } finally {
         setIsLoading(false);
     }
-  }, [video, project, settings, onUpdateTask, callGeminiAPI]);
+  };
 
   const handleRegenerate = () => {
     onRegenerate().then(() => {
@@ -184,8 +167,9 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
   }
 
   if (!shotListData || shotListData.length === 0) {
-    // NEW: Check if the necessary data is available. If not, show a loading or placeholder state.
+    // FIX: Use consistent and correct data path for display logic
     const isDataReady = video && (video.script || video.tasks?.onCameraDescriptions);
+
     if (!isDataReady) {
       return (
         <div className="p-8 text-center text-gray-400">
@@ -229,8 +213,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
           </thead>
           <tbody className="divide-y divide-gray-700">
             {shotListData.map((row, index) => (
-<tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}`}>
-  <td className="px-4 py-4 font-medium align-top">
+              <tr key={row.id || index} className={`hover:bg-gray-800/50 ${row.type === 'onCamera' ? 'bg-blue-900/30' : 'bg-gray-800/20'}`}>
+                <td className="px-4 py-4 font-medium align-top">
                   {row.type === 'onCamera' ? (
                     <span className="px-2 py-1 text-xs font-bold text-blue-300 bg-blue-800/50 rounded-full">On-Camera</span>
                   ) : (
