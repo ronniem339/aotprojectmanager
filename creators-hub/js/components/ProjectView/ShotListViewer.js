@@ -42,7 +42,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     } finally {
       setIsLoading(false);
     }
-  }, [video, project, settings, onUpdateTask]);
+  }
+  };
 
   const generateAndSaveShotList = async () => {
     setIsLoading(true);
@@ -147,7 +148,8 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
     } finally {
         setIsLoading(false);
     }
-  }, [video, project, settings, callGeminiAPI, onUpdateTask]);
+  }
+  };
 
   useEffect(() => {
     // If the shotList is missing from the video object but a script exists, we don't auto-generate.

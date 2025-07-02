@@ -1,5 +1,5 @@
-fix(shotlist): Remove useCallback to prevent stale closures
+fix(shotlist): Correct syntax error from previous commit
 
-The `useCallback` hook was causing the `generateShotListFromExistingScript` and `generateAndSaveShotList` functions to retain a stale version of the `video` prop, where `onCameraDescriptions` was `undefined`.
+A previous commit to remove `useCallback` left trailing dependency arrays, causing a syntax error.
 
-This commit removes the `useCallback` wrapper from these functions. This ensures that the functions are recreated on every render, guaranteeing they always have access to the latest `video` prop and preventing the stale closure issue. This resolves the bug where `onCameraDescriptions` was being passed as `undefined` to the AI generation function.
+This commit removes the leftover arrays, correcting the syntax and ensuring the component renders correctly. This is part of the effort to resolve the stale closure issue causing `onCameraDescriptions` to be `undefined`.
