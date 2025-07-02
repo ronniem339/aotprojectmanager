@@ -2,7 +2,7 @@
 
 window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate }) => {
   const { React } = window;
-  const { useState, useEffect, useCallback } = React;
+  const { useState, useEffect } = React;
   const callGeminiAPI = window.aiUtils.callGeminiAPI;
   const LoadingSpinner = window.LoadingSpinner;
 
@@ -146,16 +146,6 @@ window.ShotListViewer = ({ video, project, settings, onUpdateTask, onRegenerate 
         setError(`Failed to generate shot list: ${err.message}`);
     } finally {
         setIsLoading(false);
-    }
-  }
-  };
-
-  useEffect(() => {
-    // If the shotList is missing from the video object but a script exists, we don't auto-generate.
-    // We let the user decide.
-    if (video.tasks?.shotList) {
-      setShotListData(video.tasks.shotList);
-      setIsLoading(false);
     }
   }, [video.id, video.tasks?.shotList]);
 
