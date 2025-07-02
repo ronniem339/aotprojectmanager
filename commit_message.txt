@@ -1,4 +1,3 @@
-fix(scripting): Correctly format onCameraDescriptions for script generation
+feat: Relocate video prop logging in VideoWorkspace.js
 
-- Transformed `onCameraDescriptions` from an object with arrays of dialogue segments to an object with single string values (by joining the arrays with newlines) when using the full transcript input mode.
-- This resolves the `TypeError: desc.trim is not a function` error in `generateFinalScriptAI.js`, as it now receives the expected string format for on-camera descriptions.
+- Moved `console.log` for `video` prop inside the `VideoWorkspace` component to ensure correct scope.
