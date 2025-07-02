@@ -120,13 +120,13 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setRegenerationError(null);
         try {
             const options = {
-                script: video.script,
-                videoTitle: video.chosenTitle || video.title,
-                videoConcept: video.concept,
-                onCameraLocations: video.onCameraLocations || [],
-                footageInventory: project.footageInventory || {},
-                settings
-            };
+    script: video.script,
+    videoTitle: video.chosenTitle || video.title,
+    videoConcept: video.concept,
+    onCameraDescriptions: video.tasks?.onCameraDescriptions || {}, // Correct property and path
+    footageInventory: project.footageInventory || {},
+    settings
+};
             const { shotList: newShotList } = await window.aiUtils.generateShotListFromScriptAI(options);
             // Use the existing updateTask utility to save the new shot list
             await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': newShotList });
