@@ -22,7 +22,7 @@ window.aiUtils.blog.generateBlogPostFromVideo = async (video, settings, knowledg
 
         **Core SEO Principles:**
         ${blogKb.coreSeoEngine || 'Focus on providing valuable, easy-to-read content that fully answers the topic.'}
-
+        **Length:** The blog post should be comprehensive and detailed, aiming for at least 1,500 - 2,000 words. Expand on the script's ideas, do not just summarize them.
         **Post Blueprint for 'htmlContent':**
         Use the following instructions to generate the value for the 'htmlContent' key in the JSON object:
         ${blogKb.videoCompanionPostBlueprint || `
