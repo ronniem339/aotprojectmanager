@@ -1303,7 +1303,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingStage': 'complete',
             'tasks.initialThoughts': finalTaskData.initialThoughts,
-            'tasks.initialQuestions': finalTaskAata.initialQuestions,
+            'tasks.initialQuestions': finalTaskData.initialQuestions,
             'tasks.initialAnswers': finalTaskData.initialAnswers,
             'tasks.scriptPlan': finalTaskData.scriptPlan,
             'tasks.refinedScriptPlan': finalTaskData.refinedScriptPlan,
