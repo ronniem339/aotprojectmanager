@@ -289,13 +289,11 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                 {/* Left Sidebar: Video List */}
                 {!isSingleVideoProject && (
                    <aside className={`
-    ${isLeftSidebarOpen ? 'block' : 'hidden'}
+    ${isLeftSidebarOpen ? 'block md:w-2/5 lg:w-1/3 xl:w-1/4 p-4 md:p-0' : 'hidden'}
     absolute md:static inset-0 md:inset-auto
     bg-gray-900 md:bg-transparent z-20 md:z-auto
-    p-4 md:p-0
     h-full flex-shrink-0
-    transition-all duration-300 ease-in-out
-    ${isLeftSidebarOpen ? 'md:w-1/3 lg:w-1/4 xl:w-1/5' : 'w-0'} // This will be updated in Part 2
+    transition-transform duration-300 ease-in-out
 `}>
                         <div className="bg-gray-800 border border-gray-700 rounded-lg h-full flex flex-col">
                            <window.VideoList
