@@ -4,19 +4,37 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 // Custom hook to check for media queries
 const useMediaQuery = (query) => {
-    const [matches, setMatches] = useState(false);
+    // Initialize state with the correct value on first render
+    const [matches, setMatches] = useState(() => {
+        if (typeof window.matchMedia !== 'function') {
+            return false;
+        }
+        return window.matchMedia(query).matches;
+    });
 
     useEffect(() => {
+        if (typeof window.matchMedia !== 'function') {
+            return;
+        }
+        
         const media = window.matchMedia(query);
+        
+        const listener = (event) => {
+            setMatches(event.matches);
+        };
+
+        // Update the state if it has changed between initialization and the effect running
         if (media.matches !== matches) {
             setMatches(media.matches);
         }
-        const listener = () => {
-            setMatches(media.matches);
+
+        // Use the modern, recommended event listener API
+        media.addEventListener('change', listener);
+
+        return () => {
+            media.removeEventListener('change', listener);
         };
-        media.addListener(listener);
-        return () => media.removeListener(listener);
-    }, [matches, query]);
+    }, [query]); // Only re-run the effect if the query itself changes
 
     return matches;
 };
