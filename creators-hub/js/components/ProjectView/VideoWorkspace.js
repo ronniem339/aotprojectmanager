@@ -3,7 +3,7 @@
 const { useState, useEffect, useCallback } = React;
 const ReactDOM = window.ReactDOM;
 const ShotListViewer = window.ShotListViewer;
-const AddSceneModal = window.AddSceneModal; // Import the new modal component
+const AddSceneModal = window.AddSceneModal;
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded }) => {
     const [openTask, setOpenTask] = useState(null);
@@ -11,7 +11,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [regenerationError, setRegenerationError] = useState(null);
     
-    // New state for the "Add Scene" feature
     const [showAddSceneModal, setShowAddSceneModal] = useState(false);
     const [stagedScenes, setStagedScenes] = useState([]);
 
@@ -22,10 +21,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setOpenTask(null);
         setShowShotList(false);
         setRegenerationError(null);
-        setStagedScenes([]); // Reset staged scenes when video changes
+        setStagedScenes([]);
     }, [video.id]);
 
-    // FIXED: Reverted to use Firebase v8 compat syntax
+    // FIXED: Refactored to handle dot notation correctly for updates.
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
         if (!db) {
             console.error("Firestore DB not available for updateTask.");
@@ -34,31 +33,20 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
         try {
-            await db.runTransaction(async (transaction) => {
-                const videoDoc = await transaction.get(videoDocRef);
-                if (!videoDoc.exists) {
-                    throw "Document does not exist!";
-                }
-                const currentData = videoDoc.data();
-                const currentTasks = currentData.tasks || {};
-                const topLevelUpdates = {};
-                const updatesForTasks = {};
-                updatesForTasks[taskName] = status;
+            // Build a flat payload object with dot notation for nested fields.
+            const payload = {};
+            payload[`tasks.${taskName}`] = status; // e.g., 'tasks.scripting': 'pending'
 
-                for (const key in extraData) {
-                    if (Object.prototype.hasOwnProperty.call(extraData, key)) {
-                        if (key.startsWith('tasks.')) {
-                            const subKey = key.substring(6);
-                            updatesForTasks[subKey] = extraData[key];
-                        } else {
-                            topLevelUpdates[key] = extraData[key];
-                        }
-                    }
+            for (const key in extraData) {
+                if (Object.prototype.hasOwnProperty.call(extraData, key)) {
+                    payload[key] = extraData[key];
                 }
-                const newTasksObject = { ...currentTasks, ...updatesForTasks };
-                const payload = { ...topLevelUpdates, tasks: newTasksObject };
-                transaction.update(videoDocRef, payload);
-            });
+            }
+            // The payload will now be flat, e.g., { 'tasks.shotList': FieldValue.delete(), ... }
+            // which is the correct format for Firestore updates.
+            
+            await videoDocRef.update(payload);
+
         } catch (e) {
             console.error("Database transaction failed: ", e);
             setRegenerationError(`Failed to save changes: ${e.message}`);
@@ -71,9 +59,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         switch (taskId) {
             case 'scripting':
                 dataToReset = {
-                    script: '', 'tasks.scriptingStage': 'pending', 'tasks.initialQuestions': [],
-                    'tasks.initialAnswers': [], 'tasks.scriptPlan': '', 'tasks.locationQuestions': [],
-                    'tasks.userExperiences': {}, 'tasks.shotList': firebase.firestore.FieldValue.delete()
+                    script: '', 
+                    'tasks.scriptingStage': 'pending', 
+                    'tasks.initialQuestions': [],
+                    'tasks.initialAnswers': [], 
+                    'tasks.scriptPlan': '', 
+                    'tasks.locationQuestions': [],
+                    'tasks.userExperiences': {}, 
+                    'tasks.shotList': firebase.firestore.FieldValue.delete() // This will now work correctly
                 };
                 updateTask(taskId, 'pending', dataToReset);
                 break;
@@ -151,7 +144,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 return { ...shot, availableFootage };
             });
 
-            await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': enrichedShotList });
+            await updateTask('scripting', 'in-progress', { 'tasks.shotList': enrichedShotList });
 
         } catch (e) {
             console.error("Failed to regenerate shot list:", e);
@@ -161,12 +154,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     };
     
-    // New function to handle staging a new scene
     const handleStageScene = async (sceneData) => {
-        setIsRegenerating(true); // Reuse the loading state
+        setIsRegenerating(true);
         try {
             const { newLocation, onCameraDialogue, integrationNote } = sceneData;
-            // Get context from the last shot in the current list
             const previousSceneContext = video.tasks?.shotList?.slice(-1)[0]?.dialogue || 'the video has just started';
 
             const newSceneShots = await window.aiUtils.generateSceneSnippetAI({
@@ -177,7 +168,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 settings,
             });
 
-            // Add a unique ID to the staged scene for keying and management
             setStagedScenes(prev => [...prev, { id: Date.now(), shots: newSceneShots }]);
         } catch (error) {
             console.error("Error staging scene:", error);
@@ -187,18 +177,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     };
 
-    // New function to integrate a staged scene into the main shot list
     const handleIntegrateScene = async (scene, insertAtIndex) => {
         const currentShotList = video.tasks?.shotList || [];
         const newShotList = [...currentShotList];
         
-        // Insert the shots from the staged scene at the specified index
         newShotList.splice(insertAtIndex, 0, ...scene.shots);
 
-        // Update the database with the new combined shot list
-        await updateTask('scripting', video.tasks?.scripting || 'in-progress', { 'tasks.shotList': newShotList });
+        await updateTask('scripting', 'in-progress', { 'tasks.shotList': newShotList });
         
-        // Remove the integrated scene from the staging area
         setStagedScenes(prev => prev.filter(s => s.id !== scene.id));
     };
 
@@ -279,7 +265,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">Shot List: {video.chosenTitle || video.title}</h3>
                             <div className="flex items-center gap-4">
-                                {/* Add Scene Button */}
                                 <button
                                     onClick={() => setShowAddSceneModal(true)}
                                     className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
@@ -307,7 +292,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                                 settings={settings} 
                                 onUpdateTask={updateTask}
                                 onRegenerate={handleRegenerateShotList}
-                                // Pass new props for staging and integration
                                 stagedScenes={stagedScenes}
                                 onIntegrateScene={handleIntegrateScene}
                             />
@@ -317,7 +301,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 document.body
             )}
 
-            {/* Portal for the new Add Scene Modal */}
             {showAddSceneModal && ReactDOM.createPortal(
                 <AddSceneModal
                     isOpen={showAddSceneModal}
