@@ -97,6 +97,6 @@ Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown 
         return { refinedScriptPlan: response };
     } catch (error) {
         console.error("Error in generateRefinedScriptPlanAI:", error);
-        throw new Error('Failed to generate refined script plan. ${error.message}');
+throw new Error(`Failed to generate refined script plan. ${error.message}`);
     }
 };
