@@ -119,7 +119,6 @@ async function getAndCreateTags(tagNames, wordpressConfig) {
                 if (!res.ok) {
                     return res.json().then(err => {
                         if (err.code === 'term_exists' && err.data?.term_id) {
-                            console.warn(`Tag "${tagName}" already existed. Recovered with ID: ${err.data.term_id}`);
                             return { id: err.data.term_id };
                         }
                         console.error(`Failed to create tag "${tagName}":`, err.message || 'Unknown error');

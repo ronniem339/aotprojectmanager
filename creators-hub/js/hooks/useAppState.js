@@ -144,7 +144,6 @@ window.useAppState = () => {
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
     
-    // **FIX:** This useEffect now correctly handles both 'generate-post' and 'publish-post' task types.
     useEffect(() => {
         const processTaskQueue = async () => {
             if (isTaskQueueProcessing || taskQueue.length === 0) {
@@ -182,23 +181,7 @@ window.useAppState = () => {
         return () => clearInterval(cleanupInterval); // Cleanup interval on unmount
     }, [taskQueue, isTaskQueueProcessing, handlers]);
 
-        const cleanupInterval = setInterval(() => {
-            setTaskQueue(prevQueue => {
-                const now = Date.now();
-                return prevQueue.filter(task => {
-                    if ((task.status === 'complete' || task.status === 'failed') && task.completedAt) {
-                        return (now - task.completedAt) < 120000;
-                    }
-                    return true;
-                });
-            });
-        }, 5000);
-
-        processTaskQueue();
-
-        return () => clearInterval(cleanupInterval);
-    }, [taskQueue, isTaskQueueProcessing, handlers]);
-
+    // All handler functions are defined here...
     const handlers = {
         handleSelectProject: (project) => {
             setSelectedProject(project);
@@ -362,6 +345,7 @@ window.useAppState = () => {
                 return task;
             }));
         },
+        // Placeholder for task execution logic
         executeGenerateBlogContent: async (task) => {
             const { idea, video } = task.data;
             try {
@@ -372,7 +356,7 @@ window.useAppState = () => {
                 handlers.updateTaskStatus(task.id, 'complete', { ...result, viewable: true });
                 // Also update the idea in Firestore
                 const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
-                await ideaRef.update({ status: 'generated', blogPostContent: htmlContent });
+                await ideaRef.update({ status: 'generated', blogPostContent: result.blogPostContent });
             } catch (error) {
                 console.error("Error executing generate blog content task:", error);
                 handlers.updateTaskStatus(task.id, 'failed', { error: error.message });
@@ -443,6 +427,15 @@ window.useAppState = () => {
         },
         handleGeneratePostTask: async (idea) => {
             if (!user || !firebaseDb) return;
+            const { relatedProjectId, relatedVideoId } = idea;
+            let video = null;
+            if (relatedProjectId && relatedVideoId) {
+                const videoRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects/${relatedProjectId}/videos`).doc(relatedVideoId);
+                const videoSnap = await videoRef.get();
+                if (videoSnap.exists) {
+                    video = videoSnap.data();
+                }
+            }
             const task = {
                 id: `generate-post-${idea.id}`,
                 type: 'generate-post',
@@ -520,10 +513,31 @@ window.useAppState = () => {
     };
 
     return {
-        user, isAuthReady, currentView, previousView, selectedProject, settings, googleMapsLoaded,
-        activeProjectDraft, activeDraftId, showNotification, notificationMessage, showNewProjectWizard,
-        projectToDelete, draftToDelete, showProjectSelection, isLoading, appError, firebaseAppInstance,
-        firebaseDb, firebaseAuth, taskQueue, isTaskQueueProcessing, showPublisherModal,
-        ideasToPublish, contentToView, handlers,
+        user,
+        isAuthReady,
+        currentView,
+        previousView,
+        selectedProject,
+        settings,
+        googleMapsLoaded,
+        activeProjectDraft,
+        activeDraftId,
+        showNotification,
+        notificationMessage,
+        showNewProjectWizard,
+        projectToDelete,
+        draftToDelete,
+        showProjectSelection,
+        isLoading,
+        appError,
+        firebaseAppInstance,
+        firebaseDb,
+        firebaseAuth,
+        taskQueue,
+        isTaskQueueProcessing,
+        showPublisherModal,
+        ideasToPublish,
+        contentToView,
+        handlers,
     };
 };
