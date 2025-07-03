@@ -670,9 +670,12 @@ const ScriptingWorkspaceModal = ({
                     </div>
                 );
 case 'review_parsed_transcript':
-    // Find which on-camera locations are not yet in the parsed transcript
-    const availableLocationsToAdd = onCameraLocationObjects.filter(loc => !(loc.name in (parsedTranscript || {})));
-
+// Find which on-camera locations from the ENTIRE project are not yet in the parsed transcript
+const allProjectOnCameraLocations = (project.locations || []).filter(projLoc => {
+    const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === projLoc.name);
+    return inventoryItem && inventoryItem.onCamera;
+});
+const availableLocationsToAdd = allProjectOnCameraLocations.filter(loc => !(loc.name in (parsedTranscript || {})));
     // Handler to add the selected location to the transcript state
     const handleAddLocationToTranscript = () => {
         if (locationToAdd && !((parsedTranscript || {})[locationToAdd])) {
