@@ -4,7 +4,7 @@ window.aiUtils = window.aiUtils || {};
  * Generates the full blog post content from an idea.
  * This is a "complex" task that uses the more powerful Gemini model.
  */
-window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) => {
+window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null, onProgress = () => {}) => {
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
     const knowledgeBases = settings.knowledgeBases?.blog || {};
 
@@ -41,7 +41,7 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
 
         **WRITING INSTRUCTIONS:**
         1.  **Adherence:** Strictly follow all instructions from the Style Guide, Knowledge Bases, and Blueprints provided.
-        2.  **Length:** The blog post should be comprehensive, typically between 1,500 and 2,500 words.
+        2.  **Length:** The blog post should be comprehensive, with a minimum of 2,000 words.
         3.  **Structure:** Use clear headings (H2, H3), short paragraphs, and bullet points to improve readability.
         4.  **SEO:** Naturally integrate the primary keyword and related secondary keywords throughout the text.
         5.  **Content:** The content must be 100% original, factual, and provide genuine value to the reader. If a video transcript is provided, use it as a primary source for facts, tone, and key points.
@@ -57,8 +57,12 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
         5.  **FAILURE TO FOLLOW THESE RULES WILL CAUSE AN ERROR.** Ensure the final '~~~' is present at the very end of your response.
     `;
 
+    onProgress('Preparing AI request...');
+
     try {
+        onProgress('Sending request to AI...');
         const rawResponseText = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
+        onProgress('Received raw response from AI, parsing content...');
 
         // --- RESILIENT PARSING LOGIC ---
         const startIndex = rawResponseText.indexOf('~~~json');
@@ -74,9 +78,13 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
 
             try {
                 const parsed = JSON.parse(potentialJson);
-                if (parsed && parsed.blogPostContent) return parsed;
+                if (parsed && parsed.blogPostContent) {
+                    onProgress('Content generated and parsed successfully.');
+                    return parsed;
+                }
             } catch (e) {
                 console.warn("Initial JSON parsing failed, attempting to repair truncated JSON...", e.message);
+                onProgress('Attempting to repair AI response...');
                 const lastBrace = potentialJson.lastIndexOf('}');
                 if (lastBrace !== -1) {
                     const repairedJsonString = potentialJson.substring(0, lastBrace + 1);
@@ -84,6 +92,7 @@ window.aiUtils.generateBlogPostContentAI = async (idea, settings, video = null) 
                         const parsed = JSON.parse(repairedJsonString);
                         if (parsed && parsed.blogPostContent) {
                             console.log("Successfully repaired and parsed truncated JSON.");
+                            onProgress('Content generated and parsed successfully.');
                             return parsed;
                         }
                     } catch (e2) {

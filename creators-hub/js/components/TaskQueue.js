@@ -1,5 +1,5 @@
 // creators-hub/js/components/TaskQueue.js
-window.TaskQueue = ({ tasks, onView }) => {
+window.TaskQueue = ({ tasks, onView, onRetry }) => {
     const { useEffect, useState } = React;
     const [visible, setVisible] = useState(false);
 
@@ -17,18 +17,17 @@ window.TaskQueue = ({ tasks, onView }) => {
 
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'pending': return <i className="fas fa-clock text-gray-400"></i>;
-            case 'in-progress': return <i className="fas fa-spinner fa-spin text-blue-500"></i>;
+            case 'queued': return <i className="fas fa-clock text-gray-400"></i>;
             case 'generating': return <i className="fas fa-spinner fa-spin text-indigo-500"></i>;
             case 'publishing': return <i className="fas fa-spinner fa-spin text-purple-500"></i>;
-            case 'completed': return <i className="fas fa-check-circle text-green-500"></i>;
+            case 'complete': return <i className="fas fa-check-circle text-green-500"></i>;
             case 'failed': return <i className="fas fa-times-circle text-red-500"></i>;
             default: return null;
         }
     };
     
     return (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-80 z-50 animate-fade-in-up border border-gray-700">
+        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-[500px] z-50 animate-fade-in-up border border-gray-700">
             <div className="p-3 bg-gray-900 rounded-t-lg">
                 <h4 className="font-bold text-base">Task Queue</h4>
             </div>
@@ -40,14 +39,17 @@ window.TaskQueue = ({ tasks, onView }) => {
                             <span className="truncate" title={task.name}>{task.name}</span>
                         </div>
                         <div className="flex-shrink-0 ml-2">
-                            {task.status === 'completed' && task.result?.link && (
+                            {task.status === 'complete' && task.result?.link && (
                                 <a href={task.result.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-xs">View on WP</a>
                             )}
-                            {task.status === 'completed' && task.result?.viewable && (
+                            {task.status === 'complete' && task.result?.viewable && (
                                 <button onClick={() => onView(task.id)} className="text-blue-400 hover:underline text-xs">View Content</button>
                             )}
                             {task.status === 'failed' && (
-                                <span className="text-red-400 text-xs" title={task.result?.error}>Failed</span>
+                                <span className="text-red-400 text-xs mr-2" title={task.result?.error}>Failed</span>
+                            )}
+                            {task.status === 'failed' && onRetry && (
+                                <button onClick={() => onRetry(task.id)} className="text-yellow-400 hover:underline text-xs">Retry</button>
                             )}
                         </div>
                     </div>

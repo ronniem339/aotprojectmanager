@@ -1,0 +1,12 @@
+fix(shotlist): Definitive fix for stale closure issue
+
+This commit resolves the long-standing bug where `onCameraDescriptions` was `undefined` during shot list generation.
+
+The root cause was a stale closure created by the `useCallback` hook, which prevented the component from receiving the updated `video` prop.
+
+This commit definitively fixes the issue by:
+1. Removing the `useCallback` hook from the generation functions.
+2. Removing the `useCallback` import.
+3. Correcting all syntax errors introduced in previous attempts.
+
+This ensures the component always uses the latest props, preventing stale data and resolving the bug correctly.

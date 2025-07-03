@@ -38,7 +38,9 @@ window.components.Router = ({
     handleOpenPublisher,
     taskQueue,
     handleViewGeneratedPost,
-    displayNotification
+    displayNotification,
+    // Add appState to the destructured props
+    appState 
 }) => {
     if (!isAuthReady || !firebaseDb || !firebaseAuth) {
         return <div className="min-h-screen flex justify-center items-center"><LoadingSpinner text="Initializing application..." /></div>;
@@ -53,8 +55,12 @@ window.components.Router = ({
             return <ProjectView project={selectedProject} userId={user.uid} onCloseProject={handleBackToDashboard} settings={settings} onUpdateSettings={handleSaveSettings} googleMapsLoaded={googleMapsLoaded} db={firebaseDb} auth={firebaseAuth} firebaseAppInstance={firebaseAppInstance} onNavigate={handleNavigate} />;
         case 'settingsMenu':
             return <SettingsMenu onBack={handleBackToDashboard} onShowTechnicalSettings={handleShowTechnicalSettings} onShowStyleAndTone={handleShowStyleAndTone} onShowKnowledgeBases={handleShowKnowledgeBases} />;
+        
+        // --- THIS IS THE FIX ---
+        // Pass the entire 'appState' object as a prop to TechnicalSettingsView.
         case 'technicalSettings':
-            return <TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={onShowSettings} />;
+            return <TechnicalSettingsView settings={settings} onSave={handleSaveSettings} onBack={onShowSettings} appState={{ db: firebaseDb, user, settings }} />;
+        
         case 'myStudio':
             return <MyStudioView settings={settings} onSave={handleSaveSettings} onBack={handleNavigateBack} previousView={previousView} />;
         case 'importProject':

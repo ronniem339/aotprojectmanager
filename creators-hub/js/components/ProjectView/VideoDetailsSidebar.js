@@ -18,11 +18,11 @@ window.VideoDetailsSidebar = ({ video }) => {
             
             {/* Video Thumbnail */}
             <div>
-                <window.ImageComponent 
-                    src={video.thumbnailUrl || video.generatedThumbnails?.[0] || placeholderThumbnail} 
-                    alt={video.title || 'Video Thumbnail'} 
-                    className="w-full h-auto object-cover rounded-md mb-4" 
-                />
+               <window.ImageComponent 
+    src={video.thumbnailUrl || video.tasks?.acceptedConcepts?.[0]?.imageUrl || video.tasks?.thumbnailConcepts?.[0]?.imageUrl || placeholderThumbnail} 
+    alt={video.title || 'Video Thumbnail'} 
+    className="w-full h-auto object-cover rounded-md mb-4" 
+/>
             </div>
 
             {/* Video Description */}

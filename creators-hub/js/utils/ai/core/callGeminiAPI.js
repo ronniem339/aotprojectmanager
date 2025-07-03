@@ -33,7 +33,7 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
 
     try {
         const response = await fetch(apiUrl, {
@@ -61,24 +61,18 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
         
         if (finalGenerationConfig.responseMimeType === "application/json") {
             try {
-                const jsonStart = responseText.indexOf('{');
-                const arrayStart = responseText.indexOf('[');
+                // **FIX:** Replaced the fragile parsing logic with a more robust method.
+                let textToParse = responseText.trim();
                 
-                const start = (jsonStart === -1 || (arrayStart !== -1 && arrayStart < jsonStart)) ? arrayStart : jsonStart;
-
-                if (start === -1) {
-                    throw new Error("Response did not contain a valid JSON object or array.");
+                // Check for markdown code fences (```json ... ```) and extract the content.
+                const jsonMatch = textToParse.match(/```(json)?\s*([\s\S]*?)\s*```/);
+                if (jsonMatch && jsonMatch[2]) {
+                    textToParse = jsonMatch[2];
                 }
 
-                const endChar = responseText[start] === '{' ? '}' : ']';
-                const end = responseText.lastIndexOf(endChar);
+                // Attempt to parse the cleaned text.
+                return JSON.parse(textToParse);
 
-                if (end === -1) {
-                    throw new Error("Response did not contain a valid closing JSON character.");
-                }
-                
-                const jsonString = responseText.substring(start, end + 1);
-                return JSON.parse(jsonString); // Parse the CLEANED string
             } catch (e) {
                 console.error("Failed to parse AI response as JSON:", responseText, e);
                 throw new Error("AI response was expected to be valid JSON but wasn't.");

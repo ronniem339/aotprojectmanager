@@ -69,13 +69,15 @@ window.App = () => {
                 />
             )}
             {contentToView && (
-                <GeneratedPostViewer
-                    content={contentToView}
+                <window.GeneratedPostViewer
+                    content={contentToView.blogPostContent}
+                    idea={contentToView} // Pass the entire idea object
                     onClose={() => handlers.setContentToView(null)}
+                    settings={settings}
                 />
             )}
             
-            <TaskQueue tasks={taskQueue} onView={handlers.handleViewGeneratedPost} />
+            <TaskQueue tasks={taskQueue} onView={handlers.handleViewGeneratedPost} onRetry={handlers.handleRetryTask} />
 
             <main className="p-4 sm:p-6 lg:p-8">
                 <Router

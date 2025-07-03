@@ -1,7 +1,7 @@
 // A robust, modern service worker using a stale-while-revalidate strategy.
 
-const CACHE_NAME_STATIC = 'aot-pm-static-v2';
-const CACHE_NAME_DYNAMIC = 'aot-pm-dynamic-v2';
+const CACHE_NAME_STATIC = 'aot-pm-static-v3';
+const CACHE_NAME_DYNAMIC = 'aot-pm-dynamic-v3';
 
 // These are the absolute core files for the app shell to work.
 // This list must be 100% correct.

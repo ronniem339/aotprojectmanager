@@ -4,19 +4,37 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 // Custom hook to check for media queries
 const useMediaQuery = (query) => {
-    const [matches, setMatches] = useState(false);
+    // Initialize state with the correct value on first render
+    const [matches, setMatches] = useState(() => {
+        if (typeof window.matchMedia !== 'function') {
+            return false;
+        }
+        return window.matchMedia(query).matches;
+    });
 
     useEffect(() => {
+        if (typeof window.matchMedia !== 'function') {
+            return;
+        }
+        
         const media = window.matchMedia(query);
+        
+        const listener = (event) => {
+            setMatches(event.matches);
+        };
+
+        // Update the state if it has changed between initialization and the effect running
         if (media.matches !== matches) {
             setMatches(media.matches);
         }
-        const listener = () => {
-            setMatches(media.matches);
+
+        // Use the modern, recommended event listener API
+        media.addEventListener('change', listener);
+
+        return () => {
+            media.removeEventListener('change', listener);
         };
-        media.addListener(listener);
-        return () => media.removeListener(listener);
-    }, [matches, query]);
+    }, [query]); // Only re-run the effect if the query itself changes
 
     return matches;
 };
@@ -139,11 +157,6 @@ window.LocationRemovalOptionsModal = ({ isOpen, locationName, onConfirm, onCance
 
 // Moved LocationDetailsCard outside of ScriptingWorkspaceModal
 const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemove, description }) => {
-    const [localDescription, setLocalDescription] = useState(description);
-
-    useEffect(() => {
-        setLocalDescription(description);
-    }, [description]);
 
     return (
         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
@@ -156,9 +169,8 @@ const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemov
 
             <textarea
                 key={`on-camera-notes-${location.place_id}`}
-                value={localDescription}
-                onChange={(e) => setLocalDescription(e.target.value)}
-                onBlur={(e) => onDescriptionChange(location.name, e.target.value)}
+                value={description}
+                onChange={(e) => onDescriptionChange(location.name, e.target.value)}
                 rows="3"
                 className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
                 placeholder="E.g., 'I introduce the location here' or 'I taste the food and give my reaction.'"
@@ -283,9 +295,20 @@ const ScriptingWorkspaceModal = ({
     const [showDebugMenu, setShowDebugMenu] = useState(false);
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isComplete = currentStage === 'complete';
-
+    const [onCameraInputMode, setOnCameraInputMode] = useState('per-location'); // 'per-location' or 'transcript'
+    const [parsedTranscript, setParsedTranscript] = useState(null);
+    const [locationToAdd, setLocationToAdd] = useState('');
+    
     useEffect(() => {
         setLocalTaskData(taskData);
+        // Initialize onCameraInputMode from taskData if available
+        if (taskData.onCameraInputMode) {
+            setOnCameraInputMode(taskData.onCameraInputMode);
+        }
+        // Initialize parsedTranscript if we are in the review stage and data exists
+        if (taskData.scriptingStage === 'review_parsed_transcript' && taskData.onCameraDescriptions) {
+            setParsedTranscript(taskData.onCameraDescriptions);
+        }
     }, [taskData]);
 
     useEffect(() => {
@@ -309,8 +332,29 @@ const ScriptingWorkspaceModal = ({
 
 
     const initiateScriptGeneration = async () => {
-        setCurrentStage('full_script_review');
-        await handleAction(onGenerateFullScript, localTaskData);
+        if (onCameraInputMode === 'transcript' && localTaskData.fullTranscript) {
+            setIsLoading(true);
+            setError('');
+            try {
+                const parsed = await window.aiUtils.parseTranscriptAI({
+                    fullTranscript: localTaskData.fullTranscript,
+                    onCameraLocations: onCameraLocationObjects,
+                    settings: settings
+                });
+                setParsedTranscript(parsed);
+                handleDataChange('onCameraDescriptions', parsed); // Save the parsed transcript to be used by the script generator
+                handleDataChange('scriptingStage', 'review_parsed_transcript'); // Persist the new stage
+                setCurrentStage('review_parsed_transcript');
+            } catch (err) {
+                setError(err.message);
+                console.error("Error during transcript parsing:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            setCurrentStage('refined_plan_review');
+            await handleAction(onGenerateFullScript, localTaskData, onCameraInputMode);
+        }
     };
 
     const handleDataChange = (field, value) => {
@@ -389,6 +433,8 @@ const ScriptingWorkspaceModal = ({
         { id: 'draft_outline_review', name: 'Review Outline' },
         { id: 'refinement_qa', name: 'Refinement Q&A' },
         { id: 'on_camera_qa', name: 'On-Camera Notes' },
+        { id: 'review_parsed_transcript', name: 'Review Transcript' },
+        { id: 'refined_plan_review', name: 'Review Refined Plan' },
         { id: 'full_script_review', name: 'Final Script' },
         { id: 'complete', name: 'Complete' }
     ];
@@ -562,20 +608,187 @@ const ScriptingWorkspaceModal = ({
                     <div>
                         <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 4.5: Describe Your On-Camera Segments</h3>
                         <p className="text-gray-400 mb-6">You indicated you have on-camera footage for the following locations. To ensure the voiceover flows naturally, briefly describe what you say or do in these segments.</p>
-                        <div className="space-y-6">
-                            {onCameraLocationObjects.map((location) => (
-                                <LocationDetailsCard
-                                    key={location.place_id}
-                                    location={location}
-                                    onDescriptionChange={handleOnCameraDescriptionChange}
-                                    onRemove={onInitiateRemoveLocation}
-                                    description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
-                                />
-                            ))}
+                        
+                        {/* Input Mode Toggle */}
+                        <div className="flex justify-center items-center space-x-4 mb-6">
+                            <button 
+                                onClick={() => {
+                                    setOnCameraInputMode('per-location');
+                                    handleDataChange('onCameraInputMode', 'per-location');
+                                }} 
+                                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                    onCameraInputMode === 'per-location' 
+                                        ? 'bg-primary-accent text-white' 
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}>
+                                Notes Per Location
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setOnCameraInputMode('transcript');
+                                    handleDataChange('onCameraInputMode', 'transcript');
+                                }} 
+                                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                    onCameraInputMode === 'transcript' 
+                                        ? 'bg-primary-accent text-white' 
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}>
+                                Full Transcript
+                            </button>
                         </div>
+
+                        {onCameraInputMode === 'per-location' ? (
+                            <div className="space-y-6">
+                                {onCameraLocationObjects.map((location) => (
+                                    <LocationDetailsCard
+                                        key={location.place_id}
+                                        location={location}
+                                        onDescriptionChange={handleOnCameraDescriptionChange}
+                                        onRemove={onInitiateRemoveLocation}
+                                        description={(localTaskData.onCameraDescriptions || {})[location.name] || ''}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-gray-400 mb-4">Paste your full on-camera transcript below. The AI will clean it up and attempt to match the dialogue to the correct locations.</p>
+                                <textarea
+                                    value={localTaskData.fullTranscript || ''}
+                                    onChange={(e) => handleDataChange('fullTranscript', e.target.value)}
+                                    rows="20"
+                                    className="w-full form-textarea"
+                                    placeholder="Paste your entire on-camera script here..."
+                                />
+                            </div>
+                        )}
+
                         <div className="text-center mt-8">
                             <button onClick={initiateScriptGeneration} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Full Script'}
+                            </button>
+                        </div>
+                    </div>
+                );
+case 'review_parsed_transcript': {
+    // Handler to add the selected location to the transcript state
+    const handleAddLocationToTranscript = () => {
+        if (locationToAdd && !((parsedTranscript || {})[locationToAdd])) {
+            const newParsedTranscript = { ...parsedTranscript, [locationToAdd]: [''] };
+            setParsedTranscript(newParsedTranscript);
+            handleDataChange('onCameraDescriptions', newParsedTranscript);
+            setLocationToAdd(''); // Reset the dropdown
+        }
+    };
+
+    const locationsOnScreen = Object.keys(parsedTranscript || {});
+
+    // List 1: Locations featured in THIS video that are not yet on screen
+    const videoFeaturedNotOnScreen = (video.locations_featured || [])
+        .filter(name => !locationsOnScreen.includes(name))
+        .map(name => project.locations.find(pLoc => pLoc.name === name))
+        .filter(Boolean);
+
+    const videoFeaturedNames = new Set(video.locations_featured || []);
+
+    // List 2: Other on-camera locations from the project (that aren't in the video's list and aren't on screen)
+    const otherProjectOnCameraLocations = (project.locations || [])
+        .filter(loc => {
+            if (!loc || !loc.name) return false;
+            // Exclude if it's a featured location for this video (it would be in List 1)
+            if (videoFeaturedNames.has(loc.name)) return false;
+            // Exclude if it's already being displayed on screen
+            if (locationsOnScreen.includes(loc.name)) return false;
+            // Only include if it's designated as on-camera in the project inventory
+            const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === loc.name);
+            return inventoryItem && inventoryItem.onCamera;
+        });
+
+    return (
+        <div>
+            <h3 className="text-xl font-semibold text-primary-accent mb-3">Review AI-Parsed Transcript</h3>
+            <p className="text-gray-400 mb-6">The AI has analyzed your transcript. Review the assignments, move dialogue, and make any necessary corrections before proceeding.</p>
+            <div className="space-y-6">
+                {Object.entries(parsedTranscript || {}).map(([locationName, dialogues]) => (
+                    <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                        <label className="block text-gray-200 text-md font-medium mb-2">{locationName}</label>
+                        <textarea
+                            value={Array.isArray(dialogues) ? dialogues.join('\n') : dialogues}
+                            onChange={(e) => {
+                                const newParsedTranscript = { ...parsedTranscript };
+                                newParsedTranscript[locationName] = e.target.value.split('\n');
+                                setParsedTranscript(newParsedTranscript);
+                                handleDataChange('onCameraDescriptions', newParsedTranscript);
+                            }}
+                            rows="5"
+                            className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                        ></textarea>
+                    </div>
+                ))}
+            </div>
+
+            {/* Dropdown UI to add a missing location */}
+            {(videoFeaturedNotOnScreen.length > 0 || otherProjectOnCameraLocations.length > 0) && (
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                    <h4 className="text-md font-semibold text-amber-400 mb-2">Add a Missing Location</h4>
+                    <p className="text-sm text-gray-400 mb-4">If the AI missed a location you have dialogue for, add it here.</p>
+                    <div className="flex items-center space-x-2">
+                        <select
+                            value={locationToAdd}
+                            onChange={(e) => setLocationToAdd(e.target.value)}
+                            className="form-select flex-grow bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                        >
+                            <option value="">Select a location to add...</option>
+                            
+                            {videoFeaturedNotOnScreen.length > 0 && (
+                                <optgroup label="Locations in this Video">
+                                    {videoFeaturedNotOnScreen.map(loc => (
+                                        <option key={loc.place_id} value={loc.name}>{loc.name}</option>
+                                    ))}
+                                </optgroup>
+                            )}
+
+                            {otherProjectOnCameraLocations.length > 0 && (
+                                <optgroup label="Other Project Locations">
+                                    {otherProjectOnCameraLocations.map(loc => (
+                                        <option key={loc.place_id} value={loc.name}>{loc.name}</option>
+                                    ))}
+                                </optgroup>
+                            )}
+                        </select>
+                        <button
+                            onClick={handleAddLocationToTranscript}
+                            disabled={!locationToAdd}
+                            className="button-secondary-small disabled:opacity-50"
+                        >
+                            Add Location
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="text-center mt-8">
+                <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Confirm and Generate Script'}
+                </button>
+            </div>
+        </div>
+    );
+}
+            case 'refined_plan_review':
+                return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 6: Review Refined Plan</h3>
+                        <p className="text-gray-400 mb-4">Here is the refined plan that integrates your on-camera segments. Review it before the final script is generated.</p>
+                        <textarea
+                            value={localTaskData.refinedScriptPlan || ''}
+                            onChange={e => handleDataChange('refinedScriptPlan', e.target.value)}
+                            rows="25"
+                            className="w-full form-textarea leading-relaxed"
+                            placeholder="The refined script plan will appear here."
+                        />
+                        <div className="text-center mt-8">
+                            <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Generate Final Script'}
                             </button>
                         </div>
                     </div>
@@ -739,20 +952,23 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
             setLocationToModify(null);
         }
     };
-    const taskData = {
+    const taskData = useMemo(() => ({
         scriptingStage: video.tasks?.scriptingStage || 'pending',
         initialThoughts: video.tasks?.initialThoughts || '',
         initialQuestions: video.tasks?.initialQuestions || [],
         initialAnswers: video.tasks?.initialAnswers || {},
         scriptPlan: video.tasks?.scriptPlan || '',
+        refinedScriptPlan: video.tasks?.refinedScriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
         onCameraLocations: localOnCameraLocations !== null ? localOnCameraLocations : video.tasks?.onCameraLocations || [],
         onCameraDescriptions: video.tasks?.onCameraDescriptions || {},
+        onCameraInputMode: video.tasks?.onCameraInputMode || 'per-location',
+        fullTranscript: video.tasks?.fullTranscript || '',
         script: video.script || '',
         outlineRefinementText: '',
         scriptRefinementText: '',
-    };
+    }), [video, localOnCameraLocations]);
 
 
     // creators-hub/js/components/ProjectView/tasks/scriptingTask.js
@@ -870,12 +1086,27 @@ const handleOpenWorkspace = async (startStage = null) => {
             throw new Error("The AI failed to generate refinement questions. Please try again.");
         }
 
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'refinement_qa',
-            'tasks.locationQuestions': response.locationQuestions,
-            'tasks.userExperiences': {}
-        });
-    };
+         // --- NEW LOGIC TO CREATE locationAnswers ---
+
+    // 1. Initialize an empty object for our new map
+    const locationAnswers = {};
+
+    // 2. Loop through the AI's response to build the map
+    response.locationQuestions.forEach(item => {
+        // The key is the question text, the value is the location name
+        if (item.question && item.location) {
+            locationAnswers[item.question] = item.location;
+        }
+    });
+
+    // 3. Save BOTH the questions AND the new locationAnswers map to Firebase
+    await onUpdateTask('scripting', 'in-progress', {
+        'tasks.scriptingStage': 'refinement_qa',
+        'tasks.locationQuestions': response.locationQuestions,
+        'tasks.locationAnswers': locationAnswers, // <-- Save the new map
+        'tasks.userExperiences': {} // Reset answers for the new questions
+    });
+};
 
     const handleProceedToOnCamera = async (currentTaskData) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.userExperiences': currentTaskData.userExperiences });
@@ -892,35 +1123,111 @@ const handleOpenWorkspace = async (startStage = null) => {
         });
     };
 
-    const handleGenerateFullScript = async (currentTaskData) => {
-        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
-            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
-        ).join('\n\n');
-
-        const onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
-        for (const key in onCameraDescriptionsToUse) {
-            if (!currentTaskData.onCameraLocations.includes(key)) {
-                delete onCameraDescriptionsToUse[key];
+    const handleGenerateRefinedScriptPlan = async (currentTaskData, inputMode) => {
+        let onCameraDescriptionsToUse = {};
+        if (inputMode === 'transcript') {
+            // Transform parsedTranscript (object with arrays) into object with joined strings
+            for (const locationName in currentTaskData.onCameraDescriptions) {
+                if (Array.isArray(currentTaskData.onCameraDescriptions[locationName])) {
+                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName].join('\n');
+                } else {
+                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName];
+                }
+            }
+        } else {
+            onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
+            for (const key in onCameraDescriptionsToUse) {
+                if (!currentTaskData.onCameraLocations.includes(key)) {
+                    delete onCameraDescriptionsToUse[key];
+                }
             }
         }
 
-        const response = await window.aiUtils.generateFinalScriptAI({
+        const response = await window.aiUtils.generateRefinedScriptPlanAI({
             scriptPlan: currentTaskData.scriptPlan,
-            userAnswers: answersText,
+            onCameraDescriptions: onCameraDescriptionsToUse,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
-            onCameraDescriptions: onCameraDescriptionsToUse
         });
 
-        if (!response || typeof response.finalScript !== 'string') {
-            throw new Error("The AI failed to generate the final script. Please try again.");
+        if (!response || typeof response.refinedScriptPlan !== 'string') {
+            throw new Error("The AI failed to generate the refined script plan.");
         }
 
         await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'full_script_review',
-            'script': response.finalScript
+            'tasks.scriptingStage': 'refined_plan_review',
+            'tasks.refinedScriptPlan': response.refinedScriptPlan
         });
     };
+
+   const handleGenerateFullScript = async (currentTaskData, inputMode) => {
+    const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+        `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
+    ).join('\n\n');
+
+    let onCameraDescriptionsToUse = {};
+    // Consolidate on-camera descriptions into strings
+    for (const locationName in currentTaskData.onCameraDescriptions) {
+        if (Array.isArray(currentTaskData.onCameraDescriptions[locationName])) {
+            onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName].join('\n');
+        } else {
+            onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName];
+        }
+    }
+    
+    let planToUse = currentTaskData.scriptPlan;
+
+    // --- START OF FIX ---
+    // If coming from the transcript review, the original plan is stale.
+    // Create a new, simple plan based on the corrected on-camera locations.
+    if (inputMode === 'transcript') {
+        const onCameraLocations = Object.keys(onCameraDescriptionsToUse).filter(k => onCameraDescriptionsToUse[k].trim() !== '');
+        planToUse = `A video that features on-camera segments at the following locations: ${onCameraLocations.join(', ')}. The script should flow between these segments, with voiceover connecting them.`;
+        
+        // Also update the plan in the database for consistency in future steps
+await onUpdateTask('scripting', 'in-progress', {
+    'tasks.scriptPlan': planToUse,
+    'tasks.onCameraDescriptions': currentTaskData.onCameraDescriptions
+});
+    }
+    // --- END OF FIX ---
+
+    // First, generate the refined script plan using the fresh plan
+    const refinedPlanResponse = await window.aiUtils.generateRefinedScriptPlanAI({
+        scriptPlan: planToUse, // Use the new, correct plan
+        onCameraDescriptions: onCameraDescriptionsToUse,
+        videoTitle: video.chosenTitle || video.title,
+        settings: settings,
+    });
+
+    if (!refinedPlanResponse || typeof refinedPlanResponse.refinedScriptPlan !== 'string') {
+        throw new Error("The AI failed to generate the refined script plan.");
+    }
+
+    // Update the task data with the new refined plan before generating the final script
+    await onUpdateTask('scripting', 'in-progress', {
+        'tasks.refinedScriptPlan': refinedPlanResponse.refinedScriptPlan,
+        'tasks.scriptingStage': 'refined_plan_review',
+    });
+
+    // Now, generate the final script using the refined plan
+    const response = await window.aiUtils.generateFinalScriptAI({
+        scriptPlan: refinedPlanResponse.refinedScriptPlan, // Use the newly generated refined plan
+        userAnswers: answersText,
+        videoTitle: video.chosenTitle || video.title,
+        settings: settings,
+        onCameraDescriptions: onCameraDescriptionsToUse
+    });
+
+    if (!response || typeof response.finalScript !== 'string') {
+        throw new Error("The AI failed to generate the final script. Please try again.");
+    }
+
+    await onUpdateTask('scripting', 'in-progress', {
+        'tasks.scriptingStage': 'full_script_review',
+        'script': response.finalScript
+    });
+};
 
     const handleRefineScript = async (currentTaskData) => {
         try {
@@ -972,10 +1279,13 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
             'tasks.initialQuestions': updatedTaskData.initialQuestions,
             'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
+            'tasks.refinedScriptPlan': updatedTaskData.refinedScriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
             'tasks.onCameraLocations': localOnCameraLocations,
             'tasks.onCameraDescriptions': updatedTaskData.onCameraDescriptions,
+            'tasks.onCameraInputMode': updatedTaskData.onCameraInputMode,
+            'tasks.fullTranscript': updatedTaskData.fullTranscript,
             'script': updatedTaskData.script,
         };
 
@@ -996,6 +1306,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
             'tasks.initialQuestions': finalTaskData.initialQuestions,
             'tasks.initialAnswers': finalTaskData.initialAnswers,
             'tasks.scriptPlan': finalTaskData.scriptPlan,
+            'tasks.refinedScriptPlan': finalTaskData.refinedScriptPlan,
             'tasks.locationQuestions': finalTaskData.locationQuestions,
             'tasks.userExperiences': finalTaskData.userExperiences,
             'tasks.onCameraLocations': finalTaskData.onCameraLocations,
@@ -1054,6 +1365,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
                     onRefineOutline={handleRefineOutline}
                     onGenerateRefinementQuestions={handleGenerateRefinementQuestions}
                     onProceedToOnCamera={handleProceedToOnCamera}
+                    onGenerateRefinedScriptPlan={handleGenerateRefinedScriptPlan}
                     onGenerateFullScript={handleGenerateFullScript}
                     onRefineScript={handleRefineScript}
                     settings={settings}
