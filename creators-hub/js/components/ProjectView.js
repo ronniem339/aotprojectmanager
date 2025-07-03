@@ -11,7 +11,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
     // UI/Loading State
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(window.innerWidth >= 768);
     const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(false);
     const [isTabletOrLarger, setIsTabletOrLarger] = useState(window.innerWidth >= 768);
 
@@ -288,10 +288,15 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
 
                 {/* Left Sidebar: Video List */}
                 {!isSingleVideoProject && (
-                    <aside className={`
-                        ${isLeftSidebarOpen ? 'block absolute inset-0 bg-gray-900 z-20 p-4' : 'hidden'} md:static md:block md:bg-transparent md:p-0 md:z-auto
-                        md:w-1/3 lg:w-1/4 xl:w-1/5 flex-shrink-0 h-full
-                    `}>
+                   <aside className={`
+    ${isLeftSidebarOpen ? 'block' : 'hidden'}
+    absolute md:static inset-0 md:inset-auto
+    bg-gray-900 md:bg-transparent z-20 md:z-auto
+    p-4 md:p-0
+    h-full flex-shrink-0
+    transition-all duration-300 ease-in-out
+    ${isLeftSidebarOpen ? 'md:w-1/3 lg:w-1/4 xl:w-1/5' : 'w-0'} // This will be updated in Part 2
+`}>
                         <div className="bg-gray-800 border border-gray-700 rounded-lg h-full flex flex-col">
                            <window.VideoList
                                 videos={videos}
