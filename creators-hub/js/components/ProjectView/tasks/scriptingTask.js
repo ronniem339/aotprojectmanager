@@ -669,23 +669,31 @@ const ScriptingWorkspaceModal = ({
                         </div>
                     </div>
                 );
-case 'review_parsed_transcript':
-// Find which on-camera locations from the ENTIRE project are not yet in the parsed transcript
-const allProjectOnCameraLocations = (project.locations || []).filter(projLoc => {
-    const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === projLoc.name);
-    return inventoryItem && inventoryItem.onCamera;
-});
-const availableLocationsToAdd = allProjectOnCameraLocations.filter(loc => !(loc.name in (parsedTranscript || {})));
+case 'review_parsed_transcript': {
     // Handler to add the selected location to the transcript state
     const handleAddLocationToTranscript = () => {
         if (locationToAdd && !((parsedTranscript || {})[locationToAdd])) {
-            // Add the new location with an empty string to start with
             const newParsedTranscript = { ...parsedTranscript, [locationToAdd]: [''] };
             setParsedTranscript(newParsedTranscript);
             handleDataChange('onCameraDescriptions', newParsedTranscript);
             setLocationToAdd(''); // Reset the dropdown
         }
     };
+
+    // List 1: On-camera locations for THIS video that are not yet on screen
+    const videoLocationsNotOnScreen = onCameraLocationObjects.filter(loc => !(loc.name in (parsedTranscript || {})));
+
+    // List 2: Other on-camera locations from the project
+    const allProjectOnCameraLocations = (project.locations || []).filter(projLoc => {
+        const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === projLoc.name);
+        return inventoryItem && inventoryItem.onCamera;
+    });
+
+    const otherProjectLocations = allProjectOnCameraLocations.filter(loc => {
+        const alreadyOnScreen = loc.name in (parsedTranscript || {});
+        const inVideoList = videoLocationsNotOnScreen.some(videoLoc => videoLoc.name === loc.name);
+        return !alreadyOnScreen && !inVideoList;
+    });
 
     return (
         <div>
@@ -710,8 +718,7 @@ const availableLocationsToAdd = allProjectOnCameraLocations.filter(loc => !(loc.
                 ))}
             </div>
 
-            {/* --- NEW UI TO ADD A LOCATION --- */}
-            {availableLocationsToAdd.length > 0 && (
+            {(videoLocationsNotOnScreen.length > 0 || otherProjectLocations.length > 0) && (
                 <div className="mt-8 pt-6 border-t border-gray-700">
                     <h4 className="text-md font-semibold text-amber-400 mb-2">Add a Missing Location</h4>
                     <p className="text-sm text-gray-400 mb-4">If the AI missed a location you have dialogue for, add it here.</p>
@@ -722,9 +729,22 @@ const availableLocationsToAdd = allProjectOnCameraLocations.filter(loc => !(loc.
                             className="form-select flex-grow bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
                         >
                             <option value="">Select a location to add...</option>
-                            {availableLocationsToAdd.map(loc => (
-                                <option key={loc.place_id} value={loc.name}>{loc.name}</option>
-                            ))}
+                            
+                            {videoLocationsNotOnScreen.length > 0 && (
+                                <optgroup label="Locations in this Video">
+                                    {videoLocationsNotOnScreen.map(loc => (
+                                        <option key={loc.place_id} value={loc.name}>{loc.name}</option>
+                                    ))}
+                                </optgroup>
+                            )}
+
+                            {otherProjectLocations.length > 0 && (
+                                <optgroup label="Other Project Locations">
+                                    {otherProjectLocations.map(loc => (
+                                        <option key={loc.place_id} value={loc.name}>{loc.name}</option>
+                                    ))}
+                                </optgroup>
+                            )}
                         </select>
                         <button
                             onClick={handleAddLocationToTranscript}
@@ -736,7 +756,6 @@ const availableLocationsToAdd = allProjectOnCameraLocations.filter(loc => !(loc.
                     </div>
                 </div>
             )}
-            {/* --- END OF NEW UI --- */}
 
             <div className="text-center mt-8">
                 <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
@@ -745,6 +764,7 @@ const availableLocationsToAdd = allProjectOnCameraLocations.filter(loc => !(loc.
             </div>
         </div>
     );
+}
             case 'refined_plan_review':
                 return (
                     <div>
