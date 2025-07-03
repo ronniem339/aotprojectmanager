@@ -16,7 +16,7 @@ window.ProjectHeader = ({ project, onBack, onEdit, onToggleSidebar, overallProgr
                 {/* Hamburger menu for mobile sidebar toggle */}
                 <button 
                     onClick={onToggleSidebar} 
-                    className="p-2 mr-3 rounded-md lg:hidden text-gray-400 hover:bg-gray-700/50 hover:text-white transition-colors"
+                    className="p-2 mr-3 rounded-md text-gray-400 hover:bg-gray-700/50 hover:text-white transition-colors"
                     aria-label="Toggle video list"
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"></path></svg>
