@@ -107,8 +107,13 @@ JSON
               "lastAccessed": "Timestamp",
               "videoCount": 5,
               "footageInventory": {
-                "park": ["park_footage_1.mp4", "park_footage_2.mp4"],
-                "cafe": ["cafe_broll_1.mp4"]
+                "paris_louvre": {
+                  "name": "Louvre Museum",
+                  "place_id": "ChIJ65d...",
+                  "onCamera": true,
+                  "bRoll": true,
+                  "drone": false
+                }
               },
               "videos": {
                 "{videoId}": {
@@ -118,12 +123,11 @@ JSON
                   "script": "The full text of the video script...",
                   "order": 0,
                   "onCameraDescriptions": {
-                    "Louvre Entrance": ["Welcome to the Louvre!", "It's enormous!"],
-                    "Mona Lisa Room": ["Here we are, the Mona Lisa!"]
+                    "Louvre Museum": "Welcome to the Louvre! It's enormous!"
                   },
                   "tasks": {
-                    "scripting": "complete",
-                    "scriptingStage": "shot_list_generation_completed",
+                    "scripting": "in-progress",
+                    "scriptingStage": "review_parsed_transcript",
                     "locationQuestions": [
                       { "question": "Where did you see the Mona Lisa?", "location": "Paris" }
                     ],
@@ -137,18 +141,28 @@ JSON
                     "feedbackText": "Combined the intro and first segment.",
                     "shotList": [
                       {
-                        "type": "onCamera",
-                        "cue": "Hello!",
-                        "location": "Louvre Entrance",
+                        "scene": "Introduction",
+                        "shotType": "On-Camera",
+                        "location": "Louvre Museum",
                         "dialogue": "Welcome to the Louvre, it's incredible!",
-                        "availableFootage": ["louvre_entrance_1.mp4"]
+                        "visuals": "Host stands in front of the pyramid, talking to the camera.",
+                        "availableFootage": {
+                          "onCamera": true,
+                          "bRoll": true,
+                          "drone": false
+                        }
                       },
                       {
-                        "type": "broll",
-                        "cue": "Mona Lisa shot",
-                        "location": "Mona Lisa Room",
-                        "dialogue": "Look at the Mona Lisa!",
-                        "availableFootage": ["mona_lisa_broll_a.mp4", "mona_lisa_broll_b.mp4"]
+                        "scene": "The Mona Lisa",
+                        "shotType": "Voiceover",
+                        "location": "Louvre Museum",
+                        "dialogue": "And here it is, the most famous painting in the world.",
+                        "visuals": "Close-up shot of the Mona Lisa, pan across the crowd.",
+                        "availableFootage": {
+                          "onCamera": true,
+                          "bRoll": true,
+                          "drone": false
+                        }
                       }
                     ]
                   },
@@ -212,7 +226,6 @@ The shot list is a critical feature with two distinct generation workflows, mana
 Component Responsibility: The VideoWorkspace.js component is responsible for handling user actions like initiating a shot list regeneration. It calls the AI, processes the result, and saves it to Firestore. The ShotListViewer.js component is primarily a "dumb" component responsible for displaying the shotList data passed to it.
 
 Regeneration Workflow (handleRegenerateShotList in VideoWorkspace.js):
-
 Gathers the final script and onCameraDescriptions from the video document.
 
 Calls the generateShotListFromScriptAI utility.
@@ -220,6 +233,19 @@ Calls the generateShotListFromScriptAI utility.
 Enrichment Step: After receiving the list from the AI, it loops through the new shot list. For each shot, it cross-references the shot's location with the project's footageInventory to build and add the availableFootage object.
 
 Saves the final, enriched shot list back to Firestore.
+
+Add Scene Workflow (Staging & Integration)
+In addition to regenerating the entire list, users can add new scenes dynamically. This workflow is designed to give users fine-grained control over the script.
+
+Initiation: The user clicks the "Add Scene" button from the ShotListViewer, which opens the AddSceneModal.
+
+Scene Definition: In the modal, the user provides details for a new scene: a location, on-camera dialogue, and an integration note for the AI.
+
+AI Snippet Generation: The handleStageScene function in VideoWorkspace.js calls the generateSceneSnippetAI utility. This AI function is given the new scene details and the context of the previous scene's dialogue to ensure a natural transition. It returns a small array of new shot objects for just that scene.
+
+Staging: The newly generated scene snippet is not added to the main shot list directly. Instead, it is added to a stagedScenes array in the VideoWorkspace state. The ShotListViewer then renders this staged scene in a separate, draggable UI element.
+
+Integration: The user can then drag the staged scene and drop it at any point in the main shot list. The handleIntegrateScene function in VideoWorkspace.js handles this, splicing the new shots into the main shotList array at the correct index and saving the updated list to Firestore.
 
 6. Implementation Patterns & Conventions
 Serverless Function Interaction Pattern
@@ -284,7 +310,7 @@ Types: The type property of the notification object can be 'success', 'error', o
 
 7. AI Integration & API Interactions
 Finer Implementation Details
-generationConfig Object: The generationConfig parameter in callGeminiAPI maps directly to the Google Gemini API's generationConfig object. This allows for precise control over the AI's output. For example, to request a JSON response, the app passes { responseMimeType: 'application/json' }. This is frequently used to ensure reliable, structured data from the AI, avoiding parsing errors from markdown-wrapped JSON. You can also pass other parameters like { "temperature": 0.9, "topK": 1 } to control creativity.
+generationConfig Object: The generationConfig parameter in callGeminiAPI maps directly to the Google Gemini API's generationConfig object. This allows for precise control over the AI's output. For example, to request a JSON response, the app passes { responseMimeType: 'application/json' }. This is frequently used to ensure reliable, structured data from the AI, avoiding parsing errors from markdown-wrapped JSON. You can also pass other parameters like { "temperature": 0.9, "topK": 1 } to control creativity. It is critical to ensure the responseMimeType requested in the generationConfig matches the output format requested in the prompt text (e.g., asking for a markdown document but requesting a JSON response type can lead to unexpected behavior).
 
 Prompt Engineering: The AI utilities (e.g., generateShotListFromScriptAI.js) follow a pattern of providing the AI with clearly separated "Source Materials" (like a voiceover script and on-camera notes) and a very explicit "Your Task" section. This has proven more effective than combining all information into a single block of text.
 
