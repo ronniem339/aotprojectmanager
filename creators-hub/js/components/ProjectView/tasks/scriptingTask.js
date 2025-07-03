@@ -297,7 +297,8 @@ const ScriptingWorkspaceModal = ({
     const isComplete = currentStage === 'complete';
     const [onCameraInputMode, setOnCameraInputMode] = useState('per-location'); // 'per-location' or 'transcript'
     const [parsedTranscript, setParsedTranscript] = useState(null);
-
+    const [locationToAdd, setLocationToAdd] = useState('');
+    
     useEffect(() => {
         setLocalTaskData(taskData);
         // Initialize onCameraInputMode from taskData if available
@@ -668,36 +669,79 @@ const ScriptingWorkspaceModal = ({
                         </div>
                     </div>
                 );
-            case 'review_parsed_transcript':
-                return (
-                    <div>
-                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Review AI-Parsed Transcript</h3>
-                        <p className="text-gray-400 mb-6">The AI has analyzed your transcript. Review the assignments and make any necessary corrections before proceeding.</p>
-                        <div className="space-y-6">
-                            {Object.entries(parsedTranscript || {}).map(([locationName, dialogues]) => (
-                                <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                    <label className="block text-gray-200 text-md font-medium mb-2">{locationName}</label>
-                                    <textarea
-                                        value={dialogues.join('\n')}
-                                        onChange={(e) => {
-                                            const newParsedTranscript = { ...parsedTranscript };
-                                            newParsedTranscript[locationName] = e.target.value.split('\n');
-                                            setParsedTranscript(newParsedTranscript);
-                                            handleDataChange('onCameraDescriptions', newParsedTranscript);
-                                        }}
-                                        rows="5"
-                                        className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
-                                    ></textarea>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-center mt-8">
-                            <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Confirm and Generate Script'}
-                            </button>
-                        </div>
+case 'review_parsed_transcript':
+    // Find which on-camera locations are not yet in the parsed transcript
+    const availableLocationsToAdd = onCameraLocationObjects.filter(loc => !(loc.name in (parsedTranscript || {})));
+
+    // Handler to add the selected location to the transcript state
+    const handleAddLocationToTranscript = () => {
+        if (locationToAdd && !((parsedTranscript || {})[locationToAdd])) {
+            // Add the new location with an empty string to start with
+            const newParsedTranscript = { ...parsedTranscript, [locationToAdd]: [''] };
+            setParsedTranscript(newParsedTranscript);
+            handleDataChange('onCameraDescriptions', newParsedTranscript);
+            setLocationToAdd(''); // Reset the dropdown
+        }
+    };
+
+    return (
+        <div>
+            <h3 className="text-xl font-semibold text-primary-accent mb-3">Review AI-Parsed Transcript</h3>
+            <p className="text-gray-400 mb-6">The AI has analyzed your transcript. Review the assignments, move dialogue, and make any necessary corrections before proceeding.</p>
+            <div className="space-y-6">
+                {Object.entries(parsedTranscript || {}).map(([locationName, dialogues]) => (
+                    <div key={locationName} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                        <label className="block text-gray-200 text-md font-medium mb-2">{locationName}</label>
+                        <textarea
+                            value={Array.isArray(dialogues) ? dialogues.join('\n') : dialogues}
+                            onChange={(e) => {
+                                const newParsedTranscript = { ...parsedTranscript };
+                                newParsedTranscript[locationName] = e.target.value.split('\n');
+                                setParsedTranscript(newParsedTranscript);
+                                handleDataChange('onCameraDescriptions', newParsedTranscript);
+                            }}
+                            rows="5"
+                            className="w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                        ></textarea>
                     </div>
-                );
+                ))}
+            </div>
+
+            {/* --- NEW UI TO ADD A LOCATION --- */}
+            {availableLocationsToAdd.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                    <h4 className="text-md font-semibold text-amber-400 mb-2">Add a Missing Location</h4>
+                    <p className="text-sm text-gray-400 mb-4">If the AI missed a location you have dialogue for, add it here.</p>
+                    <div className="flex items-center space-x-2">
+                        <select
+                            value={locationToAdd}
+                            onChange={(e) => setLocationToAdd(e.target.value)}
+                            className="form-select flex-grow bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent"
+                        >
+                            <option value="">Select a location to add...</option>
+                            {availableLocationsToAdd.map(loc => (
+                                <option key={loc.place_id} value={loc.name}>{loc.name}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={handleAddLocationToTranscript}
+                            disabled={!locationToAdd}
+                            className="button-secondary-small disabled:opacity-50"
+                        >
+                            Add Location
+                        </button>
+                    </div>
+                </div>
+            )}
+            {/* --- END OF NEW UI --- */}
+
+            <div className="text-center mt-8">
+                <button onClick={() => handleAction(onGenerateFullScript, localTaskData, onCameraInputMode)} disabled={isLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg">
+                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Confirm and Generate Script'}
+                </button>
+            </div>
+        </div>
+    );
             case 'refined_plan_review':
                 return (
                     <div>
