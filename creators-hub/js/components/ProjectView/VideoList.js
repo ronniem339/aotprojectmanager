@@ -96,7 +96,7 @@ window.VideoList = ({ videos, activeVideoId, onSelectVideo, onEditVideo, onReord
                                     
                                     {/* Video Info and Progress - This container will grow and allow text to truncate */}
                                     <div className="flex-grow min-w-0 text-left">
-                                        <p className={`font-semibold text-sm leading-tight truncate ${isActive ? 'text-gray-900' : 'text-white'}`}>{video.chosenTitle || video.title}</p>
+                                        <p className={`font-semibold text-sm leading-normal ${isActive ? 'text-gray-900' : 'text-white'}`}>{video.chosenTitle || video.title}</p>
                                         <div className={`w-full rounded-full h-1 mt-1 ${isActive ? 'bg-black/20' : 'bg-gray-600'}`}>
                                             <div className="bg-green-500 h-1 rounded-full" style={{width: `${progress}%`}}></div>
                                         </div>
