@@ -288,13 +288,15 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
 
                 {/* Left Sidebar: Video List */}
                 {!isSingleVideoProject && (
-                   <aside className={`
-    ${isLeftSidebarOpen ? 'block md:w-2/5 lg:w-1/3 xl:w-1/4 p-4 md:p-0' : 'hidden'}
-    absolute md:static inset-0 md:inset-auto
-    bg-gray-900 md:bg-transparent z-20 md:z-auto
-    h-full flex-shrink-0
-    transition-transform duration-300 ease-in-out
-`}>
+                    <aside className={`
+                        ${isLeftSidebarOpen ? 'block' : 'hidden'}
+                        ${!activeVideo ? 'w-full' : 'md:w-2/5 lg:w-1/3 xl:w-1/4'}
+                        absolute md:static inset-0 md:inset-auto
+                        bg-gray-900 md:bg-transparent z-20 md:z-auto
+                        p-4 md:p-0
+                        h-full flex-shrink-0
+                        transition-all duration-300 ease-in-out
+                    `}>
                         <div className="bg-gray-800 border border-gray-700 rounded-lg h-full flex flex-col">
                            <window.VideoList
                                 videos={videos}
@@ -324,7 +326,10 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                 )}
 
                 {/* Main Content Area: Workspace + Details */}
-                <div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
+                <div className={`
+                    flex-1 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden
+                    ${!activeVideo && !isSingleVideoProject ? 'hidden' : ''}
+                `}>
                     {activeVideo ? (
                         <>
                             {/* Workspace */}
