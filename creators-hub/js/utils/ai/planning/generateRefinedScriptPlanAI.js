@@ -90,7 +90,7 @@ Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown 
 `;
 
     try {
-        const response = await window.aiUtils.callGeminiAPI(prompt, settings);
+       const response = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
         // The Gemini API returns the response in a structured format.
         // We are expecting a simple string response for this function.
         // No special parsing is needed if the AI follows the prompt correctly.
