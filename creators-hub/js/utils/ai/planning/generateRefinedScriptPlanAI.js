@@ -95,8 +95,12 @@ Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown 
         // We are expecting a simple string response for this function.
         // No special parsing is needed if the AI follows the prompt correctly.
         return { refinedScriptPlan: response };
-    } catch (error) {
-        console.error("Error in generateRefinedScriptPlanAI:", error);
-throw new Error(`Failed to generate refined script plan. ${error.message}`);
-    }
+   } catch (error) {
+    console.error("Error in generateRefinedScriptPlanAI:", error);
+
+    // TEMPORARY DEBUGGING LINE
+    console.log("Full raw error object:", error);
+
+    throw new Error(`Failed to generate refined script plan. ${error.message}`);
+}
 };
