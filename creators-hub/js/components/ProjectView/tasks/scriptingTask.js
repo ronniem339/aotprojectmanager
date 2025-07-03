@@ -1160,66 +1160,71 @@ const handleOpenWorkspace = async (startStage = null) => {
         });
     };
 
-    const handleGenerateFullScript = async (currentTaskData, inputMode) => {
-        const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
-            `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
-        ).join('\n\n');
+   const handleGenerateFullScript = async (currentTaskData, inputMode) => {
+    const answersText = (currentTaskData.locationQuestions || []).map((q, index) =>
+        `Q: ${q.question}\nA: ${(currentTaskData.userExperiences || {})[index] || 'No answer.'}`
+    ).join('\n\n');
 
-        let onCameraDescriptionsToUse = {};
-        if (inputMode === 'transcript') {
-            // Transform parsedTranscript (object with arrays) into object with joined strings
-            for (const locationName in currentTaskData.onCameraDescriptions) {
-                if (Array.isArray(currentTaskData.onCameraDescriptions[locationName])) {
-                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName].join('\n');
-                } else {
-                    onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName];
-                }
-            }
+    let onCameraDescriptionsToUse = {};
+    // Consolidate on-camera descriptions into strings
+    for (const locationName in currentTaskData.onCameraDescriptions) {
+        if (Array.isArray(currentTaskData.onCameraDescriptions[locationName])) {
+            onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName].join('\n');
         } else {
-            onCameraDescriptionsToUse = { ...currentTaskData.onCameraDescriptions };
-            for (const key in onCameraDescriptionsToUse) {
-                if (!currentTaskData.onCameraLocations.includes(key)) {
-                    delete onCameraDescriptionsToUse[key];
-                }
-            }
+            onCameraDescriptionsToUse[locationName] = currentTaskData.onCameraDescriptions[locationName];
         }
+    }
+    
+    let planToUse = currentTaskData.scriptPlan;
 
-        // First, generate the refined script plan
-        const refinedPlanResponse = await window.aiUtils.generateRefinedScriptPlanAI({
-            scriptPlan: currentTaskData.scriptPlan,
-            onCameraDescriptions: onCameraDescriptionsToUse,
-            videoTitle: video.chosenTitle || video.title,
-            settings: settings,
-        });
+    // --- START OF FIX ---
+    // If coming from the transcript review, the original plan is stale.
+    // Create a new, simple plan based on the corrected on-camera locations.
+    if (inputMode === 'transcript') {
+        const onCameraLocations = Object.keys(onCameraDescriptionsToUse).filter(k => onCameraDescriptionsToUse[k].trim() !== '');
+        planToUse = `A video that features on-camera segments at the following locations: ${onCameraLocations.join(', ')}. The script should flow between these segments, with voiceover connecting them.`;
+        
+        // Also update the plan in the database for consistency in future steps
+        await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': planToUse });
+    }
+    // --- END OF FIX ---
 
-        if (!refinedPlanResponse || typeof refinedPlanResponse.refinedScriptPlan !== 'string') {
-            throw new Error("The AI failed to generate the refined script plan.");
-        }
+    // First, generate the refined script plan using the fresh plan
+    const refinedPlanResponse = await window.aiUtils.generateRefinedScriptPlanAI({
+        scriptPlan: planToUse, // Use the new, correct plan
+        onCameraDescriptions: onCameraDescriptionsToUse,
+        videoTitle: video.chosenTitle || video.title,
+        settings: settings,
+    });
 
-        // Update the task data with the new refined plan
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.refinedScriptPlan': refinedPlanResponse.refinedScriptPlan,
-            'tasks.scriptingStage': 'refined_plan_review',
-        });
+    if (!refinedPlanResponse || typeof refinedPlanResponse.refinedScriptPlan !== 'string') {
+        throw new Error("The AI failed to generate the refined script plan.");
+    }
 
-        // Now, generate the final script using the refined plan
-        const response = await window.aiUtils.generateFinalScriptAI({
-            scriptPlan: refinedPlanResponse.refinedScriptPlan, // Use the refined plan here
-            userAnswers: answersText,
-            videoTitle: video.chosenTitle || video.title,
-            settings: settings,
-            onCameraDescriptions: onCameraDescriptionsToUse
-        });
+    // Update the task data with the new refined plan before generating the final script
+    await onUpdateTask('scripting', 'in-progress', {
+        'tasks.refinedScriptPlan': refinedPlanResponse.refinedScriptPlan,
+        'tasks.scriptingStage': 'refined_plan_review',
+    });
 
-        if (!response || typeof response.finalScript !== 'string') {
-            throw new Error("The AI failed to generate the final script. Please try again.");
-        }
+    // Now, generate the final script using the refined plan
+    const response = await window.aiUtils.generateFinalScriptAI({
+        scriptPlan: refinedPlanResponse.refinedScriptPlan, // Use the newly generated refined plan
+        userAnswers: answersText,
+        videoTitle: video.chosenTitle || video.title,
+        settings: settings,
+        onCameraDescriptions: onCameraDescriptionsToUse
+    });
 
-        await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptingStage': 'full_script_review',
-            'script': response.finalScript
-        });
-    };
+    if (!response || typeof response.finalScript !== 'string') {
+        throw new Error("The AI failed to generate the final script. Please try again.");
+    }
+
+    await onUpdateTask('scripting', 'in-progress', {
+        'tasks.scriptingStage': 'full_script_review',
+        'script': response.finalScript
+    });
+};
 
     const handleRefineScript = async (currentTaskData) => {
         try {
