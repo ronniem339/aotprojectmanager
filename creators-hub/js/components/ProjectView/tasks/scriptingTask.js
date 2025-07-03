@@ -892,6 +892,19 @@ case 'review_parsed_transcript': {
     );
 };
 window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
+    const getFootageNotes = () => {
+        if (!project.footageInventory) return '';
+        return Object.values(project.footageInventory)
+            .filter(details => (video.locations_featured || []).includes(details.name)) // Only include locations featured in this video
+            .map(details => {
+                const footageTypes = [];
+                if (details.bRoll) footageTypes.push('B-Roll');
+                if (details.onCamera) footageTypes.push('On-Camera');
+                if (details.drone) footageTypes.push('Drone');
+                return `- **${details.name}:** Available Footage: ${footageTypes.join(', ') || 'None'}`;
+            })
+            .join('\n');
+    };
     const [showWorkspace, setShowWorkspace] = useState(false);
     const [workspaceStageOverride, setWorkspaceStageOverride] = useState(null);
     const [locationToModify, setLocationToModify] = useState(null);
@@ -1018,13 +1031,13 @@ const handleOpenWorkspace = async (startStage = null) => {
         });
     };
 
-   const handleGenerateDraftOutline = async (currentTaskData) => {
+const handleGenerateDraftOutline = async (currentTaskData) => {
         const answersText = (currentTaskData.initialQuestions || []).map((q, index) =>
             `Q: ${q}\nA: ${(currentTaskData.initialAnswers || {})[index] || 'No answer.'}`
         ).join('\n\n');
 
-        // Add this line to get the storytelling knowledge
         const storytellingKnowledge = settings.knowledgeBases?.storytelling?.videoStorytellingPrinciples || '';
+        const footageNotes = getFootageNotes(); // Get the footage notes
 
         await onUpdateTask('scripting', 'in-progress', { 'tasks.initialAnswers': currentTaskData.initialAnswers });
 
@@ -1033,8 +1046,9 @@ const handleOpenWorkspace = async (startStage = null) => {
             videoConcept: video.concept,
             initialThoughts: currentTaskData.initialThoughts,
             initialAnswers: answersText,
-            storytellingKnowledge: storytellingKnowledge, // Add this line
-            settings: settings
+            storytellingKnowledge: storytellingKnowledge,
+            settings: settings,
+            footageNotes: footageNotes // Pass the footage notes
         });
 
         if (!response || typeof response.draftOutline !== 'string') {
@@ -1123,7 +1137,7 @@ const handleOpenWorkspace = async (startStage = null) => {
         });
     };
 
-    const handleGenerateRefinedScriptPlan = async (currentTaskData, inputMode) => {
+const handleGenerateRefinedScriptPlan = async (currentTaskData, inputMode) => {
         let onCameraDescriptionsToUse = {};
         if (inputMode === 'transcript') {
             // Transform parsedTranscript (object with arrays) into object with joined strings
@@ -1143,11 +1157,14 @@ const handleOpenWorkspace = async (startStage = null) => {
             }
         }
 
+        const footageNotes = getFootageNotes(); // Get the footage notes
+
         const response = await window.aiUtils.generateRefinedScriptPlanAI({
             scriptPlan: currentTaskData.scriptPlan,
             onCameraDescriptions: onCameraDescriptionsToUse,
             videoTitle: video.chosenTitle || video.title,
             settings: settings,
+            footageNotes: footageNotes // Pass the footage notes
         });
 
         if (!response || typeof response.refinedScriptPlan !== 'string') {
