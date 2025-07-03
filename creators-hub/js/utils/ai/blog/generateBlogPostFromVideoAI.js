@@ -43,8 +43,7 @@ window.aiUtils.blog.generateBlogPostFromVideo = async (video, settings, knowledg
     `;
 
     try {
-        // CORRECTED: Call the correct utility function and pass isComplex: false
-        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, false);
+        return await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
     } catch (error) {
         console.error('Error generating blog post JSON from video:', error);
         throw new Error('Failed to generate the blog post from the video script.');
