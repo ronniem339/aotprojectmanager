@@ -680,20 +680,28 @@ case 'review_parsed_transcript': {
         }
     };
 
-    // List 1: On-camera locations for THIS video that are not yet on screen
-    const videoLocationsNotOnScreen = onCameraLocationObjects.filter(loc => !(loc.name in (parsedTranscript || {})));
+    const locationsOnScreen = Object.keys(parsedTranscript || {});
 
-    // List 2: Other on-camera locations from the project
-    const allProjectOnCameraLocations = (project.locations || []).filter(projLoc => {
-        const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === projLoc.name);
-        return inventoryItem && inventoryItem.onCamera;
-    });
+    // List 1: Locations featured in THIS video that are not yet on screen
+    const videoFeaturedNotOnScreen = (video.locations_featured || [])
+        .filter(name => !locationsOnScreen.includes(name))
+        .map(name => project.locations.find(pLoc => pLoc.name === name))
+        .filter(Boolean);
 
-    const otherProjectLocations = allProjectOnCameraLocations.filter(loc => {
-        const alreadyOnScreen = loc.name in (parsedTranscript || {});
-        const inVideoList = videoLocationsNotOnScreen.some(videoLoc => videoLoc.name === loc.name);
-        return !alreadyOnScreen && !inVideoList;
-    });
+    const videoFeaturedNames = new Set(video.locations_featured || []);
+
+    // List 2: Other on-camera locations from the project (that aren't in the video's list and aren't on screen)
+    const otherProjectOnCameraLocations = (project.locations || [])
+        .filter(loc => {
+            if (!loc || !loc.name) return false;
+            // Exclude if it's a featured location for this video (it would be in List 1)
+            if (videoFeaturedNames.has(loc.name)) return false;
+            // Exclude if it's already being displayed on screen
+            if (locationsOnScreen.includes(loc.name)) return false;
+            // Only include if it's designated as on-camera in the project inventory
+            const inventoryItem = Object.values(project.footageInventory || {}).find(inv => inv.name === loc.name);
+            return inventoryItem && inventoryItem.onCamera;
+        });
 
     return (
         <div>
@@ -718,7 +726,8 @@ case 'review_parsed_transcript': {
                 ))}
             </div>
 
-            {(videoLocationsNotOnScreen.length > 0 || otherProjectLocations.length > 0) && (
+            {/* Dropdown UI to add a missing location */}
+            {(videoFeaturedNotOnScreen.length > 0 || otherProjectOnCameraLocations.length > 0) && (
                 <div className="mt-8 pt-6 border-t border-gray-700">
                     <h4 className="text-md font-semibold text-amber-400 mb-2">Add a Missing Location</h4>
                     <p className="text-sm text-gray-400 mb-4">If the AI missed a location you have dialogue for, add it here.</p>
@@ -730,17 +739,17 @@ case 'review_parsed_transcript': {
                         >
                             <option value="">Select a location to add...</option>
                             
-                            {videoLocationsNotOnScreen.length > 0 && (
+                            {videoFeaturedNotOnScreen.length > 0 && (
                                 <optgroup label="Locations in this Video">
-                                    {videoLocationsNotOnScreen.map(loc => (
+                                    {videoFeaturedNotOnScreen.map(loc => (
                                         <option key={loc.place_id} value={loc.name}>{loc.name}</option>
                                     ))}
                                 </optgroup>
                             )}
 
-                            {otherProjectLocations.length > 0 && (
+                            {otherProjectOnCameraLocations.length > 0 && (
                                 <optgroup label="Other Project Locations">
-                                    {otherProjectLocations.map(loc => (
+                                    {otherProjectOnCameraLocations.map(loc => (
                                         <option key={loc.place_id} value={loc.name}>{loc.name}</option>
                                     ))}
                                 </optgroup>
