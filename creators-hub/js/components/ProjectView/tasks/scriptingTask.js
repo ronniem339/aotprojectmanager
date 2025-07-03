@@ -1210,12 +1210,16 @@ await onUpdateTask('scripting', 'in-progress', {
     // --- END OF FIX ---
 
     // First, generate the refined script plan using the fresh plan
-    const refinedPlanResponse = await window.aiUtils.generateRefinedScriptPlanAI({
-        scriptPlan: planToUse, // Use the new, correct plan
-        onCameraDescriptions: onCameraDescriptionsToUse,
-        videoTitle: video.chosenTitle || video.title,
-        settings: settings,
-    });
+// New, corrected code
+const footageNotes = getFootageNotes(); // Get the footage notes here as well
+
+const refinedPlanResponse = await window.aiUtils.generateRefinedScriptPlanAI({
+    scriptPlan: planToUse, // Use the new, correct plan
+    onCameraDescriptions: onCameraDescriptionsToUse,
+    videoTitle: video.chosenTitle || video.title,
+    settings: settings,
+    footageNotes: footageNotes // Pass the footage notes
+});
 
     if (!refinedPlanResponse || typeof refinedPlanResponse.refinedScriptPlan !== 'string') {
         throw new Error("The AI failed to generate the refined script plan.");
