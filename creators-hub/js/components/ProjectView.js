@@ -69,15 +69,6 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Intelligently manage the visibility of the right details sidebar
-    useEffect(() => {
-        if (isTabletOrLarger && activeVideo) {
-            setIsRightSidebarVisible(true);
-        } else if (!isTabletOrLarger) {
-            // On smaller screens, the right sidebar should be explicitly toggled, not automatic.
-            // By not setting it to false here, we preserve the user's choice to open it.
-        }
-    }, [isTabletOrLarger, activeVideo]);
 
     // Fetch all project and video data from Firestore
     useEffect(() => {
