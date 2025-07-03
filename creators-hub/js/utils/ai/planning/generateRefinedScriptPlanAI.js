@@ -1,33 +1,8 @@
-// creators-hub/js/utils/ai/planning/generateRefinedScriptPlanAI.js
-
-/**
- * @fileoverview
- * This file contains the AI utility function for generating a refined script plan
- * that integrates on-camera dialogue and actions into the existing video outline.
- * This step is crucial for ensuring the final voiceover script flows naturally
- * with the pre-recorded on-camera segments.
- */
-
-/**
- * Takes an initial script plan and on-camera descriptions to create a more
- * detailed, integrated plan for the final script generation.
- *
- * @param {object} options - The options for the AI call.
- * @param {string} options.scriptPlan - The existing high-level script plan or outline.
- * @param {object} options.onCameraDescriptions - An object where keys are location names
- * and values are strings describing the on-camera action or dialogue at that location.
- * @param {string} options.videoTitle - The title of the video.
- * @param {object} options.settings - The application settings, including the style guide.
- *
- * @returns {Promise<{refinedScriptPlan: string}>} A promise that resolves to an object
- * containing the refined script plan.
- */
-window.aiUtils.generateRefinedScriptPlanAI = async ({ scriptPlan, onCameraDescriptions, videoTitle, settings }) => {
+window.aiUtils.generateRefinedScriptPlanAI = async ({ scriptPlan, onCameraDescriptions, videoTitle, settings, footageNotes }) => {
     console.log("AI: Generating refined script plan with on-camera details.", { scriptPlan, onCameraDescriptions, videoTitle });
 
     const styleGuidePrompt = window.aiUtils.getStyleGuidePrompt(settings);
 
-    // FIX: Replaced single quotes with backticks for the multi-line template literal.
     const onCameraNotes = Object.entries(onCameraDescriptions)
         .map(([location, description]) => `
 ---
@@ -38,33 +13,38 @@ ${description}
 `).join('\n');
 
     const prompt = `
-You are an expert video scriptwriter and producer. Your task is to refine a video script plan to seamlessly integrate pre-recorded on-camera segments.
+You are an expert video producer. Your task is to create a detailed, integrated script plan from a high-level outline, on-camera notes, and a footage inventory.
 
 **Video Title:** "${videoTitle}"
-
-**Style Guide:**
 ${styleGuidePrompt}
 
 **High-Level Script Plan:**
-This is the original plan for the video's structure and narrative flow.
+This is the approved narrative structure. You MUST include every part of this plan in your final output.
 \`\`\`
 ${scriptPlan}
 \`\`\`
 
+**Footage Inventory:**
+This is a list of all available locations and the type of footage for each (On-Camera, B-Roll, Drone).
+\`\`\`
+${footageNotes}
+\`\`\`
+
 **On-Camera Segments:**
-These are the segments that have already been filmed, featuring a person on camera. You must build the voiceover script around them. The voiceover should connect these on-camera parts, provide context, and cover other parts of the video (like b-roll or drone shots) as outlined in the high-level plan.
+These are notes for segments where a host is on camera.
 \`\`\`
 ${onCameraNotes}
 \`\`\`
 
 **Your Task:**
-Review the high-level plan and the specific on-camera segments. Then, create a **Refined Script Plan**. This new plan should be a detailed, scene-by-scene outline for the *entire* video, explicitly marking where the on-camera segments fit and what the voiceover should cover in between.
+Create a "Refined Script Plan". This plan must be a comprehensive, scene-by-scene guide for the entire video.
 
 **Refined Script Plan Requirements:**
-1.  **Integrate, Don't Just List:** Don't just place the on-camera notes in the outline. Describe how the voiceover will lead into and out of them.
-2.  **Maintain Flow:** The final plan must follow a logical and engaging narrative structure based on the original high-level plan.
-3.  **Explicit Voiceover (VO) and On-Camera cues:** Clearly label which parts are [VOICEOVER] and which are [ON-CAMERA: Location Name].
-4.  **Comprehensive:** The refined plan must cover the entire video from start to finish.
+1.  **Comprehensive:** Every scene and location from the "High-Level Script Plan" MUST be present in your output.
+2.  **Integrate On-Camera:** Seamlessly weave the "On-Camera Segments" into the plan.
+3.  **Create Voiceover for Other Footage:** For locations that are NOT on-camera (e.g., those with only B-Roll or Drone footage), you must write a [VOICEOVER] section. Use the "High-Level Script Plan" and "Footage Inventory" to guide what the voiceover should be about.
+4.  **Maintain Flow:** Ensure a logical and engaging narrative.
+5.  **Explicit Cues:** Clearly label all parts as [VOICEOVER] or [ON-CAMERA: Location Name].
 
 **Output:**
 Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown document. This plan will be the definitive blueprint for the final scriptwriter.
@@ -90,15 +70,11 @@ Provide only the "Refined Script Plan" as a structured, easy-to-follow markdown 
 `;
 
     try {
-const response = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
-        // The Gemini API returns the response in a structured format.
+        const response = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" }, true);
         return { refinedScriptPlan: response };
-   } catch (error) {
-    console.error("Error in generateRefinedScriptPlanAI:", error);
-
-    // TEMPORARY DEBUGGING LINE
-    console.log("Full raw error object:", error);
-
-    throw new Error(`Failed to generate refined script plan. ${error.message}`);
-}
+    } catch (error) {
+        console.error("Error in generateRefinedScriptPlanAI:", error);
+        console.log("Full raw error object:", error);
+        throw new Error(`Failed to generate refined script plan. ${error.message}`);
+    }
 };
