@@ -1185,7 +1185,10 @@ const handleOpenWorkspace = async (startStage = null) => {
         planToUse = `A video that features on-camera segments at the following locations: ${onCameraLocations.join(', ')}. The script should flow between these segments, with voiceover connecting them.`;
         
         // Also update the plan in the database for consistency in future steps
-        await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': planToUse });
+await onUpdateTask('scripting', 'in-progress', {
+    'tasks.scriptPlan': planToUse,
+    'tasks.onCameraDescriptions': currentTaskData.onCameraDescriptions
+});
     }
     // --- END OF FIX ---
 
