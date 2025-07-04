@@ -9,9 +9,6 @@ const simpleUUID = () => ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
   (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
 );
 
-// **FIX:** The logic from getStyleGuidePrompt and callGeminiAPI has been moved directly into this file
-// to prevent script loading errors and to correctly handle props.
-
 const getLocalStyleGuidePrompt = (settings) => {
     const styleGuide = settings.knowledgeBases?.style?.styleGuide || {};
     const {
@@ -50,12 +47,7 @@ const getLocalStyleGuidePrompt = (settings) => {
     return prompt;
 };
 
-// **THE FUNDAMENTAL FIX IS HERE**
-// The function now accepts the `settings` object as a parameter.
 const callLocalGeminiAPI = async (prompt, settings, jsonSchema = null) => {
-    // It now correctly gets the API key from the passed-in settings object,
-    // falling back to the global config only if necessary. This matches the
-    // pattern of the other working AI functions.
     const apiKey = settings?.geminiApiKey || window.CREATOR_HUB_CONFIG.GEMINI_API_KEY;
     if (!apiKey) {
         throw new Error("Gemini API key is not configured.");
@@ -139,7 +131,7 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
         - **Title:** ${video.title}
         - **Featured Locations:** ${(video.locations_featured || []).join(', ')}
         - **Available Footage Notes:**
-        ${footageNotes || 'No specific footage notes provided.'}
+        ${footageNotes || 'No specific footage notes provided. Do not assume any footage exists unless it is listed here.'}
 
         **Creator's Initial Brain Dump:**
         ---
@@ -150,7 +142,7 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
         Based on all the information above, create a structured Creative Blueprint. The blueprint must be a list of scenes, and each scene must contain a list of shots.
         1.  **Analyze the Brain Dump:** Identify the core message, key points, and narrative goal.
         2.  **Structure the Narrative:** Create a logical story flow with a hook, rising action, and a conclusion. Assign a "scene_narrative_purpose" to each scene that reflects its role in the story.
-        3.  **Create Shots:** For each scene, create a sequence of shots. A shot can be a "Wide Drone Shot", "On-Camera Dialogue", "B-Roll Detail Shot", "Walking and Talking", etc. Be specific.
+        3.  **Create Shots:** For each scene, create a sequence of shots. A shot can be a "Wide B-Roll Shot", "On-Camera Dialogue", "B-Roll Detail Shot", "Walking and Talking", etc. Be specific. **Crucially, you MUST only suggest shot types that are explicitly mentioned as available in the "Available Footage Notes" for a given location. Do NOT invent footage types (like "Drone Shot") if they are not listed for that location.**
         4.  **Describe the Visuals:** For each shot, write a clear "shot_description".
         5.  **Estimate Timing:** Provide a rough time estimate in seconds for each shot.
         6.  **Adhere to the JSON Schema:** Your final output MUST be a JSON object that strictly follows the provided schema. Ensure every required field is present. Generate unique UUIDs for shot_id and scene_id.
@@ -183,7 +175,6 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
       required: ["shots"]
     };
 
-    // We now pass the settings object to the local API function.
     const response = await callLocalGeminiAPI(prompt, settings, responseSchema);
 
     // Add unique IDs to the response shots as a fallback
