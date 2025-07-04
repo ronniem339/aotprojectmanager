@@ -1,15 +1,70 @@
 // creators-hub/js/utils/ai/scriptingV2/generateScriptFromBlueprintAI.js
 
-// This is the final and most crucial AI function in the V2 workflow.
-// It acts as a master scriptwriter, taking the entire populated blueprint
-// and generating a cohesive, flowing voiceover script that connects all the elements.
+// **FIX:** The logic from getStyleGuidePrompt and callGeminiAPI has been moved directly into this file
+// to prevent script loading errors and to correctly handle props.
+
+const getLocalStyleGuidePrompt = (settings) => {
+    const styleGuide = settings.knowledgeBases?.style?.styleGuide || {};
+    const { videoTone, videoStyle, speakingStyle, humorLevel, targetAudience, keyTerminology, thingsToAvoid, outroMessage, brandVoice, pacing, visualStyle, musicStyle } = styleGuide;
+    let prompt = "## Creator's Style Guide & Tone\n\n";
+    if (brandVoice) prompt += `**Overall Brand Voice:** ${brandVoice}\n`;
+    if (videoTone) prompt += `**Video Tone:** ${videoTone}\n`;
+    if (videoStyle) prompt += `**Video Style:** ${videoStyle}\n`;
+    if (speakingStyle) prompt += `**Speaking Style:** ${speakingStyle}\n`;
+    if (humorLevel) prompt += `**Humor Level:** ${humorLevel}\n`;
+    if (pacing) prompt += `**Pacing:** ${pacing}\n`;
+    if (targetAudience) prompt += `**Target Audience:** ${targetAudience}\n`;
+    if (keyTerminology) prompt += `**Key Terminology to Use:** ${keyTerminology}\n`;
+    if (thingsToAvoid) prompt += `**Things to Avoid:** ${thingsToAvoid}\n`;
+    if (outroMessage) prompt += `**Standard Outro Message:** ${outroMessage}\n\n`;
+    if(visualStyle) prompt += `**Visual Style:** ${visualStyle}\n`;
+    if(musicStyle) prompt += `**Music Style:** ${musicStyle}\n`;
+    if (prompt === "## Creator's Style Guide & Tone\n\n") {
+        prompt += "No specific style guide provided. Use a generally engaging, clear, and informative tone suitable for a YouTube travel documentary.";
+    }
+    return prompt;
+};
+
+const callLocalGeminiAPI = async (prompt, settings, jsonSchema = null) => {
+    const apiKey = settings?.geminiApiKey || window.CREATOR_HUB_CONFIG.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("Gemini API key is not configured.");
+    }
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const requestBody = { contents: [{ parts: [{ text: prompt }] }], generationConfig: {} };
+    if (jsonSchema) {
+        requestBody.generationConfig.response_mime_type = "application/json";
+        requestBody.generationConfig.response_schema = jsonSchema;
+    }
+    try {
+        const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
+        if (!response.ok) {
+            const errorBody = await response.json();
+            console.error("Gemini API Error Response:", errorBody);
+            throw new Error(`API request failed with status ${response.status}: ${errorBody.error?.message || 'Unknown error'}`);
+        }
+        const data = await response.json();
+        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!responseText) {
+            console.error("Invalid response structure from Gemini API:", data);
+            throw new Error("Failed to parse response from the AI. The response was empty or in an unexpected format.");
+        }
+        if (jsonSchema) {
+            return JSON.parse(responseText);
+        }
+        return responseText;
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        throw error;
+    }
+};
+
 
 window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) => {
     console.log("Assembling final script from blueprint...");
 
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    const styleGuidePrompt = getLocalStyleGuidePrompt(settings);
 
-    // We'll stringify the blueprint to pass it to the AI.
     const blueprintString = JSON.stringify(blueprint.shots, null, 2);
 
     const prompt = `
@@ -40,7 +95,6 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
         Your final output MUST be a JSON object that strictly matches the input blueprint schema. The only difference is that the 'voiceover_script' fields should now be populated with your generated script.
     `;
 
-    // The response schema is the same as the input schema.
     const responseSchema = {
       type: "OBJECT",
       properties: {
@@ -68,9 +122,8 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
       required: ["shots"]
     };
 
-    const response = await window.callGeminiAPI(prompt, responseSchema);
+    const response = await callLocalGeminiAPI(prompt, settings, responseSchema);
 
-    // We can add the initial thoughts back in for data completeness, as it's not part of the AI's direct output.
     if (response && blueprint.initialThoughts) {
         response.initialThoughts = blueprint.initialThoughts;
     }
