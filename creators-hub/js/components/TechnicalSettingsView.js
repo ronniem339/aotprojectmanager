@@ -3,13 +3,19 @@
 const { useState, useEffect } = React;
 
 window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
+    // This state now holds ALL settings, including the new V2 ones.
     const [localSettings, setLocalSettings] = useState({
         geminiApiKey: '',
         googleMapsApiKey: '',
         youtubeApiKey: '',
+        // V1 settings
         useProModelForComplexTasks: false,
         flashModelName: '',
-        proModelName: ''
+        proModelName: '',
+        // NEW: V2 settings
+        useProForV2HeavyTasks: true,
+        defaultV2StandardModel: 'lite',
+        liteModelName: ''
     });
 
     // State for the deduplication tool
@@ -27,9 +33,14 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                 geminiApiKey: settings.geminiApiKey || '',
                 googleMapsApiKey: settings.googleMapsApiKey || '',
                 youtubeApiKey: settings.youtubeApiKey || '',
+                // V1 settings
                 useProModelForComplexTasks: settings.useProModelForComplexTasks || false,
-                flashModelName: settings.flashModelName || 'gemini-1.5-flash-latest',
-                proModelName: settings.proModelName || 'gemini-1.5-pro-latest'
+                flashModelName: settings.models?.flash || 'gemini-1.5-flash-latest',
+                proModelName: settings.models?.pro || 'gemini-1.5-pro-latest',
+                // NEW: Initialize V2 settings from the main settings object
+                useProForV2HeavyTasks: settings.technical?.useProForV2HeavyTasks !== undefined ? settings.technical.useProForV2HeavyTasks : true,
+                defaultV2StandardModel: settings.technical?.defaultV2StandardModel || 'lite',
+                liteModelName: settings.models?.lite || 'gemini-1.5-flash-lite-001'
             });
         }
     }, [settings]);
@@ -41,7 +52,29 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     };
 
     const handleSaveAll = () => {
-        onSave({ ...settings, ...localSettings });
+        // This function now correctly structures the settings object for saving.
+        const updatedSettings = {
+            ...settings,
+            geminiApiKey: localSettings.geminiApiKey,
+            googleMapsApiKey: localSettings.googleMapsApiKey,
+            youtubeApiKey: localSettings.youtubeApiKey,
+            // V1 setting
+            useProModelForComplexTasks: localSettings.useProModelForComplexTasks,
+            // NEW: Add V2 settings to the technical object
+            technical: {
+                ...settings.technical,
+                useProForV2HeavyTasks: localSettings.useProForV2HeavyTasks,
+                defaultV2StandardModel: localSettings.defaultV2StandardModel,
+            },
+            models: {
+                ...settings.models,
+                flash: localSettings.flashModelName,
+                pro: localSettings.proModelName,
+                // NEW: Add lite model to the models object
+                lite: localSettings.liteModelName,
+            }
+        };
+        onSave(updatedSettings);
     };
 
     const handleRunDeduplicator = async () => {
@@ -91,7 +124,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                         </div>
                     </div>
                     <div className="mt-10 pt-8 border-t border-gray-700">
-                        <h2 className="text-2xl font-semibold mb-2">AI Model Configuration</h2>
+                        <h2 className="text-2xl font-semibold mb-2">AI Model Configuration (Legacy)</h2>
                         <div className="space-y-6">
                             <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
                                 <span className="text-md font-medium text-white">Use Pro Model for Complex Tasks</span>
@@ -101,12 +134,39 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                                 </label>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name</label>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name (Legacy)</label>
                                 <input type="text" name="flashModelName" value={localSettings.flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
                             </div>
                              <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name</label>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name (Legacy)</label>
                                 <input type="text" name="proModelName" value={localSettings.proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* NEW: Scripting V2 Settings Section */}
+                    <div className="mt-10 pt-8 border-t border-gray-700">
+                        <h2 className="text-2xl font-semibold mb-2">Scripting V2 Model Configuration</h2>
+                        <p className="text-gray-400 mb-4 text-sm">Configure the tiered AI models specifically for the new Scripting V2 workflow.</p>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
+                                <span className="text-md font-medium text-white">Use Pro for Heavy V2 Tasks</span>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="useProForV2HeavyTasks" checked={localSettings.useProForV2HeavyTasks} onChange={handleChange} className="sr-only peer" />
+                                    <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent"></div>
+                                </label>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Default Model for Standard V2 Tasks</label>
+                                <select name="defaultV2StandardModel" value={localSettings.defaultV2StandardModel} onChange={handleChange} className="w-full form-input">
+                                    <option value="lite">Flash Lite (Fastest, Lowest Cost)</option>
+                                    <option value="flash">Flash (Balanced)</option>
+                                </select>
+                                <p className="text-xs text-gray-400 mt-1">Select the model for tasks like AI Research and generating Experience Questions.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Lite Model Name</label>
+                                <input type="text" name="liteModelName" value={localSettings.liteModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-lite-001"/>
                             </div>
                         </div>
                     </div>
@@ -136,9 +196,9 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                         </p>
                         {!isDeduplicating && !deduplicationSuccess && (
                             <button 
-                              onClick={handleRunDeduplicator} 
-                              className="btn btn-secondary"
-                              disabled={!isConnectionReady}
+                                onClick={handleRunDeduplicator} 
+                                className="btn btn-secondary"
+                                disabled={!isConnectionReady}
                             >
                                 {isConnectionReady ? 'Find & Remove Duplicates' : 'Connecting...'}
                             </button>
