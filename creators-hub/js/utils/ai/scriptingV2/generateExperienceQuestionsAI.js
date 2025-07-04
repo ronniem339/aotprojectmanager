@@ -1,13 +1,69 @@
 // creators-hub/js/utils/ai/scriptingV2/generateExperienceQuestionsAI.js
 
-// This AI utility function acts as a creative partner, generating targeted
-// questions to help the creator inject their personal experience and
-// unique perspective into the script for a specific shot.
+// **FIX:** The logic from getStyleGuidePrompt and callGeminiAPI has been moved directly into this file
+// to prevent script loading errors and to correctly handle props.
+
+const getLocalStyleGuidePrompt = (settings) => {
+    const styleGuide = settings.knowledgeBases?.style?.styleGuide || {};
+    const { videoTone, videoStyle, speakingStyle, humorLevel, targetAudience, keyTerminology, thingsToAvoid, outroMessage, brandVoice, pacing, visualStyle, musicStyle } = styleGuide;
+    let prompt = "## Creator's Style Guide & Tone\n\n";
+    if (brandVoice) prompt += `**Overall Brand Voice:** ${brandVoice}\n`;
+    if (videoTone) prompt += `**Video Tone:** ${videoTone}\n`;
+    if (videoStyle) prompt += `**Video Style:** ${videoStyle}\n`;
+    if (speakingStyle) prompt += `**Speaking Style:** ${speakingStyle}\n`;
+    if (humorLevel) prompt += `**Humor Level:** ${humorLevel}\n`;
+    if (pacing) prompt += `**Pacing:** ${pacing}\n`;
+    if (targetAudience) prompt += `**Target Audience:** ${targetAudience}\n`;
+    if (keyTerminology) prompt += `**Key Terminology to Use:** ${keyTerminology}\n`;
+    if (thingsToAvoid) prompt += `**Things to Avoid:** ${thingsToAvoid}\n`;
+    if (outroMessage) prompt += `**Standard Outro Message:** ${outroMessage}\n\n`;
+    if(visualStyle) prompt += `**Visual Style:** ${visualStyle}\n`;
+    if(musicStyle) prompt += `**Music Style:** ${musicStyle}\n`;
+    if (prompt === "## Creator's Style Guide & Tone\n\n") {
+        prompt += "No specific style guide provided. Use a generally engaging, clear, and informative tone suitable for a YouTube travel documentary.";
+    }
+    return prompt;
+};
+
+const callLocalGeminiAPI = async (prompt, settings, jsonSchema = null) => {
+    const apiKey = settings?.geminiApiKey || window.CREATOR_HUB_CONFIG.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("Gemini API key is not configured.");
+    }
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const requestBody = { contents: [{ parts: [{ text: prompt }] }], generationConfig: {} };
+    if (jsonSchema) {
+        requestBody.generationConfig.response_mime_type = "application/json";
+        requestBody.generationConfig.response_schema = jsonSchema;
+    }
+    try {
+        const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
+        if (!response.ok) {
+            const errorBody = await response.json();
+            console.error("Gemini API Error Response:", errorBody);
+            throw new Error(`API request failed with status ${response.status}: ${errorBody.error?.message || 'Unknown error'}`);
+        }
+        const data = await response.json();
+        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!responseText) {
+            console.error("Invalid response structure from Gemini API:", data);
+            throw new Error("Failed to parse response from the AI. The response was empty or in an unexpected format.");
+        }
+        if (jsonSchema) {
+            return JSON.parse(responseText);
+        }
+        return responseText;
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        throw error;
+    }
+};
+
 
 window.generateExperienceQuestionsAI = async ({ shot, video, settings }) => {
     console.log(`Generating experience questions for shot: ${shot.shot_description}`);
 
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    const styleGuidePrompt = getLocalStyleGuidePrompt(settings);
 
     const prompt = `
         You are an insightful video producer helping a YouTube creator flesh out their script. Your goal is to ask targeted, open-ended questions that will elicit the creator's personal experiences, feelings, and unique takeaways for a specific shot. The answers to these questions will be used to make the final script more authentic and engaging.
@@ -51,7 +107,7 @@ window.generateExperienceQuestionsAI = async ({ shot, video, settings }) => {
         required: ["questions"]
     };
 
-    const response = await window.callGeminiAPI(prompt, responseSchema);
+    const response = await callLocalGeminiAPI(prompt, settings, responseSchema);
 
     return response;
 };
