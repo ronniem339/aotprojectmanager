@@ -8,7 +8,7 @@ window.enrichBlueprintAI = async ({ shot, video, settings }) => {
     console.log(`Researching shot: ${shot.shot_description}`);
 
     // Use the globally available helper function
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     const prompt = `
         You are an expert research assistant for a YouTube documentarian. Your task is to find interesting, verifiable facts and talking points for a specific video shot.
