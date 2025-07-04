@@ -278,6 +278,7 @@ const ScriptingWorkspaceModal = ({
     onGenerateInitialQuestions,
     onGenerateDraftOutline,
     onRefineOutline,
+    onEnrichOutline,
     onGenerateRefinementQuestions,
     onProceedToOnCamera,
     onGenerateFullScript,
@@ -431,6 +432,7 @@ const ScriptingWorkspaceModal = ({
         { id: 'initial_thoughts', name: 'Brain Dump' },
         { id: 'initial_qa', name: 'Clarify Vision' },
         { id: 'draft_outline_review', name: 'Review Outline' },
+        { id: 'enrichment_review', name: 'Enrich Outline' },
         { id: 'refinement_qa', name: 'Refinement Q&A' },
         { id: 'on_camera_qa', name: 'On-Camera Notes' },
         { id: 'review_parsed_transcript', name: 'Review Transcript' },
@@ -562,8 +564,45 @@ const ScriptingWorkspaceModal = ({
                         </div>
                         <div className="flex justify-between items-center mt-8">
                             <button onClick={() => handleStageClick('initial_thoughts')} className="button-secondary">Start Over</button>
-                            <button onClick={() => handleAction(onGenerateRefinementQuestions, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
-                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={() => handleAction(onEnrichOutline, localTaskData)}
+                                    disabled={isLoading}
+                                    className="px-6 py-3 bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold text-lg"
+                                >
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : '✨ Enrich with Research'}
+                                </button>
+                                <button onClick={() => handleAction(onGenerateRefinementQuestions, localTaskData)} disabled={isLoading} className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg">
+                                    {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Looks Good, Ask Me More'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 'enrichment_review':
+                 return (
+                    <div>
+                        <h3 className="text-xl font-semibold text-primary-accent mb-3">Step 3.5: Review Enriched Outline</h3>
+                        <p className="text-gray-400 mb-4">The AI has searched for interesting facts and tips. Review the additions below. You can edit them directly. When you're happy, proceed to the next step.</p>
+                        <textarea
+                            value={localTaskData.enrichedScriptPlan || ''}
+                            onChange={e => handleDataChange('enrichedScriptPlan', e.target.value)}
+                            rows="25"
+                            className="w-full form-textarea whitespace-pre-wrap leading-relaxed"
+                        />
+                        <div className="flex justify-between items-center mt-8">
+                            <button onClick={() => handleStageClick('draft_outline_review')} className="button-secondary">Back to Original Outline</button>
+                            <button
+                                onClick={() => {
+                                    // Use the enriched plan as the basis for the next step.
+                                    const newLocalTaskData = { ...localTaskData, scriptPlan: localTaskData.enrichedScriptPlan };
+                                    handleAction(onGenerateRefinementQuestions, newLocalTaskData);
+                                }}
+                                disabled={isLoading}
+                                className="px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold text-lg"
+                            >
+                                {isLoading ? <window.LoadingSpinner isButton={true} /> : 'Approve & Ask Me More'}
                             </button>
                         </div>
                     </div>
@@ -971,6 +1010,7 @@ window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, user
         initialQuestions: video.tasks?.initialQuestions || [],
         initialAnswers: video.tasks?.initialAnswers || {},
         scriptPlan: video.tasks?.scriptPlan || '',
+        enrichedScriptPlan: video.tasks?.enrichedScriptPlan || '',
         refinedScriptPlan: video.tasks?.refinedScriptPlan || '',
         locationQuestions: video.tasks?.locationQuestions || [],
         userExperiences: video.tasks?.userExperiences || {},
@@ -1084,15 +1124,34 @@ const handleGenerateDraftOutline = async (currentTaskData) => {
         await onUpdateTask('scripting', 'in-progress', { 'tasks.scriptPlan': response.draftOutline });
     };
 
+    const handleEnrichOutline = async (currentTaskData) => {
+        // This function will call a new AI utility, which we'll assume exists.
+        // This new utility will need access to a search tool.
+        const response = await window.aiUtils.enrichOutlineWithResearchAI({
+            scriptPlan: currentTaskData.scriptPlan,
+            settings: settings,
+        });
+
+        if (!response || typeof response.enrichedOutline !== 'string') {
+            throw new Error("The AI failed to enrich the outline with research.");
+        }
+
+        await onUpdateTask('scripting', 'in-progress', {
+            'tasks.scriptingStage': 'enrichment_review',
+            'tasks.enrichedScriptPlan': response.enrichedOutline
+        });
+    };
+
     const handleGenerateRefinementQuestions = async (currentTaskData) => {
         await onUpdateTask('scripting', 'in-progress', {
-            'tasks.scriptPlan': currentTaskData.scriptPlan
+            'tasks.scriptPlan': currentTaskData.scriptPlan,
+            'tasks.enrichedScriptPlan': currentTaskData.enrichedScriptPlan // Persist the enriched plan if coming from that stage
         });
 
         const response = await window.aiUtils.generateScriptPlanAI({
             videoTitle: video.chosenTitle || video.title,
             videoConcept: video.concept,
-            draftOutline: currentTaskData.scriptPlan,
+            draftOutline: currentTaskData.scriptPlan, // Use the (potentially enriched) plan
             settings: settings
         });
 
@@ -1300,6 +1359,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
             'tasks.initialQuestions': updatedTaskData.initialQuestions,
             'tasks.initialAnswers': updatedTaskData.initialAnswers,
             'tasks.scriptPlan': updatedTaskData.scriptPlan,
+            'tasks.enrichedScriptPlan': updatedTaskData.enrichedScriptPlan,
             'tasks.refinedScriptPlan': updatedTaskData.refinedScriptPlan,
             'tasks.locationQuestions': updatedTaskData.locationQuestions,
             'tasks.userExperiences': updatedTaskData.userExperiences,
@@ -1327,6 +1387,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
             'tasks.initialQuestions': finalTaskData.initialQuestions,
             'tasks.initialAnswers': finalTaskData.initialAnswers,
             'tasks.scriptPlan': finalTaskData.scriptPlan,
+            'tasks.enrichedScriptPlan': finalTaskData.enrichedScriptPlan,
             'tasks.refinedScriptPlan': finalTaskData.refinedScriptPlan,
             'tasks.locationQuestions': finalTaskData.locationQuestions,
             'tasks.userExperiences': finalTaskData.userExperiences,
@@ -1384,6 +1445,7 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
                     onGenerateInitialQuestions={handleGenerateInitialQuestions}
                     onGenerateDraftOutline={handleGenerateDraftOutline}
                     onRefineOutline={handleRefineOutline}
+                    onEnrichOutline={handleEnrichOutline}
                     onGenerateRefinementQuestions={handleGenerateRefinementQuestions}
                     onProceedToOnCamera={handleProceedToOnCamera}
                     onGenerateRefinedScriptPlan={handleGenerateRefinedScriptPlan}
