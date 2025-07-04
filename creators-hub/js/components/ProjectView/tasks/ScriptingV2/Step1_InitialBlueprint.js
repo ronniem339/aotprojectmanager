@@ -1,57 +1,46 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step1_InitialBlueprint.js
 
-// This component provides the UI for the first step of the V2 workflow.
-// It includes a textarea for the user's "brain dump" and a button
-// to trigger the AI generation of the initial Creative Blueprint.
-
-const { useState } = React;
+const { useState, useEffect } = React;
+const { createInitialBlueprintAI } = window; // Import the new AI function
 
 window.Step1_InitialBlueprint = ({ blueprint, setBlueprint, video, project, settings }) => {
     // Local state to hold the user's initial thoughts.
-    const [initialThoughts, setInitialThoughts] = useState('');
+    // Initialize it from the blueprint if it exists, to allow resuming.
+    const [initialThoughts, setInitialThoughts] = useState(blueprint?.initialThoughts || '');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        // If the user comes back to this step, populate their previous thoughts.
+        if (blueprint?.initialThoughts) {
+            setInitialThoughts(blueprint.initialThoughts);
+        }
+    }, []); // Run only on initial mount
 
     const handleGenerateBlueprint = async () => {
         setIsGenerating(true);
         setError('');
         try {
-            // This is where we will call the new AI function.
-            // For now, we'll simulate the output.
-            console.log("Calling createInitialBlueprintAI with:", {
+            // Call the real AI function
+            const newBlueprint = await createInitialBlueprintAI({
                 initialThoughts,
                 video,
                 project,
                 settings
             });
 
-            // --- MOCK AI CALL ---
-            // In the future, this will be:
-            // const newBlueprint = await window.aiUtils.v2.createInitialBlueprintAI(...);
-            const mockBlueprint = {
-                shots: [
-                    {
-                        shot_id: "shot_1",
-                        scene_id: "scene_1",
-                        scene_narrative_purpose: "Hook: Introduce the location and the main question.",
-                        location_name: project.locations[0]?.name || "First Location",
-                        shot_type: "Wide Drone Shot",
-                        shot_description: "A sweeping aerial shot of the location at sunrise.",
-                        voiceover_script: "",
-                        on_camera_dialogue: "",
-                        ai_research_notes: [],
-                        creator_experience_notes: "",
-                        estimated_time_seconds: 10
-                    }
-                ]
-            };
-            // --- END MOCK ---
+            if (!newBlueprint || !newBlueprint.shots) {
+                throw new Error("AI did not return a valid blueprint structure.");
+            }
 
-            setBlueprint(mockBlueprint); // Update the main blueprint state.
+            // Also save the initial thoughts to the blueprint for persistence.
+            newBlueprint.initialThoughts = initialThoughts;
+
+            setBlueprint(newBlueprint); // Update the main blueprint state.
 
         } catch (err) {
             console.error("Error generating blueprint:", err);
-            setError("Failed to generate the blueprint. Please try again.");
+            setError(`Failed to generate the blueprint: ${err.message}. Please try again.`);
         } finally {
             setIsGenerating(false);
         }
