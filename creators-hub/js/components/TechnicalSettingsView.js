@@ -14,8 +14,10 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         proModelName: '',
         // NEW: V2 settings
         useProForV2HeavyTasks: true,
-        defaultV2StandardModel: 'lite',
-        liteModelName: ''
+        // We will add the v2 model names here as well
+        v2_proModelName: '',
+        v2_flashModelName: '',
+        v2_liteModelName: ''
     });
 
     // State for the deduplication tool
@@ -39,8 +41,10 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                 proModelName: settings.models?.pro || 'gemini-1.5-pro-latest',
                 // NEW: Initialize V2 settings from the main settings object
                 useProForV2HeavyTasks: settings.technical?.useProForV2HeavyTasks !== undefined ? settings.technical.useProForV2HeavyTasks : true,
-                defaultV2StandardModel: settings.technical?.defaultV2StandardModel || 'lite',
-                liteModelName: settings.models?.lite || 'gemini-1.5-flash-lite-001'
+                // NEW: Separate model names for V2
+                v2_proModelName: settings.models?.v2_pro || 'gemini-1.5-pro-latest',
+                v2_flashModelName: settings.models?.v2_flash || 'gemini-1.5-flash-latest',
+                v2_liteModelName: settings.models?.v2_lite || 'gemini-1.5-flash-lite-001'
             });
         }
     }, [settings]);
@@ -64,14 +68,16 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
             technical: {
                 ...settings.technical,
                 useProForV2HeavyTasks: localSettings.useProForV2HeavyTasks,
-                defaultV2StandardModel: localSettings.defaultV2StandardModel,
             },
             models: {
                 ...settings.models,
+                // Legacy models
                 flash: localSettings.flashModelName,
                 pro: localSettings.proModelName,
-                // NEW: Add lite model to the models object
-                lite: localSettings.liteModelName,
+                // NEW: Add separate V2 models to the models object
+                v2_pro: localSettings.v2_proModelName,
+                v2_flash: localSettings.v2_flashModelName,
+                v2_lite: localSettings.v2_liteModelName,
             }
         };
         onSave(updatedSettings);
@@ -157,16 +163,16 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                                 </label>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Default Model for Standard V2 Tasks</label>
-                                <select name="defaultV2StandardModel" value={localSettings.defaultV2StandardModel} onChange={handleChange} className="w-full form-input">
-                                    <option value="lite">Flash Lite (Fastest, Lowest Cost)</option>
-                                    <option value="flash">Flash (Balanced)</option>
-                                </select>
-                                <p className="text-xs text-gray-400 mt-1">Select the model for tasks like AI Research and generating Experience Questions.</p>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name (V2)</label>
+                                <input type="text" name="v2_proModelName" value={localSettings.v2_proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Lite Model Name</label>
-                                <input type="text" name="liteModelName" value={localSettings.liteModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-lite-001"/>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name (V2)</label>
+                                <input type="text" name="v2_flashModelName" value={localSettings.v2_flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Lite Model Name (V2)</label>
+                                <input type="text" name="v2_liteModelName" value={localSettings.v2_liteModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-lite-001"/>
                             </div>
                         </div>
                     </div>
