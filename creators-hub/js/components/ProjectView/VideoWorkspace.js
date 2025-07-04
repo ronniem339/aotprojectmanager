@@ -199,7 +199,13 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
         switch (task.id) {
             case 'scripting':
-                return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+                return (
+                    <div>
+                        <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />
+                        <hr className="my-6 border-gray-700" />
+                        <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />
+                    </div>
+                );
             case 'videoEdited':
                 return <window.EditVideoTask {...commonProps} />;
             case 'titleGenerated':
