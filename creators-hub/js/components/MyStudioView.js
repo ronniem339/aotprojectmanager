@@ -3,23 +3,37 @@
 const { useState, useEffect } = React;
 
 window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
-    // Initialize the state directly from the settings prop, providing a fallback for each value.
+    // State for legacy style guide inputs
     const [styleInputs, setStyleInputs] = useState({
-        myWriting: settings.myWriting || '',
-        admiredWriting: settings.admiredWriting || '',
-        keywords: settings.keywords || '',
-        dosAndDonts: settings.dosAndDonts || '',
-        excludedPhrases: settings.excludedPhrases || ''
+        myWriting: '',
+        admiredWriting: '',
+        keywords: '',
+        dosAndDonts: '',
+        excludedPhrases: ''
     });
 
-    const [styleGuideText, setStyleGuideText] = useState(settings.knowledgeBases?.creator?.styleGuideText || '');
-    const [styleGuideLog, setStyleGuideLog] = useState(settings.knowledgeBases?.creator?.styleGuideLog || []);
-
+    const [styleGuideText, setStyleGuideText] = useState('');
+    const [styleGuideLog, setStyleGuideLog] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-
-    // NEW: State for the AI refinement input and its loading state.
     const [refinementText, setRefinementText] = useState('');
     const [isRefining, setIsRefining] = useState(false);
+
+    // **NEW:** State for the new, detailed V2 style guide object.
+    const [styleGuideV2, setStyleGuideV2] = useState({
+        brandVoice: '',
+        videoTone: '',
+        videoStyle: '',
+        speakingStyle: '',
+        humorLevel: '',
+        pacing: '',
+        targetAudience: '',
+        keyTerminology: '',
+        thingsToAvoid: '',
+        outroMessage: '',
+        visualStyle: '',
+        musicStyle: ''
+    });
+
 
     useEffect(() => {
         // This effect syncs the component if the 'settings' prop itself is replaced.
@@ -32,6 +46,14 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
             dosAndDonts: settings.dosAndDonts || '',
             excludedPhrases: settings.excludedPhrases || ''
         });
+        
+        // **NEW:** Populate the detailed V2 style guide state from its own separate object.
+        setStyleGuideV2(settings.knowledgeBases?.styleV2?.detailedStyleGuide || {
+            brandVoice: '', videoTone: '', videoStyle: '', speakingStyle: '',
+            humorLevel: '', pacing: '', targetAudience: '', keyTerminology: '',
+            thingsToAvoid: '', outroMessage: '', visualStyle: '', musicStyle: ''
+        });
+
     }, [settings]);
 
     const handleAnalyzeStyle = async () => {
@@ -51,7 +73,7 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         Synthesize these inputs into a structured style guide covering: Tone, Pacing, Vocabulary, Sentence Structure, and Humor. Also include the explicit Dos/Don'ts and Excluded Phrases. Provide a detailed, actionable description for each category.`;
 
         try {
-            const generatedGuide = await window.aiUtils.callGeminiAPI(prompt, settings, { responseMimeType: "text/plain" });
+            const generatedGuide = await window.aiUtils.callGeminiAPI(prompt, settings, { isComplex: true }, { responseMimeType: "text/plain" });
             setStyleGuideText(generatedGuide);
         } catch (e) {
             console.error("Error generating style guide:", e);
@@ -87,7 +109,6 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
 
             const newLog = [newLogEntry, ...styleGuideLog];
 
-            // --- This is the fix from our previous conversation to ensure data saves ---
             const updatedSettings = {
                 ...settings,
                 ...styleInputs,
@@ -101,7 +122,6 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                 }
             };
             onSave(updatedSettings);
-            // --- End of fix ---
 
             setStyleGuideText(newStyleGuideText);
             setStyleGuideLog(newLog);
@@ -126,10 +146,16 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                     ...settings.knowledgeBases?.creator,
                     styleGuideText: styleGuideText,
                     styleGuideLog: styleGuideLog
+                },
+                // **NEW:** Save the new V2 style guide to its own separate object.
+                styleV2: {
+                    ...settings.knowledgeBases?.styleV2,
+                    detailedStyleGuide: styleGuideV2,
                 }
             }
         };
         onSave(updatedSettings);
+        alert("Style Guide Saved!");
     };
 
     const getBackLinkText = () => {
@@ -138,6 +164,39 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         }
         return 'Back to Settings Menu';
     };
+    
+    // **NEW:** Handler for changes within the V2 style guide object.
+    const handleStyleGuideV2Change = (field, value) => {
+        setStyleGuideV2(prev => ({ ...prev, [field]: value }));
+    };
+    
+    // **NEW:** Helper to render a text input for the V2 style guide.
+    const renderV2StyleGuideInput = (field, label, placeholder) => (
+        React.createElement('div', null,
+            React.createElement('label', { className: 'block text-sm font-medium text-gray-300' }, label),
+            React.createElement('input', {
+                type: 'text',
+                className: 'mt-1 block w-full rounded-md bg-gray-900 border-gray-600 shadow-sm focus:border-primary-accent focus:ring-primary-accent sm:text-sm',
+                value: styleGuideV2[field] || '',
+                onChange: e => handleStyleGuideV2Change(field, e.target.value),
+                placeholder: placeholder
+            })
+        )
+    );
+    
+    // **NEW:** Helper to render a textarea for the V2 style guide.
+    const renderV2StyleGuideTextarea = (field, label, placeholder) => (
+         React.createElement('div', null,
+            React.createElement('label', { className: 'block text-sm font-medium text-gray-300' }, label),
+            React.createElement('textarea', {
+                className: 'mt-1 block w-full rounded-md bg-gray-900 border-gray-600 shadow-sm focus:border-primary-accent focus:ring-primary-accent sm:text-sm',
+                rows: 3,
+                value: styleGuideV2[field] || '',
+                onChange: e => handleStyleGuideV2Change(field, e.target.value),
+                placeholder: placeholder
+            })
+        )
+    );
 
     const refinementLog = styleGuideLog || [];
 
@@ -149,13 +208,11 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
             <h1 className="text-3xl sm:text-4xl font-bold mb-4">🎨 Style & Tone</h1>
             <p className="text-gray-400 mb-8">Train the AI on your unique creative style. The more detail you provide, the better the AI's suggestions will be.</p>
             
-            {/* --- UI IMPROVEMENT STARTS HERE --- */}
+            {/* --- Legacy Style Guide UI --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                
-                {/* Item 1: Refinement Input (Top-left on desktop, first on mobile) */}
                 <div>
-                    <h3 className="text-lg font-medium text-gray-200">Refine Style Guide with AI</h3>
-                    <p className="mt-1 text-sm text-gray-400">Provide feedback below and let the AI rewrite your style guide.</p>
+                    <h3 className="text-lg font-medium text-gray-200">Refine Style Guide with AI (Legacy)</h3>
+                    <p className="mt-1 text-sm text-gray-400">Provide feedback below and let the AI rewrite your legacy style guide.</p>
                     <div className="mt-4">
                         <textarea
                             rows="3"
@@ -177,9 +234,8 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                     </div>
                 </div>
 
-                {/* Item 2: Refinement History (Top-right on desktop, second on mobile) */}
                 <div>
-                    <h3 className="text-xl font-semibold mb-3">Refinement History</h3>
+                    <h3 className="text-xl font-semibold mb-3">Refinement History (Legacy)</h3>
                     <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto">
                         {refinementLog.length > 0 ? (
                             <ul className="space-y-3">
@@ -193,20 +249,18 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                                 ))}
                             </ul>
                         ) : (
-                            <p className="text-gray-400 text-sm italic">No refinement history yet. Use the "Refine with AI" feature above to track changes.</p>
+                            <p className="text-gray-400 text-sm italic">No refinement history yet.</p>
                         )}
                     </div>
                 </div>
 
-                {/* Item 3: Style Guide (Bottom-left on desktop, third on mobile) */}
                 <div className="lg:col-span-2">
-                    <h2 className="text-2xl font-semibold mb-4">Your AI-Powered Style Guide</h2>
+                    <h2 className="text-2xl font-semibold mb-4">Your AI-Powered Style Guide (Legacy)</h2>
                     <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="15" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
                 </div>
 
-                {/* Item 4: Style Inputs (Bottom-right on desktop, last on mobile) */}
                 <div className="lg:col-span-2">
-                    <h2 className="text-2xl font-semibold mb-4">Style Inputs</h2>
+                    <h2 className="text-2xl font-semibold mb-4">Style Inputs (Legacy)</h2>
                     <div className="space-y-4">
                         <div><label className="block text-sm font-medium text-gray-300 mb-2">An example of your writing</label><textarea value={styleInputs.myWriting} onChange={(e) => setStyleInputs(p => ({ ...p, myWriting: e.target.value }))} rows="6" className="form-textarea" placeholder="Paste a sample of a previous script or blog post here..."></textarea></div>
                         <div><label className="block text-sm font-medium text-gray-300 mb-2">Writing you admire</label><textarea value={styleInputs.admiredWriting} onChange={(e) => setStyleInputs(p => ({ ...p, admiredWriting: e.target.value }))} rows="6" className="form-textarea" placeholder="Paste a sample from another creator or writer whose style you like..."></textarea></div>
@@ -216,12 +270,32 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                         <button onClick={handleAnalyzeStyle} disabled={isLoading} className="w-full px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🧬 Analyze & Create Style Guide'}</button>
                     </div>
                 </div>
-
             </div>
-            {/* --- UI IMPROVEMENT ENDS HERE --- */}
+
+            {/* --- **NEW** V2 Style Guide Section --- */}
+            <div className="mt-12 pt-8 border-t border-gray-600">
+                 <div className="glass-card p-6 rounded-lg border-2 border-secondary-accent">
+                    <h3 className="text-2xl font-semibold text-secondary-accent mb-2">Detailed Style Guide (for Scripting V2)</h3>
+                    <p className="text-gray-400 mb-6">Provide specific details about your content style. The more specific you are, the better the new scripting workflow will be at matching your voice.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+                        {renderV2StyleGuideInput('brandVoice', 'Overall Brand Voice', 'e.g., Inquisitive, adventurous, respectful')}
+                        {renderV2StyleGuideInput('videoTone', 'Video Tone', 'e.g., Educational but entertaining')}
+                        {renderV2StyleGuideTextarea('speakingStyle', 'Speaking Style', 'e.g., Conversational, like talking to a friend. Uses simple language.')}
+                        {renderV2StyleGuideInput('humorLevel', 'Humor Level', 'e.g., Witty and dry, uses puns sparingly')}
+                        {renderV2StyleGuideInput('pacing', 'Pacing', 'e.g., Fast-paced with quick cuts')}
+                        {renderV2StyleGuideInput('targetAudience', 'Target Audience', 'e.g., Curious travelers aged 25-45')}
+                        {renderV2StyleGuideTextarea('keyTerminology', 'Key Terminology', 'List any specific words or phrases you always use.')}
+                        {renderV2StyleGuideTextarea('thingsToAvoid', 'Things to Avoid', 'List any cliches, words, or topics you want to avoid.')}
+                        {renderV2StyleGuideTextarea('outroMessage', 'Standard Outro Message', 'e.g., "Thanks for watching, and keep exploring."')}
+                        {renderV2StyleGuideInput('visualStyle', 'Visual Style', 'e.g., Cinematic, high-contrast, wide lenses')}
+                        {renderV2StyleGuideInput('musicStyle', 'Music Style', 'e.g., Lo-fi beats, epic orchestral, no vocals')}
+                    </div>
+                </div>
+            </div>
+
 
             <div className="mt-8 text-right">
-                <button onClick={handleSave} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save My Style</button>
+                <button onClick={handleSave} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save All Style Guides</button>
             </div>
         </div>
     );
