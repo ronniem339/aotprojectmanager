@@ -5,19 +5,7 @@
 
 const { useState, useMemo } = React;
 
-// We will create this component next. It will house the entire V2 UI.
-// For now, we'll assume it exists and import it.
-// import ScriptingV2_Workspace from './ScriptingV2/ScriptingV2_Workspace.js';
-
-// A placeholder for now, to be replaced by the actual component import.
-const ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose }) => {
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 p-8 text-white' },
-        React.createElement('h2', { className: 'text-2xl font-bold mb-4' }, 'Scripting V2 Workspace (Under Construction)'),
-        React.createElement('p', null, `Editing script for: ${video.title}`),
-        React.createElement('button', { onClick: onClose, className: 'absolute top-4 right-4 text-3xl' }, '×')
-    );
-};
-
+// The placeholder component has been removed.
 
 window.ScriptingTaskV2 = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
     // State to control the visibility of the new workspace modal.
@@ -48,13 +36,13 @@ window.ScriptingTaskV2 = ({ video, settings, onUpdateTask, isLocked, project, us
         }, 'Try the New Scripting Workspace (Beta)'),
 
         // When showV2Workspace is true, render the new workspace component as a portal.
-        // Using a portal ensures it can overlay the entire application.
+        // We now correctly call the component from the window object.
         showV2Workspace && ReactDOM.createPortal(
-            React.createElement(ScriptingV2_Workspace, {
+            React.createElement(window.ScriptingV2_Workspace, {
                 video: video,
                 project: project,
                 settings: settings,
-                onUpdateTask: onUpdateTask,
+                onUpdateTask: (taskType, status, data) => onUpdateTask(video.id, taskType, status, data), // Pass a function that includes videoId
                 onClose: handleCloseV2Workspace,
                 userId: userId,
                 db: db
