@@ -10,7 +10,7 @@ const simpleUUID = () => ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
 );
 
 // **FIX:** The logic from getStyleGuidePrompt and callGeminiAPI has been moved directly into this file
-// to prevent script loading errors.
+// to prevent script loading errors and to correctly handle props.
 
 const getLocalStyleGuidePrompt = (settings) => {
     const styleGuide = settings.knowledgeBases?.style?.styleGuide || {};
@@ -50,8 +50,13 @@ const getLocalStyleGuidePrompt = (settings) => {
     return prompt;
 };
 
-const callLocalGeminiAPI = async (prompt, jsonSchema = null) => {
-    const apiKey = window.CREATOR_HUB_CONFIG.GEMINI_API_KEY;
+// **THE FUNDAMENTAL FIX IS HERE**
+// The function now accepts the `settings` object as a parameter.
+const callLocalGeminiAPI = async (prompt, settings, jsonSchema = null) => {
+    // It now correctly gets the API key from the passed-in settings object,
+    // falling back to the global config only if necessary. This matches the
+    // pattern of the other working AI functions.
+    const apiKey = settings?.geminiApiKey || window.CREATOR_HUB_CONFIG.GEMINI_API_KEY;
     if (!apiKey) {
         throw new Error("Gemini API key is not configured.");
     }
@@ -178,8 +183,8 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
       required: ["shots"]
     };
 
-    // Use the local version of the function instead of the window object.
-    const response = await callLocalGeminiAPI(prompt, responseSchema);
+    // We now pass the settings object to the local API function.
+    const response = await callLocalGeminiAPI(prompt, settings, responseSchema);
 
     // Add unique IDs to the response shots as a fallback
     if (response && response.shots) {
