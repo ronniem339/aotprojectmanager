@@ -8,7 +8,7 @@ window.generateExperienceQuestionsAI = async ({ shot, video, settings }) => {
     console.log(`Generating experience questions for shot: ${shot.shot_description}`);
 
     // Use the globally available helper function
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     const prompt = `
         You are an insightful video producer helping a YouTube creator flesh out their script. Your goal is to ask targeted, open-ended questions that will elicit the creator's personal experiences, feelings, and unique takeaways for a specific shot. The answers to these questions will be used to make the final script more authentic and engaging.
