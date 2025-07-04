@@ -1,7 +1,7 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect } = React;
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint } = window;
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, BlueprintDisplay } = window;
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
@@ -40,19 +40,12 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
 
     const renderBlueprintDisplay = () => {
         if (isLoading) {
-            return React.createElement('p', null, 'Loading Blueprint...');
+            return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', null, 'Loading Blueprint...'));
         }
         if (error) {
-            return React.createElement('p', { className: 'text-red-400' }, error);
+            return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', { className: 'text-red-400' }, error));
         }
-        // We will create the BlueprintDisplay component next.
-        // For now, we'll continue showing the raw data.
-        if (blueprint) {
-            return React.createElement('pre', { className: 'text-xs whitespace-pre-wrap' },
-                JSON.stringify(blueprint, null, 2)
-            );
-        }
-        return React.createElement('p', { className: 'text-gray-500' }, 'The Creative Blueprint will appear here once it\'s generated.');
+        return React.createElement(BlueprintDisplay, { blueprint: blueprint });
     };
 
     return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 bg-opacity-95 z-50 overflow-y-auto text-white' },
@@ -75,10 +68,10 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 ),
 
                 // Right Column
-                React.createElement('div', { className: 'w-full md:w-1/2 p-6 flex flex-col overflow-y-auto' },
+                React.createElement('div', { className: 'w-full md:w-1/2 p-6 flex flex-col' },
                     React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
-                    React.createElement('div', { className: 'bg-gray-800 p-4 rounded-lg flex-grow' },
-                        renderBlueprintDisplay()
+                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto' }, // Made this inner div scrollable
+                        React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                     )
                 )
             )
