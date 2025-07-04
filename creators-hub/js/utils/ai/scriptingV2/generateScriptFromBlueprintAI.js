@@ -8,7 +8,7 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
     console.log("Assembling final script from blueprint...");
 
     // Use the globally available helper function
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     const blueprintString = JSON.stringify(blueprint.shots, null, 2);
 
