@@ -1,7 +1,7 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect } = React;
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, BlueprintDisplay } = window;
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, BlueprintDisplay } = window;
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
@@ -26,7 +26,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             case 1:
                 return React.createElement(Step1_InitialBlueprint, props);
             case 2:
-                return React.createElement('div', null, 'Content for Step 2: Research & Curation');
+                return React.createElement(Step2_ResearchCuration, props);
             case 3:
                 return React.createElement('div', null, 'Content for Step 3: My Experience');
             case 4:
@@ -70,7 +70,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 // Right Column
                 React.createElement('div', { className: 'w-full md:w-1/2 p-6 flex flex-col' },
                     React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
-                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto' }, // Made this inner div scrollable
+                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto' },
                         React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                     )
                 )
