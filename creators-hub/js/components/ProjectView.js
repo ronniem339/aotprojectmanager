@@ -298,7 +298,7 @@ window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSetti
                         transition-all duration-300 ease-in-out
                     `}>
                         <div className="bg-gray-800 border border-gray-700 rounded-lg h-full flex flex-col">
-                           <window.VideoList
+                            <window.VideoList
                                 videos={videos}
                                 activeVideoId={activeVideoId}
                                 onSelectVideo={handleVideoSelected}
