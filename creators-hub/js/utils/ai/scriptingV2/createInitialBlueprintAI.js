@@ -5,10 +5,49 @@
 // generates a structured, narrative-driven blueprint for the video.
 
 // We need a UUID generator for unique shot and scene IDs.
-// A simple one will suffice for this purpose.
 const simpleUUID = () => ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
   (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
 );
+
+// **FIX:** The logic from getStyleGuidePrompt has been moved directly into this file
+// to prevent script loading errors.
+const getLocalStyleGuidePrompt = (settings) => {
+    const styleGuide = settings.knowledgeBases?.style?.styleGuide || {};
+    const {
+        videoTone,
+        videoStyle,
+        speakingStyle,
+        humorLevel,
+        targetAudience,
+        keyTerminology,
+        thingsToAvoid,
+        outroMessage,
+        brandVoice,
+        pacing,
+        visualStyle,
+        musicStyle
+    } = styleGuide;
+
+    let prompt = "## Creator's Style Guide & Tone\n\n";
+    if (brandVoice) prompt += `**Overall Brand Voice:** ${brandVoice}\n`;
+    if (videoTone) prompt += `**Video Tone:** ${videoTone}\n`;
+    if (videoStyle) prompt += `**Video Style:** ${videoStyle}\n`;
+    if (speakingStyle) prompt += `**Speaking Style:** ${speakingStyle}\n`;
+    if (humorLevel) prompt += `**Humor Level:** ${humorLevel}\n`;
+    if (pacing) prompt += `**Pacing:** ${pacing}\n`;
+    if (targetAudience) prompt += `**Target Audience:** ${targetAudience}\n`;
+    if (keyTerminology) prompt += `**Key Terminology to Use:** ${keyTerminology}\n`;
+    if (thingsToAvoid) prompt += `**Things to Avoid:** ${thingsToAvoid}\n`;
+    if (outroMessage) prompt += `**Standard Outro Message:** ${outroMessage}\n\n`;
+    if(visualStyle) prompt += `**Visual Style:** ${visualStyle}\n`;
+    if(musicStyle) prompt += `**Music Style:** ${musicStyle}\n`;
+
+    if (prompt === "## Creator's Style Guide & Tone\n\n") {
+        prompt += "No specific style guide provided. Use a generally engaging, clear, and informative tone suitable for a YouTube travel documentary.";
+    }
+
+    return prompt;
+};
 
 
 window.createInitialBlueprintAI = async ({ initialThoughts, video, project, settings }) => {
@@ -25,7 +64,8 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
         })
         .join('\n');
 
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    // Use the local version of the function instead of the window object.
+    const styleGuidePrompt = getLocalStyleGuidePrompt(settings);
 
     const prompt = `
         You are an expert YouTube scriptwriter and video producer. Your task is to take a creator's initial "brain dump" for a video and structure it into a compelling narrative blueprint and shot list.
