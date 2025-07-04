@@ -1,7 +1,7 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect } = React;
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, BlueprintDisplay } = window;
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_MyExperience, Step4_OnCamera, BlueprintDisplay } = window;
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
@@ -28,9 +28,9 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             case 2:
                 return React.createElement(Step2_ResearchCuration, props);
             case 3:
-                return React.createElement('div', null, 'Content for Step 3: My Experience');
+                return React.createElement(Step3_MyExperience, props);
             case 4:
-                return React.createElement('div', null, 'Content for Step 4: On-Camera Dialogue');
+                return React.createElement(Step4_OnCamera, props);
             case 5:
                 return React.createElement('div', null, 'Content for Step 5: Final Assembly');
             default:
