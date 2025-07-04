@@ -9,8 +9,9 @@ const simpleUUID = () => ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
   (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
 );
 
-// **FIX:** The logic from getStyleGuidePrompt has been moved directly into this file
+// **FIX:** The logic from getStyleGuidePrompt and callGeminiAPI has been moved directly into this file
 // to prevent script loading errors.
+
 const getLocalStyleGuidePrompt = (settings) => {
     const styleGuide = settings.knowledgeBases?.style?.styleGuide || {};
     const {
@@ -49,6 +50,60 @@ const getLocalStyleGuidePrompt = (settings) => {
     return prompt;
 };
 
+const callLocalGeminiAPI = async (prompt, jsonSchema = null) => {
+    const apiKey = window.CREATOR_HUB_CONFIG.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("Gemini API key is not configured.");
+    }
+
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+
+    const requestBody = {
+        contents: [{
+            parts: [{ text: prompt }]
+        }],
+        generationConfig: {}
+    };
+
+    if (jsonSchema) {
+        requestBody.generationConfig.response_mime_type = "application/json";
+        requestBody.generationConfig.response_schema = jsonSchema;
+    }
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json();
+            console.error("Gemini API Error Response:", errorBody);
+            throw new Error(`API request failed with status ${response.status}: ${errorBody.error?.message || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!responseText) {
+            console.error("Invalid response structure from Gemini API:", data);
+            throw new Error("Failed to parse response from the AI. The response was empty or in an unexpected format.");
+        }
+
+        if (jsonSchema) {
+            return JSON.parse(responseText);
+        }
+        return responseText;
+
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        throw error;
+    }
+};
+
 
 window.createInitialBlueprintAI = async ({ initialThoughts, video, project, settings }) => {
     console.log("Generating Initial Blueprint with AI...");
@@ -64,7 +119,6 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
         })
         .join('\n');
 
-    // Use the local version of the function instead of the window object.
     const styleGuidePrompt = getLocalStyleGuidePrompt(settings);
 
     const prompt = `
@@ -97,7 +151,6 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
         6.  **Adhere to the JSON Schema:** Your final output MUST be a JSON object that strictly follows the provided schema. Ensure every required field is present. Generate unique UUIDs for shot_id and scene_id.
     `;
 
-    // Define the expected JSON structure for the AI's response.
     const responseSchema = {
       type: "OBJECT",
       properties: {
@@ -125,21 +178,20 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
       required: ["shots"]
     };
 
-    const response = await window.callGeminiAPI(prompt, responseSchema);
+    // Use the local version of the function instead of the window object.
+    const response = await callLocalGeminiAPI(prompt, responseSchema);
 
     // Add unique IDs to the response shots as a fallback
     if (response && response.shots) {
         let lastSceneId = simpleUUID();
         response.shots.forEach((shot, index) => {
             shot.shot_id = shot.shot_id || simpleUUID();
-            // Group shots into scenes if AI didn't provide good scene_ids
             if (index > 0 && shot.scene_narrative_purpose !== response.shots[index - 1].scene_narrative_purpose) {
                 lastSceneId = simpleUUID();
             }
             shot.scene_id = shot.scene_id || lastSceneId;
         });
     }
-
 
     return response;
 };
