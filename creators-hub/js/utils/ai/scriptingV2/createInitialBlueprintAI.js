@@ -23,8 +23,9 @@ window.createInitialBlueprintAI = async ({ initialThoughts, video, project, sett
         })
         .join('\n');
 
-    // Use the globally available helper function
-    const styleGuidePrompt = window.getStyleGuidePrompt(settings);
+    // **THE FIX IS HERE:**
+    // We are now calling the new V2 style guide prompt generator.
+    const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     const prompt = `
         You are an expert YouTube scriptwriter and video producer. Your task is to take a creator's initial "brain dump" for a video and structure it into a compelling narrative blueprint and shot list.
