@@ -40,6 +40,7 @@
     
     <script src="./js/hooks/useDebounce.js" type="text/babel"></script>
     <script src="./js/hooks/useAppState.js" type="text/babel"></script>
+    <script src="./js/hooks/useMediaQuery.js" type="text/babel"></script>
     <script src="./js/utils/ai/core/getStyleGuidePrompt.js" type="text/babel"></script>
     <script src="./js/utils/ai/core/callGeminiAPI.js" type="text/babel"></script>
     <script src="./js/utils/googleMapsLoader.js" type="text/babel"></script>
@@ -60,7 +61,7 @@
     <script src="./js/utils/ai/planning/refineVideoConceptBasedOnInventory.js" type="text/babel"></script>
     <script src="./js/utils/ai/planning/parseVideoFromTextAI.js" type="text/babel"></script>
     <script src="./js/utils/ai/planning/extractVideoMetadataAI.js" type="text/babel"></script>
-    <script src="./js/utils/ai/planning/generateSceneSnippetAI.js" type="text/babel"></script> <!-- ADDED -->
+    <script src="./js/utils/ai/planning/generateSceneSnippetAI.js" type="text/babel"></script>
 
     <!-- AI Blog Utilities -->
     <script src="./js/utils/ai/blog/generateBlogPostFromVideoAI.js" type="text/babel"></script>
@@ -98,7 +99,7 @@
     <script src="./js/components/Dashboard.js" type="text/babel"></script>
     <script src="./js/components/SettingsMenu.js" type="text/babel"></script>
     <script src="./js/components/WordpressSettings.js" type="text/babel"></script>
-    <script src="./js/components/OneOffWordPressUpdater.js" type="text/babel"></script> <!-- FIXED -->
+    <script src="./js/components/OneOffWordPressUpdater.js" type="text/babel"></script>
     <script src="./js/components/TechnicalSettingsView.js" type="text/babel"></script>
     <script src="./js/components/MyStudioView.js" type="text/babel"></script>
     <script src="./js/components/ProjectSelection.js" type="text/babel"></script>
@@ -132,12 +133,32 @@
     <script src="./js/components/ProjectView/tasks/ThumbnailTask.js" type="text/babel"></script>
     <script src="./js/components/ProjectView/tasks/UploadToYouTubeTask.js" type="text/babel"></script>
     <script src="./js/components/ProjectView/tasks/FirstCommentTask.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/LogChangesTask.js" type="text/babel"></script>
     <script src="./js/components/ProjectView/VideoWorkspace.js" type="text/babel"></script>
     <script src="./js/components/ProjectView/ManageFootageModal.js" type="text/babel"></script>
-    <script src="./js/components/ProjectView.js" type="text/babel"></script>
     <script src="./js/components/ProjectView/ShortsIdeasToolModal.js" type="text/babel"></script>
-    <script src="./js/components/ProjectView/AddSceneModal.js" type="text/babel"></script> <!-- ADDED -->
+    <script src="./js/components/ProjectView/AddSceneModal.js" type="text/babel"></script>
     <script src="./js/components/NewVideoWizardModal.js" type="text/babel"></script>
+    
+    <!-- SCRIPTING V2 COMPONENTS (NEW) -->
+    <script src="./js/utils/ai/scriptingV2/createInitialBlueprintAI.js" type="text/babel"></script>
+    <script src="./js/utils/ai/scriptingV2/enrichBlueprintAI.js" type="text/babel"></script>
+    <script src="./js/utils/ai/scriptingV2/generateExperienceQuestionsAI.js" type="text/babel"></script>
+    <script src="./js/utils/ai/scriptingV2/generateScriptFromBlueprintAI.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/useBlueprint.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/ShotCard.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/BlueprintDisplay.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/BlueprintStepper.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/Step1_InitialBlueprint.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/Step2_ResearchCuration.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/Step3_MyExperience.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/Step4_OnCamera.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/Step5_FinalAssembly.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js" type="text/babel"></script>
+    <script src="./js/components/ProjectView/tasks/scriptingTaskV2.js" type="text/babel"></script>
+    
+    <!-- This must come after the task components that use it -->
+    <script src="./js/components/ProjectView.js" type="text/babel"></script>
 
     <!-- Router and App Entry -->
     <script src="./js/components/Router.js" type="text/babel"></script>
