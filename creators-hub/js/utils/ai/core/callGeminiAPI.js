@@ -2,19 +2,59 @@ window.aiUtils = window.aiUtils || {};
 
 /**
  * The core, centralized function to call the Gemini API.
+ * It now intelligently selects the model based on the provided options,
+ * supporting both the legacy complex/simple flag and the new V2 task tiers.
+ *
+ * @param {string} prompt The complete prompt to send to the AI.
+ * @param {object} settings The application's settings object, containing API keys and model preferences.
+ * @param {object} options An object to specify the task type.
+ * @param {boolean} [options.isComplex=false] - For legacy tasks. If true, uses the Pro model if enabled.
+ * @param {string} [options.taskTier=null] - For V2 tasks ('heavy', 'standard', 'lite').
+ * @param {object|null} generationConfig - The generationConfig for the API call.
+ * @returns {Promise<object|string>} The parsed JSON object or raw text from the AI.
  */
-window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, isComplex = false) => {
+window.aiUtils.callGeminiAPI = async (prompt, settings, options = {}, generationConfig = {}) => {
     if (!settings || !settings.geminiApiKey) {
         throw new Error("Gemini API Key is not set. Please set it in the settings.");
     }
     const apiKey = settings.geminiApiKey;
 
-    const usePro = isComplex && settings.useProModelForComplexTasks;
-    const modelName = usePro
-        ? (settings.proModelName || 'gemini-1.5-pro-latest')
-        : (settings.flashModelName || 'gemini-1.5-flash-latest');
+    let modelName;
+    const techSettings = settings.technical || {};
+    const modelSettings = settings.models || {};
+    const { isComplex, taskTier } = options;
 
-    console.log(`%c[AI Call] Using model: ${modelName} (Complex Task: ${isComplex})`, 'color: #2563eb; font-weight: bold;');
+    // --- CORRECTED Model Selection Logic ---
+    if (taskTier) {
+        // Handle new V2 tiered system
+        console.log("Using V2 Model Selection Logic");
+        if (taskTier === 'heavy' && techSettings.useProForV2HeavyTasks) {
+            modelName = modelSettings.v2_pro;
+            if (!modelName) throw new Error("V2 Pro Model name is not configured in Technical Settings.");
+        } else if (taskTier === 'heavy' && !techSettings.useProForV2HeavyTasks) {
+            modelName = modelSettings.v2_flash;
+            if (!modelName) throw new Error("V2 Flash Model name is not configured in Technical Settings.");
+        } else if (taskTier === 'standard') {
+            modelName = modelSettings.v2_flash;
+            if (!modelName) throw new Error("V2 Flash Model name is not configured in Technical Settings.");
+        } else if (taskTier === 'lite') {
+            modelName = modelSettings.v2_lite;
+            if (!modelName) throw new Error("V2 Lite Model name is not configured in Technical Settings.");
+        } else {
+             modelName = modelSettings.v2_flash;
+             if (!modelName) throw new Error("Default V2 Flash Model name is not configured in Technical Settings.");
+        }
+    } else {
+        // Handle legacy binary system
+        console.log("Using Legacy Model Selection Logic");
+        const usePro = settings.useProModelForComplexTasks && isComplex;
+        modelName = usePro
+            ? modelSettings.pro
+            : modelSettings.flash;
+        if (!modelName) throw new Error("Legacy Pro/Flash Model name is not configured in Technical Settings.");
+    }
+
+    console.log(`%c[AI Call] Using model: ${modelName} (Tier: ${taskTier || (isComplex ? 'complex' : 'simple')})`, 'color: #2563eb; font-weight: bold;');
 
     const diacriticsRule = `CRITICAL RULE: For all text you generate (titles, keywords, descriptions, names, script content, etc.), you MUST NOT use diacritics (e.g., use 'cafe' instead of 'café', 'Cordoba' instead of 'Córdoba'). This is for SEO and searchability for an English-speaking audience.`;
 
@@ -61,16 +101,13 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
         
         if (finalGenerationConfig.responseMimeType === "application/json") {
             try {
-                // **FIX:** Replaced the fragile parsing logic with a more robust method.
                 let textToParse = responseText.trim();
                 
-                // Check for markdown code fences (```json ... ```) and extract the content.
                 const jsonMatch = textToParse.match(/```(json)?\s*([\s\S]*?)\s*```/);
                 if (jsonMatch && jsonMatch[2]) {
                     textToParse = jsonMatch[2];
                 }
 
-                // Attempt to parse the cleaned text.
                 return JSON.parse(textToParse);
 
             } catch (e) {
@@ -78,13 +115,12 @@ window.aiUtils.callGeminiAPI = async (prompt, settings, generationConfig = {}, i
                 throw new Error("AI response was expected to be valid JSON but wasn't.");
             }
         } else {
-            // For plain text, just return it directly
             return responseText;
         }
     } catch (error) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-            throw new Error('API call timed out after 2 minutes.');
+            throw new Error('API call timed out after 5 minutes.');
         }
         throw error;
     }
