@@ -13,7 +13,7 @@ const addLocationsWithoutDuplicates = (existingLocations, newLocations) => {
 };
 
 
-window.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db, firebaseAppInstance }) => {
+window.components.EditVideoModal = ({ video, project, allVideos, userId, settings, onClose, onSave, googleMapsLoaded, db, firebaseAppInstance }) => {
     // --- STATE MANAGEMENT ---
     const [title, setTitle] = useState(video.chosenTitle || video.title);
     const [concept, setConcept] = useState(video.concept);
