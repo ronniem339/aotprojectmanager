@@ -1,14 +1,15 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step3_OnCameraScripting.js
 
 const { useState, useEffect } = React;
-const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI } = window; // Import new utility
+const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI } = window;
 
 window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) => {
     const [view, setView] = useState('main'); // 'main', 'import', 'shotByShot', 'refineBlueprint'
     const [fullTranscript, setFullTranscript] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
-    const [blueprintSuggestions, setBlueprintSuggestions] = useState([]); // New state for suggestions
+    const [blueprintSuggestions, setBlueprintSuggestions] = useState([]);
+    const [selectedSuggestions, setSelectedSuggestions] = useState(new Set()); // New state for selected suggestions
 
     const handleMapTranscript = async () => {
         if (!fullTranscript.trim()) {
@@ -49,6 +50,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
             if (refinementResults && refinementResults.suggestions && refinementResults.suggestions.length > 0) {
                 setBlueprintSuggestions(refinementResults.suggestions);
+                setSelectedSuggestions(new Set(refinementResults.suggestions.map((_, i) => i))); // Select all by default
                 setView('refineBlueprint'); // Show suggestions view
             } else {
                 setView('shotByShot'); // If no suggestions, go directly to shot-by-shot
@@ -72,18 +74,39 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setBlueprint({ ...blueprint, shots: updatedShots });
     };
 
-    const applyBlueprintSuggestions = () => {
-        let currentBlueprint = { ...blueprint };
-        let currentShots = [...currentBlueprint.shots];
+    // Toggle selection of a suggestion
+    const handleToggleSuggestion = (index) => {
+        const newSelection = new Set(selectedSuggestions);
+        if (newSelection.has(index)) {
+            newSelection.delete(index);
+        } else {
+            newSelection.add(index);
+        }
+        setSelectedSuggestions(newSelection);
+    };
 
-        blueprintSuggestions.forEach(suggestion => {
+    const applyBlueprintSuggestions = () => {
+        let currentShots = [...blueprint.shots];
+
+        blueprintSuggestions.forEach((suggestion, index) => {
+            if (!selectedSuggestions.has(index)) {
+                return; // Skip if not selected
+            }
+
             if (suggestion.type === 'add') {
-                // Ensure unique temporary ID for new shots
+                // Ensure unique temporary ID for new shots, or use AI provided temp ID
+                const newShotId = suggestion.shot_id || `new_shot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
                 const newShot = {
-                    shot_id: suggestion.shot_id, // Use AI provided temp ID
-                    shot_type: suggestion.shot_type || 'Unknown',
+                    shot_id: newShotId,
+                    shot_type: suggestion.shot_type || 'New Shot',
                     shot_description: suggestion.shot_description || 'New shot based on transcript insight.',
                     on_camera_dialogue: '', // New shots start with empty dialogue
+                    voiceover_script: '',
+                    ai_research_notes: [],
+                    creator_experience_notes: '',
+                    estimated_time_seconds: 5, // Default estimate
+                    scene_id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Assign to a new scene ID
+                    scene_narrative_purpose: `New Scene: ${suggestion.shot_description}` || 'New Scene',
                     ai_reason: suggestion.reason // Store AI's reason for the suggestion
                 };
                 currentShots.push(newShot);
@@ -103,8 +126,9 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             }
         });
 
-        setBlueprint({ ...currentBlueprint, shots: currentShots });
+        setBlueprint({ ...blueprint, shots: currentShots });
         setBlueprintSuggestions([]); // Clear suggestions after applying
+        setSelectedSuggestions(new Set()); // Clear selection
         setView('shotByShot'); // Move to shot-by-shot view to see applied changes
     };
 
@@ -155,32 +179,57 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Review Blueprint Suggestions"),
             ),
-            React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Review them below."),
+            React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Select the ones you wish to apply."),
             blueprintSuggestions.length > 0 ?
                 React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 h-[calc(100vh-300px)]' },
-                    blueprintSuggestions.map((suggestion, index) =>
-                        React.createElement('div', { key: index, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
-                            React.createElement('h4', { className: `font-bold text-lg ${suggestion.type === 'add' ? 'text-green-400' : suggestion.type === 'remove' ? 'text-red-400' : 'text-yellow-400'}` },
-                                `Suggestion: ${suggestion.type.charAt(0).toUpperCase() + suggestion.type.slice(1)} Shot ${suggestion.shot_id ? `(${suggestion.shot_id})` : ''}`
+                    blueprintSuggestions.map((suggestion, index) => {
+                        const isSelected = selectedSuggestions.has(index);
+                        const originalShot = blueprint.shots.find(s => s.shot_id === suggestion.shot_id);
+
+                        return React.createElement('div', {
+                            key: index,
+                            onClick: () => handleToggleSuggestion(index), // Make the whole card clickable
+                            className: `bg-gray-800/70 p-4 rounded-xl border mb-4 cursor-pointer transition-all duration-200
+                                ${isSelected ? 'border-primary-accent bg-blue-900/20' : 'border-gray-700 hover:border-gray-600'}`
+                        },
+                            React.createElement('div', { className: 'flex justify-between items-center mb-2' },
+                                React.createElement('h4', { className: `font-bold text-lg ${suggestion.type === 'add' ? 'text-green-400' : suggestion.type === 'remove' ? 'text-red-400' : 'text-yellow-400'}` },
+                                    `${suggestion.type.charAt(0).toUpperCase() + suggestion.type.slice(1)} Shot`
+                                ),
+                                React.createElement('input', {
+                                    type: 'checkbox',
+                                    checked: isSelected,
+                                    onChange: () => handleToggleSuggestion(index), // Still allow checkbox to be clicked directly
+                                    className: 'h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent'
+                                })
                             ),
-                            suggestion.shot_type && React.createElement('p', { className: 'text-sm text-gray-300' }, `Type: ${suggestion.shot_type}`),
-                            suggestion.shot_description && React.createElement('p', { className: 'text-sm text-gray-300' }, `Description: ${suggestion.shot_description}`),
+                            // Display user-friendly information based on suggestion type
+                            suggestion.type === 'add' && React.createElement('div', null,
+                                React.createElement('p', { className: 'text-sm text-gray-300' }, `Type: ${suggestion.shot_type}`),
+                                React.createElement('p', { className: 'text-sm text-gray-300' }, `New Description: ${suggestion.shot_description}`)
+                            ),
+                            suggestion.type === 'modify' && originalShot && React.createElement('div', null,
+                                React.createElement('p', { className: 'text-sm text-gray-300' }, `Original Shot: ${originalShot.shot_type} - "${originalShot.shot_description}"`),
+                                React.createElement('p', { className: 'text-sm text-yellow-300' }, `Revised Description: ${suggestion.shot_description}`)
+                            ),
+                            suggestion.type === 'remove' && originalShot && React.createElement('p', { className: 'text-sm text-gray-300 line-through' },
+                                `Remove Shot: ${originalShot.shot_type} - "${originalShot.shot_description}"`
+                            ),
                             suggestion.reason && React.createElement('p', { className: 'text-sm text-gray-400 mt-2' }, `Reason: ${suggestion.reason}`)
-                        )
-                    )
+                        );
+                    })
                 )
                 :
                 React.createElement('p', { className: 'text-gray-400 text-center' }, "No blueprint refinement suggestions generated by the AI."),
             React.createElement('div', { className: 'text-center mt-4' },
                 React.createElement('button', {
                     onClick: applyBlueprintSuggestions,
-                    disabled: blueprintSuggestions.length === 0,
-                    className: 'button-primary disabled:opacity-50'
+                    disabled: selectedSuggestions.size === 0,
+                    className: 'button-primary disabled:opacity-50' // Now correctly formatted as a button
                 }, '✅ Apply Selected Suggestions & Continue')
             )
         )
     );
-
 
     const renderShotByShotView = () => (
         React.createElement('div', {},
@@ -211,7 +260,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         error && React.createElement('p', { className: 'text-red-400 mb-4 text-center bg-red-900/50 p-3 rounded-lg' }, error),
         view === 'main' && renderMainView(),
         view === 'import' && renderImportView(),
-        view === 'refineBlueprint' && renderRefineBlueprintView(), // New view
+        view === 'refineBlueprint' && renderRefineBlueprintView(),
         view === 'shotByShot' && renderShotByShotView()
     );
 };
