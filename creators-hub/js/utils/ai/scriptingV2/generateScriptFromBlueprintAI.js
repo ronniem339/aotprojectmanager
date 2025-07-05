@@ -7,6 +7,26 @@
 window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) => {
     console.log("Assembling final script from blueprint...");
 
+    // --- Input Validation ---
+    if (!blueprint || !Array.isArray(blueprint.shots) || blueprint.shots.length === 0) {
+        throw new Error("Blueprint is required and must contain shots for script generation.");
+    }
+    if (!video || !video.title) {
+        throw new Error("Video context (title) is missing for script generation.");
+    }
+    if (!settings || !settings.knowledgeBases) {
+        throw new Error("User settings are incomplete for AI script generation.");
+    }
+
+    // Validate essential properties for each shot before sending to AI
+    blueprint.shots.forEach((shot, index) => {
+        if (!shot.shot_id) throw new Error(`Shot at index ${index} is missing 'shot_id'.`);
+        if (!shot.shot_type) throw new Error(`Shot at index ${index} is missing 'shot_type'.`);
+        if (!shot.shot_description) throw new Error(`Shot at index ${index} is missing 'shot_description'.`);
+        // location_tag, on_camera_dialogue, voiceover_script_on_location can be empty, so no strict check
+    });
+
+
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     // Prepare a detailed representation of the blueprint for the AI
@@ -15,7 +35,7 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
             shot_id: shot.shot_id,
             shot_type: shot.shot_type,
             shot_description: shot.shot_description,
-            location_tag: shot.location_tag, // Include location for context
+            location_tag: shot.location_tag || '', // Ensure it's a string
             on_camera_dialogue: shot.on_camera_dialogue || '',
             voiceover_script_on_location: shot.voiceover_script || '', // Clarify this is the on-location voiceover
             ai_research_notes: shot.ai_research_notes || [],
@@ -116,20 +136,62 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
         required: ["updated_shots", "full_video_script_text", "recording_voiceover_script_text"]
     };
 
-    // Call the upgraded global function with the 'heavy' task tier and correct generationConfig structure.
-    const response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'heavy' }, { responseSchema });
+    let response;
+    try {
+        // Call the upgraded global function with the 'heavy' task tier and correct generationConfig structure.
+        response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'heavy' }, { responseSchema });
+
+        // --- Output Validation ---
+        if (!response || typeof response !== 'object') {
+            console.error("AI response for script generation is malformed:", response);
+            throw new Error("AI returned an invalid response format. Expected a JSON object with script data.");
+        }
+        if (!Array.isArray(response.updated_shots)) {
+            throw new Error("AI response missing 'updated_shots' array.");
+        }
+        if (typeof response.full_video_script_text !== 'string' || typeof response.recording_voiceover_script_text !== 'string') {
+            throw new Error("AI response missing 'full_video_script_text' or 'recording_voiceover_script_text'.");
+        }
+
+        // Validate each updated_shot in the array
+        response.updated_shots.forEach((shot, index) => {
+            if (typeof shot !== 'object' || shot === null) {
+                throw new Error(`Updated shot at index ${index} is not a valid object.`);
+            }
+            const requiredShotFields = ["shot_id", "shot_type", "shot_description", "location_tag", "on_camera_dialogue", "voiceover_script", "estimated_time_seconds"];
+            for (const field of requiredShotFields) {
+                if (shot[field] === undefined || shot[field] === null) {
+                    throw new Error(`Updated shot at index ${index} is missing required field: '${field}'.`);
+                }
+            }
+            if (typeof shot.shot_id !== 'string' || shot.shot_id.trim() === '') {
+                throw new Error(`Updated shot at index ${index} has an invalid 'shot_id'.`);
+            }
+            if (typeof shot.voiceover_script !== 'string') {
+                throw new Error(`Updated shot at index ${index} has an invalid 'voiceover_script'.`);
+            }
+            if (typeof shot.estimated_time_seconds !== 'number' || shot.estimated_time_seconds < 0) {
+                console.warn(`Invalid estimated_time_seconds for updated shot_id: ${shot.shot_id}. Setting to 5 seconds.`);
+                shot.estimated_time_seconds = 5; // Provide a default if invalid
+            }
+        });
+
+    } catch (err) {
+        console.error("Error generating script from blueprint with AI:", err);
+        // Re-throw a more user-friendly error message
+        throw new Error(`Failed to generate script from blueprint: ${err.message || "An unknown AI error occurred."}`);
+    }
 
     // Ensure initialThoughts and other top-level blueprint properties are carried over
     // The AI returns 'updated_shots', but the overall blueprint structure needs to be maintained.
-    if (response && blueprint.initialThoughts) {
-        response.initialThoughts = blueprint.initialThoughts;
-    }
-    // Set the shots in the response to the updated_shots from AI
-    if (response && response.updated_shots) {
-        response.shots = response.updated_shots;
-        // FIX: Removed the line 'delete response.updated_shots;'
-        // The 'updated_shots' field should remain in the response for Step5_FinalAssembly to access.
-    }
-
+    // This part should only be done if the calling function expects the entire blueprint object back.
+    // Assuming the calling function expects the 'updated_shots', full_video_script_text, and recording_voiceover_script_text
+    // and will merge them into its local blueprint state.
+    
+    // The previous 'FIX' comment was correct, 'updated_shots' should remain for Step5.
+    // However, if the `setBlueprint` in the calling component (like in Step5_FinalAssembly.js) expects
+    // the blueprint to have a 'shots' property, we need to map it.
+    // For now, return the AI's direct response, and let the calling component handle the merge.
+    // The `window.generateScriptFromBlueprintAI` function's return value will be the AI's parsed JSON.
     return response;
 };
