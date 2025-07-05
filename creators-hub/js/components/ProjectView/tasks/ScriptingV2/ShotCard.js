@@ -12,7 +12,8 @@ window.ShotCard = ({ shot }) => {
         }
         return React.createElement('div', { className: 'mb-3' },
             React.createElement('p', { className: 'text-xs font-bold text-amber-300 uppercase tracking-wider' }, label),
-            React.createElement('p', { className: 'text-gray-300 text-sm' },
+            // Changed <p> to <div> here to allow <ul> as a descendant
+            React.createElement('div', { className: 'text-gray-300 text-sm' },
                 Array.isArray(value) ?
                     React.createElement('ul', { className: 'list-disc list-inside' }, value.map((item, i) => React.createElement('li', { key: i }, item)))
                     : value
