@@ -12,3 +12,19 @@ Set up Firebase:Go to the Firebase Console and create a new project.In your new 
 Enable Email/Password sign-in method in the Authentication > Sign-in method tab.Set up Firestore and Storage with the default security rules to get started.Configure the Application:Open the file creators-hub/js/config.js.Replace the placeholder Firebase configuration with the one from your Firebase project.Add your Google Gemini API key and any other required API keys to this file.Install Netlify Function Dependencies:The serverless functions in the netlify/ directory have their own dependencies.npm install
 Run the project locally:Use the Netlify CLI to run the project. This will serve the static files and run the serverless functions in a local environment.netlify dev
 The application should now be running on http://localhost:8888.ArchitectureFor a detailed explanation of the application's structure, components, data flow, and interdependencies, please see our Architecture Reference (ARCHITECTURE.md). This document is intended to help developers and AI tools quickly understand the codebase.LicenseDistributed under the MIT License. See LICENSE.txt for more information.(Note: You will need to add a LICENSE.txt file to your repository if you wish to include a license.)
+
+### Future Enhancements & Roadmap
+
+We are continuously working to improve the Creator's Hub. Here are some key areas identified for future development:
+
+* **Advanced AI Integration and User Experience:**
+    * **Proactive AI Suggestions:** Explore implementing AI that provides real-time suggestions as users interact with the application, rather than only on explicit button clicks. This could include suggestions for rephrasing, content expansion, or alternative approaches based on the user's input and project context.
+    * **Multimodal Input:** Investigate integrating capabilities for AI to process and understand non-textual inputs (e.g., analyzing video clips for content suggestions, processing audio for transcription insights). This would enhance the AI's ability to inform script suggestions and content creation.
+    * **Personalized Knowledge Bases:** Develop functionality for users to upload and leverage their own private knowledge bases (e.g., past scripts, internal brand guidelines, personal research notes) to further fine-tune AI outputs and ensure highly personalized content generation.
+
+* **Sophisticated Task Queueing and Management:**
+    * Implement a more robust task management system, especially for long-running or asynchronous AI operations. This would provide clearer status updates (e.g., pending, in-progress, completed, failed, retrying), allow for task prioritization, and potentially enable cancellation of ongoing AI processes. This would improve transparency and user control over background operations.
+
+* **Long-Term Architectural Evolution:**
+    * **Modern Build Pipeline:** As the application grows in complexity and features, consider a gradual migration from the current CDN-first, browser-transpilation architecture to a modern build system (e.g., Vite, Webpack, or similar). This would enable better optimization (tree-shaking, code splitting), more robust development tooling, easier integration of npm packages, and potentially improved application load times and performance. This is a significant architectural shift that would be evaluated for long-term scalability and development efficiency.
+    * **Comprehensive Testing Strategy:** Develop and implement a formal testing strategy encompassing unit tests for individual components and utility functions, integration tests for key workflows (especially involving AI and Firestore interactions), and end-to-end tests to ensure the overall application flow is robust and reliable. This is crucial for maintaining quality as the codebase evolves.
