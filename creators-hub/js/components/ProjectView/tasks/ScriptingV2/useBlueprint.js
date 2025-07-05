@@ -16,8 +16,9 @@ window.useBlueprint = (video, project, userId, db) => {
     // State to hold any potential errors.
     const [error, setError] = useState(null);
 
-    // A ref to prevent the initial empty state from overwriting Firestore data on first render.
-    const isInitialMount = useRef(true);
+    // NEW: A ref to track if the initial blueprint data has been loaded from Firestore.
+    // This replaces the old isInitialMount logic for more robust auto-saving.
+    const hasLoadedInitialBlueprint = useRef(false);
 
     // Get a debounced version of the blueprint state.
     // We'll only write to the database when the user has stopped making changes for 1.5 seconds.
@@ -42,10 +43,15 @@ window.useBlueprint = (video, project, userId, db) => {
                 setBlueprint({ shots: [] }); // Initialize empty if doc doesn't exist
             }
             setIsLoading(false);
+            // Mark that the initial blueprint has been loaded (or initialized as empty).
+            // This ensures auto-saving starts only after the initial state is stable.
+            hasLoadedInitialBlueprint.current = true;
         }, err => {
             console.error("Error fetching blueprint:", err);
             setError("Failed to load script blueprint.");
             setIsLoading(false);
+            // Mark as loaded even on error to allow subsequent saves if user makes changes.
+            hasLoadedInitialBlueprint.current = true;
         });
 
         // Cleanup function to unsubscribe from the listener when the component unmounts.
@@ -54,18 +60,10 @@ window.useBlueprint = (video, project, userId, db) => {
 
     // Effect for auto-saving the debounced blueprint data.
     useEffect(() => {
-        // If it's the initial mount, don't save. The blueprint state is still being initialized.
-        if (isInitialMount.current) {
-            // After the first run, set the ref to false.
-            // We check if the blueprint is not null to ensure we don't flip the bit too early.
-            if (blueprint !== null) {
-                isInitialMount.current = false;
-            }
-            return;
-        }
-
-        // If the debounced blueprint is not null, save it.
-        if (debouncedBlueprint) {
+        // Only save if the initial blueprint has been loaded (hasLoadedInitialBlueprint.current is true)
+        // AND the debouncedBlueprint is not null (meaning there's data to save).
+        // This prevents overwriting with default/empty values on initial component mount before data is fetched.
+        if (hasLoadedInitialBlueprint.current && debouncedBlueprint !== null) {
             blueprintDocRef.current.update({
                 'tasks.scriptingV2_blueprint': debouncedBlueprint
             }).catch(err => {
