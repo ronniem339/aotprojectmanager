@@ -28,6 +28,8 @@ window.aiUtils.refineBlueprintFromTranscriptAI = async (options) => { // CHANGED
         3.  **Diacritics:** For all text you generate (descriptions, reasons, etc.), you MUST NOT use diacritics (e.g., use 'cafe' instead of 'café', 'Cordoba' instead of 'Cordoba').
         4.  **Blueprint Structure:** Maintain the core structure of the blueprint. Only suggest changes to 'shots' array and its properties.
         5.  **Shot IDs:** For modifications, use the existing 'shot_id'. For new shots, generate unique temporary IDs (e.g., "new_shot_1", "new_shot_2").
+        6.  **Mandatory Fields for "modify":** When suggesting a modification ("type": "modify"), you MUST include both the 'shot_id' and the 'shot_description'. The 'shot_description' cannot be empty.
+
 
         **Detailed Instructions:**
         * Analyze the 'Full On-Camera Transcript' in relation to the 'Current Creative Blueprint'.
@@ -41,7 +43,7 @@ window.aiUtils.refineBlueprintFromTranscriptAI = async (options) => { // CHANGED
             * \`type\`: "add", "modify", or "remove".
             * \`shot_id\`: (Required for "modify" and "remove", optional/placeholder for "add") The ID of the shot being affected.
             * \`shot_type\`: (Required for "add") e.g., "On-Camera", "B-Roll", "Drone".
-            * \`shot_description\`: (Required for "add" and "modify") The new or updated description.
+            * \`shot_description\`: (ABSOLUTELY REQUIRED for "add" and "modify") The new or updated description. This field must always be present and contain text for these types.
             * \`reason\`: A brief, clear explanation for the suggested change, referencing specific parts of the transcript if possible.
             * \`placement_suggestion\`: (OPTIONAL, for type "add" only) If adding a new shot, suggest where it should be inserted in the blueprint. This should be an object with:
                 * \`relative_to_shot_id\`: The 'shot_id' of an EXISTING shot in the blueprint.
