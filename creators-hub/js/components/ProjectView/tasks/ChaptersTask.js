@@ -1,4 +1,4 @@
-// creators-hub/js/components/ProjectView/tasks/ChaptersTask.js
+// creators-hub/js/components/ProjectVew/tasks/ChaptersTask.js
 
 window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
@@ -8,9 +8,6 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const [refining, setRefining] = useState(false);
     const [refinePrompt, setRefinePrompt] = useState('');
     const [error, setError] = useState('');
-
-    // --- FIX: Intelligently select the correct script from either V1 or V2 workflows ---
-    const scriptToUse = video.full_video_script_text || video.script;
 
     useEffect(() => {
         setChapters(video.chapters || []);
@@ -25,13 +22,16 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     const formatTime = (time, isLongVideo) => {
         const parts = time.split(':');
+
         if (parts.length === 3) {
             const [hours, minutes, seconds] = parts;
             return `${hours}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
         }
+
         if (parts.length === 2) {
             let [minutes, seconds] = parts;
             seconds = seconds.padStart(2, '0');
+
             if (isLongVideo) {
                 return `${minutes.padStart(2, '0')}:${seconds}`;
             } else {
@@ -41,11 +41,12 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 return `${minutes}:${seconds}`;
             }
         }
+
         return time;
     };
 
     const handleGenerateChapters = async () => {
-        // --- FIX: Check for the unified script variable ---
+        const scriptToUse = video.full_video_script_text || video.script;
         if (!scriptToUse) {
             setError('A video script is required to generate chapters.');
             return;
@@ -89,7 +90,9 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         }
         setRefining(true);
         setError('');
+
         const currentTitles = chapters.map(c => c.title);
+
         const prompt = `
             You are an expert in video content and titling.
             You have been given a list of chapter titles for a video.
@@ -107,9 +110,11 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
             ${refinePrompt}
             ---
         `;
+
         try {
             const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
             const refinedTitles = result.chapters || [];
+
             if (refinedTitles.length === chapters.length) {
                 const refinedChapters = chapters.map((chapter, index) => ({
                     ...chapter,
@@ -120,6 +125,7 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
             } else {
                 throw new Error("The number of refined chapters does not match the original count.");
             }
+
         } catch (err) {
             console.error("Error refining chapters:", err);
             setError(`Failed to refine chapters: ${err.message}`);
@@ -144,24 +150,29 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     const handleSave = () => {
         for (const chapter of chapters) {
-            if (!/^\\d{1,2}:\\d{2}(:\\d{2})?$/.test(chapter.time) || !chapter.title) {
+            // --- THIS IS THE FIX ---
+            // We now trim the `chapter.time` before validating it to remove any accidental whitespace.
+            if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test((chapter.time || '').trim()) || !chapter.title) {
                 setError('All chapters must have a valid title and timestamp (e.g., 01:23 or 1:01:23). Please review your chapters.');
                 return;
             }
         }
-        if (chapters.length > 0 && chapters[0].time !== '00:00') {
+        if (chapters.length > 0 && chapters[0].time.trim() !== '00:00') {
             setError('The first chapter must start at 00:00.');
             return;
         }
         setError('');
+
         const maxDurationInSeconds = Math.max(...chapters.map(ch => parseTimeToSeconds(ch.time)));
         const isLongVideo = maxDurationInSeconds >= 600;
+
         const chapterString = chapters
             .map(ch => {
-                const formattedTime = formatTime(ch.time, isLongVideo);
+                const formattedTime = formatTime(ch.time.trim(), isLongVideo);
                 return `${formattedTime} - ${ch.title}`;
             })
             .join('\n');
+
         const currentMetadata = (typeof video.metadata === 'string' && video.metadata)
             ? JSON.parse(video.metadata)
             : video.metadata || {};
@@ -169,13 +180,15 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         const chapterHeader = "\n\n--- CHAPTERS ---\n";
         let newDescription;
         const existingChapterIndex = currentDescription.indexOf(chapterHeader);
+
         if (existingChapterIndex !== -1) {
             newDescription = currentDescription.substring(0, existingChapterIndex) + chapterHeader + chapterString;
         } else {
             newDescription = currentDescription + chapterHeader + chapterString;
         }
+
         onUpdateTask('chaptersGenerated', 'complete', {
-            chapters: chapters,
+            chapters: chapters.map(ch => ({ ...ch, time: ch.time.trim() })), // Save the trimmed time
             'metadata.description': newDescription
         });
     };
@@ -184,13 +197,13 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         return <p className="text-gray-400 text-center py-2 text-sm">Please complete the previous steps first.</p>;
     }
 
+    const scriptToUse = video.full_video_script_text || video.script;
+
     return (
         <div className="task-content space-y-4">
-            {/* --- FIX: Update disabled check --- */}
             <button onClick={handleGenerateChapters} disabled={generating || !scriptToUse} className="button-primary-small w-full justify-center">
                 {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Suggested Chapters'}
             </button>
-            {/* --- FIX: Update helper text check --- */}
             {!scriptToUse && <p className="text-yellow-400 text-sm text-center">A finalized script is needed to generate chapter suggestions.</p>}
             {error && <p className="error-message">{error}</p>}
 
