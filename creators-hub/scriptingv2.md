@@ -27,7 +27,7 @@ New Directory: `creators-hub/js/components/ProjectView/tasks/ScriptingV2/`
 * `ShotCard.js`: Displays the details of a single shot.
 * `Step1_InitialBlueprint.js`: UI for the "brain dump" and initial generation.
 * `Step2_ResearchCuration.js`: UI for the AI-powered research step.
-* `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and combines the functionality for importing full transcripts with shot-by-shot dialogue editing.
+* `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and combines the functionality for importing full transcripts with shot-by-shot dialogue editing, and now includes the blueprint refinement suggestions.
 * `Step5_FinalAssembly.js`: UI for the final script generation and task completion (now functionally `Step 4` in the revised workflow).
 
 **Files Deleted:**
@@ -43,6 +43,7 @@ New Directory: `creators-hub/js/utils/ai/scriptingV2/`
 * `createInitialBlueprintAI.js`: (Heavy Task) - Creates the initial narrative structure.
 * `enrichBlueprintAI.js`: (Lite Task) - Performs factual research for specific shots.
 * `mapTranscriptToBlueprintAI.js`: **(NEW)** Maps a full on-camera transcript to the relevant shots in the blueprint, cleaning filler words and typos in the process.
+* `refineBlueprintFromTranscriptAI.js`: **(NEW)** Analyzes the full on-camera transcript and the current blueprint to suggest modifications (add, modify, remove shots) to the blueprint itself. This is classified as a **Heavy Task**.
 * `generateScriptFromBlueprintAI.js`: (Heavy Task) - Assembles the final script from the completed blueprint.
 
 **Files Deleted:**
@@ -113,5 +114,6 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
 * **Transcript Import and Mapping:** The previous "Inject Your Experience" step has been replaced with a more direct "On-Camera Scripting" workflow. Users can now:
     * **Import Full Transcript:** Paste a complete on-camera transcript. The new `mapTranscriptToBlueprintAI.js` utility uses the Gemini API to clean the transcript (removing filler words, correcting typos) and intelligently maps the relevant dialogue segments to their corresponding shots in the Creative Blueprint based on shot descriptions and intent.
     * **Write Shot-by-Shot:** Manually enter or refine on-camera dialogue for each shot. This provides granular control and allows for adjustments to AI-mapped dialogue.
-* **Seamless Integration:** The mapped dialogue is automatically populated into the `on_camera_dialogue` field for each shot in the blueprint, and the UI transitions to the "Shot-by-Shot" view for review and further editing.
-* **Improved User Flow:** This change addresses previous feedback by providing a more intuitive and practical method for incorporating on-camera content, aligning with the goal of leveraging AI for heavy lifting while retaining user control.
+* **Blueprint Refinement:** After the initial dialogue mapping, the system now uses `refineBlueprintFromTranscriptAI.js` to analyze the transcript for deeper insights and provides suggestions for refining the blueprint (e.g., adding new shots, modifying existing shot descriptions, or suggesting removals). These suggestions are presented to the user for review and application.
+* **Seamless Integration:** The mapped dialogue is automatically populated into the `on_camera_dialogue` field for each shot in the blueprint, and the UI transitions to the "Shot-by-Shot" view for review and further editing after potential blueprint refinements.
+* **Improved User Flow:** This change addresses previous feedback by providing a more intuitive and practical method for incorporating on-camera content and dynamically improving the video plan, aligning with the goal of leveraging AI for heavy lifting while retaining user control.
