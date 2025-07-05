@@ -1,14 +1,20 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step1_InitialBlueprint.js
 
 const { useState, useEffect } = React;
-const { createInitialBlueprintAI } = window; // Import the new AI function
+// We no longer import createInitialBlueprintAI directly, as it's called via handlers.triggerAiTask
+// const { createInitialBlueprintAI } = window; 
 
 window.Step1_InitialBlueprint = ({ blueprint, setBlueprint, video, project, settings }) => {
+    // Access handlers from useAppState
+    const { handlers } = window.useAppState();
+
     // Local state to hold the user's initial thoughts.
     // Initialize it with an empty string, and let useEffect handle populating from blueprint.
     const [initialThoughts, setInitialThoughts] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [error, setError] = useState('');
+    // Error state will now primarily be managed by global notifications, but keeping
+    // a local one for immediate feedback or specific component errors might still be useful.
+    const [error, setError] = useState(''); 
 
     useEffect(() => {
         // This effect will run:
@@ -21,28 +27,43 @@ window.Step1_InitialBlueprint = ({ blueprint, setBlueprint, video, project, sett
 
     const handleGenerateBlueprint = async () => {
         setIsGenerating(true);
-        setError('');
+        setError(''); // Clear local error before starting
+
+        const taskId = `scriptingV2-initial-blueprint-${video.id}-${Date.now()}`; // Unique ID for this specific task
+
         try {
-            // Call the real AI function
-            const newBlueprint = await createInitialBlueprintAI({
-                initialThoughts,
-                video,
-                project,
-                settings
+            await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-blueprint-initial',
+                name: 'Initial Blueprint Generation',
+                aiFunction: window.aiUtils.createInitialBlueprintAI, // Use the globally available AI utility
+                args: { 
+                    initialThoughts, 
+                    video, 
+                    project, 
+                    settings 
+                },
+                onSuccess: (newBlueprint) => {
+                    // Update the main blueprint state with the AI-generated content
+                    // Also save the initial thoughts to the blueprint for persistence.
+                    newBlueprint.initialThoughts = initialThoughts;
+                    setBlueprint(newBlueprint);
+                },
+                onFailure: (err) => {
+                    // triggerAiTask already displays a notification, so here we might just
+                    // set a local error or log if needed, but primary feedback is global.
+                    console.error("Local handler caught blueprint generation error:", err);
+                    // Optionally set a local error if you want component-specific display
+                    setError(`Failed to generate blueprint. Details: ${err.message || 'Unknown error.'}`);
+                }
             });
 
-            if (!newBlueprint || !newBlueprint.shots) {
-                throw new Error("AI did not return a valid blueprint structure.");
-            }
-
-            // Also save the initial thoughts to the blueprint for persistence.
-            newBlueprint.initialThoughts = initialThoughts;
-
-            setBlueprint(newBlueprint); // Update the main blueprint state.
-
         } catch (err) {
-            console.error("Error generating blueprint:", err);
-            setError(`Failed to generate the blueprint: ${err.message}. Please try again.`);
+            // This catch block will only be hit if triggerAiTask re-throws the error.
+            // It primarily serves for robust error propagation, as triggerAiTask handles display.
+            console.error("Unhandled error from triggerAiTask in Step1_InitialBlueprint:", err);
+            // If triggerAiTask didn't handle notification for some reason, this could be a fallback
+            setError(`An unhandled error occurred: ${err.message || 'Please check console.'}`);
         } finally {
             setIsGenerating(false);
         }
@@ -67,6 +88,7 @@ window.Step1_InitialBlueprint = ({ blueprint, setBlueprint, video, project, sett
                 isGenerating ? 'Generating...' : 'Create Initial Blueprint'
             )
         ),
+        // Display local error if set, otherwise rely on global notifications
         error && React.createElement('p', { className: 'text-red-400 mt-4 text-center' }, error)
     );
 };
