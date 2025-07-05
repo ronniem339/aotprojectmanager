@@ -2,7 +2,7 @@
 
 const { useState, useEffect } = React;
 // mapTranscriptToBlueprintAI and refineBlueprintFromTranscriptAI are now called via handlers.triggerAiTask
-// const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI } = window;
+// const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI = window;
 
 window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) => {
     // Access handlers from useAppState
@@ -63,6 +63,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             return;
         }
         setIsProcessing(true);
+        setProcessingMessage('Mapping transcript to shots...'); // ADDED: Initial message for local status bar
         setError(''); // Clear previous local errors
 
         const mapTaskId = `scriptingV2-map-transcript-${video.id}-${Date.now()}`;
@@ -88,7 +89,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     let tempBlueprintForProcessing = {
                         ...blueprint,
                         // Persist the fullTranscript entered by the user
-                        fullTranscript: fullTranscript, 
+                        fullTranscript: fullTranscript,
                         shots: blueprint.shots.map(shot => ({
                             ...shot,
                             // Clear ai_reason when re-processing to ensure fresh state
@@ -147,7 +148,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const handleRefineBlueprint = async (currentBlueprintState) => {
         setIsProcessing(true);
         setError(''); // Clear previous local errors
-        setProcessingMessage('Analyzing transcript for blueprint refinements...');
+        setProcessingMessage('Analyzing transcript for blueprint refinements...'); // Already present and good
 
         const refineTaskId = `scriptingV2-refine-blueprint-${video.id}-${Date.now()}`;
 
