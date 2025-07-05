@@ -2,6 +2,17 @@
 window.refineBlueprintFromTranscriptAI = async (options) => {
     const { fullTranscript, blueprint, settings } = options;
 
+    // --- Input Validation ---
+    if (!fullTranscript || typeof fullTranscript !== 'string' || fullTranscript.trim() === '') {
+        throw new Error("Full transcript is required and cannot be empty for blueprint refinement.");
+    }
+    if (!blueprint || !Array.isArray(blueprint.shots) || blueprint.shots.length === 0) {
+        throw new Error("Blueprint is required and must contain shots for refinement.");
+    }
+    if (!settings || !settings.knowledgeBases) {
+        throw new Error("User settings are incomplete for AI blueprint refinement.");
+    }
+
     const currentBlueprintJson = JSON.stringify(blueprint, null, 2);
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
@@ -35,7 +46,7 @@ window.refineBlueprintFromTranscriptAI = async (options) => {
             * \`placement_suggestion\`: (OPTIONAL, for type "add" only) If adding a new shot, suggest where it should be inserted in the blueprint. This should be an object with:
                 * \`relative_to_shot_id\`: The 'shot_id' of an EXISTING shot in the blueprint.
                 * \`position\`: "before" or "after" the \`relative_to_shot_id\`.
-                If no specific logical placement is found, omit this field.
+                * If no specific logical placement is found, omit this field.
 
         **Example Output Format:**
         \`\`\`json
@@ -84,16 +95,72 @@ window.refineBlueprintFromTranscriptAI = async (options) => {
         **JSON Output:**
     `;
 
-    const aiResponse = await window.aiUtils.callGeminiAPI(
-        prompt,
-        settings,
-        { taskTier: 'heavy' }, // This is a complex analysis task
-        {
-            temperature: 0.7, // Allow some creativity in identifying new opportunities
-            response_mime_type: "application/json",
-        }
-    );
+    let aiResponse;
+    try {
+        aiResponse = await window.aiUtils.callGeminiAPI(
+            prompt,
+            settings,
+            { taskTier: 'heavy' }, // This is a complex analysis task
+            {
+                temperature: 0.7, // Allow some creativity in identifying new opportunities
+                response_mime_type: "application/json",
+            }
+        );
 
-    // The aiResponse is already a parsed JSON object due to response_mime_type
+        // --- Output Validation ---
+        if (!aiResponse || typeof aiResponse !== 'object' || !Array.isArray(aiResponse.suggestions)) {
+            console.error("AI response for blueprint refinement is malformed:", aiResponse);
+            throw new Error("AI returned an invalid blueprint refinement structure. Expected an object with a 'suggestions' array.");
+        }
+
+        // Validate each suggestion in the array
+        aiResponse.suggestions.forEach((suggestion, index) => {
+            if (typeof suggestion !== 'object' || suggestion === null) {
+                throw new Error(`Suggestion at index ${index} is not a valid object.`);
+            }
+
+            if (!['add', 'modify', 'remove'].includes(suggestion.type)) {
+                throw new Error(`Invalid 'type' for suggestion at index ${index}. Must be 'add', 'modify', or 'remove'.`);
+            }
+
+            if (suggestion.type !== 'add' && (!suggestion.shot_id || typeof suggestion.shot_id !== 'string')) {
+                throw new Error(`'shot_id' is required and must be a string for '${suggestion.type}' suggestion at index ${index}.`);
+            }
+
+            if (suggestion.type === 'add') {
+                if (!suggestion.shot_type || typeof suggestion.shot_type !== 'string') {
+                    throw new Error(`'shot_type' is required and must be a string for 'add' suggestion at index ${index}.`);
+                }
+                if (!suggestion.shot_description || typeof suggestion.shot_description !== 'string') {
+                    throw new Error(`'shot_description' is required and must be a string for 'add' suggestion at index ${index}.`);
+                }
+                if (suggestion.placement_suggestion) {
+                    if (typeof suggestion.placement_suggestion !== 'object' || suggestion.placement_suggestion === null) {
+                        throw new Error(`'placement_suggestion' for 'add' suggestion at index ${index} must be an object.`);
+                    }
+                    if (!suggestion.placement_suggestion.relative_to_shot_id || typeof suggestion.placement_suggestion.relative_to_shot_id !== 'string') {
+                        throw new Error(`'relative_to_shot_id' is required and must be a string for 'placement_suggestion' at index ${index}.`);
+                    }
+                    if (!['before', 'after'].includes(suggestion.placement_suggestion.position)) {
+                        throw new Error(`Invalid 'position' for 'placement_suggestion' at index ${index}. Must be 'before' or 'after'.`);
+                    }
+                }
+            } else if (suggestion.type === 'modify') {
+                if (!suggestion.shot_description || typeof suggestion.shot_description !== 'string') {
+                    throw new Error(`'shot_description' is required and must be a string for 'modify' suggestion at index ${index}.`);
+                }
+            }
+
+            if (!suggestion.reason || typeof suggestion.reason !== 'string') {
+                throw new Error(`'reason' is required and must be a string for suggestion at index ${index}.`);
+            }
+        });
+
+    } catch (err) {
+        console.error("Error refining blueprint from transcript with AI:", err);
+        // Re-throw a more user-friendly error message
+        throw new Error(`Failed to refine blueprint from transcript: ${err.message || "An unknown AI error occurred."}`);
+    }
+
     return aiResponse;
 };
