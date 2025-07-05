@@ -231,7 +231,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     estimated_time_seconds: suggestion.estimated_time_seconds || 5, // Use AI provided time if available
                     scene_id: suggestion.scene_id || `scene_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Ensure scene_id for new shots
                     scene_narrative_purpose: suggestion.scene_narrative_purpose || 'New Scene', // Ensure purpose for new shots
-                    ai_reason: suggestion.reason
+                    ai_reason: suggestion.reason || '' // FIXED: Ensure ai_reason is always a string
                 };
 
                 const placement = suggestion.placement_suggestion;
@@ -260,7 +260,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             shot_description: suggestion.shot_description || shot.shot_description,
                             // If AI suggests new narrative purpose, update it
                             scene_narrative_purpose: suggestion.scene_narrative_purpose || shot.scene_narrative_purpose,
-                            ai_reason: suggestion.reason // Add reason for modification for clarity
+                            ai_reason: suggestion.reason || '' // FIXED: Ensure ai_reason is always a string
                         };
                     }
                     return shot;
@@ -299,7 +299,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             ...shot,
                             on_camera_dialogue: choice === 'on_camera_dialogue' ? segment.dialogue : '',
                             voiceover_script: choice === 'voiceover_script' ? segment.dialogue : '',
-                            ai_reason: `Resolved ambiguity: classified as ${choice}` // Add reason for classification
+                            ai_reason: `Resolved ambiguity: classified as ${choice}` // This already generates a string
                         };
                     }
                     return shot;
