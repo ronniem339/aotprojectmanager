@@ -120,7 +120,8 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
     // Set the shots in the response to the updated_shots from AI
     if (response && response.updated_shots) {
         response.shots = response.updated_shots;
-        delete response.updated_shots; // Clean up the temporary field
+        // FIX: Removed the line 'delete response.updated_shots;'
+        // The 'updated_shots' field should remain in the response for Step5_FinalAssembly to access.
     }
 
     return response;
