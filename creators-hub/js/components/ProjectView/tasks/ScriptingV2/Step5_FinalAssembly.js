@@ -4,43 +4,68 @@
 // the final AI script generation and a button to mark the entire task as complete.
 
 const { useState } = React;
-const { generateScriptFromBlueprintAI, CopyButton } = window; // ADDED: CopyButton assuming it's available globally
+// generateScriptFromBlueprintAI is now called via handlers.triggerAiTask
+const { CopyButton } = window; // ADDED: CopyButton assuming it's available globally
 
 window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpdateTask, onClose }) => {
+    // Access handlers from useAppState
+    const { handlers } = window.useAppState();
+
     const [isGenerating, setIsGenerating] = useState(false);
+    // Local error state can be simplified/removed if all error messaging is handled globally
     const [error, setError] = useState('');
 
     const handleGenerateScript = async () => {
         setIsGenerating(true);
-        setError('');
+        setError(''); // Clear local error before starting
+
+        const taskId = `scriptingV2-final-script-${video.id}-${Date.now()}`;
+        const taskName = "Final Script Assembly";
+
         try {
-            // UPDATED: generateScriptFromBlueprintAI now returns multiple outputs
-            const aiOutput = await generateScriptFromBlueprintAI({
-                blueprint,
-                video,
-                settings
+            // Call the AI function via the centralized triggerAiTask handler
+            const aiOutput = await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-final-script',
+                name: taskName,
+                aiFunction: window.aiUtils.generateScriptFromBlueprintAI,
+                args: {
+                    blueprint,
+                    video,
+                    settings
+                },
+                onSuccess: (result) => {
+                    // Output validation is handled inside generateScriptFromBlueprintAI.js,
+                    // but a final check here just in case.
+                    if (!result || !result.updated_shots || !result.full_video_script_text || !result.recording_voiceover_script_text) {
+                        throw new Error("AI did not return a complete script package. (Post-processing validation)");
+                    }
+
+                    // Create a new blueprint object with the updated shots and the new scripts
+                    const updatedBlueprint = {
+                        ...blueprint,
+                        // Update blueprint.shots with the AI's refined shots
+                        shots: result.updated_shots,
+                        // Store the two new script outputs
+                        final_full_video_script: result.full_video_script_text,
+                        final_recording_voiceover_script: result.recording_voiceover_script_text,
+                        finalScriptGenerated: true // Set flag indicating final script has been generated
+                    };
+
+                    setBlueprint(updatedBlueprint);
+                },
+                onFailure: (err) => {
+                    // triggerAiTask already displays a notification.
+                    // This local callback can be used for any component-specific cleanup or logging.
+                    console.error("Local handler caught final script generation error:", err);
+                    setError(`Failed to generate the final script: ${err.message || 'Unknown error.'}`);
+                }
             });
 
-            if (!aiOutput || !aiOutput.updated_shots || !aiOutput.full_video_script_text || !aiOutput.recording_voiceover_script_text) {
-                throw new Error("AI did not return a complete script package.");
-            }
-
-            // Create a new blueprint object with the updated shots and the new scripts
-            const updatedBlueprint = {
-                ...blueprint,
-                // Update blueprint.shots with the AI's refined shots
-                shots: aiOutput.updated_shots,
-                // Store the two new script outputs
-                final_full_video_script: aiOutput.full_video_script_text,
-                final_recording_voiceover_script: aiOutput.recording_voiceover_script_text,
-                finalScriptGenerated: true // Set flag indicating final script has been generated
-            };
-
-            setBlueprint(updatedBlueprint);
-
         } catch (err) {
-            console.error("Error generating final script:", err);
-            setError(`Failed to generate the final script: ${err.message}. Please try again.`);
+            // This catch block will only be hit if triggerAiTask re-throws the error.
+            console.error("Unhandled error from triggerAiTask in Step5_FinalAssembly:", err);
+            setError(`An unhandled error occurred: ${err.message || 'Please check console.'}`);
         } finally {
             setIsGenerating(false);
         }
@@ -48,6 +73,7 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
 
     const handleCompleteTask = () => {
         // Here we would update the main video task status in Firestore.
+        // Ensure the blueprint state has the latest scripts before saving
         onUpdateTask('scripting', 'complete', {
             'tasks.scriptingV2_blueprint': {
                 ...blueprint,
