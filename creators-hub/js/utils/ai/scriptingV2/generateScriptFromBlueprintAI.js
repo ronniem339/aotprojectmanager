@@ -46,14 +46,15 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
         1.  **Full Video Script (Cohesive Narrative):**
             * Integrate all existing 'on_camera_dialogue' and 'voiceover_script_on_location' from the blueprint shots.
             * Write new, connecting voiceover segments (introductions, transitions, conclusions, hooks) to create a seamless, flowing narrative for the entire video.
-            * Do NOT repeat existing on-camera dialogue. The new voiceover should complement it.
             * Ensure smooth transitions between shots and scenes, leading into and out of on-camera dialogue.
+            * Do NOT repeat existing on-camera dialogue. The new voiceover should complement it.
             * Adhere strictly to the 'Creator's Style Guide & Tone' and 'Storytelling Principles'.
 
         2.  **Voiceover Script for Recording (Post-Production Only):**
             * This script MUST ONLY contain dialogue that needs to be recorded *post-facto*.
             * It should include the generated **hook, intro segments, conclusion, and any new narrative links or transitions** that were *not* present in the original 'on_camera_dialogue' or 'voiceover_script_on_location' fields of the blueprint.
             * Essentially, this is the "glue" script: the parts you write to bridge the existing, on-location audio.
+            * Format this script with clear paragraph breaks between distinct sections to make it easy to record.
 
         **CRITICAL INSTRUCTION FOR updated_shots:**
         For each shot object within the 'updated_shots' array in your JSON response, you MUST populate the 'voiceover_script' field with the complete spoken narrative intended for that shot.
