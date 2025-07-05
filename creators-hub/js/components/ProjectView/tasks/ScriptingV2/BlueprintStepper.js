@@ -1,18 +1,15 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/BlueprintStepper.js
 
-// This component displays the navigation steps for the Scripting V2 workflow.
-// It's a presentational component that receives the steps, the current step,
-// and a function to handle clicks.
-
-const { useMediaQuery } = window; // Assuming useMediaQuery is globally available
+const { useMediaQuery } = window;
 
 const DesktopStepper = ({ steps, currentStep, onStepClick }) => {
-    return React.createElement('div', { className: 'flex justify-center items-center space-x-2 sm:space-x-4 mb-6 pb-4 border-b border-gray-700 overflow-x-auto' },
+    // UPDATED: The container now uses flex-wrap and gap for responsive wrapping.
+    return React.createElement('div', { className: 'flex flex-wrap justify-center items-center gap-x-2 sm:gap-x-4 gap-y-3 mb-6 pb-4 border-b border-gray-700' },
         steps.map((step, index) => {
             const isCurrent = currentStep === step.id;
-            // In V2, we allow clicking back to any step.
             const isClickable = !isCurrent;
 
+            // The connector line is now placed inside the map and rendered conditionally.
             return React.createElement(React.Fragment, { key: step.id },
                 React.createElement('button', {
                     onClick: () => isClickable && onStepClick(step.id),
@@ -27,7 +24,8 @@ const DesktopStepper = ({ steps, currentStep, onStepClick }) => {
                     ),
                     React.createElement('span', { className: 'hidden sm:inline' }, step.name)
                 ),
-                index < steps.length - 1 && React.createElement('div', { className: 'h-1 w-4 sm:w-8 bg-gray-700 rounded-full' })
+                // Conditionally render the connector line so it doesn't appear at the end of a row when wrapping.
+                index < steps.length - 1 && React.createElement('div', { className: 'h-1 w-4 sm:w-8 bg-gray-700 rounded-full hidden md:block' })
             );
         })
     );
@@ -68,10 +66,9 @@ const MobileStepper = ({ steps, currentStep, onStepClick }) => {
     );
 };
 
-
 window.BlueprintStepper = ({ steps, currentStep, onStepClick }) => {
-    // UPDATED: Changed from 767px to 1023px to match the 'lg' breakpoint
-    const isMobile = useMediaQuery('(max-width: 1023px)');
+    // Keep the mobile breakpoint for phone-sized screens, but the desktop version is now much more robust.
+    const isMobile = useMediaQuery('(max-width: 640px)'); 
     return isMobile
         ? React.createElement(MobileStepper, { steps, currentStep, onStepClick })
         : React.createElement(DesktopStepper, { steps, currentStep, onStepClick });
