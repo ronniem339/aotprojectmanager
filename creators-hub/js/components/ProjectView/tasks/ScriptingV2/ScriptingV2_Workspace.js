@@ -11,8 +11,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         { id: 1, name: 'Initial Blueprint' },
         { id: 2, name: 'Research & Curation' },
         { id: 3, name: 'My Experience' },
-        { id: 4, name: 'On-Camera Dialogue' },
-        { id: 5, name: 'Final Assembly' },
+        { id: 4, name: 'Final Assembly' },
     ];
 
     const handleStepClick = (stepId) => {
@@ -28,10 +27,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             case 2:
                 return React.createElement(Step2_ResearchCuration, props);
             case 3:
-                return React.createElement(Step3_MyExperience, props);
+                return React.createElement(Step3_OnCameraScripting, props);
             case 4:
-                return React.createElement(Step4_OnCamera, props);
-            case 5:
                 return React.createElement(Step5_FinalAssembly, props);
             default:
                 return React.createElement('div', null, 'Unknown step');
