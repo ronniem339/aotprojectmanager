@@ -5,17 +5,19 @@ const { createInitialBlueprintAI } = window; // Import the new AI function
 
 window.Step1_InitialBlueprint = ({ blueprint, setBlueprint, video, project, settings }) => {
     // Local state to hold the user's initial thoughts.
-    // Initialize it from the blueprint if it exists, to allow resuming.
-    const [initialThoughts, setInitialThoughts] = useState(blueprint?.initialThoughts || '');
+    // Initialize it with an empty string, and let useEffect handle populating from blueprint.
+    const [initialThoughts, setInitialThoughts] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // If the user comes back to this step, populate their previous thoughts.
-        if (blueprint?.initialThoughts) {
-            setInitialThoughts(blueprint.initialThoughts);
+        // This effect will run:
+        // 1. On initial mount.
+        // 2. Whenever the 'blueprint' object itself changes (e.g., when data is fetched from Firestore).
+        if (blueprint?.initialThoughts !== undefined) { // Check for undefined specifically
+            setInitialThoughts(blueprint.initialThoughts || ''); // Populate, or set to empty string if null/undefined
         }
-    }, []); // Run only on initial mount
+    }, [blueprint]); // Depend on the blueprint object
 
     const handleGenerateBlueprint = async () => {
         setIsGenerating(true);
