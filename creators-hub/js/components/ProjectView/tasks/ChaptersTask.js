@@ -1,21 +1,21 @@
-// creators-hub/js/components/ProjectVew/tasks/ChaptersTask.js
+// creators-hub/js/components/ProjectView/tasks/ChaptersTask.js
 
 window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
 
-    // Initialize chapters from video data if they exist, otherwise empty array.
     const [chapters, setChapters] = useState(video.chapters || []);
     const [generating, setGenerating] = useState(false);
     const [refining, setRefining] = useState(false);
     const [refinePrompt, setRefinePrompt] = useState('');
     const [error, setError] = useState('');
 
-    // Effect to update chapters if the video prop changes.
+    // --- FIX: Intelligently select the correct script from either V1 or V2 workflows ---
+    const scriptToUse = video.full_video_script_text || video.script;
+
     useEffect(() => {
         setChapters(video.chapters || []);
     }, [video.chapters]);
 
-    // Helper function to parse time strings (like "1:23" or "1:05:10") into seconds.
     const parseTimeToSeconds = (time) => {
         const parts = time.split(':').map(Number);
         if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -23,40 +23,30 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         return 0;
     };
 
-    // Formats time based on video length.
-    // Long videos (>= 10min) get padded minutes (e.g., 01:23).
-    // Short videos (< 10min) get un-padded minutes (e.g., 1:23).
     const formatTime = (time, isLongVideo) => {
         const parts = time.split(':');
-
-        if (parts.length === 3) { // H:MM:SS format
+        if (parts.length === 3) {
             const [hours, minutes, seconds] = parts;
             return `${hours}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
         }
-
-        if (parts.length === 2) { // M:SS or MM:SS format
+        if (parts.length === 2) {
             let [minutes, seconds] = parts;
-            // The validation regex ensures seconds are always 2 digits, but padStart is safe.
             seconds = seconds.padStart(2, '0');
-
             if (isLongVideo) {
-                // For long videos, minutes should be padded to 2 digits.
                 return `${minutes.padStart(2, '0')}:${seconds}`;
             } else {
-                // For short videos, minutes should be un-padded.
-                // This handles cases where user might input '05:30' for a short video.
                 if (minutes.length > 1 && minutes.startsWith('0')) {
                     return `${parseInt(minutes, 10)}:${seconds}`;
                 }
                 return `${minutes}:${seconds}`;
             }
         }
-
-        return time; // Return original if format is unexpected
+        return time;
     };
 
     const handleGenerateChapters = async () => {
-        if (!video.script) {
+        // --- FIX: Check for the unified script variable ---
+        if (!scriptToUse) {
             setError('A video script is required to generate chapters.');
             return;
         }
@@ -72,16 +62,15 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
             SCRIPT:
             ---
-            ${video.script}
+            ${scriptToUse}
             ---
         `;
 
         try {
             const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
             const suggestedTitles = result.chapters || [];
-            // Transform the array of strings into the state structure { time: '', title: '' }
             const newChapters = suggestedTitles.map((title, index) => ({
-                time: index === 0 ? '00:00' : '', // Default the first chapter to 00:00
+                time: index === 0 ? '00:00' : '',
                 title: title
             }));
             setChapters(newChapters);
@@ -100,9 +89,7 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         }
         setRefining(true);
         setError('');
-
         const currentTitles = chapters.map(c => c.title);
-
         const prompt = `
             You are an expert in video content and titling.
             You have been given a list of chapter titles for a video.
@@ -120,22 +107,19 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
             ${refinePrompt}
             ---
         `;
-
         try {
             const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
             const refinedTitles = result.chapters || [];
-
             if (refinedTitles.length === chapters.length) {
                 const refinedChapters = chapters.map((chapter, index) => ({
                     ...chapter,
                     title: refinedTitles[index]
                 }));
                 setChapters(refinedChapters);
-                setRefinePrompt(''); // Clear the prompt after successful refinement
+                setRefinePrompt('');
             } else {
                 throw new Error("The number of refined chapters does not match the original count.");
             }
-
         } catch (err) {
             console.error("Error refining chapters:", err);
             setError(`Failed to refine chapters: ${err.message}`);
@@ -143,7 +127,6 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
             setRefining(false);
         }
     };
-
 
     const handleChapterChange = (index, field, value) => {
         const newChapters = [...chapters];
@@ -160,53 +143,37 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
     };
 
     const handleSave = () => {
-        // Validate that all timestamps and titles are filled
         for (const chapter of chapters) {
-            // A simple regex to check for MM:SS or H:MM:SS format
-            if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(chapter.time) || !chapter.title) {
+            if (!/^\\d{1,2}:\\d{2}(:\\d{2})?$/.test(chapter.time) || !chapter.title) {
                 setError('All chapters must have a valid title and timestamp (e.g., 01:23 or 1:01:23). Please review your chapters.');
                 return;
             }
         }
-         // Validate that the first chapter starts at 00:00
         if (chapters.length > 0 && chapters[0].time !== '00:00') {
             setError('The first chapter must start at 00:00.');
             return;
         }
         setError('');
-
-        // 1. Determine if the video is 10 minutes or longer from the chapter times.
         const maxDurationInSeconds = Math.max(...chapters.map(ch => parseTimeToSeconds(ch.time)));
-        const isLongVideo = maxDurationInSeconds >= 600; // 10 minutes = 600 seconds
-
-        // 2. Format the chapter string for the description, applying padding based on video length.
+        const isLongVideo = maxDurationInSeconds >= 600;
         const chapterString = chapters
             .map(ch => {
                 const formattedTime = formatTime(ch.time, isLongVideo);
                 return `${formattedTime} - ${ch.title}`;
             })
             .join('\n');
-
-        // 3. Get the current description safely.
         const currentMetadata = (typeof video.metadata === 'string' && video.metadata)
             ? JSON.parse(video.metadata)
             : video.metadata || {};
         const currentDescription = currentMetadata.description || '';
-
-        // 4. Append the formatted chapters to the description.
         const chapterHeader = "\n\n--- CHAPTERS ---\n";
         let newDescription;
         const existingChapterIndex = currentDescription.indexOf(chapterHeader);
-
         if (existingChapterIndex !== -1) {
-            // If chapters already exist in the description, replace them to avoid duplicates.
             newDescription = currentDescription.substring(0, existingChapterIndex) + chapterHeader + chapterString;
         } else {
-            // Otherwise, append them for the first time.
             newDescription = currentDescription + chapterHeader + chapterString;
         }
-
-        // 5. Update the database with both the structured chapters and the updated description text.
         onUpdateTask('chaptersGenerated', 'complete', {
             chapters: chapters,
             'metadata.description': newDescription
@@ -219,10 +186,12 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     return (
         <div className="task-content space-y-4">
-            <button onClick={handleGenerateChapters} disabled={generating || !video.script} className="button-primary-small w-full justify-center">
+            {/* --- FIX: Update disabled check --- */}
+            <button onClick={handleGenerateChapters} disabled={generating || !scriptToUse} className="button-primary-small w-full justify-center">
                 {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Suggested Chapters'}
             </button>
-            {!video.script && <p className="text-yellow-400 text-sm text-center">A finalized script is needed to generate chapter suggestions.</p>}
+            {/* --- FIX: Update helper text check --- */}
+            {!scriptToUse && <p className="text-yellow-400 text-sm text-center">A finalized script is needed to generate chapter suggestions.</p>}
             {error && <p className="error-message">{error}</p>}
 
             {chapters.length > 0 && (
