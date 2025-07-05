@@ -6,9 +6,6 @@ An AI-powered co-pilot designed to streamline the workflow for content creators.
 * [About The Project](#about-the-project)
 * [Key Features](#key-features)
 * [Built With](#built-with)
-* [Getting Started](#getting-started)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
 * [Architecture](#architecture)
 * [License](#license)
 * [Future Enhancements & Roadmap](#future-enhancements--roadmap)
@@ -44,51 +41,6 @@ This project is built with a modern web stack, relying on robust and scalable te
 * **Deployment & Hosting:**
     * Netlify
     * Netlify Functions: For secure, server-side API interactions.
-
-## Getting Started
-To get a local copy up and running, follow these steps.
-
-### Prerequisites
-* Node.js installed on your machine.
-* Netlify CLI installed globally. `npm install netlify-cli -g`
-
-### Installation
-1.  **Clone the repository:**
-    ```bash
-    git clone <your-repository-url>
-    cd aotprojectmanager
-    ```
-2.  **Set up Firebase:**
-    * Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
-    * In your new project, create a new "Web" app.
-    * Navigate to Project Settings > General, and find your Firebase configuration object. It will look like this:
-        ```javascript
-        const firebaseConfig = {
-          apiKey: "AIza...",
-          authDomain: "your-project.firebaseapp.com",
-          projectId: "your-project",
-          storageBucket: "your-project.appspot.com",
-          messagingSenderId: "...",
-          appId: "..."
-        };
-        ```
-    * Enable Email/Password sign-in method in the Authentication > Sign-in method tab.
-    * Set up Firestore and Storage with the default security rules to get started.
-3.  **Configure the Application:**
-    * Open the file `creators-hub/js/config.js`.
-    * Replace the placeholder Firebase configuration with the one from your Firebase project.
-    * Add your Google Gemini API key and any other required API keys to this file.
-4.  **Install Netlify Function Dependencies:**
-    * The serverless functions in the `netlify/` directory have their own dependencies.
-    ```bash
-    npm install
-    ```
-5.  **Run the project locally:**
-    * Use the Netlify CLI to run the project. This will serve the static files and run the serverless functions in a local environment.
-    ```bash
-    netlify dev
-    ```
-    The application should now be running on `http://localhost:8888`.
 
 ## Architecture
 For a detailed explanation of the application's structure, components, data flow, and interdependencies, please see our Architecture Reference ([ARCHITECTURE.md](ARCHITECTURE.md)). This document is intended to help developers and AI tools quickly understand the codebase.
