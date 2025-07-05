@@ -20,14 +20,14 @@ A new component, `scriptingTaskV2.js`, serves as the entry point and is rendered
 
 New Directory: `creators-hub/js/components/ProjectView/tasks/ScriptingV2/`
 
-* `ScriptingV2_Workspace.js`: The main container with the two-column layout.
-* `useBlueprint.js`: A crucial custom hook that manages the state of the blueprint object, including fetching and auto-saving to Firestore.
-* `BlueprintStepper.js`: The navigation component for moving between steps.
+* `ScriptingV2_Workspace.js`: The main container with the two-column layout. It now also manages the current active step and indicates step completion.
+* `useBlueprint.js`: A crucial custom hook that manages the state of the blueprint object, including fetching and debounced auto-saving to Firestore. The auto-saving logic has been refined to prevent overwriting initial data.
+* `BlueprintStepper.js`: The navigation component for moving between steps. It now visually indicates completed steps and has refined connector styling.
 * `BlueprintDisplay.js`: Renders the list of "Shot Cards" in the right-hand panel.
 * `ShotCard.js`: Displays the details of a single shot.
 * `Step1_InitialBlueprint.js`: UI for the "brain dump" and initial generation.
 * `Step2_ResearchCuration.js`: UI for the AI-powered research step.
-* `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and combines the functionality for importing full transcripts with shot-by-shot dialogue editing, and now includes the blueprint refinement suggestions.
+* `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions, and providing a shot-by-shot editor.
 * `Step5_FinalAssembly.js`: UI for the final script generation and task completion (now functionally `Step 4` in the revised workflow).
 
 **Files Deleted:**
@@ -42,7 +42,7 @@ New Directory: `creators-hub/js/utils/ai/scriptingV2/`
 * `getStyleGuidePromptV2.js`: Reads from the new detailed style guide in the settings.
 * `createInitialBlueprintAI.js`: (Heavy Task) - Creates the initial narrative structure.
 * `enrichBlueprintAI.js`: (Lite Task) - Performs factual research for specific shots.
-* `mapTranscriptToBlueprintAI.js`: **(NEW)** Maps a full on-camera transcript to the relevant shots in the blueprint, cleaning filler words and typos in the process.
+* `mapTranscriptToBlueprintAI.js`: **(UPDATED)** Maps a full on-location transcript to the relevant shots. It now intelligently categorizes dialogue segments into either `on_camera_dialogue` or `voiceover_script` based on shot type and description, for each blueprint shot. This is a **Heavy Task**.
 * `refineBlueprintFromTranscriptAI.js`: **(NEW)** Analyzes the full on-camera transcript and the current blueprint to suggest modifications (add, modify, remove shots) to the blueprint itself. This is classified as a **Heavy Task**.
 * `generateScriptFromBlueprintAI.js`: (Heavy Task) - Assembles the final script from the completed blueprint.
 
@@ -98,6 +98,7 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
     * The `DesktopStepper` component was re-engineered to be fully responsive without relying on fixed breakpoints.
     * The container class was changed to use `flex-wrap` and the `gap` property. This allows the step buttons to wrap gracefully to a new line on any screen where they don't have enough horizontal space.
     * As a result of the more robust desktop view, the breakpoint for switching to the `MobileStepper` (dropdown) was lowered to 640px to only target phone-sized screens.
+    * **UPDATED:** The stepper now visually indicates completed steps with distinct styling and a checkmark. The connector lines between steps now use a text dash (`—`) for improved visual consistency.
 
 #### User Experience Improvements for Step 2 (Research & Curation)
 * **ShotCard.js & Step2_ResearchCuration.js - Research Button Refactoring:**
@@ -112,8 +113,19 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
 
 #### On-Camera Scripting Workflow Revamp
 * **Transcript Import and Mapping:** The previous "Inject Your Experience" step has been replaced with a more direct "On-Camera Scripting" workflow. Users can now:
-    * **Import Full Transcript:** Paste a complete on-camera transcript. The new `mapTranscriptToBlueprintAI.js` utility uses the Gemini API to clean the transcript (removing filler words, correcting typos) and intelligently maps the relevant dialogue segments to their corresponding shots in the Creative Blueprint based on shot descriptions and intent.
-    * **Write Shot-by-Shot:** Manually enter or refine on-camera dialogue for each shot. This provides granular control and allows for adjustments to AI-mapped dialogue.
+    * **Import Full Transcript:** Paste a complete on-location audio transcript. The updated `mapTranscriptToBlueprintAI.js` utility uses the Gemini API to clean the transcript and intelligently maps relevant dialogue segments to `on_camera_dialogue` or `voiceover_script` fields for corresponding shots in the Creative Blueprint based on shot type and description.
+    * **Write Shot-by-Shot:** Manually enter or refine dialogue for each shot.
 * **Blueprint Refinement:** After the initial dialogue mapping, the system now uses `refineBlueprintFromTranscriptAI.js` to analyze the transcript for deeper insights and provides suggestions for refining the blueprint (e.g., adding new shots, modifying existing shot descriptions, or suggesting removals). These suggestions are presented to the user for review and application.
-* **Seamless Integration:** The mapped dialogue is automatically populated into the `on_camera_dialogue` field for each shot in the blueprint, and the UI transitions to the "Shot-by-Shot" view for review and further editing after potential blueprint refinements.
-* **Improved User Flow:** This change addresses previous feedback by providing a more intuitive and practical method for incorporating on-camera content and dynamically improving the video plan, aligning with the goal of leveraging AI for heavy lifting while retaining user control.
+* **Dialogue Ambiguity Resolution (Option 2 Implementation):**
+    * **Detection:** After AI mapping, `Step3_OnCameraScripting.js` now detects situations where dialogue from the transcript might be ambiguously classified (e.g., on-camera dialogue placed in a B-roll shot type).
+    * **User Confirmation:** If ambiguities are found, a new "Resolve Ambiguous Dialogue" view is presented. Here, the user can explicitly clarify whether a specific dialogue segment is "On-Camera Dialogue" or "Voiceover Script." This ensures high accuracy where AI inference alone is insufficient.
+* **Enhanced Shot-by-Shot Dialogue Editor:**
+    * The editor now clearly displays **separate text areas** for "On-Camera Dialogue (seen speaking)" and "Voiceover Script (heard over visuals)" for each shot, allowing precise editing of both types of dialogue.
+    * **UPDATED:** The `location_tag` for each shot is now prominently displayed in the shot card, aiding in quick contextual identification of dialogue.
+    * **UPDATED:** `ai_reason` associated with blueprint modification suggestions is now cleared from the shot data once the suggestions are applied, preventing redundant display.
+* **Improved User Flow & Progress Reporting:**
+    * The `handleMapTranscript` function in `Step3_OnCameraScripting.js` provides granular `processingMessage` updates to keep the user informed during long-running AI tasks.
+    * **UPDATED:** When adding new shots from AI suggestions, `Step3_OnCameraScripting.js` now guarantees truly unique `shot_id`s to prevent React key warnings and data conflicts during re-processing.
+    * The blueprint auto-save logic in `useBlueprint.js` has been refined to ensure changes are persisted correctly after initial data load, preventing loss of work when re-opening the workspace.
+    * The `ScriptingV2_Workspace.js` now remembers and restores the user's last active step, improving workflow continuity.
+* **Seamless Integration:** The mapped dialogue (and any user-resolved ambiguities) is automatically populated into the blueprint, and the UI transitions smoothly through the different review stages (ambiguity, refinement, shot-by-shot). The overall flow aligns with the goal of leveraging AI for heavy lifting while retaining granular user control.
