@@ -22,13 +22,13 @@ New Directory: `creators-hub/js/components/ProjectView/tasks/ScriptingV2/`
 
 * `ScriptingV2_Workspace.js`: The main container with the two-column layout. It now also manages the current active step and indicates step completion.
 * `useBlueprint.js`: A crucial custom hook that manages the state of the blueprint object, including fetching and debounced auto-saving to Firestore. The auto-saving logic has been refined to prevent overwriting initial data.
-* `BlueprintStepper.js`: The navigation component for moving between steps. It now visually indicates completed steps and has refined connector styling.
+* `BlueprintStepper.js`: The navigation component for moving between steps. It now visually indicates completed steps with distinct styling and a checkmark. The connector lines between steps now use a text dash (`—`) for improved visual consistency.
 * `BlueprintDisplay.js`: Renders the list of "Shot Cards" in the right-hand panel.
 * `ShotCard.js`: Displays the details of a single shot.
 * `Step1_InitialBlueprint.js`: UI for the "brain dump" and initial generation.
 * `Step2_ResearchCuration.js`: UI for the AI-powered research step.
 * `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions, and providing a shot-by-shot editor.
-* `Step5_FinalAssembly.js`: UI for the final script generation and task completion (now functionally `Step 4` in the revised workflow).
+* `Step5_FinalAssembly.js`: **(UPDATED)** UI for the final script generation and task completion. It now orchestrates the generation and display of two distinct scripts (full video and recording voiceover).
 
 **Files Deleted:**
 * `Step3_MyExperience.js` (replaced by `Step3_OnCameraScripting.js`)
@@ -42,9 +42,9 @@ New Directory: `creators-hub/js/utils/ai/scriptingV2/`
 * `getStyleGuidePromptV2.js`: Reads from the new detailed style guide in the settings.
 * `createInitialBlueprintAI.js`: (Heavy Task) - Creates the initial narrative structure.
 * `enrichBlueprintAI.js`: (Lite Task) - Performs factual research for specific shots.
-* `mapTranscriptToBlueprintAI.js`: **(UPDATED)** Maps a full on-location transcript to the relevant shots. It now intelligently categorizes dialogue segments into either `on_camera_dialogue` or `voiceover_script` based on shot type and description, for each blueprint shot. This is a **Heavy Task**.
+* `mapTranscriptToBlueprintAI.js`: **(UPDATED)** Maps a single, combined on-location transcript to the relevant shots. It now intelligently categorizes and extracts dialogue segments into either `on_camera_dialogue` or `voiceover_script` fields for each blueprint shot. This is a **Heavy Task**.
 * `refineBlueprintFromTranscriptAI.js`: **(NEW)** Analyzes the full on-camera transcript and the current blueprint to suggest modifications (add, modify, remove shots) to the blueprint itself. This is classified as a **Heavy Task**.
-* `generateScriptFromBlueprintAI.js`: (Heavy Task) - Assembles the final script from the completed blueprint.
+* `generateScriptFromBlueprintAI.js`: **(UPDATED)** This function now acts as a master scriptwriter, taking the populated blueprint and generating two distinct script outputs: a `full_video_script_text` (complete narrative) and a `recording_voiceover_script_text` (only the parts needing post-production recording). This is a **Heavy Task**.
 
 **Files Deleted:**
 * `generateExperienceQuestionsAI.js` (no longer needed with the updated on-camera scripting workflow)
@@ -120,12 +120,15 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
     * **Detection:** After AI mapping, `Step3_OnCameraScripting.js` now detects situations where dialogue from the transcript might be ambiguously classified (e.g., on-camera dialogue placed in a B-roll shot type).
     * **User Confirmation:** If ambiguities are found, a new "Resolve Ambiguous Dialogue" view is presented. Here, the user can explicitly clarify whether a specific dialogue segment is "On-Camera Dialogue" or "Voiceover Script." This ensures high accuracy where AI inference alone is insufficient.
 * **Enhanced Shot-by-Shot Dialogue Editor:**
-    * The editor now clearly displays **separate text areas** for "On-Camera Dialogue (seen speaking)" and "Voiceover Script (heard over visuals)" for each shot, allowing precise editing of both types of dialogue.
+    * The editor now clearly displays **separate editable text areas** for "On-Camera Dialogue (seen speaking)" and "Voiceover Script (heard over visuals)" for each shot, allowing precise editing of both types of dialogue.
     * **UPDATED:** The `location_tag` for each shot is now prominently displayed in the shot card, aiding in quick contextual identification of dialogue.
-    * **UPDATED:** `ai_reason` associated with blueprint modification suggestions is now cleared from the shot data once the suggestions are applied, preventing redundant display.
+    * **UPDATED:** `ai_reason` associated with blueprint modification suggestions is now cleared from the shot data once the suggestions are applied or ambiguities resolved, preventing redundant display.
 * **Improved User Flow & Progress Reporting:**
     * The `handleMapTranscript` function in `Step3_OnCameraScripting.js` provides granular `processingMessage` updates to keep the user informed during long-running AI tasks.
     * **UPDATED:** When adding new shots from AI suggestions, `Step3_OnCameraScripting.js` now guarantees truly unique `shot_id`s to prevent React key warnings and data conflicts during re-processing.
     * The blueprint auto-save logic in `useBlueprint.js` has been refined to ensure changes are persisted correctly after initial data load, preventing loss of work when re-opening the workspace.
     * The `ScriptingV2_Workspace.js` now remembers and restores the user's last active step, improving workflow continuity.
 * **Seamless Integration:** The mapped dialogue (and any user-resolved ambiguities) is automatically populated into the blueprint, and the UI transitions smoothly through the different review stages (ambiguity, refinement, shot-by-shot). The overall flow aligns with the goal of leveraging AI for heavy lifting while retaining granular user control.
+* **Final Assembly Script Generation:**
+    * The `generateScriptFromBlueprintAI.js` utility has been updated to generate two distinct script outputs: a `full_video_script_text` (the complete narrative for the entire video) and a `recording_voiceover_script_text` (containing only the content that needs to be recorded post-facto, such as hooks, transitions, and conclusions).
+    * `Step5_FinalAssembly.js` now displays both these scripts prominently, providing a "Copy for Recording" button for the `recording_voiceover_script_text`.
