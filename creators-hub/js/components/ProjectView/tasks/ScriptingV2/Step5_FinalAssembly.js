@@ -82,10 +82,9 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
 
         // Display scripts and Complete button if script assembled
         isFinalScriptAssembled && React.createElement(React.Fragment, null,
-            React.createElement('div', { className: 'w-full max-w-2xl text-left mt-8 bg-gray-800/70 p-6 rounded-lg border border-gray-700' },
-                React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Full Video Script'),
-                React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_full_video_script || 'Script not generated.'),
-                React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3 mt-6' }, 'Voiceover Script for Recording'),
+            // Removed Full Video Script display as per user's request
+            React.createElement('div', { className: 'w-full max-w-2xl text-left mt-8 bg-gray-800/70 p-6 rounded-lg border border-gray-700' }, // Adjusted mt-8 for spacing
+                React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Voiceover Script for Recording'),
                 React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_recording_voiceover_script || 'Recording script not generated.'),
                 // ADDED: Copy button for the recording script
                 blueprint.final_recording_voiceover_script && React.createElement(CopyButton, {
