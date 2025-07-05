@@ -12,13 +12,22 @@ window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
         const firstCommentKB = settings.knowledgeBases?.youtube?.firstPinnedCommentExpert 
             || 'You are a YouTube channel manager tasked with writing the first "pinned" comment for a new video. The comment should be engaging, ask a question to spark conversation, and provide extra value (e.g., a link, a correction, or extra context).';
 
+        // --- FIX: Determine the best available context for the AI ---
+        let bestContext = video.concept || ''; // Start with concept as the baseline
+        if (video.metadata?.description) {
+            bestContext = video.metadata.description; // Description is better
+        }
+        if (video.full_video_script_text) {
+            bestContext = video.full_video_script_text; // Full script is the best context
+        }
+
         const prompt = `
             **Your Expert Role:**
             ${firstCommentKB}
 
             **Video Context:**
             * **Video Title:** "${video.chosenTitle || video.title}"
-            * **Video Description:** "${video.metadata?.description || video.concept}"
+            * **Video Content Summary:** "${bestContext}"
 
             **Your Task:**
             Based on your expert role and the provided video context, write a compelling first pinned comment.
@@ -35,7 +44,6 @@ window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
         }
     };
     
-    // --- FIX START ---
     const handleSave = () => {
         // Prepare the data payload with the new comment.
         const updatedData = {
@@ -48,7 +56,6 @@ window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
         // task ID, new status, and the data payload.
         onUpdateTask('firstCommentGenerated', 'complete', updatedData);
     };
-    // --- FIX END ---
 
     return (
         <div className="task-container">
@@ -64,8 +71,6 @@ window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
                     value={comment}
                     onChange={(e) => {
                         setComment(e.target.value);
-                        // This onCompletion is not passed, so we can remove it or make the parent aware
-                        // For now, we assume the main save button handles completion status.
                     }}
                     placeholder="Write or generate the first comment to pin on the video..."
                 />
