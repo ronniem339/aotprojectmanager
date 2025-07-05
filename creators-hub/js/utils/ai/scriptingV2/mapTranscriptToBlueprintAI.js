@@ -1,5 +1,5 @@
 // creators-hub/js/utils/ai/scriptingV2/mapTranscriptToBlueprintAI.js
-window.mapTranscriptToBlueprintAI = async (options) => {
+window.aiUtils.mapTranscriptToBlueprintAI = async (options) => { // CHANGED: Attached to window.aiUtils
     const { fullTranscript, blueprint, video, settings } = options;
 
     // --- Input Validation ---
