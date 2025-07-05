@@ -70,7 +70,8 @@ const MobileStepper = ({ steps, currentStep, onStepClick }) => {
 
 
 window.BlueprintStepper = ({ steps, currentStep, onStepClick }) => {
-    const isMobile = useMediaQuery('(max-width: 767px)');
+    // UPDATED: Changed from 767px to 1023px to match the 'lg' breakpoint
+    const isMobile = useMediaQuery('(max-width: 1023px)');
     return isMobile
         ? React.createElement(MobileStepper, { steps, currentStep, onStepClick })
         : React.createElement(DesktopStepper, { steps, currentStep, onStepClick });
