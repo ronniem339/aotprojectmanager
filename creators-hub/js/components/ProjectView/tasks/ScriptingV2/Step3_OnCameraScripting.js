@@ -7,6 +7,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const [view, setView] = useState('main'); // 'main', 'import', 'shotByShot', 'refineBlueprint'
     const [fullTranscript, setFullTranscript] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState(''); // ADDED: New state for granular feedback
     const [error, setError] = useState('');
     const [blueprintSuggestions, setBlueprintSuggestions] = useState([]);
     const [selectedSuggestions, setSelectedSuggestions] = useState(new Set()); // New state for selected suggestions
@@ -17,9 +18,11 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             return;
         }
         setIsProcessing(true);
+        setProcessingMessage('Starting process...'); // ADDED: Initial message
         setError('');
         try {
             // 1. Map Dialogue to Existing Shots
+            setProcessingMessage('Mapping transcript to video shots...'); // ADDED: Progress message
             const mappedDialogue = await mapTranscriptToBlueprintAI({
                 fullTranscript,
                 blueprint,
@@ -42,6 +45,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             setBlueprint(updatedBlueprint); // Update blueprint with mapped dialogue immediately
 
             // 2. Refine Blueprint based on Full Transcript (new functionality)
+            setProcessingMessage('Analyzing transcript for blueprint refinements...'); // ADDED: Progress message
             const refinementResults = await refineBlueprintFromTranscriptAI({
                 fullTranscript,
                 blueprint: updatedBlueprint, // Use the blueprint with mapped dialogue
@@ -51,14 +55,17 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             if (refinementResults && refinementResults.suggestions && refinementResults.suggestions.length > 0) {
                 setBlueprintSuggestions(refinementResults.suggestions);
                 setSelectedSuggestions(new Set(refinementResults.suggestions.map((_, i) => i))); // Select all by default
+                setProcessingMessage('Refinement suggestions ready for review.'); // ADDED: Progress message
                 setView('refineBlueprint'); // Show suggestions view
             } else {
+                setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.'); // ADDED: Progress message
                 setView('shotByShot'); // If no suggestions, go directly to shot-by-shot
             }
 
         } catch (err) {
             console.error("Error processing transcript or refining blueprint:", err);
             setError(`Failed to process transcript or refine blueprint: ${err.message}. Please try again.`);
+            setProcessingMessage('Process failed.'); // ADDED: Update message on error
         } finally {
             setIsProcessing(false);
         }
@@ -86,6 +93,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     };
 
     const applyBlueprintSuggestions = () => {
+        setIsProcessing(true); // ADDED: Set processing true when applying suggestions
+        setProcessingMessage('Applying selected blueprint suggestions...'); // ADDED: Progress message
         let currentShots = [...blueprint.shots];
 
         blueprintSuggestions.forEach((suggestion, index) => {
@@ -129,6 +138,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setBlueprint({ ...blueprint, shots: currentShots });
         setBlueprintSuggestions([]); // Clear suggestions after applying
         setSelectedSuggestions(new Set()); // Clear selection
+        setProcessingMessage('Suggestions applied. Moving to shot-by-shot view.'); // ADDED: Progress message
+        setIsProcessing(false); // ADDED: Set processing false after applying suggestions
         setView('shotByShot'); // Move to shot-by-shot view to see applied changes
     };
 
@@ -168,27 +179,27 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     onClick: handleMapTranscript,
                     disabled: isProcessing,
                     className: 'button-primary disabled:opacity-50'
-                }, isProcessing ? 'Processing...' : '🤖 Process Transcript & Refine Blueprint')
+                }, isProcessing ? processingMessage : '🤖 Process Transcript & Refine Blueprint') // UPDATED: Display processingMessage
             )
         )
     );
 
     const renderRefineBlueprintView = () => (
-        React.createElement('div', { className: 'flex flex-col h-full' }, // Added flex-col h-full to this container
+        React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
                 React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Review Blueprint Suggestions"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Select the ones you wish to apply."),
             blueprintSuggestions.length > 0 ?
-                React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, // Removed fixed height and let it grow, removed pr-2 as parent has it
+                React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' },
                     blueprintSuggestions.map((suggestion, index) => {
                         const isSelected = selectedSuggestions.has(index);
                         const originalShot = blueprint.shots.find(s => s.shot_id === suggestion.shot_id);
 
                         return React.createElement('div', {
                             key: index,
-                            onClick: () => handleToggleSuggestion(index), // Make the whole card clickable
+                            onClick: () => handleToggleSuggestion(index),
                             className: `bg-gray-800/70 p-4 rounded-xl border mb-4 cursor-pointer transition-all duration-200
                                 ${isSelected ? 'border-primary-accent bg-blue-900/20' : 'border-gray-700 hover:border-gray-600'}`
                         },
@@ -199,7 +210,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                                 React.createElement('input', {
                                     type: 'checkbox',
                                     checked: isSelected,
-                                    onChange: () => handleToggleSuggestion(index), // Still allow checkbox to be clicked directly
+                                    onChange: () => handleToggleSuggestion(index),
                                     className: 'h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent'
                                 })
                             ),
@@ -224,20 +235,20 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             React.createElement('div', { className: 'text-center mt-4' },
                 React.createElement('button', {
                     onClick: applyBlueprintSuggestions,
-                    disabled: selectedSuggestions.size === 0,
+                    disabled: selectedSuggestions.size === 0 || isProcessing, // UPDATED: Disable during processing
                     className: 'button-primary disabled:opacity-50'
-                }, '✅ Apply Selected Suggestions & Continue')
+                }, isProcessing ? processingMessage : '✅ Apply Selected Suggestions & Continue') // UPDATED: Display processingMessage
             )
         )
     );
 
     const renderShotByShotView = () => (
-        React.createElement('div', { className: 'flex flex-col h-full' }, // Added flex-col h-full to this container
+        React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
                 React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Shot-by-Shot Dialogue"),
             ),
-            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, // Removed fixed height and let it grow
+            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' },
                 (blueprint?.shots || []).map(shot =>
                     React.createElement('div', { key: shot.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
                         React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
@@ -245,7 +256,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         shot.ai_reason && React.createElement('p', { className: 'text-xs text-yellow-500 mb-2' }, `AI Suggestion: ${shot.ai_reason}`),
                         React.createElement('textarea', {
                             value: shot.on_camera_dialogue || '',
-                            onChange: (e) => handleDialogueChange(shot.shot_id, e.target.value),
+                            onChange: (e) => handleDialogueChange(e.target.value),
                             rows: 4,
                             className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent',
                             placeholder: 'Enter on-camera dialogue for this shot...'
@@ -258,6 +269,9 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
     return React.createElement('div', { className: 'flex flex-col h-full' },
         error && React.createElement('p', { className: 'text-red-400 mb-4 text-center bg-red-900/50 p-3 rounded-lg' }, error),
+        isProcessing && React.createElement('div', { className: 'text-white text-center mb-4 p-3 bg-blue-900/50 rounded-lg' },
+            React.createElement('p', { className: 'font-semibold' }, processingMessage) // UPDATED: Display processing message prominently
+        ),
         view === 'main' && renderMainView(),
         view === 'import' && renderImportView(),
         view === 'refineBlueprint' && renderRefineBlueprintView(),
