@@ -1,5 +1,5 @@
 // creators-hub/js/utils/ai/scriptingV2/refineBlueprintFromTranscriptAI.js
-window.refineBlueprintFromTranscriptAI = async (options) => {
+window.aiUtils.refineBlueprintFromTranscriptAI = async (options) => { // CHANGED: Attached to window.aiUtils
     const { fullTranscript, blueprint, settings } = options;
 
     // --- Input Validation ---
