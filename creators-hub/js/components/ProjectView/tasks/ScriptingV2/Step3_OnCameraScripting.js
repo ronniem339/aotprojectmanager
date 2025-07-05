@@ -1,109 +1,159 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step3_OnCameraScripting.js
 
 const { useState, useEffect } = React;
-const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI } = window;
+// mapTranscriptToBlueprintAI and refineBlueprintFromTranscriptAI are now called via handlers.triggerAiTask
+// const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI } = window;
 
 window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) => {
+    // Access handlers from useAppState
+    const { handlers } = window.useAppState();
+
     const [view, setView] = useState('main'); // 'main', 'import', 'shotByShot', 'refineBlueprint', 'resolveAmbiguity'
     const [fullTranscript, setFullTranscript] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [processingMessage, setProcessingMessage] = useState('');
-    const [error, setError] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false); // Local state for button disabling/immediate feedback
+    const [processingMessage, setProcessingMessage] = useState(''); // Local message for immediate feedback
+    const [error, setError] = useState(''); // Local error for direct component display
     const [blueprintSuggestions, setBlueprintSuggestions] = useState([]);
     const [selectedSuggestions, setSelectedSuggestions] = useState(new Set());
 
     const [ambiguousDialogueSegments, setAmbiguousDialogueSegments] = useState([]);
     const [resolvedAmbiguityChoices, setResolvedAmbiguityChoices] = useState({});
 
+    // Effect to clean up local errors when view changes or process completes/starts
+    useEffect(() => {
+        setError('');
+        setProcessingMessage('');
+    }, [view, isProcessing]);
+
+
     const handleMapTranscript = async () => {
         if (!fullTranscript.trim()) {
             setError("Transcript cannot be empty.");
+            handlers.displayNotification("Transcript cannot be empty.", 'error');
             return;
         }
         setIsProcessing(true);
-        setProcessingMessage('Starting process...');
-        setError('');
-        setAmbiguousDialogueSegments([]); // Clear previous ambiguities
-        setResolvedAmbiguityChoices({}); // Clear previous choices
+        setError(''); // Clear previous local errors
+
+        const mapTaskId = `scriptingV2-map-transcript-${video.id}-${Date.now()}`;
 
         try {
             // 1. Map Dialogue to Existing Shots (AI will now return both types of dialogue)
-            setProcessingMessage('Mapping transcript to video shots...');
-            const mappedDialogueResult = await mapTranscriptToBlueprintAI({
-                fullTranscript,
-                blueprint,
-                video,
-                settings
-            });
-
-            if (!mappedDialogueResult) {
-                throw new Error("AI did not return a valid dialogue mapping.");
-            }
-
-            let tempBlueprintForProcessing = {
-                ...blueprint,
-                shots: blueprint.shots.map(shot => ({
-                    ...shot,
-                    // Clear ai_reason when re-processing to ensure fresh state
-                    ai_reason: '',
-                    on_camera_dialogue: mappedDialogueResult[shot.shot_id]?.on_camera_dialogue || '',
-                    voiceover_script: mappedDialogueResult[shot.shot_id]?.voiceover_script || ''
-                }))
-            };
-
-            // Identify ambiguous dialogue segments for user confirmation
-            const ambiguities = [];
-            tempBlueprintForProcessing.shots.forEach(shot => {
-                const isNonOnCameraShot = ['B-Roll', 'Location', 'Activity', 'Product', 'Footage_Only'].includes(shot.shot_type);
-                const isDroneShot = shot.shot_type === 'Drone';
-
-                if (isNonOnCameraShot && !isDroneShot && shot.on_camera_dialogue.trim() !== '') {
-                    ambiguities.push({
-                        shot_id: shot.shot_id,
-                        shot_type: shot.shot_type,
-                        shot_description: shot.shot_description,
-                        location_tag: shot.location_tag,
-                        dialogue: shot.on_camera_dialogue,
-                        ai_classification: 'on_camera_dialogue'
-                    });
-                    shot.voiceover_script = shot.on_camera_dialogue;
-                    shot.on_camera_dialogue = '';
-                }
-            });
-
-            setBlueprint(tempBlueprintForProcessing);
-
-            if (ambiguities.length > 0) {
-                setAmbiguousDialogueSegments(ambiguities);
-                setProcessingMessage('Ambiguous dialogue detected. Awaiting your confirmation.');
-                setView('resolveAmbiguity');
-            } else {
-                setProcessingMessage('No ambiguous dialogue detected. Refining blueprint...');
-                const refinementResults = await refineBlueprintFromTranscriptAI({
+            const mappedDialogueResult = await handlers.triggerAiTask({
+                id: mapTaskId,
+                type: 'scriptingV2-map-transcript',
+                name: 'Mapping Transcript',
+                aiFunction: window.aiUtils.mapTranscriptToBlueprintAI,
+                args: {
                     fullTranscript,
-                    blueprint: tempBlueprintForProcessing,
+                    blueprint,
+                    video,
                     settings
-                });
+                },
+                onSuccess: (result) => {
+                    if (!result) {
+                        throw new Error("AI did not return a valid dialogue mapping.");
+                    }
 
-                if (refinementResults && refinementResults.suggestions && refinementResults.suggestions.length > 0) {
-                    setBlueprintSuggestions(refinementResults.suggestions);
-                    setSelectedSuggestions(new Set(refinementResults.suggestions.map((_, i) => i)));
-                    setProcessingMessage('Refinement suggestions ready for review.');
-                    setView('refineBlueprint');
-                } else {
-                    setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.');
-                    setView('shotByShot');
+                    let tempBlueprintForProcessing = {
+                        ...blueprint,
+                        shots: blueprint.shots.map(shot => ({
+                            ...shot,
+                            // Clear ai_reason when re-processing to ensure fresh state
+                            ai_reason: '',
+                            on_camera_dialogue: result[shot.shot_id]?.on_camera_dialogue || '',
+                            voiceover_script: result[shot.shot_id]?.voiceover_script || ''
+                        }))
+                    };
+
+                    // Identify ambiguous dialogue segments for user confirmation
+                    const ambiguities = [];
+                    tempBlueprintForProcessing.shots.forEach(shot => {
+                        const isNonOnCameraShot = ['B-Roll', 'Location', 'Activity', 'Product', 'Footage_Only'].includes(shot.shot_type);
+                        const isDroneShot = shot.shot_type === 'Drone';
+
+                        // An ambiguity arises if an On-Camera dialogue is found on a non-On-Camera/non-Drone shot type.
+                        if (isNonOnCameraShot && !isDroneShot && shot.on_camera_dialogue.trim() !== '') {
+                            ambiguities.push({
+                                shot_id: shot.shot_id,
+                                shot_type: shot.shot_type,
+                                shot_description: shot.shot_description,
+                                location_tag: shot.location_tag,
+                                dialogue: shot.on_camera_dialogue,
+                                ai_classification: 'on_camera_dialogue' // AI thinks it's on-camera but type suggests voiceover
+                            });
+                            // Temporarily move to voiceover_script, user will confirm
+                            shot.voiceover_script = shot.on_camera_dialogue;
+                            shot.on_camera_dialogue = '';
+                        }
+                    });
+
+                    setBlueprint(tempBlueprintForProcessing); // Update blueprint with mapped dialogue
+
+                    if (ambiguities.length > 0) {
+                        setAmbiguousDialogueSegments(ambiguities);
+                        setProcessingMessage('Ambiguous dialogue detected. Awaiting your confirmation.');
+                        setView('resolveAmbiguity');
+                    } else {
+                        // If no ambiguities, directly proceed to blueprint refinement
+                        handleRefineBlueprint(tempBlueprintForProcessing);
+                    }
+                },
+                onFailure: (err) => {
+                    setError(`Failed to map transcript: ${err.message || 'An unknown error occurred.'}`);
                 }
-            }
+            });
 
         } catch (err) {
-            console.error("Error processing transcript or refining blueprint:", err);
-            setError(`Failed to process transcript or refine blueprint: ${err.message}. Please try again.`);
-            setProcessingMessage('Process failed.');
+            console.error("Unhandled error in handleMapTranscript:", err);
+            setError(`An unexpected error occurred during transcript mapping: ${err.message || 'Please check console.'}`);
         } finally {
             setIsProcessing(false);
         }
     };
+
+    const handleRefineBlueprint = async (currentBlueprintState) => {
+        setIsProcessing(true);
+        setError(''); // Clear previous local errors
+        setProcessingMessage('Analyzing transcript for blueprint refinements...');
+
+        const refineTaskId = `scriptingV2-refine-blueprint-${video.id}-${Date.now()}`;
+
+        try {
+            const refinementResults = await handlers.triggerAiTask({
+                id: refineTaskId,
+                type: 'scriptingV2-refine-blueprint',
+                name: 'Refining Blueprint',
+                aiFunction: window.aiUtils.refineBlueprintFromTranscriptAI,
+                args: {
+                    fullTranscript,
+                    blueprint: currentBlueprintState, // Use the blueprint with applied mappings
+                    settings
+                },
+                onSuccess: (result) => {
+                    if (result && result.suggestions && result.suggestions.length > 0) {
+                        setBlueprintSuggestions(result.suggestions);
+                        setSelectedSuggestions(new Set(result.suggestions.map((_, i) => i))); // Select all by default
+                        setProcessingMessage('Refinement suggestions ready for review.');
+                        setView('refineBlueprint');
+                    } else {
+                        setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.');
+                        setView('shotByShot');
+                    }
+                },
+                onFailure: (err) => {
+                    setError(`Failed to refine blueprint: ${err.message || 'An unknown error occurred.'}`);
+                }
+            });
+
+        } catch (err) {
+            console.error("Unhandled error in handleRefineBlueprint:", err);
+            setError(`An unexpected error occurred during blueprint refinement: ${err.message || 'Please check console.'}`);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
 
     const handleShotCardDialogueChange = (shotId, field, value) => {
         const updatedShots = blueprint.shots.map(shot => {
@@ -136,22 +186,21 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             }
 
             if (suggestion.type === 'add') {
-                const newShotId = `generated_shot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                // Ensure unique scene_id for new shots if it's a new narrative purpose
                 const newShot = {
-                    shot_id: newShotId,
+                    shot_id: `generated_shot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                     shot_type: suggestion.shot_type || 'New Shot',
                     shot_description: suggestion.shot_description || 'New shot based on transcript insight.',
                     on_camera_dialogue: '',
                     voiceover_script: '',
                     ai_research_notes: [],
                     creator_experience_notes: '',
-                    estimated_time_seconds: 5,
-                    scene_id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                    scene_narrative_purpose: `New Scene: ${suggestion.shot_description}` || 'New Scene',
+                    estimated_time_seconds: suggestion.estimated_time_seconds || 5, // Use AI provided time if available
+                    scene_id: suggestion.scene_id || `scene_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Ensure scene_id for new shots
+                    scene_narrative_purpose: suggestion.scene_narrative_purpose || 'New Scene', // Ensure purpose for new shots
                     ai_reason: suggestion.reason
                 };
 
-                // NEW LOGIC: Insert new shot based on placement_suggestion
                 const placement = suggestion.placement_suggestion;
                 if (placement && placement.relative_to_shot_id) {
                     const relativeShotIndex = currentShots.findIndex(s => s.shot_id === placement.relative_to_shot_id);
@@ -176,7 +225,9 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         return {
                             ...shot,
                             shot_description: suggestion.shot_description || shot.shot_description,
-                            ai_reason: ''
+                            // If AI suggests new narrative purpose, update it
+                            scene_narrative_purpose: suggestion.scene_narrative_purpose || shot.scene_narrative_purpose,
+                            ai_reason: suggestion.reason // Add reason for modification for clarity
                         };
                     }
                     return shot;
@@ -215,7 +266,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             ...shot,
                             on_camera_dialogue: choice === 'on_camera_dialogue' ? segment.dialogue : '',
                             voiceover_script: choice === 'voiceover_script' ? segment.dialogue : '',
-                            ai_reason: ''
+                            ai_reason: `Resolved ambiguity: classified as ${choice}` // Add reason for classification
                         };
                     }
                     return shot;
@@ -224,25 +275,12 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         });
 
         const tempBlueprintAfterResolution = { ...blueprint, shots: updatedShots };
-        setBlueprint(tempBlueprintAfterResolution);
+        setBlueprint(tempBlueprintAfterResolution); // Update blueprint with resolved dialogue
 
-        setProcessingMessage('Dialogue classified. Analyzing transcript for blueprint refinements...');
-        const refinementResults = await refineBlueprintFromTranscriptAI({
-            fullTranscript,
-            blueprint: tempBlueprintAfterResolution,
-            settings
-        });
+        // After resolving ambiguities, proceed to blueprint refinement
+        handleRefineBlueprint(tempBlueprintAfterResolution);
 
-        if (refinementResults && refinementResults.suggestions && refinementResults.suggestions.length > 0) {
-            setBlueprintSuggestions(refinementResults.suggestions);
-            setSelectedSuggestions(new Set(refinementResults.suggestions.map((_, i) => i)));
-            setProcessingMessage('Refinement suggestions ready for review.');
-            setView('refineBlueprint');
-        } else {
-            setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.');
-            setView('shotByShot');
-        }
-        setIsProcessing(false);
+        setIsProcessing(false); // This will be set to false by handleRefineBlueprint's finally block
     };
 
 
@@ -366,7 +404,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                                 React.createElement('input', {
                                     type: 'checkbox',
                                     checked: isSelected,
-                                    onChange: () => handleToggleSuggestion(index),
+                                    onChange: () => handleToggleSuggestion(index), // Use onChange here as well for direct checkbox interaction
                                     className: 'h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent'
                                 })
                             ),
