@@ -1,4 +1,5 @@
-Scripting V2: Implementation & Architecture Guide
+# Scripting V2: Implementation & Architecture Guide
+
 This document provides a comprehensive overview of the new Scripting V2 workflow, designed to serve as a reference for developers.
 
 ### Core Philosophy & Goal
@@ -24,11 +25,11 @@ New Directory: `creators-hub/js/components/ProjectView/tasks/ScriptingV2/`
 * `useBlueprint.js`: A crucial custom hook that manages the state of the blueprint object, including fetching and debounced auto-saving to Firestore. The auto-saving logic has been refined to prevent overwriting initial data.
 * `BlueprintStepper.js`: The navigation component for moving between steps. It now visually indicates completed steps with distinct styling and a checkmark. The connector lines between steps now use a text dash (`—`) for improved visual consistency.
 * `BlueprintDisplay.js`: Renders the list of "Shot Cards" in the right-hand panel.
-* `ShotCard.js`: Displays the details of a single shot.
+* `ShotCard.js`: Displays the details of a single shot. **UPDATED:** The `voiceover_script` section now accurately reflects all spoken content (on-camera or voiceover) for the shot, removing the "Voiceover will be generated in a later step" advisory when content is present.
 * `Step1_InitialBlueprint.js`: UI for the "brain dump" and initial generation.
 * `Step2_ResearchCuration.js`: UI for the AI-powered research step.
 * `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions (including intelligent insertion of new shots), and providing a shot-by-shot editor.
-* `Step5_FinalAssembly.js`: **(UPDATED)** UI for the final script generation and task completion. It now orchestrates the generation and display of two distinct scripts (full video and recording voiceover).
+* `Step5_FinalAssembly.js`: **(UPDATED)** UI for the final script generation and task completion. It now orchestrates the generation and display of the `recording_voiceover_script_text`. The full video script is no longer displayed. Users can also re-generate the script multiple times via an updated button.
 
 **Files Deleted:**
 * `Step3_MyExperience.js` (replaced by `Step3_OnCameraScripting.js`)
@@ -42,9 +43,9 @@ New Directory: `creators-hub/js/utils/ai/scriptingV2/`
 * `getStyleGuidePromptV2.js`: Reads from the new detailed style guide in the settings.
 * `createInitialBlueprintAI.js`: (Heavy Task) - Creates the initial narrative structure.
 * `enrichBlueprintAI.js`: (Lite Task) - Performs factual research for specific shots.
-* `mapTranscriptToBlueprintAI.js`: **(UPDATED)** Maps a single, combined on-location transcript to the relevant shots. It now intelligently categorizes and extracts dialogue segments into either `on_camera_dialogue` or `voiceover_script` fields for each blueprint shot. This is a **Heavy Task**.
+* `mapTranscriptToBlueprintAI.js`: **(UPDATED)** Maps a single, combined on-location transcript to the relevant shots. It now intelligently categorizes and extracts dialogue segments into either `on_camera_dialogue` or `voiceover_script` fields for corresponding shots in the Creative Blueprint based on shot type and description. This is a **Heavy Task**.
 * `refineBlueprintFromTranscriptAI.js`: **(UPDATED)** Analyzes the full on-camera transcript and the current blueprint to suggest modifications (add, modify, remove shots) to the blueprint itself. Crucially, for "add" suggestions, it now also recommends a `placement_suggestion` (relative to an existing shot) for logical insertion. This is classified as a **Heavy Task**.
-* `generateScriptFromBlueprintAI.js`: **(UPDATED)** This function now acts as a master scriptwriter, taking the populated blueprint and generating two distinct script outputs: a `full_video_script_text` (complete narrative) and a `recording_voiceover_script_text` (only the parts needing post-production recording). This is a **Heavy Task**.
+* `generateScriptFromBlueprintAI.js`: **(UPDATED)** This function now acts as a master scriptwriter, taking the populated blueprint and generating two distinct script outputs: a `full_video_script_text` (complete narrative) and a `recording_voiceover_script_text` (only the parts needing post-production recording). The `recording_voiceover_script_text` is now explicitly formatted with paragraph breaks for ease of recording. Crucially, the AI is now specifically instructed to populate the `voiceover_script` field within each blueprint shot to reflect all spoken content (on-camera or voiceover) for that shot, ensuring the Creative Blueprint accurately represents the final shot list. This is a **Heavy Task**.
 
 **Files Deleted:**
 * `generateExperienceQuestionsAI.js` (no longer needed with the updated on-camera scripting workflow)
@@ -110,6 +111,7 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
 
 #### AI Logic Refinements
 * **createInitialBlueprintAI.js - Guided Shot Descriptions:** The AI prompt has been refined to guide the `shot_description` generation more effectively. The AI is now instructed to create general descriptions based on the type of available footage (e.g., 'B-Roll', 'On-Camera') and the narrative purpose, rather than inventing specific visual details that may not correspond to actual footage. This ensures the initial blueprint is a creative suggestion grounded in known footage availability.
+* **generateScriptFromBlueprintAI.js - Enhanced Voiceover Scripting and Blueprint Population:** The AI prompt has been refined to explicitly ensure the `voiceover_script` field for each shot within the blueprint is correctly populated. For 'On-Camera' shots, this field will now include existing 'on_camera_dialogue' if relevant, preventing it from being empty and addressing the previous "Voiceover will be generated in a later step" message on the ShotCard. The `recording_voiceover_script_text` output is also now consistently formatted with paragraph breaks.
 
 #### On-Camera Scripting Workflow Revamp
 * **Transcript Import and Mapping:** The previous "Inject Your Experience" step has been replaced with a more direct "On-Camera Scripting" workflow. Users can now:
@@ -130,5 +132,6 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
     * The `ScriptingV2_Workspace.js` now remembers and restores the user's last active step, improving workflow continuity.
 * **Seamless Integration:** The mapped dialogue (and any user-resolved ambiguities) is automatically populated into the blueprint, and the UI transitions smoothly through the different review stages (ambiguity, refinement, shot-by-shot). The overall flow aligns with the goal of leveraging AI for heavy lifting while retaining granular user control.
 * **Final Assembly Script Generation:**
-    * The `generateScriptFromBlueprintAI.js` utility has been updated to generate two distinct script outputs: a `full_video_script_text` (the complete narrative for the entire video) and a `recording_voiceover_script_text` (containing only the content that needs to be recorded post-facto, such as hooks, transitions, and conclusions).
-    * `Step5_FinalAssembly.js` now displays both these scripts prominently, providing a "Copy for Recording" button for the `recording_voiceover_script_text`.
+    * The `generateScriptFromBlueprintAI.js` utility has been updated to generate two distinct script outputs: a `full_video_script_text` (the complete narrative for the entire video) and a `recording_voiceover_script_text` (containing only the content that needs to be recorded post-facto, such as hooks, transitions, and conclusions). The `recording_voiceover_script_text` is now correctly formatted with paragraph breaks.
+    * `Step5_FinalAssembly.js` now displays only the `recording_voiceover_script_text` prominently, providing a "Copy for Recording" button. The "Full Video Script" display has been removed as per user request.
+    * **UPDATED:** `Step5_FinalAssembly.js` now allows the user to regenerate the final script multiple times. The "Generate Final Script" button changes to "Regenerate Script" once the script has been initially assembled, providing flexibility for iterative refinement during testing.
