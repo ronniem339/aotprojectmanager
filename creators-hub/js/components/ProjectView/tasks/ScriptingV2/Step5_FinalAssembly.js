@@ -67,23 +67,25 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
         React.createElement('h3', { className: 'text-2xl font-bold text-primary-accent mb-4' }, 'Step 4: Final Assembly'), // Corrected step number in UI
         React.createElement('p', { className: 'text-gray-400 mb-8 max-w-2xl' }, // Increased max-width for better readability
             isFinalScriptAssembled
-                ? "Your final shot list and scripts are ready. Review them below and make any final manual edits. When you're happy, mark the task as complete."
+                ? "Your final shot list and scripts are ready. Review them below and make any final manual edits. You can regenerate the script or mark the task as complete." // Updated message
                 : "All the necessary dialogue and information has been gathered. Click below to have the AI act as a master scriptwriter and assemble all the pieces into your final video script and a dedicated voiceover recording script."
         ),
 
-        // Display Generate button if script not assembled
-        !isFinalScriptAssembled && React.createElement('button', {
+        // Display Generate/Regenerate button always
+        React.createElement('button', {
             onClick: handleGenerateScript,
             disabled: isGenerating,
-            className: 'button-primary text-xl px-10 py-4 disabled:opacity-50'
+            className: 'button-primary text-xl px-10 py-4 disabled:opacity-50 mb-8' // Added mb-8 for spacing
         },
-            isGenerating ? 'Writing Your Script...' : '🎬 Generate Final Script'
+            isGenerating ? 'Writing Your Script...' : (isFinalScriptAssembled ? '🔁 Regenerate Script' : '🎬 Generate Final Script') // Changed button text
         ),
+
+        error && React.createElement('p', { className: 'text-red-400 mt-6 mb-4' }, error), // Adjusted margin for error message
 
         // Display scripts and Complete button if script assembled
         isFinalScriptAssembled && React.createElement(React.Fragment, null,
             // Removed Full Video Script display as per user's request
-            React.createElement('div', { className: 'w-full max-w-2xl text-left mt-8 bg-gray-800/70 p-6 rounded-lg border border-gray-700' }, // Adjusted mt-8 for spacing
+            React.createElement('div', { className: 'w-full max-w-2xl text-left bg-gray-800/70 p-6 rounded-lg border border-gray-700' },
                 React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Voiceover Script for Recording'),
                 React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_recording_voiceover_script || 'Recording script not generated.'),
                 // ADDED: Copy button for the recording script
@@ -96,8 +98,6 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
                 onClick: handleCompleteTask,
                 className: 'button-success text-xl px-10 py-4 mt-8'
             }, '✅ Mark Task as Complete')
-        ),
-
-        error && React.createElement('p', { className: 'text-red-400 mt-6' }, error)
+        )
     );
 };
