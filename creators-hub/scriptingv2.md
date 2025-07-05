@@ -1,7 +1,7 @@
 Scripting V2: Implementation & Architecture Guide
 This document provides a comprehensive overview of the new Scripting V2 workflow, designed to serve as a reference for developers.
 
-1. Core Philosophy & Goal
+Core Philosophy & Goal
 The primary goal of Scripting V2 was to address shortcomings in the original linear scripting process. The new workflow is built on an iterative model centered around a single, evolving "working document" called the Creative Blueprint.
 
 This new approach aims to:
@@ -16,7 +16,7 @@ Provide granular control over AI model usage to balance cost, speed, and quality
 
 The final output of the process is a detailed Shot List, ready for filming and editing.
 
-2. New File Structure
+New File Structure
 To ensure maintainability and separation from the legacy system, the V2 workflow is built with a new, modular file structure.
 
 2.1 UI Components
@@ -61,7 +61,7 @@ generateExperienceQuestionsAI.js: (Standard Task) - Asks targeted questions to e
 
 generateScriptFromBlueprintAI.js: (Heavy Task) - Assembles the final script from the completed blueprint.
 
-3. Settings & Configuration
+Settings & Configuration
 To support the new workflow without breaking existing features, the settings have been upgraded for backward compatibility.
 
 3.1 Style Guide (MyStudioView.js)
@@ -91,5 +91,25 @@ It contains the logic to read the appropriate model name from the correct sectio
 
 It will now throw an explicit error if a required model name is not configured in the settings, rather than using a silent fallback.
 
-4. Current Status
+Current Status
 All necessary files have been created and updated. The new workflow is integrated into the application and is ready for end-to-end testing.
+
+Recent Updates and Enhancements
+
+This section outlines the recent modifications made to the Scripting V2 workflow components to improve stability, data handling, and user experience.
+
+UI Component Fixes:
+
+ShotCard.js - DOM Nesting Correction: Addressed a console warning by changing the <p> tag wrapping dynamic content to a <div> tag within the renderDetail function. This ensures valid HTML nesting, particularly when rendering <ul> elements as part of shot details.
+
+Step1_InitialBlueprint.js - Initial Thoughts Persistence: Resolved an issue where previously entered "brain dump" text did not immediately appear upon reopening the workspace. The useEffect hook in Step1_InitialBlueprint.js now correctly depends on the blueprint object, ensuring the initialThoughts local state updates as soon as blueprint data is fetched from Firestore.
+
+AI Logic Refinements:
+
+createInitialBlueprintAI.js - Guided Shot Descriptions: The AI prompt has been refined to guide the shot_description generation more effectively. The AI is now instructed to create general descriptions based on the type of available footage (e.g., 'B-Roll', 'On-Camera') and the narrative purpose, rather than inventing specific visual details that may not correspond to actual footage. This ensures the initial blueprint is a creative suggestion grounded in known footage availability.
+
+User Experience Improvements for Step 2 (Research & Curation):
+
+ShotCard.js - Dynamic Research Button & Status: The "Generate Research" button now appears conditionally for 'B-Roll' and 'Drone' shots only when research has not yet been performed. Once research is completed, the button is replaced by a clear "Research Complete" status, providing immediate feedback.
+
+ShotCard.js - Collapsible Content Sections: To reduce visual clutter and improve focus during the research phase, less relevant sections within each ShotCard are now collapsible. "Creator Experience Notes," "On-Camera Dialogue," and "Voiceover Script" are collapsed by default. The "AI Research Notes" section remains expanded by default, as it is the primary focus of Step 2. Each section includes a "Show/Hide" toggle for user control.
