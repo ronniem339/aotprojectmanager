@@ -174,14 +174,14 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     );
 
     const renderRefineBlueprintView = () => (
-        React.createElement('div', {},
+        React.createElement('div', { className: 'flex flex-col h-full' }, // Added flex-col h-full to this container
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
                 React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Review Blueprint Suggestions"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Select the ones you wish to apply."),
             blueprintSuggestions.length > 0 ?
-                React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 h-[calc(100vh-300px)]' },
+                React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, // Removed fixed height and let it grow, removed pr-2 as parent has it
                     blueprintSuggestions.map((suggestion, index) => {
                         const isSelected = selectedSuggestions.has(index);
                         const originalShot = blueprint.shots.find(s => s.shot_id === suggestion.shot_id);
@@ -225,24 +225,24 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 React.createElement('button', {
                     onClick: applyBlueprintSuggestions,
                     disabled: selectedSuggestions.size === 0,
-                    className: 'button-primary disabled:opacity-50' // Now correctly formatted as a button
+                    className: 'button-primary disabled:opacity-50'
                 }, '✅ Apply Selected Suggestions & Continue')
             )
         )
     );
 
     const renderShotByShotView = () => (
-        React.createElement('div', {},
+        React.createElement('div', { className: 'flex flex-col h-full' }, // Added flex-col h-full to this container
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
                 React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Shot-by-Shot Dialogue"),
             ),
-            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 h-[calc(100vh-250px)]' },
+            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, // Removed fixed height and let it grow
                 (blueprint?.shots || []).map(shot =>
                     React.createElement('div', { key: shot.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
                         React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
                         React.createElement('p', { className: 'text-sm text-gray-400 mb-3' }, shot.shot_description),
-                        shot.ai_reason && React.createElement('p', { className: 'text-xs text-yellow-500 mb-2' }, `AI Suggestion: ${shot.ai_reason}`), // Display AI reason
+                        shot.ai_reason && React.createElement('p', { className: 'text-xs text-yellow-500 mb-2' }, `AI Suggestion: ${shot.ai_reason}`),
                         React.createElement('textarea', {
                             value: shot.on_camera_dialogue || '',
                             onChange: (e) => handleDialogueChange(shot.shot_id, e.target.value),
