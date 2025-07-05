@@ -1,5 +1,4 @@
 // creators-hub/js/utils/ai/scriptingV2/mapTranscriptToBlueprintAI.js
-
 window.mapTranscriptToBlueprintAI = async (options) => {
     const { fullTranscript, blueprint, video, settings } = options;
 
@@ -36,10 +35,16 @@ window.mapTranscriptToBlueprintAI = async (options) => {
         **JSON Output:**
     `;
 
-    const aiResponse = await window.aiUtils.callGeminiAPI(prompt, settings, {
-        temperature: 0.3, // A bit of creativity in mapping, but still structured
-        response_mime_type: "application/json",
-    }, 'Standard'); // Use a standard model for this task
+    // Corrected AI call: Pass taskTier in the options object and generationConfig separately
+    const aiResponse = await window.aiUtils.callGeminiAPI(
+        prompt,
+        settings,
+        { taskTier: 'heavy' }, // Pass the taskTier here, setting to 'heavy' as suggested
+        {
+            temperature: 0.3, // Now correctly part of generationConfig
+            response_mime_type: "application/json",
+        }
+    );
 
     // The aiResponse is already a parsed JSON object due to response_mime_type
     return aiResponse;
