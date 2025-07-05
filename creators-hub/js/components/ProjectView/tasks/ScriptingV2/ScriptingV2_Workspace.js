@@ -48,7 +48,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         return React.createElement(BlueprintDisplay, { blueprint: blueprint });
     };
 
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 bg-opacity-95 z-50 overflow-y-auto text-white' },
+    // Main render
+    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-y-auto text-white' }, // CHANGE: Removed bg-opacity-95
         React.createElement('div', { className: 'flex flex-col h-full' },
             // Header
             React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
@@ -60,17 +61,17 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             ),
 
             // Main Content Area
-            React.createElement('div', { className: 'flex-grow flex flex-col md:flex-row min-h-0' },
+            React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' }, // CHANGE: md:flex-row to lg:flex-row
                 // Left Column
-                React.createElement('div', { className: 'w-full md:w-1/2 p-6 border-r border-gray-800 flex flex-col' },
+                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 border-r border-gray-800 flex flex-col' },
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                    React.createElement('div', { className: 'flex-grow' }, renderCurrentStepContent())
+                    React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, renderCurrentStepContent()) // CHANGE: Added overflow-y-auto pr-2
                 ),
 
                 // Right Column
-                React.createElement('div', { className: 'w-full md:w-1/2 p-6 flex flex-col' },
+                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 flex flex-col' },
                     React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
-                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto' },
+                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700' }, // CHANGE: Added border
                         React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                     )
                 )
