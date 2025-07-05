@@ -55,6 +55,9 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
             * It should include the generated **hook, intro segments, conclusion, and any new narrative links or transitions** that were *not* present in the original 'on_camera_dialogue' or 'voiceover_script_on_location' fields of the blueprint.
             * Essentially, this is the "glue" script: the parts you write to bridge the existing, on-location audio.
 
+        **CRITICAL INSTRUCTION FOR updated_shots:**
+        For each shot object within the 'updated_shots' array in your JSON response, you MUST populate the 'voiceover_script' field. This field should contain the specific narrative text that will be spoken during that shot's display in the final video, integrating any on-location voiceover from 'voiceover_script_on_location' and new generated voiceover for this particular shot. If a shot is 'On-Camera' and primarily features on-camera dialogue without additional voiceover, this field can be an empty string for that specific shot.
+
         **Output Format:**
         Your final output MUST be a JSON object with the following structure.
         \`\`\`json
@@ -74,7 +77,7 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
                 // ... all shots from the blueprint, with updated voiceover_script fields
             ],
             "full_video_script_text": "This is the complete, cohesive narrative for the entire video, combining all on-camera, on-location voiceover, and newly generated transitional/hook/conclusion dialogue. This is a single string.",
-            "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production: the hook, intro, conclusion, and any new connecting narrative that was not part of the original on-location transcript. This is a single string."
+            "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production: the hook, intro, conclusion, and any new connecting narrative that was not part of the original on-location transcript. Format this script with clear paragraph breaks between distinct sections to make it easy to record."
         }
         \`\`\`
 
