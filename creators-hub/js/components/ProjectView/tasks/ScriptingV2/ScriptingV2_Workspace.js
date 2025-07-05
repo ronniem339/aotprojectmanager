@@ -61,17 +61,17 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             ),
 
             // Main Content Area
-            React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' }, // CHANGE: md:flex-row to lg:flex-row
+            React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' }, // This was correct
                 // Left Column
-                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 border-r border-gray-800 flex flex-col' },
+                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 border-r border-gray-800 flex flex-col' }, // CHANGE: md:w-1/2 to lg:w-1/2
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                    React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, renderCurrentStepContent()) // CHANGE: Added overflow-y-auto pr-2
+                    React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, renderCurrentStepContent()) // This was correct
                 ),
 
                 // Right Column
-                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 flex flex-col' },
+                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 flex flex-col' }, // CHANGE: md:w-1/2 to lg:w-1/2
                     React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
-                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700' }, // CHANGE: Added border
+                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700' }, // This was correct
                         React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                     )
                 )
