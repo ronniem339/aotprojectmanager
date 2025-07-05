@@ -27,7 +27,7 @@ New Directory: `creators-hub/js/components/ProjectView/tasks/ScriptingV2/`
 * `ShotCard.js`: Displays the details of a single shot.
 * `Step1_InitialBlueprint.js`: UI for the "brain dump" and initial generation.
 * `Step2_ResearchCuration.js`: UI for the AI-powered research step.
-* `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions, and providing a shot-by-shot editor.
+* `Step3_OnCameraScripting.js`: **(UPDATED)** This component replaces `Step3_MyExperience.js` and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions (including intelligent insertion of new shots), and providing a shot-by-shot editor.
 * `Step5_FinalAssembly.js`: **(UPDATED)** UI for the final script generation and task completion. It now orchestrates the generation and display of two distinct scripts (full video and recording voiceover).
 
 **Files Deleted:**
@@ -43,7 +43,7 @@ New Directory: `creators-hub/js/utils/ai/scriptingV2/`
 * `createInitialBlueprintAI.js`: (Heavy Task) - Creates the initial narrative structure.
 * `enrichBlueprintAI.js`: (Lite Task) - Performs factual research for specific shots.
 * `mapTranscriptToBlueprintAI.js`: **(UPDATED)** Maps a single, combined on-location transcript to the relevant shots. It now intelligently categorizes and extracts dialogue segments into either `on_camera_dialogue` or `voiceover_script` fields for each blueprint shot. This is a **Heavy Task**.
-* `refineBlueprintFromTranscriptAI.js`: **(NEW)** Analyzes the full on-camera transcript and the current blueprint to suggest modifications (add, modify, remove shots) to the blueprint itself. This is classified as a **Heavy Task**.
+* `refineBlueprintFromTranscriptAI.js`: **(UPDATED)** Analyzes the full on-camera transcript and the current blueprint to suggest modifications (add, modify, remove shots) to the blueprint itself. Crucially, for "add" suggestions, it now also recommends a `placement_suggestion` (relative to an existing shot) for logical insertion. This is classified as a **Heavy Task**.
 * `generateScriptFromBlueprintAI.js`: **(UPDATED)** This function now acts as a master scriptwriter, taking the populated blueprint and generating two distinct script outputs: a `full_video_script_text` (complete narrative) and a `recording_voiceover_script_text` (only the parts needing post-production recording). This is a **Heavy Task**.
 
 **Files Deleted:**
@@ -115,7 +115,7 @@ A series of targeted fixes were implemented to improve the UI on smaller laptop 
 * **Transcript Import and Mapping:** The previous "Inject Your Experience" step has been replaced with a more direct "On-Camera Scripting" workflow. Users can now:
     * **Import Full Transcript:** Paste a complete on-location audio transcript. The updated `mapTranscriptToBlueprintAI.js` utility uses the Gemini API to clean the transcript and intelligently maps relevant dialogue segments to `on_camera_dialogue` or `voiceover_script` fields for corresponding shots in the Creative Blueprint based on shot type and description.
     * **Write Shot-by-Shot:** Manually enter or refine dialogue for each shot.
-* **Blueprint Refinement:** After the initial dialogue mapping, the system now uses `refineBlueprintFromTranscriptAI.js` to analyze the transcript for deeper insights and provides suggestions for refining the blueprint (e.g., adding new shots, modifying existing shot descriptions, or suggesting removals). These suggestions are presented to the user for review and application.
+* **Blueprint Refinement:** After the initial dialogue mapping, the system now uses `refineBlueprintFromTranscriptAI.js` to analyze the transcript for deeper insights and provides suggestions for refining the blueprint (e.g., adding new shots, modifying existing shot descriptions, or suggesting removals). **UPDATED:** For "add" suggestions, the AI now also provides a `placement_suggestion` to indicate where the new shot should be logically inserted within the blueprint sequence. These suggestions are presented to the user for review and application, and the system intelligently inserts accepted new shots based on the suggested placement.
 * **Dialogue Ambiguity Resolution (Option 2 Implementation):**
     * **Detection:** After AI mapping, `Step3_OnCameraScripting.js` now detects situations where dialogue from the transcript might be ambiguously classified (e.g., on-camera dialogue placed in a B-roll shot type).
     * **User Confirmation:** If ambiguities are found, a new "Resolve Ambiguous Dialogue" view is presented. Here, the user can explicitly clarify whether a specific dialogue segment is "On-Camera Dialogue" or "Voiceover Script." This ensures high accuracy where AI inference alone is insufficient.
