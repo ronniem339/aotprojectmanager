@@ -26,15 +26,17 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
         setError('');
         setCopySuccess('');
 
-        const currentMetadata = (typeof video.metadata === 'string' && video.metadata)
-            ? JSON.parse(video.metadata)
-            : video.metadata || {};
-        const description = currentMetadata.description || '';
-
-        // Get the YouTube Tags knowledge base from the settings prop.
         const tagsKnowledgeBase = settings?.knowledgeBases?.youtube?.videoTags || 'Generate relevant SEO tags.';
 
-        // The prompt is updated to include the knowledge base as context.
+        // --- FIX: Determine the best available context for the AI ---
+        let bestContext = video.concept || ''; // Start with concept
+        if (video.metadata?.description) {
+            bestContext = video.metadata.description; // Description is better
+        }
+        if (video.full_video_script_text) {
+            bestContext = video.full_video_script_text; // Full script is best
+        }
+
         const prompt = `
             **CONTEXT: TAGGING BEST PRACTICES**
             ${tagsKnowledgeBase}
@@ -47,7 +49,7 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
 
             **VIDEO DETAILS**
             - Video Title: "${video.chosenTitle || video.title}"
-            - Video Description: "${description}"
+            - Video Content Summary: "${bestContext}"
 
             Return the tags as a JSON array like: {"tags": ["tag1", "tag2", "tag3", ...]}.
         `;
@@ -125,7 +127,6 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
                     </div>
                 )}
 
-                {/* Final Save Button */}
                 <div className="pt-6 border-t border-gray-700 text-center">
                     <button 
                         onClick={handleSave} 
