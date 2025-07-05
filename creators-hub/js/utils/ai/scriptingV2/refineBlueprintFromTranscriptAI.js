@@ -5,6 +5,7 @@ window.refineBlueprintFromTranscriptAI = async (options) => {
     const currentBlueprintJson = JSON.stringify(blueprint, null, 2);
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
+    // FIX: Escaped backticks within the example JSON to prevent SyntaxError
     const prompt = `
         You are an expert video script editor and content strategist. Your task is to analyze a raw on-camera transcript alongside an existing creative blueprint. Your goal is to identify how the personal experience and detailed narrative within the transcript can enrich, expand, or refine the blueprint.
 
@@ -26,11 +27,11 @@ window.refineBlueprintFromTranscriptAI = async (options) => {
             * **Opportunities to clarify or expand** on a point mentioned in the blueprint.
         * Based on your analysis, propose a list of blueprint modifications.
         * Each modification should be an object with:
-            * `type`: "add", "modify", or "remove".
-            * `shot_id`: (Required for "modify" and "remove", optional/placeholder for "add") The ID of the shot being affected.
-            * `shot_type`: (Required for "add") e.g., "On-Camera", "B-Roll", "Drone".
-            * `shot_description`: (Required for "add" and "modify") The new or updated description.
-            * `reason`: A brief, clear explanation for the suggested change, referencing specific parts of the transcript if possible.
+            * \`type\`: "add", "modify", or "remove".
+            * \`shot_id\`: (Required for "modify" and "remove", optional/placeholder for "add") The ID of the shot being affected.
+            * \`shot_type\`: (Required for "add") e.g., "On-Camera", "B-Roll", "Drone".
+            * \`shot_description\`: (Required for "add" and "modify") The new or updated description.
+            * \`reason\`: A brief, clear explanation for the suggested change, referencing specific parts of the transcript if possible.
 
         **Example Output Format:**
         \`\`\`json
