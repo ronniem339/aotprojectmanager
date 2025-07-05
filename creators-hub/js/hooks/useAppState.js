@@ -111,7 +111,7 @@ window.useAppState = () => {
                             destinationGuideBlueprint: '', listiclePostFramework: '',
                         },
                         storytelling: {
-                           videoStorytellingPrinciples: '',
+                            videoStorytellingPrinciples: '',
                         },
                         creator: {
                             styleGuideText: '',
@@ -143,7 +143,7 @@ window.useAppState = () => {
             return () => unsubscribeSettings();
         }
     }, [user, googleMapsLoaded, firebaseDb, APP_ID]);
-    
+
     useEffect(() => {
         const processTaskQueue = async () => {
             if (isTaskQueueProcessing || taskQueue.length === 0) {
@@ -159,6 +159,7 @@ window.useAppState = () => {
                 } else if (taskToProcess.type === 'publish-post') {
                     await handlers.executePublishToWordPress(taskToProcess);
                 }
+                // No need for else if for new scriptingV2 tasks here, as triggerAiTask will manage execution and removal
                 setIsTaskQueueProcessing(false);
             }
         };
@@ -201,14 +202,14 @@ window.useAppState = () => {
         handleShowSettings: () => setCurrentView('settingsMenu'),
         handleShowTools: () => setCurrentView('tools'),
         handleSelectTool: (toolId) => {
-             if (toolId === 'blog') setCurrentView('blogTool');
-             if (toolId === 'shorts') setCurrentView('shortsTool');
-             if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
+            if (toolId === 'blog') setCurrentView('blogTool');
+            if (toolId === 'shorts') setCurrentView('shortsTool');
+            if (toolId === 'contentLibrary') setCurrentView('contentLibrary');
         },
         handleShowTechnicalSettings: () => setCurrentView('technicalSettings'),
         handleShowStyleAndTone: () => {
-             setPreviousView(currentView);
-             setCurrentView('myStudio');
+            setPreviousView(currentView);
+            setCurrentView('myStudio');
         },
         handleShowKnowledgeBases: () => setCurrentView('knowledgeBases'),
         handleSaveSettings: async (updatedSettingsObject) => {
@@ -304,12 +305,14 @@ window.useAppState = () => {
             setShowNotification(true);
             setTimeout(() => setShowNotification(false), 3000);
         },
+        // Modified addTask to accept an optional 'status' and 'progressMessage'
         addTask: useCallback((task) => {
             setTaskQueue(prevQueue => {
                 if (prevQueue.some(t => t.id === task.id)) {
                     return prevQueue;
                 }
-                return [...prevQueue, task];
+                // Default status to 'queued' if not provided
+                return [...prevQueue, { ...task, status: task.status || 'queued', createdAt: new Date() }];
             });
         }, []),
         updateTaskStatus: (taskId, status, result = null) => {
@@ -323,6 +326,7 @@ window.useAppState = () => {
                         completedAt = Date.now();
                     }
 
+                    // Original task type handling
                     if (task.type === 'generate-post') {
                         if (status === 'generating') {
                             newName = `Generating content for: ${task.data.idea.title} - ${result?.message || ''}`;
@@ -340,11 +344,74 @@ window.useAppState = () => {
                             newName = `Failed to publish to WordPress: ${task.data.idea.title}`;
                         }
                     }
+                    // NEW: Scripting V2 specific task type handling
+                    else if (task.type.startsWith('scriptingV2-')) {
+                        const baseName = task.data?.title || 'Scripting Task'; // Fallback name
+                        if (status === 'in-progress') {
+                            newName = `${baseName}: ${result?.message || 'Processing...'}`;
+                        } else if (status === 'complete') {
+                            newName = `${baseName}: Complete!`;
+                        } else if (status === 'failed') {
+                            newName = `${baseName}: Failed! ${result?.error || 'Unknown error.'}`;
+                        }
+                    }
+
                     return { ...task, status: newStatus, result, name: newName, completedAt };
                 }
                 return task;
             }));
         },
+        // NEW: Centralized handler for triggering AI tasks specifically for Scripting V2
+        triggerAiTask: useCallback(async ({
+            id, // Unique ID for this task
+            type, // e.g., 'scriptingV2-blueprint-initial', 'scriptingV2-research'
+            name, // Display name for the task
+            aiFunction, // The AI utility function to call (e.g., window.aiUtils.createInitialBlueprintAI)
+            args, // Arguments to pass to the AI function
+            onSuccess, // Callback with AI result on success
+            onFailure, // Callback with error on failure
+            progressMessagePrefix = '' // Optional prefix for progress messages
+        }) => {
+            if (!user || !firebaseDb) {
+                console.error("User not authenticated or Firestore not available.");
+                handlers.displayNotification("Authentication error: Cannot run AI task.", 'error');
+                return;
+            }
+
+            // Add the task to the queue with an 'in-progress' status
+            handlers.addTask({
+                id: id,
+                type: type,
+                name: `${progressMessagePrefix || name}: Initializing...`,
+                status: 'in-progress',
+                data: { ...args, title: name }, // Store args and a display title
+            });
+
+            try {
+                // Call the AI function with a progress callback
+                const result = await aiFunction({ ...args, progressCallback: (msg) => {
+                    handlers.updateTaskStatus(id, 'in-progress', { message: msg });
+                }});
+
+                handlers.updateTaskStatus(id, 'complete');
+                handlers.displayNotification(`${name} completed successfully!`, 'success');
+                if (onSuccess) {
+                    onSuccess(result);
+                }
+                return result; // Return result for caller if needed
+
+            } catch (error) {
+                console.error(`Error in AI Task (${name}):`, error);
+                const errorMessage = error.message || `An unexpected error occurred during ${name}.`;
+                handlers.updateTaskStatus(id, 'failed', { error: errorMessage });
+                handlers.displayNotification(`Failed to complete ${name}: ${errorMessage}`, 'error');
+                if (onFailure) {
+                    onFailure(error);
+                }
+                throw error; // Re-throw to propagate if needed by calling component
+            }
+        }, [user, firebaseDb]), // Depend on user and firebaseDb
+
         // Placeholder for task execution logic
         executeGenerateBlogContent: async (task) => {
             const { idea, video } = task.data;
@@ -465,7 +532,7 @@ window.useAppState = () => {
             });
             handlers.setShowPublisherModal(false);
         },
-              handleViewGeneratedPost: (ideaOrTaskId) => {
+        handleViewGeneratedPost: (ideaOrTaskId) => {
             let ideaId;
 
             if (typeof ideaOrTaskId === 'string') {
