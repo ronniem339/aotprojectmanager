@@ -9,9 +9,8 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
     const [isRefining, setIsRefining] = useState(false);
     const [error, setError] = useState('');
 
-    // The problematic useEffect that tried to fetch studioDetails has been removed.
+    const socialLinks = "\n\n---\n\nINSTAGRAM: https://www.instagram.com/allout.travel\nBLOG: https://www.allout.travel";
 
-    // When the video data changes, update the description in the textarea
     useEffect(() => {
         setDescription(video.metadata?.description || '');
     }, [video.metadata?.description]);
@@ -20,13 +19,17 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
         setGenerating(true);
         setError('');
 
-        // 1. Get the "Who Am I" knowledge base from the main app settings.
         const whoAmI = settings?.knowledgeBases?.youtube?.whoAmI || 'I am a solo creator.';
-
-        // 2. Get the "Style Guide" from the separate studio details.
         const styleGuide = studioDetails?.styleGuide || 'No specific style guide provided.';
 
-        // 3. Construct the prompt with clear separation of contexts.
+        const videoContentContext = video.full_video_script_text
+            ? `- Full Video Script: "${video.full_video_script_text}"`
+            : `- Video Concept: "${video.concept}"`;
+
+        const mainInstruction = video.full_video_script_text
+            ? 'Base the description primarily on the "Full Video Script" provided.'
+            : 'Base the description primarily on the "Video Concept" provided.';
+
         const prompt = `
             **CONTEXT 1: MY IDENTITY**
             ${whoAmI}
@@ -40,10 +43,11 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
             **YOUR TASK**
             You are a YouTube SEO expert. Using the identity and style guide provided in the contexts above, write an engaging and SEO-optimized YouTube description for the following video.
             It should be around 200-300 words. Include keywords naturally. The first 2-3 sentences are the most important for CTR.
+            ${mainInstruction}
 
             **VIDEO DETAILS**
             - Video Title: "${video.chosenTitle || video.title}"
-            - Video Concept: "${video.concept}"
+            ${videoContentContext}
             - Keywords: ${(video.targeted_keywords || []).join(', ')}
             - Project Context: "${project.playlistTitle} - ${project.playlistDescription}"
 
@@ -52,7 +56,11 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-            const generatedDescription = parsedJson.description || '';
+            let generatedDescription = parsedJson.description || '';
+            
+            // --- FIX: Append the static links ---
+            generatedDescription += socialLinks;
+
             setDescription(generatedDescription);
             onUpdateTask('descriptionGenerated', 'in-progress', { 'metadata.description': generatedDescription });
         } catch (err) {
@@ -63,16 +71,22 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
         }
     };
 
-    // Function to handle refining the description
     const handleRefineDescription = async () => {
         if (!refinementPrompt) return;
         setIsRefining(true);
         setError('');
 
+        // --- FIX: Remove links before sending to AI to avoid confusion ---
+        const separator = "\n\n---\n\n";
+        let cleanDescription = description;
+        if (description.includes(separator)) {
+            cleanDescription = description.split(separator)[0];
+        }
+
         const prompt = `You are a YouTube copy editor. Refine the following YouTube description based on the user's instructions.
         Current Description:
         ---
-        ${description}
+        ${cleanDescription}
         ---
         Instructions: "${refinementPrompt}"
 
@@ -80,11 +94,15 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
-            const refinedDescription = parsedJson.refinedDescription || '';
+            let refinedDescription = parsedJson.refinedDescription || '';
+
             if (refinedDescription) {
+                // --- FIX: Add the links back to the refined description ---
+                refinedDescription += socialLinks;
+
                 setDescription(refinedDescription);
                 onUpdateTask('descriptionGenerated', 'in-progress', { 'metadata.description': refinedDescription });
-                setRefinementPrompt(''); // Clear input on success
+                setRefinementPrompt('');
             } else {
                  setError('The AI did not return a refined description. Please try again.');
             }
@@ -123,7 +141,6 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
                     disabled={anyLoading}
                 />
 
-                {/* Refinement UI Section */}
                 <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
                     <label className="block text-sm font-medium text-gray-300">Refine Description</label>
                     <div className="flex items-center gap-2">
@@ -145,7 +162,6 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
                     </div>
                 </div>
 
-                {/* Final Save Button */}
                 <div className="pt-6 border-t border-gray-700 text-center">
                     <button onClick={handleSave} disabled={anyLoading} className="w-full max-w-xs mx-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-white">
                         Confirm Description & Mark Complete
