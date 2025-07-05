@@ -2,6 +2,21 @@
 window.mapTranscriptToBlueprintAI = async (options) => {
     const { fullTranscript, blueprint, video, settings } = options;
 
+    // --- Input Validation ---
+    if (!fullTranscript || typeof fullTranscript !== 'string' || fullTranscript.trim() === '') {
+        throw new Error("Full transcript is required and cannot be empty for mapping.");
+    }
+    if (!blueprint || !Array.isArray(blueprint.shots) || blueprint.shots.length === 0) {
+        throw new Error("Blueprint is required and must contain shots for mapping.");
+    }
+    if (!video || !video.title) {
+        // 'video' is used for context in the prompt, so its title is important.
+        throw new Error("Video context (title) is missing for transcript mapping.");
+    }
+    if (!settings || !settings.knowledgeBases) {
+        throw new Error("User settings are incomplete for transcript mapping.");
+    }
+
     const shotDescriptions = blueprint.shots.map(shot => {
         // Include shot_type and shot_description for AI's context
         return `- ${shot.shot_type} (${shot.shot_id}): ${shot.shot_description}`;
@@ -70,16 +85,50 @@ window.mapTranscriptToBlueprintAI = async (options) => {
         **JSON Output:**
     `;
 
-    const aiResponse = await window.aiUtils.callGeminiAPI(
-        prompt,
-        settings,
-        { taskTier: 'heavy' }, // Complex task requiring nuanced understanding
-        {
-            temperature: 0.3, // Structured output, so lower temperature
-            response_mime_type: "application/json",
-        }
-    );
+    let aiResponse;
+    try {
+        aiResponse = await window.aiUtils.callGeminiAPI(
+            prompt,
+            settings,
+            { taskTier: 'heavy' }, // Complex task requiring nuanced understanding
+            {
+                temperature: 0.3, // Structured output, so lower temperature
+                response_mime_type: "application/json",
+            }
+        );
 
-    // The aiResponse is already a parsed JSON object due to response_mime_type
+        // --- Output Validation ---
+        if (!aiResponse || typeof aiResponse !== 'object' || Array.isArray(aiResponse)) {
+            console.error("AI response is not a valid JSON object:", aiResponse);
+            throw new Error("AI returned an invalid response format for transcript mapping. Expected a JSON object.");
+        }
+
+        // Validate that each shot_id from the blueprint has an entry in the AI response
+        // and that its values conform to the expected structure.
+        blueprint.shots.forEach(shot => {
+            const mappedContent = aiResponse[shot.shot_id];
+            if (!mappedContent) {
+                console.warn(`AI response missing entry for shot_id: ${shot.shot_id}.`);
+                // Optionally initialize with empty strings if missing
+                aiResponse[shot.shot_id] = { on_camera_dialogue: "", voiceover_script: "" };
+            } else {
+                if (typeof mappedContent.on_camera_dialogue !== 'string') {
+                    console.warn(`Invalid 'on_camera_dialogue' for shot_id: ${shot.shot_id}. Setting to empty string.`);
+                    mappedContent.on_camera_dialogue = "";
+                }
+                if (typeof mappedContent.voiceover_script !== 'string') {
+                    console.warn(`Invalid 'voiceover_script' for shot_id: ${shot.shot_id}. Setting to empty string.`);
+                    mappedContent.voiceover_script = "";
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error("Error mapping transcript to blueprint with AI:", err);
+        // Re-throw a more user-friendly error message
+        throw new Error(`Failed to map transcript to blueprint: ${err.message || "An unknown AI error occurred."}`);
+    }
+
+    // The aiResponse is already a parsed JSON object due to response_mime_type and validated
     return aiResponse;
 };
