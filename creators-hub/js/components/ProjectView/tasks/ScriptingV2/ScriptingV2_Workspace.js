@@ -1,22 +1,24 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
-const { useState, useEffect, useRef } = React; // Added useRef for debouncing currentStep
+const { useState, useEffect, useRef } = React; // ADDED: useRef for debouncing currentStep
+// UPDATED: Replaced Step3_MyExperience and Step4_OnCamera with Step3_OnCameraScripting
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
-const { useDebounce } = window; // Assuming useDebounce is globally available from hooks folder
+const { useDebounce } = window; // ADDED: Assuming useDebounce is globally available from hooks folder
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
 
-    // Initialize currentStep from Firestore if available, otherwise default to 1
+    // ADDED: Initialize currentStep from Firestore if available, otherwise default to 1
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
 
-    // Debounced currentStep for saving to Firestore
+    // ADDED: Debounced currentStep for saving to Firestore
     const debouncedCurrentStep = useDebounce(currentStep, 500); // Debounce for 0.5 seconds
 
-    // Effect to auto-save currentStep to Firestore
+    // ADDED: Effect to auto-save currentStep to Firestore
     useEffect(() => {
-        // Only save if debouncedCurrentStep is a valid number and not the initial default (unless it's the actual saved step)
+        // Only save if debouncedCurrentStep is a valid number and it's different from the initial loaded step,
+        // or if initialCurrentStep was 1 and currentStep is now different (i.e., user moved past step 1)
         if (debouncedCurrentStep && debouncedCurrentStep !== initialCurrentStep) {
              db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects/${project.id}/videos`).doc(video.id).update({
                 'tasks.scriptingV2_current_step': debouncedCurrentStep
@@ -24,9 +26,9 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 console.error("Error auto-saving current step:", err);
             });
         }
-    }, [debouncedCurrentStep, video.id, project.id, userId, db]); // Dependencies for useEffect
+    }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]); // Dependencies for useEffect
 
-    // Define the steps with their completion status
+    // UPDATED: Define the steps with their completion status
     const steps = [
         {
             id: 1,
@@ -43,10 +45,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             name: 'Step 3: On-Camera Scripting',
             // Assuming completion based on presence of mapped dialogue for all shots
             // or a dedicated task status if one is introduced for this step.
-            // For robust check, you might iterate blueprint.shots and check on_camera_dialogue
-            // For now, let's assume a dedicated task status exists or is added by a task completion logic.
-            // If not, a simple check like `blueprint && blueprint.shots.every(s => s.on_camera_dialogue)` could work,
-            // but this is often handled by explicit task completion.
+            // For robustness, this should ideally align with a task completion status.
             isCompleted: project.tasks?.scriptingV2_on_camera_scripting?.status === 'completed'
         },
         {
@@ -69,8 +68,10 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             case 2:
                 return React.createElement(Step2_ResearchCuration, props);
             case 3:
+                // UPDATED: Render the new consolidated On-Camera Scripting component
                 return React.createElement(Step3_OnCameraScripting, props);
             case 4:
+                // UPDATED: Step 5 is now rendered as Step 4
                 return React.createElement(Step5_FinalAssembly, props);
             default:
                 return React.createElement('div', null, 'Unknown step');
@@ -103,6 +104,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
                 // Left Column
                 React.createElement('div', { className: 'w-full lg:w-1/2 p-6 border-r border-gray-800 flex flex-col' },
+                    // UPDATED: Pass the enriched steps array to BlueprintStepper
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
                     React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, renderCurrentStepContent())
                 ),
