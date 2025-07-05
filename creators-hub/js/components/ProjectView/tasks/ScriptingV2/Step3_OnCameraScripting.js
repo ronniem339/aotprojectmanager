@@ -44,6 +44,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 ...blueprint,
                 shots: blueprint.shots.map(shot => ({
                     ...shot,
+                    // ADDED: Clear ai_reason when re-processing to ensure fresh state
+                    ai_reason: '',
                     on_camera_dialogue: mappedDialogueResult[shot.shot_id]?.on_camera_dialogue || '',
                     voiceover_script: mappedDialogueResult[shot.shot_id]?.voiceover_script || ''
                 }))
@@ -53,35 +55,30 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             const ambiguities = [];
             tempBlueprintForProcessing.shots.forEach(shot => {
                 const isNonOnCameraShot = ['B-Roll', 'Location', 'Activity', 'Product', 'Footage_Only'].includes(shot.shot_type);
-                const isDroneShot = shot.shot_type === 'Drone'; // Drone shots explicitly have no on-location audio
+                const isDroneShot = shot.shot_type === 'Drone';
 
-                // Ambiguity Rule for 'Option 2': If it's a non-on-camera, non-drone shot type
-                // AND it has dialogue assigned to 'on_camera_dialogue' by the AI
-                // (which it shouldn't if it's not truly on-camera footage)
                 if (isNonOnCameraShot && !isDroneShot && shot.on_camera_dialogue.trim() !== '') {
                     ambiguities.push({
                         shot_id: shot.shot_id,
                         shot_type: shot.shot_type,
                         shot_description: shot.shot_description,
-                        dialogue: shot.on_camera_dialogue, // The dialogue that's ambiguous
-                        ai_classification: 'on_camera_dialogue' // How AI initially classified it
+                        location_tag: shot.location_tag, // ADDED: Include location_tag for ambiguity view
+                        dialogue: shot.on_camera_dialogue,
+                        ai_classification: 'on_camera_dialogue'
                     });
                     // Temporarily move the dialogue to voiceover_script to clean up on_camera_dialogue for this type
-                    // The user's choice will finalize placement.
                     shot.voiceover_script = shot.on_camera_dialogue;
                     shot.on_camera_dialogue = '';
                 }
             });
 
-            // Update blueprint with AI's best guess (and adjusted ambiguities for B-roll types)
             setBlueprint(tempBlueprintForProcessing);
 
             if (ambiguities.length > 0) {
                 setAmbiguousDialogueSegments(ambiguities);
                 setProcessingMessage('Ambiguous dialogue detected. Awaiting your confirmation.');
-                setView('resolveAmbiguity'); // Go to new resolution view
+                setView('resolveAmbiguity');
             } else {
-                // If no ambiguities, proceed to blueprint refinement
                 setProcessingMessage('No ambiguous dialogue detected. Refining blueprint...');
                 const refinementResults = await refineBlueprintFromTranscriptAI({
                     fullTranscript,
@@ -109,7 +106,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         }
     };
 
-    // New handler for manual dialogue changes on shot cards
     const handleShotCardDialogueChange = (shotId, field, value) => {
         const updatedShots = blueprint.shots.map(shot => {
             if (shot.shot_id === shotId) {
@@ -120,7 +116,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setBlueprint({ ...blueprint, shots: updatedShots });
     };
 
-    // Toggle selection of a blueprint suggestion
     const handleToggleSuggestion = (index) => {
         const newSelection = new Set(selectedSuggestions);
         if (newSelection.has(index)) {
@@ -138,14 +133,13 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
         blueprintSuggestions.forEach((suggestion, index) => {
             if (!selectedSuggestions.has(index)) {
-                return; // Skip if not selected
+                return;
             }
 
             if (suggestion.type === 'add') {
-                // FIX: Always generate a truly unique ID for 'add' suggestions to prevent key conflicts.
                 const newShotId = `generated_shot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
                 const newShot = {
-                    shot_id: newShotId, // Use the guaranteed unique ID
+                    shot_id: newShotId,
                     shot_type: suggestion.shot_type || 'New Shot',
                     shot_description: suggestion.shot_description || 'New shot based on transcript insight.',
                     on_camera_dialogue: '',
@@ -164,7 +158,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         return {
                             ...shot,
                             shot_description: suggestion.shot_description || shot.shot_description,
-                            ai_reason: suggestion.reason
+                            // ADDED: Clear ai_reason after modification is applied
+                            ai_reason: ''
                         };
                     }
                     return shot;
@@ -182,7 +177,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setView('shotByShot');
     };
 
-    // Handle user choice for ambiguous dialogue
     const handleAmbiguityChoice = (shotId, choice) => {
         setResolvedAmbiguityChoices(prevChoices => ({
             ...prevChoices,
@@ -190,7 +184,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         }));
     };
 
-    // Apply resolved ambiguous dialogue and proceed
     const applyAmbiguityResolutions = async () => {
         setIsProcessing(true);
         setProcessingMessage('Applying dialogue classifications...');
@@ -198,13 +191,14 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
         ambiguousDialogueSegments.forEach(segment => {
             const choice = resolvedAmbiguityChoices[segment.shot_id];
-            if (choice) { // Only apply if a choice was made
+            if (choice) {
                 updatedShots = updatedShots.map(shot => {
                     if (shot.shot_id === segment.shot_id) {
                         return {
                             ...shot,
                             on_camera_dialogue: choice === 'on_camera_dialogue' ? segment.dialogue : '',
-                            voiceover_script: choice === 'voiceover_script' ? segment.dialogue : ''
+                            voiceover_script: choice === 'voiceover_script' ? segment.dialogue : '',
+                            ai_reason: '' // ADDED: Clear ai_reason after resolving ambiguity
                         };
                     }
                     return shot;
@@ -213,9 +207,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         });
 
         const tempBlueprintAfterResolution = { ...blueprint, shots: updatedShots };
-        setBlueprint(tempBlueprintAfterResolution); // Update blueprint with resolved dialogue
+        setBlueprint(tempBlueprintAfterResolution);
 
-        // Now proceed to blueprint refinement after resolving ambiguities
         setProcessingMessage('Dialogue classified. Analyzing transcript for blueprint refinements...');
         const refinementResults = await refineBlueprintFromTranscriptAI({
             fullTranscript,
@@ -277,7 +270,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         )
     );
 
-    // NEW RENDER FUNCTION: For resolving ambiguous dialogue
     const renderResolveAmbiguityView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
@@ -290,6 +282,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     ambiguousDialogueSegments.map((segment, index) =>
                         React.createElement('div', { key: segment.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
                             React.createElement('h4', { className: 'font-bold text-lg text-white' }, `Shot: ${segment.shot_type} - "${segment.shot_description}"`),
+                            // ADDED: Display location tag prominently for clarity
+                            segment.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${segment.location_tag}`),
                             React.createElement('p', { className: 'text-sm text-gray-300 mb-3' }, `Ambiguous Dialogue: "${segment.dialogue}"`),
                             React.createElement('div', { className: 'flex gap-4' },
                                 React.createElement('label', { className: 'flex items-center text-gray-300' },
@@ -398,9 +392,11 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 (blueprint?.shots || []).map(shot =>
                     React.createElement('div', { key: shot.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
                         React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
+                        // ADDED: Display Location Tag prominently for each shot
+                        shot.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${shot.location_tag}`),
                         React.createElement('p', { className: 'text-sm text-gray-400 mb-3' }, shot.shot_description),
-                        shot.ai_reason && React.createElement('p', { className: 'text-xs text-yellow-500 mb-2' }, `AI Suggestion: ${shot.ai_reason}`),
-                        // Display both on_camera_dialogue and voiceover_script
+                        // REMOVED: ai_reason here, it should only be shown during suggestion review
+                        // shot.ai_reason && React.createElement('p', { className: 'text-xs text-yellow-500 mb-2' }, `AI Suggestion: ${shot.ai_reason}`),
                         React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-1 mt-3' }, 'On-Camera Dialogue (seen speaking):'),
                         React.createElement('textarea', {
                             value: shot.on_camera_dialogue || '',
@@ -414,7 +410,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             value: shot.voiceover_script || '',
                             onChange: (e) => handleShotCardDialogueChange(shot.shot_id, 'voiceover_script', e.target.value),
                             rows: 3,
-                            className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent',
+                            className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:focus:border-primary-accent',
                             placeholder: 'Enter voiceover script for this shot...'
                         })
                     )
