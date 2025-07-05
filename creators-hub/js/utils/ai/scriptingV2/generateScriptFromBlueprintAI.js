@@ -4,7 +4,7 @@
 // It acts as a master scriptwriter, taking the entire populated blueprint
 // and generating a cohesive, flowing voiceover script that connects all the elements.
 
-window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) => {
+window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) => { // CHANGED: Attached to window.aiUtils
     console.log("Assembling final script from blueprint...");
 
     // --- Input Validation ---
