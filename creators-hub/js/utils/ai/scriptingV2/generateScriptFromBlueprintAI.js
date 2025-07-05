@@ -46,8 +46,8 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
         1.  **Full Video Script (Cohesive Narrative):**
             * Integrate all existing 'on_camera_dialogue' and 'voiceover_script_on_location' from the blueprint shots.
             * Write new, connecting voiceover segments (introductions, transitions, conclusions, hooks) to create a seamless, flowing narrative for the entire video.
-            * Ensure smooth transitions between shots and scenes, leading into and out of on-camera dialogue.
             * Do NOT repeat existing on-camera dialogue. The new voiceover should complement it.
+            * Ensure smooth transitions between shots and scenes, leading into and out of on-camera dialogue.
             * Adhere strictly to the 'Creator's Style Guide & Tone' and 'Storytelling Principles'.
 
         2.  **Voiceover Script for Recording (Post-Production Only):**
@@ -56,7 +56,10 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
             * Essentially, this is the "glue" script: the parts you write to bridge the existing, on-location audio.
 
         **CRITICAL INSTRUCTION FOR updated_shots:**
-        For each shot object within the 'updated_shots' array in your JSON response, you MUST populate the 'voiceover_script' field. This field should contain the specific narrative text that will be spoken during that shot's display in the final video, integrating any on-location voiceover from 'voiceover_script_on_location' and new generated voiceover for this particular shot. If a shot is 'On-Camera' and primarily features on-camera dialogue without additional voiceover, this field can be an empty string for that specific shot.
+        For each shot object within the 'updated_shots' array in your JSON response, you MUST populate the 'voiceover_script' field with the complete spoken narrative intended for that shot.
+        - **For 'On-Camera' shots:** If 'on_camera_dialogue' is present, this content MUST be included in 'voiceover_script' for that shot, potentially combined with any new overlaying voiceover you generate for that specific segment. The 'voiceover_script' should NOT be an empty string if there is relevant 'on_camera_dialogue' or any newly generated voiceover for that shot.
+        - **For other shot types:** Combine 'voiceover_script_on_location' and any newly generated voiceover to form the full voiceover for that shot.
+        - The goal is for 'voiceover_script' to represent *all* spoken content (whether on-camera dialogue or voiceover) for that specific shot, making the ShotCard a complete reference. ONLY provide an empty string for 'voiceover_script' if a shot genuinely has no spoken content whatsoever.
 
         **Output Format:**
         Your final output MUST be a JSON object with the following structure.
@@ -69,7 +72,7 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
                     "shot_description": "...",
                     "location_tag": "...",
                     "on_camera_dialogue": "...",
-                    "voiceover_script": "This field now contains its segment of the FULL video script, combining on-location VO and any new generated VO for this shot.",
+                    "voiceover_script": "This field contains the complete spoken narrative for this specific shot. For 'On-Camera' shots, this should include the 'on_camera_dialogue' if that is the primary audio, potentially combined with any new overlaying voiceover for this segment. For other shot types, it combines 'voiceover_script_on_location' and any newly generated voiceover to form the full voiceover for this shot. Ensure this field is always populated with relevant dialogue or an empty string ONLY if absolutely no spoken content is intended for this shot.",
                     "ai_research_notes": [],
                     "creator_experience_notes": "...",
                     "estimated_time_seconds": 0
