@@ -44,7 +44,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 ...blueprint,
                 shots: blueprint.shots.map(shot => ({
                     ...shot,
-                    // ADDED: Clear ai_reason when re-processing to ensure fresh state
+                    // Clear ai_reason when re-processing to ensure fresh state
                     ai_reason: '',
                     on_camera_dialogue: mappedDialogueResult[shot.shot_id]?.on_camera_dialogue || '',
                     voiceover_script: mappedDialogueResult[shot.shot_id]?.voiceover_script || ''
@@ -62,11 +62,10 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         shot_id: shot.shot_id,
                         shot_type: shot.shot_type,
                         shot_description: shot.shot_description,
-                        location_tag: shot.location_tag, // ADDED: Include location_tag for ambiguity view
+                        location_tag: shot.location_tag,
                         dialogue: shot.on_camera_dialogue,
                         ai_classification: 'on_camera_dialogue'
                     });
-                    // Temporarily move the dialogue to voiceover_script to clean up on_camera_dialogue for this type
                     shot.voiceover_script = shot.on_camera_dialogue;
                     shot.on_camera_dialogue = '';
                 }
@@ -151,14 +150,32 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     scene_narrative_purpose: `New Scene: ${suggestion.shot_description}` || 'New Scene',
                     ai_reason: suggestion.reason
                 };
-                currentShots.push(newShot);
+
+                // NEW LOGIC: Insert new shot based on placement_suggestion
+                const placement = suggestion.placement_suggestion;
+                if (placement && placement.relative_to_shot_id) {
+                    const relativeShotIndex = currentShots.findIndex(s => s.shot_id === placement.relative_to_shot_id);
+                    if (relativeShotIndex !== -1) {
+                        if (placement.position === 'before') {
+                            currentShots.splice(relativeShotIndex, 0, newShot);
+                        } else if (placement.position === 'after') {
+                            currentShots.splice(relativeShotIndex + 1, 0, newShot);
+                        } else {
+                            currentShots.push(newShot); // Default to end if position is invalid
+                        }
+                    } else {
+                        currentShots.push(newShot); // Default to end if relative_to_shot_id not found
+                    }
+                } else {
+                    currentShots.push(newShot); // Default to end if no placement suggestion
+                }
+
             } else if (suggestion.type === 'modify') {
                 currentShots = currentShots.map(shot => {
                     if (shot.shot_id === suggestion.shot_id) {
                         return {
                             ...shot,
                             shot_description: suggestion.shot_description || shot.shot_description,
-                            // ADDED: Clear ai_reason after modification is applied
                             ai_reason: ''
                         };
                     }
@@ -198,7 +215,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             ...shot,
                             on_camera_dialogue: choice === 'on_camera_dialogue' ? segment.dialogue : '',
                             voiceover_script: choice === 'voiceover_script' ? segment.dialogue : '',
-                            ai_reason: '' // ADDED: Clear ai_reason after resolving ambiguity
+                            ai_reason: ''
                         };
                     }
                     return shot;
@@ -282,7 +299,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     ambiguousDialogueSegments.map((segment, index) =>
                         React.createElement('div', { key: segment.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
                             React.createElement('h4', { className: 'font-bold text-lg text-white' }, `Shot: ${segment.shot_type} - "${segment.shot_description}"`),
-                            // ADDED: Display location tag prominently for clarity
                             segment.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${segment.location_tag}`),
                             React.createElement('p', { className: 'text-sm text-gray-300 mb-3' }, `Ambiguous Dialogue: "${segment.dialogue}"`),
                             React.createElement('div', { className: 'flex gap-4' },
@@ -357,7 +373,13 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             // Display user-friendly information based on suggestion type
                             suggestion.type === 'add' && React.createElement('div', null,
                                 React.createElement('p', { className: 'text-sm text-gray-300' }, `Type: ${suggestion.shot_type}`),
-                                React.createElement('p', { className: 'text-sm text-gray-300' }, `New Description: ${suggestion.shot_description}`)
+                                React.createElement('p', { className: 'text-sm text-gray-300' }, `New Description: ${suggestion.shot_description}`),
+                                // ADDED: Display placement suggestion for new shots
+                                suggestion.placement_suggestion && React.createElement('p', { className: 'text-sm text-gray-500 mt-1' },
+                                    `Suggested Placement: ${suggestion.placement_suggestion.position} existing shot "${
+                                        blueprint.shots.find(s => s.shot_id === suggestion.placement_suggestion.relative_to_shot_id)?.shot_description || suggestion.placement_suggestion.relative_to_shot_id
+                                    }"`
+                                )
                             ),
                             suggestion.type === 'modify' && originalShot && React.createElement('div', null,
                                 React.createElement('p', { className: 'text-sm text-gray-300' }, `Original Shot: ${originalShot.shot_type} - "${originalShot.shot_description}"`),
@@ -392,11 +414,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 (blueprint?.shots || []).map(shot =>
                     React.createElement('div', { key: shot.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
                         React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
-                        // ADDED: Display Location Tag prominently for each shot
                         shot.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${shot.location_tag}`),
                         React.createElement('p', { className: 'text-sm text-gray-400 mb-3' }, shot.shot_description),
-                        // REMOVED: ai_reason here, it should only be shown during suggestion review
-                        // shot.ai_reason && React.createElement('p', { className: 'text-xs text-yellow-500 mb-2' }, `AI Suggestion: ${shot.ai_reason}`),
                         React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-1 mt-3' }, 'On-Camera Dialogue (seen speaking):'),
                         React.createElement('textarea', {
                             value: shot.on_camera_dialogue || '',
