@@ -15,7 +15,7 @@ Why: The application intentionally avoids a Node.js/webpack build toolchain. Rea
 Trade-offs: This approach offers simplicity at the cost of performance (in-browser transpilation is slower) and a more limited development ecosystem (no access to the vast npm library of build-time tools and packages). A future migration to a build tool like Vite or Create React App could improve performance and developer experience.
 
 Monolithic State (useAppState) Rationale:
-Why: A single, monolithic custom hook, useAppState.js, manages nearly the entire application state. This was chosen over a distributed state management solution (like multiple Contexts or Zustand/Jotai) to enforce a single, traceable source of truth. Every state change is explicitly handled by a function returned from this one hook. This approach is particularly beneficial in a no-build-step environment as it ensures clear and traceable data flow without the complexities of a compiled setup.
+Why: A single, monolithic custom hook, useAppState.js, manages nearly the entire application state. This was chosen over a distributed state management solution (like multiple Contexts or Zustand/Jotai) to enforce a single, traceable source of truth. Every state change is explicitly handled by a function returned from this one hook. This approach is particularly beneficial in a no-build-step environment as it ensures clear and traceable data flow without the complexities of a compiled setup. **UPDATED:** This monolithic state now also centralizes the management of asynchronous AI tasks via a new `triggerAiTask` handler, further consolidating complex operational logic and its associated UI feedback (task queue updates, notifications) within a single source.
 
 Trade-offs: This pattern provides excellent traceability but leads to extensive prop-drilling, where state and handlers must be passed down through many component layers. It also means the root <App> component re-renders on almost any state change, requiring careful use of React.memo in child components to prevent performance bottlenecks.
 
@@ -62,9 +62,9 @@ settings: The user's application settings object, loaded from Firestore.
 
 styleGuide: A crucial object containing the user's defined brand voice, tone, and knowledge base.
 
-taskQueue: An array that holds background tasks to be processed.
+taskQueue: An array that holds background tasks to be processed. **UPDATED:** This now includes a richer set of task types, particularly for Scripting V2 AI operations (e.g., 'scriptingV2-blueprint-initial', 'scriptingV2-research'), allowing for more granular status reporting.
 
-currentTask: The task object currently being processed by the queue.
+isTaskQueueProcessing: Boolean, true if a task from the queue is currently being processed.
 
 notification: An object ({ message: string, type: string }) for displaying global notifications.
 
@@ -82,9 +82,11 @@ Videos: handleSelectVideo, handleUpdateVideo, handleDeleteVideo, handleSaveNewVi
 
 Settings: handleSaveSettings, updateStyleGuide
 
-Tasks: handleUpdateTaskStatus, enqueueTask, processTaskQueue, updateTaskStatusInQueue
+Tasks: handleUpdateTaskStatus, enqueueTask, processTaskQueue, updateTaskStatusInQueue. **UPDATED:** The `addTask` and `updateTaskStatus` handlers have been enhanced to support new Scripting V2 task types, providing more detailed progress and error messages.
 
-Notifications: displayNotification
+**triggerAiTask**: **NEW**: A centralized asynchronous handler specifically for initiating AI operations within the Scripting V2 workflow. It encapsulates adding tasks to the `taskQueue`, updating their `status` and `name` (including progress messages), calling the appropriate AI utility function, and robustly handling success and failure. On failure, it automatically triggers a global `displayNotification` with a user-friendly error message, reducing redundant error handling in individual components.
+
+Notifications: displayNotification. **UPDATED:** This function is now consistently called by `triggerAiTask` for all Scripting V2 AI operation outcomes, ensuring centralized and immediate user feedback.
 
 Modals: openNewProjectWizard, closeNewProjectWizard, openEditProjectModal, closeEditProjectModal, openNewVideoWizard, closeNewVideoWizard, etc. for all modals.
 
@@ -93,6 +95,7 @@ This is the definitive schema for the Firestore database, located at the path ar
 
 JSON
 
+```json
 {
   "artifacts": {
     "{appId}": {
@@ -102,7 +105,7 @@ JSON
             "{projectId}": {
               "playlistTitle": "Europe Trip 2025",
               "playlistDescription": "A 5-part series exploring the best of Europe.",
-              "coverImageUrl": "https://firebasestorage.googleapis.com/...",
+              "coverImageUrl": "[https://firebasestorage.googleapis.com/](https://firebasestorage.googleapis.com/)...",
               "createdAt": "ISO 8601 String",
               "lastAccessed": "Timestamp",
               "videoCount": 5,
@@ -120,7 +123,8 @@ JSON
                   "title": "Exploring the Louvre",
                   "chosenTitle": "I Saw The MONA LISA! (And So Can You)",
                   "concept": "A detailed walkthrough of the Louvre...",
-                  "script": "The full text of the video script...",
+                  "script": "The full text of the video script, now often generated by Scripting V2's final assembly.",
+                  "recording_voiceover_script": "The script parts specifically for post-production recording, generated by Scripting V2.",
                   "order": 0,
                   "onCameraDescriptions": {
                     "Louvre Museum": "Welcome to the Louvre! It's enormous!"
@@ -128,6 +132,27 @@ JSON
                   "tasks": {
                     "scripting": "in-progress",
                     "scriptingStage": "review_parsed_transcript",
+                    "scriptingV2_blueprint": {
+                        "initialThoughts": "Brain dump from user for V2 blueprint.",
+                        "shots": [
+                            {
+                                "shot_id": "unique_id_1",
+                                "scene_id": "scene_id_a",
+                                "scene_narrative_purpose": "Introduction to the city.",
+                                "location_name": "Paris",
+                                "shot_type": "On-Camera",
+                                "shot_description": "Creator introduces Paris.",
+                                "on_camera_dialogue": "Hello Paris, it's great to be here!",
+                                "voiceover_script": "",
+                                "ai_research_notes": ["Paris is known as the City of Light."],
+                                "creator_experience_notes": "First time seeing the Eiffel Tower.",
+                                "estimated_time_seconds": 15
+                            }
+                        ],
+                        "final_full_video_script": "The complete video script generated by Scripting V2.",
+                        "final_recording_voiceover_script": "The post-production voiceover script generated by Scripting V2.",
+                        "finalScriptGenerated": true
+                    },
                     "locationQuestions": [
                       { "question": "Where did you see the Mona Lisa?", "location": "Paris" }
                     ],
@@ -174,7 +199,10 @@ JSON
           "settings": {
             "styleGuide": {
               "geminiApiKey": "...",
-              "knowledgeBases": { "youtube": { "whoAmI": "..." } }
+              "knowledgeBases": {
+                "youtube": { "whoAmI": "..." },
+                "styleV2": { "detailedStyleGuide": { /* ... V2 style guide fields ... */ } }
+              }
             }
           }
         }
@@ -182,140 +210,3 @@ JSON
     }
   }
 }
-5. The TASK_PIPELINE
-The TASK_PIPELINE constant in js/config.js is the engine that drives the video production workflow.
-
-Full TASK_PIPELINE Configuration
-The following is the complete TASK_PIPELINE array from js/config.js.
-
-JavaScript
-
-const TASK_PIPELINE = [
-    { id: 'scripting', title: 'Scripting & Recording', dependsOn: [] },
-    { id: 'videoEdited', title: 'Video Edited', dependsOn: ['scripting'] },
-    { id: 'titleGenerated', title: 'Title Finalised', dependsOn: ['videoEdited'] },
-    { id: 'descriptionGenerated', title: 'Description Finalised', dependsOn: ['titleGenerated'] },
-    { id: 'tagsGenerated', title: 'Tags Finalised', dependsOn: ['descriptionGenerated'] },
-    { id: 'chaptersGenerated', title: 'Chapters Finalised', dependsOn: ['tagsGenerated'] },
-    { id: 'thumbnailsGenerated', title: 'Thumbnail Created', dependsOn: ['chaptersGenerated'] },
-    { id: 'videoUploaded', title: 'Video Uploaded to YouTube', dependsOn: ['thumbnailsGenerated'] },
-    { id: 'firstCommentGenerated', title: 'First Comment Written', dependsOn: ['videoUploaded'] },
-    { id: 'videoPublished', title: 'Video Published', dependsOn: ['firstCommentGenerated'] },
-    { id: 'logChanges', title: 'Log Changes', dependsOn: ['videoPublished'] }
-];
-Task Data Flow
-Data flows sequentially through the pipeline via the central activeVideo state object.
-
-Task A (TitleTask.js) completes.
-
-Its onUpdateTask handler is called, which updates the central state in useAppState.js and writes to Firestore (e.g., db.collection(...).update({ chosenTitle: 'My Final Title' })).
-
-The activeVideo object in the React state now contains the new title.
-
-Task B (DescriptionTask.js), which was previously disabled, now becomes unlocked because its dependency (titleGenerated) is complete.
-
-DescriptionTask.js re-renders and receives the updated activeVideo object as a prop.
-
-It can now access props.video.chosenTitle to use as context for generating the description.
-
-The key in the video.tasks object in a Firestore document (e.g., "titleGenerated") is always the id from the corresponding task object in the TASK_PIPELINE configuration. This 1:1 mapping is fundamental to the workflow logic.
-
-Shot List Generation
-The shot list is a critical feature with two distinct generation workflows, managed by different components.
-
-Component Responsibility: The VideoWorkspace.js component is responsible for handling user actions like initiating a shot list regeneration. It calls the AI, processes the result, and saves it to Firestore. The ShotListViewer.js component is primarily a "dumb" component responsible for displaying the shotList data passed to it.
-
-Regeneration Workflow (handleRegenerateShotList in VideoWorkspace.js):
-Gathers the final script and onCameraDescriptions from the video document.
-
-Calls the generateShotListFromScriptAI utility.
-
-Enrichment Step: After receiving the list from the AI, it loops through the new shot list. For each shot, it cross-references the shot's location with the project's footageInventory to build and add the availableFootage object.
-
-Saves the final, enriched shot list back to Firestore.
-
-Add Scene Workflow (Staging & Integration)
-In addition to regenerating the entire list, users can add new scenes dynamically. This workflow is designed to give users fine-grained control over the script.
-
-Initiation: The user clicks the "Add Scene" button from the ShotListViewer, which opens the AddSceneModal.
-
-Scene Definition: In the modal, the user provides details for a new scene: a location, on-camera dialogue, and an integration note for the AI.
-
-AI Snippet Generation: The handleStageScene function in VideoWorkspace.js calls the generateSceneSnippetAI utility. This AI function is given the new scene details and the context of the previous scene's dialogue to ensure a natural transition. It returns a small array of new shot objects for just that scene.
-
-Staging: The newly generated scene snippet is not added to the main shot list directly. Instead, it is added to a stagedScenes array in the VideoWorkspace state. The ShotListViewer then renders this staged scene in a separate, draggable UI element.
-
-Integration: The user can then drag the staged scene and drop it at any point in the main shot list. The handleIntegrateScene function in VideoWorkspace.js handles this, splicing the new shots into the main shotList array at the correct index and saving the updated list to Firestore.
-
-6. Implementation Patterns & Conventions
-Serverless Function Interaction Pattern
-The application uses Netlify Functions as a secure proxy to third-party APIs. The pattern is as follows:
-
-Client-Side Call: A client-side utility function makes a fetch request to the application's own Netlify Function endpoint (e.g., /.netlify/functions/fetch-place-details). It passes necessary data in the request body.
-
-Serverless Function Execution: The Netlify Function receives the request. It securely accesses the required API key from its environment variables.
-
-External API Call: The function makes a fetch request to the actual third-party API (e.g., Google Places API), including the secret key in the request.
-
-Response Proxy: The function receives the response from the third-party API and proxies it back to the client.
-
-Example: Fetching Google Place Details
-
-Serverless Function (netlify/functions/fetch-place-details.js):
-
-JavaScript
-
-const fetch = require('node-fetch');
-
-exports.handler = async function(event, context) {
-  const { placeId } = JSON.parse(event.body);
-  const apiKey = process.env.Maps_API_KEY; // Securely accessed
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${apiKey}`;
-
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    return { statusCode: 200, body: JSON.stringify(data) };
-  } catch (error) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to fetch place details' }) };
-  }
-};
-Client-Side Call (from a component or utility):
-
-JavaScript
-
-async function getPlaceDetails(placeId) {
-  const response = await fetch('/.netlify/functions/fetch-place-details', {
-    method: 'POST',
-    body: JSON.stringify({ placeId: placeId })
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch place details from Netlify function');
-  }
-  return response.json();
-}
-Component-Level State
-There is a clear philosophical stance on state management:
-
-Global State (useAppState) is for data that is shared across multiple, non-related components, affects routing, or needs to be persisted to the database (e.g., selectedProject, settings, currentView).
-
-Local State (useState) is for data that is transient and only relevant to a single component or its immediate children. This is the established and preferred pattern for things like form input values before submission, or the open/closed state of a UI element like a dropdown. This prevents cluttering the global state and avoids unnecessary re-renders of the entire application.
-
-Error Handling and User Notifications
-Implementation: The displayNotification function is part of the useAppState hook. It sets a notification object in the state ({ message: 'Your project has been saved.', type: 'success' }).
-
-UI Rendering: A dedicated <Notification> component is rendered at the top level of app.js. It listens for changes to the notification state object. When the object is not null, the component renders a "toast" style notification at the top of the screen. A setTimeout in the displayNotification function clears the notification state after a few seconds, causing the toast to disappear.
-
-Types: The type property of the notification object can be 'success', 'error', or 'info'. This determines the background color (green, red, or blue) of the rendered toast, providing clear visual feedback to the user.
-
-7. AI Integration & API Interactions
-Finer Implementation Details
-generationConfig Object: The generationConfig parameter in callGeminiAPI maps directly to the Google Gemini API's generationConfig object. This allows for precise control over the AI's output. For example, to request a JSON response, the app passes { responseMimeType: 'application/json' }. This is frequently used to ensure reliable, structured data from the AI, avoiding parsing errors from markdown-wrapped JSON. You can also pass other parameters like { "temperature": 0.9, "topK": 1 } to control creativity. It is critical to ensure the responseMimeType requested in the generationConfig matches the output format requested in the prompt text (e.g., asking for a markdown document but requesting a JSON response type can lead to unexpected behavior).
-
-Prompt Engineering: The AI utilities (e.g., generateShotListFromScriptAI.js) follow a pattern of providing the AI with clearly separated "Source Materials" (like a voiceover script and on-camera notes) and a very explicit "Your Task" section. This has proven more effective than combining all information into a single block of text.
-
-Real-Time Data Sync: The application uses real-time listeners selectively.
-
-Real-time sync is ON for: The user's settings and the list of projects on the Dashboard.
-
-Real-time sync is OFF for: The selectedVideo object within the ProjectView. When a background task updates a video, the UI will not automatically reflect the change. A user must re-select the video or project to see the updated data.
