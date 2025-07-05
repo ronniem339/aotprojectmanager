@@ -42,7 +42,10 @@ window.ScriptingTaskV2 = ({ video, settings, onUpdateTask, isLocked, project, us
                 video: video,
                 project: project,
                 settings: settings,
-                onUpdateTask: (taskType, status, data) => onUpdateTask(video.id, taskType, status, data), // Pass a function that includes videoId
+                // --- THIS IS THE FIX ---
+                // Pass the 'onUpdateTask' function directly without wrapping it.
+                // This preserves the correct function signature.
+                onUpdateTask: onUpdateTask,
                 onClose: handleCloseV2Workspace,
                 userId: userId,
                 db: db
