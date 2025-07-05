@@ -8,8 +8,10 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     // Access handlers from useAppState
     const { handlers } = window.useAppState();
 
-    const [view, setView] = useState('main'); // 'main', 'import', 'shotByShot', 'refineBlueprint', 'resolveAmbiguity'
-    const [fullTranscript, setFullTranscript] = useState('');
+    // Initialize state for view and fullTranscript from the blueprint for persistence
+    const [view, setViewInternal] = useState(blueprint?.scriptingV2_view_mode || 'main'); // 'main', 'import', 'shotByShot', 'refineBlueprint', 'resolveAmbiguity'
+    const [fullTranscript, setFullTranscriptInternal] = useState(blueprint?.fullTranscript || '');
+
     const [isProcessing, setIsProcessing] = useState(false); // Local state for button disabling/immediate feedback
     const [processingMessage, setProcessingMessage] = useState(''); // Local message for immediate feedback
     const [error, setError] = useState(''); // Local error for direct component display
@@ -18,6 +20,34 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
     const [ambiguousDialogueSegments, setAmbiguousDialogueSegments] = useState([]);
     const [resolvedAmbiguityChoices, setResolvedAmbiguityChoices] = useState({});
+
+    // Helper to update view state and persist to blueprint
+    const setViewAndPersist = (newView) => {
+        setViewInternal(newView);
+        setBlueprint(prevBlueprint => ({
+            ...prevBlueprint,
+            scriptingV2_view_mode: newView
+        }));
+    };
+
+    // Helper to update fullTranscript state and persist to blueprint
+    const setFullTranscriptAndPersist = (newTranscript) => {
+        setFullTranscriptInternal(newTranscript);
+        setBlueprint(prevBlueprint => ({
+            ...prevBlueprint,
+            fullTranscript: newTranscript
+        }));
+    };
+
+    // Effect to re-hydrate local states if blueprint changes externally (e.g., loaded from Firestore)
+    useEffect(() => {
+        if (blueprint?.fullTranscript !== undefined && blueprint.fullTranscript !== fullTranscript) {
+            setFullTranscriptInternal(blueprint.fullTranscript || '');
+        }
+        if (blueprint?.scriptingV2_view_mode !== undefined && blueprint.scriptingV2_view_mode !== view) {
+            setViewInternal(blueprint.scriptingV2_view_mode || 'main');
+        }
+    }, [blueprint]); // Depend on the entire blueprint object
 
     // Effect to clean up local errors when view changes or process completes/starts
     useEffect(() => {
@@ -57,6 +87,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
                     let tempBlueprintForProcessing = {
                         ...blueprint,
+                        // Persist the fullTranscript entered by the user
+                        fullTranscript: fullTranscript, 
                         shots: blueprint.shots.map(shot => ({
                             ...shot,
                             // Clear ai_reason when re-processing to ensure fresh state
@@ -88,12 +120,12 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         }
                     });
 
-                    setBlueprint(tempBlueprintForProcessing); // Update blueprint with mapped dialogue
+                    setBlueprint(tempBlueprintForProcessing); // Update blueprint with mapped dialogue and persisted transcript
 
                     if (ambiguities.length > 0) {
                         setAmbiguousDialogueSegments(ambiguities);
                         setProcessingMessage('Ambiguous dialogue detected. Awaiting your confirmation.');
-                        setView('resolveAmbiguity');
+                        setViewAndPersist('resolveAmbiguity'); // Use the new setter
                     } else {
                         // If no ambiguities, directly proceed to blueprint refinement
                         handleRefineBlueprint(tempBlueprintForProcessing);
@@ -126,7 +158,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 name: 'Refining Blueprint',
                 aiFunction: window.aiUtils.refineBlueprintFromTranscriptAI,
                 args: {
-                    fullTranscript,
+                    fullTranscript, // Pass the persisted fullTranscript
                     blueprint: currentBlueprintState, // Use the blueprint with applied mappings
                     settings
                 },
@@ -135,10 +167,10 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         setBlueprintSuggestions(result.suggestions);
                         setSelectedSuggestions(new Set(result.suggestions.map((_, i) => i))); // Select all by default
                         setProcessingMessage('Refinement suggestions ready for review.');
-                        setView('refineBlueprint');
+                        setViewAndPersist('refineBlueprint'); // Use the new setter
                     } else {
                         setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.');
-                        setView('shotByShot');
+                        setViewAndPersist('shotByShot'); // Use the new setter
                     }
                 },
                 onFailure: (err) => {
@@ -242,7 +274,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setSelectedSuggestions(new Set());
         setProcessingMessage('Suggestions applied. Moving to shot-by-shot view.');
         setIsProcessing(false);
-        setView('shotByShot');
+        setViewAndPersist('shotByShot'); // Use the new setter
     };
 
     const handleAmbiguityChoice = (shotId, choice) => {
@@ -290,11 +322,11 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             React.createElement('p', { className: 'text-gray-400 mb-6' }, "How would you like to add your on-camera dialogue?"),
             React.createElement('div', { className: 'flex justify-center gap-4' },
                 React.createElement('button', {
-                    onClick: () => setView('import'),
+                    onClick: () => setViewAndPersist('import'), // Use the new setter
                     className: 'button-primary'
                 }, '📝 Import Full Transcript'),
                 React.createElement('button', {
-                    onClick: () => setView('shotByShot'),
+                    onClick: () => setViewAndPersist('shotByShot'), // Use the new setter
                     className: 'button-secondary'
                 }, '✍️ Write Shot-by-Shot')
             )
@@ -304,13 +336,13 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderImportView = () => (
         React.createElement('div', {},
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Import Transcript"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "Paste your entire on-camera transcript below. The AI will attempt to assign dialogue to shots. You may be asked to clarify ambiguous segments."),
             React.createElement('textarea', {
                 value: fullTranscript,
-                onChange: (e) => setFullTranscript(e.target.value),
+                onChange: (e) => setFullTranscriptAndPersist(e.target.value), // Use the new setter
                 rows: 15,
                 className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent',
                 placeholder: 'Paste your full transcript here...'
@@ -328,7 +360,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderResolveAmbiguityView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Resolve Ambiguous Dialogue"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI found dialogue segments that could be either on-camera or voiceover based on the shot type. Please clarify for each:"),
@@ -381,7 +413,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderRefineBlueprintView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Review Blueprint Suggestions"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Select the ones you wish to apply."),
@@ -445,7 +477,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderShotByShotView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setView('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Shot-by-Shot Dialogue"),
             ),
             React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' },
