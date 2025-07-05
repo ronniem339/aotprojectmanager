@@ -7,13 +7,25 @@
 window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) => {
     console.log("Assembling final script from blueprint...");
 
-    // Use the globally available helper function
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
-    const blueprintString = JSON.stringify(blueprint.shots, null, 2);
+    // Prepare a detailed representation of the blueprint for the AI
+    const blueprintForAI = blueprint.shots.map(shot => {
+        return {
+            shot_id: shot.shot_id,
+            shot_type: shot.shot_type,
+            shot_description: shot.shot_description,
+            location_tag: shot.location_tag, // Include location for context
+            on_camera_dialogue: shot.on_camera_dialogue || '',
+            voiceover_script_on_location: shot.voiceover_script || '', // Clarify this is the on-location voiceover
+            ai_research_notes: shot.ai_research_notes || [],
+            creator_experience_notes: shot.creator_experience_notes || ''
+        };
+    });
+    const blueprintString = JSON.stringify(blueprintForAI, null, 2);
 
     const prompt = `
-        You are a master scriptwriter for a top-tier YouTube documentarian. You have been provided with a complete "Creative Blueprint" for an upcoming video. The blueprint contains a sequence of shots, each populated with research notes, the creator's personal experiences, and any on-camera dialogue.
+        You are a master scriptwriter for a top-tier YouTube documentarian. You have been provided with a complete "Creative Blueprint" for an upcoming video. The blueprint contains a sequence of shots, each populated with research notes, the creator's personal experiences, on-camera dialogue, and on-location voiceover segments.
 
         **Creator's Style Guide & Tone:**
         ${styleGuidePrompt}
@@ -23,55 +35,92 @@ window.generateScriptFromBlueprintAI = async ({ blueprint, video, settings }) =>
 
         **Video Title:** ${video.title}
 
-        **The Creative Blueprint (in JSON format):**
+        **The Creative Blueprint (in JSON format, including existing on-location dialogue):**
         ---
         ${blueprintString}
         ---
 
         **Your Task:**
-        Your sole task is to write the voiceover script for every shot that needs one.
-        1.  **Synthesize Information:** For each shot, read the 'shot_description', 'ai_research_notes', and 'creator_experience_notes'. Synthesize these points into a natural, engaging voiceover.
-        2.  **Create Smooth Transitions:** The script must flow seamlessly from one shot to the next. Use transitional phrases to connect ideas between shots and scenes.
-        3.  **Integrate On-Camera Dialogue:** If a shot has 'on_camera_dialogue', the voiceover for the preceding shot should lead into it naturally, and the voiceover for the following shot should pick up from it. **Do not repeat the on-camera dialogue in the voiceover.** The voiceover should complement it.
-        4.  **Match the Tone:** The entire script must strictly adhere to the creator's style guide.
-        5.  **Populate the 'voiceover_script' field:** Your output must be a JSON object containing the updated list of shots, with the 'voiceover_script' field filled in for every shot that requires narration. You must return the entire blueprint structure, not just the script text.
+        Your sole task is to produce two distinct scripts based on the provided blueprint:
+
+        1.  **Full Video Script (Cohesive Narrative):**
+            * Integrate all existing 'on_camera_dialogue' and 'voiceover_script_on_location' from the blueprint shots.
+            * Write new, connecting voiceover segments (introductions, transitions, conclusions, hooks) to create a seamless, flowing narrative for the entire video.
+            * Ensure smooth transitions between shots and scenes, leading into and out of on-camera dialogue.
+            * Do NOT repeat existing on-camera dialogue. The new voiceover should complement it.
+            * Adhere strictly to the 'Creator's Style Guide & Tone' and 'Storytelling Principles'.
+
+        2.  **Voiceover Script for Recording (Post-Production Only):**
+            * This script MUST ONLY contain dialogue that needs to be recorded *post-facto*.
+            * It should include the generated **hook, intro segments, conclusion, and any new narrative links or transitions** that were *not* present in the original 'on_camera_dialogue' or 'voiceover_script_on_location' fields of the blueprint.
+            * Essentially, this is the "glue" script: the parts you write to bridge the existing, on-location audio.
 
         **Output Format:**
-        Your final output MUST be a JSON object that strictly matches the input blueprint schema. The only difference is that the 'voiceover_script' fields should now be populated with your generated script.
+        Your final output MUST be a JSON object with the following structure.
+        \`\`\`json
+        {
+            "updated_shots": [
+                {
+                    "shot_id": "shot_1_1",
+                    "shot_type": "On-Camera",
+                    "shot_description": "...",
+                    "location_tag": "...",
+                    "on_camera_dialogue": "...",
+                    "voiceover_script": "This field now contains its segment of the FULL video script, combining on-location VO and any new generated VO for this shot.",
+                    "ai_research_notes": [],
+                    "creator_experience_notes": "...",
+                    "estimated_time_seconds": 0
+                }
+                // ... all shots from the blueprint, with updated voiceover_script fields
+            ],
+            "full_video_script_text": "This is the complete, cohesive narrative for the entire video, combining all on-camera, on-location voiceover, and newly generated transitional/hook/conclusion dialogue. This is a single string.",
+            "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production: the hook, intro, conclusion, and any new connecting narrative that was not part of the original on-location transcript. This is a single string."
+        }
+        \`\`\`
+
+        **JSON Output:**
     `;
 
+    // Updated response schema to match the new dual output requirement
     const responseSchema = {
-      type: "OBJECT",
-      properties: {
-        shots: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              shot_id: { type: "STRING" },
-              scene_id: { type: "STRING" },
-              scene_narrative_purpose: { type: "STRING" },
-              location_name: { type: "STRING" },
-              shot_type: { type: "STRING" },
-              shot_description: { type: "STRING" },
-              voiceover_script: { type: "STRING" },
-              on_camera_dialogue: { type: "STRING" },
-              ai_research_notes: { type: "ARRAY", items: { type: "STRING" } },
-              creator_experience_notes: { type: "STRING" },
-              estimated_time_seconds: { type: "NUMBER" },
+        type: "OBJECT",
+        properties: {
+            updated_shots: {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        shot_id: { type: "STRING" },
+                        shot_type: { type: "STRING" },
+                        shot_description: { type: "STRING" },
+                        location_tag: { type: "STRING" },
+                        on_camera_dialogue: { type: "STRING" },
+                        voiceover_script: { type: "STRING" }, // This will now hold the integrated full VO for the shot
+                        ai_research_notes: { type: "ARRAY", items: { type: "STRING" } },
+                        creator_experience_notes: { type: "STRING" },
+                        estimated_time_seconds: { type: "NUMBER" },
+                    },
+                    required: ["shot_id", "shot_type", "shot_description", "location_tag", "on_camera_dialogue", "voiceover_script", "estimated_time_seconds"]
+                }
             },
-            required: ["shot_id", "scene_id", "scene_narrative_purpose", "location_name", "shot_type", "shot_description", "voiceover_script", "estimated_time_seconds"]
-          }
-        }
-      },
-      required: ["shots"]
+            full_video_script_text: { type: "STRING" },
+            recording_voiceover_script_text: { type: "STRING" }
+        },
+        required: ["updated_shots", "full_video_script_text", "recording_voiceover_script_text"]
     };
 
     // Call the upgraded global function with the 'heavy' task tier and correct generationConfig structure.
     const response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'heavy' }, { responseSchema });
 
+    // Ensure initialThoughts and other top-level blueprint properties are carried over
+    // The AI returns 'updated_shots', but the overall blueprint structure needs to be maintained.
     if (response && blueprint.initialThoughts) {
         response.initialThoughts = blueprint.initialThoughts;
+    }
+    // Set the shots in the response to the updated_shots from AI
+    if (response && response.updated_shots) {
+        response.shots = response.updated_shots;
+        delete response.updated_shots; // Clean up the temporary field
     }
 
     return response;
