@@ -32,13 +32,16 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
         setError('');
         setIdeas({ ideas1: [], ideas2: [], ideas3: [] });
 
+        // --- FIX: Intelligently select the best context from V2 or V1 workflows ---
+        const videoContentContext = video.full_video_script_text || video.concept;
+
         const prompt = `
             You are an expert YouTube thumbnail designer creating variations for an A/B test.
             A user has provided descriptions for three different images they want to use for the same video.
             Your task is to generate distinct and compelling text and graphical element suggestions for EACH of the three images. The goal is to create three unique thumbnail concepts that can be tested against each other.
 
             Video Title: "${video.title}"
-            Video Concept: "${video.concept}"
+            Video Content Summary: "${videoContentContext}"
 
             ---
             Image 1 Description: "${imageDescriptions.image1}"
@@ -104,7 +107,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     return (
         <div className="task-content space-y-4">
-            {/* --- TOP PART --- */}
             <div className="space-y-4">
                 <p className="text-sm font-medium text-gray-300">Describe the three images you want to use for A/B testing:</p>
                 {Object.keys(imageDescriptions).map((key, index) => (
@@ -119,7 +121,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 {error && <p className="error-message">{error}</p>}
             </div>
 
-            {/* --- MIDDLE PART (IDEAS) --- */}
             {haveIdeasBeenGenerated && (
                 <div className="space-y-4">
                     {Object.entries(ideas).map(([key, ideaList], index) => (
@@ -134,7 +135,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                                             <p className="text-gray-300 text-sm flex-grow pr-4">{idea}</p>
                                             <button
                                                 onClick={() => {
-                                                    setFinalDesignBrief(prev => prev ? `${prev}\n\nThumbnail ${index + 1} Idea:\n${idea}` : `Thumbnail ${index + 1} Idea:\n${idea}`);
+                                                    setFinalDesignBrief(prev => prev ? `${prev}\\n\\nThumbnail ${index + 1} Idea:\\n${idea}` : `Thumbnail ${index + 1} Idea:\\n${idea}`);
                                                     setError('');
                                                     setCopiedIdeaId(ideaId);
                                                     setTimeout(() => setCopiedIdeaId(null), 2000);
@@ -154,7 +155,6 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                 </div>
             )}
 
-            {/* --- BOTTOM PART --- */}
             <div className="pt-4 border-t border-gray-700 space-y-4">
                 <div className="space-y-2">
                     <label htmlFor="designBrief" className="block text-sm font-medium text-gray-300">
