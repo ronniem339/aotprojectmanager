@@ -16,10 +16,11 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
         setGenerating(true);
         setError('');
 
-        // Get the Video Titles knowledge base from the settings prop.
         const titlesKnowledgeBase = settings?.knowledgeBases?.youtube?.videoTitles || 'Craft clickable, SEO-friendly titles.';
 
-        // The prompt is updated to prioritize the knowledge base and demote the project context.
+        // --- FIX: Intelligently select the best context from V2 or V1 workflows ---
+        const videoContentContext = video.full_video_script_text || video.concept;
+
         const prompt = `
             **PRIMARY CONTEXT: TITLE BEST PRACTICES**
             ${titlesKnowledgeBase}
@@ -30,7 +31,7 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
             You are a YouTube title expert. Following the best practices outlined in the primary context above, generate 5 clickable, SEO-friendly titles for the following video.
 
             **VIDEO DETAILS**
-            - Core Video Concept: "${video.concept}"
+            - Core Video Content: "${videoContentContext}"
 
             **BACKGROUND CONTEXT (Less Important):**
             - The video is part of a series called "${project.playlistTitle}", which is about "${project.playlistDescription}".
@@ -124,23 +125,23 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
             </div>
 
             <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
-                 <label className="block text-sm font-medium text-gray-300">Refine Current Title</label>
-                 <div className="flex items-center gap-2">
-                    <input
+               <label className="block text-sm font-medium text-gray-300">Refine Current Title</label>
+               <div className="flex items-center gap-2">
+                   <input
                         type="text"
                         className="form-input flex-grow"
                         placeholder="Refinement instructions (e.g., make it shorter)"
                         value={titleRefinement}
                         onChange={(e) => setTitleRefinement(e.target.value)}
                     />
-                    <button 
+                   <button 
                         onClick={handleRefineTitle} 
                         disabled={generating || !titleRefinement} 
                         className="button-secondary-small flex-shrink-0"
-                    >
+                   >
                         {generating ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine'}
-                    </button>
-                 </div>
+                   </button>
+               </div>
             </div>
             
             <div className="pt-6 border-t border-gray-700 text-center">
