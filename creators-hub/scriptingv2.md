@@ -22,8 +22,6 @@ To ensure maintainability and separation from the legacy system, the V2 workflow
 2.1 UI Components
 A new component, scriptingTaskV2.js, serves as the entry point and is rendered alongside the original in VideoWorkspace.js. It launches the main ScriptingV2_Workspace.js component, which contains the new UI.
 
-creators-hub/js/components/ProjectView/tasks/scriptingTaskV2.js
-
 New Directory: creators-hub/js/components/ProjectView/tasks/ScriptingV2/
 
 ScriptingV2_Workspace.js: The main container with the two-column layout.
@@ -95,21 +93,41 @@ Current Status
 All necessary files have been created and updated. The new workflow is integrated into the application and is ready for end-to-end testing.
 
 Recent Updates and Enhancements
-
 This section outlines the recent modifications made to the Scripting V2 workflow components to improve stability, data handling, and user experience.
 
-UI Component Fixes:
+UI Responsiveness and Layout Refinements
+A series of targeted fixes were implemented to improve the UI on smaller laptop and tablet screens.
 
-ShotCard.js - DOM Nesting Correction: Addressed a console warning by changing the <p> tag wrapping dynamic content to a <div> tag within the renderDetail function. This ensures valid HTML nesting, particularly when rendering <ul> elements as part of shot details.
+ScriptingV2_Workspace.js - Responsive Column Layout:
 
-Step1_InitialBlueprint.js - Initial Thoughts Persistence: Resolved an issue where previously entered "brain dump" text did not immediately appear upon reopening the workspace. The useEffect hook in Step1_InitialBlueprint.js now correctly depends on the blueprint object, ensuring the initialThoughts local state updates as soon as blueprint data is fetched from Firestore.
+The main two-column layout has been updated to stack vertically on screens narrower than 1024px (the lg breakpoint).
 
-AI Logic Refinements:
+Column widths were aligned with this breakpoint (lg:w-1/2) to prevent layout conflicts on medium-sized screens.
 
-createInitialBlueprintAI.js - Guided Shot Descriptions: The AI prompt has been refined to guide the shot_description generation more effectively. The AI is now instructed to create general descriptions based on the type of available footage (e.g., 'B-Roll', 'On-Camera') and the narrative purpose, rather than inventing specific visual details that may not correspond to actual footage. This ensures the initial blueprint is a creative suggestion grounded in known footage availability.
+The left-hand content panel was made vertically scrollable (overflow-y-auto) to match the right-hand panel, preventing content from being cut off.
 
-User Experience Improvements for Step 2 (Research & Curation):
+Visual clarity was improved by making the modal background fully opaque and adding a border to the right-hand "Creative Blueprint" panel.
+
+BlueprintStepper.js - Intrinsically Responsive Stepper:
+
+The DesktopStepper component was re-engineered to be fully responsive without relying on fixed breakpoints.
+
+The container class was changed to use flex-wrap and the gap property. This allows the step buttons to wrap gracefully to a new line on any screen where they don't have enough horizontal space.
+
+As a result of the more robust desktop view, the breakpoint for switching to the MobileStepper (dropdown) was lowered to 640px to only target phone-sized screens.
+
+User Experience Improvements for Step 2 (Research & Curation)
+ShotCard.js & Step2_ResearchCuration.js - Research Button Refactoring:
+
+The logic for the "Generate Research" button and its loading state has been centralized within ShotCard.js for better encapsulation.
+
+The renderShotCardWithResearch wrapper function was removed from Step2_ResearchCuration.js. The parent component now passes an isEnriching prop to ShotCard to indicate when AI research is in progress.
+
+ShotCard.js now handles its own button state, displaying "Researching..." while loading and using standard btn classes for consistent styling.
 
 ShotCard.js - Dynamic Research Button & Status: The "Generate Research" button now appears conditionally for 'B-Roll' and 'Drone' shots only when research has not yet been performed. Once research is completed, the button is replaced by a clear "Research Complete" status, providing immediate feedback.
 
 ShotCard.js - Collapsible Content Sections: To reduce visual clutter and improve focus during the research phase, less relevant sections within each ShotCard are now collapsible. "Creator Experience Notes," "On-Camera Dialogue," and "Voiceover Script" are collapsed by default. The "AI Research Notes" section remains expanded by default, as it is the primary focus of Step 2. Each section includes a "Show/Hide" toggle for user control.
+
+AI Logic Refinements
+createInitialBlueprintAI.js - Guided Shot Descriptions: The AI prompt has been refined to guide the shot_description generation more effectively. The AI is now instructed to create general descriptions based on the type of available footage (e.g., 'B-Roll', 'On-Camera') and the narrative purpose, rather than inventing specific visual details that may not correspond to actual footage. This ensures the initial blueprint is a creative suggestion grounded in known footage availability.
