@@ -1,37 +1,60 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step2_ResearchCuration.js
 const { useState } = React;
-const { enrichBlueprintAI } = window;
+// No longer importing enrichBlueprintAI directly, as it's called via handlers.triggerAiTask
+// const { enrichBlueprintAI } = window; 
 
 window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings }) => {
+    // Access handlers from useAppState
+    const { handlers } = window.useAppState();
+
     const [researchingShotId, setResearchingShotId] = useState(null);
-    const [error, setError] = useState('');
+    // Local error state can be simplified/removed if all error messaging is handled globally
+    const [error, setError] = useState(''); 
 
     const handleResearchClick = async (shotToResearch) => {
         setResearchingShotId(shotToResearch.shot_id);
-        setError('');
+        setError(''); // Clear local error before starting
+
+        const taskId = `scriptingV2-research-${shotToResearch.shot_id}-${Date.now()}`;
+        const taskName = `Researching Shot: ${shotToResearch.shot_description.substring(0, 30)}...`;
+
         try {
-            const response = await enrichBlueprintAI({
-                shot: shotToResearch,
-                video,
-                settings
-            });
+            await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-research',
+                name: taskName,
+                aiFunction: window.aiUtils.enrichBlueprintAI,
+                args: { 
+                    shot: shotToResearch, 
+                    video, 
+                    settings 
+                },
+                onSuccess: (response) => {
+                    // Output validation is handled inside enrichBlueprintAI.js, but a final check here.
+                    if (!response || !Array.isArray(response.research_notes)) {
+                         throw new Error("AI did not return valid research notes. (Post-processing validation)");
+                    }
 
-            if (!response || !Array.isArray(response.research_notes)) {
-                throw new Error("AI did not return valid research notes.");
-            }
-
-            const updatedShots = blueprint.shots.map(shot => {
-                if (shot.shot_id === shotToResearch.shot_id) {
-                    return { ...shot, ai_research_notes: response.research_notes };
+                    const updatedShots = blueprint.shots.map(shot => {
+                        if (shot.shot_id === shotToResearch.shot_id) {
+                            return { ...shot, ai_research_notes: response.research_notes };
+                        }
+                        return shot;
+                    });
+                    setBlueprint({ ...blueprint, shots: updatedShots });
+                },
+                onFailure: (err) => {
+                    // triggerAiTask already displays a notification.
+                    // This local callback can be used for any component-specific cleanup or logging.
+                    console.error("Local handler caught research error:", err);
+                    setError(`Failed to get research for "${shotToResearch.shot_description}". Details: ${err.message || 'Unknown error.'}`);
                 }
-                return shot;
             });
-
-            setBlueprint({ ...blueprint, shots: updatedShots });
 
         } catch (err) {
-            console.error("Error enriching shot:", err);
-            setError(`Failed to get research for "${shotToResearch.shot_description}". Please try again.`);
+            // This catch block will only be hit if triggerAiTask re-throws the error.
+            console.error("Unhandled error from triggerAiTask in Step2_ResearchCuration:", err);
+            setError(`An unhandled error occurred: ${err.message || 'Please check console.'}`);
         } finally {
             setResearchingShotId(null);
         }
