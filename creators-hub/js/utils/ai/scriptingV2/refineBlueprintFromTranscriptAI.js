@@ -32,6 +32,10 @@ window.refineBlueprintFromTranscriptAI = async (options) => {
             * \`shot_type\`: (Required for "add") e.g., "On-Camera", "B-Roll", "Drone".
             * \`shot_description\`: (Required for "add" and "modify") The new or updated description.
             * \`reason\`: A brief, clear explanation for the suggested change, referencing specific parts of the transcript if possible.
+            * \`placement_suggestion\`: (OPTIONAL, for type "add" only) If adding a new shot, suggest where it should be inserted in the blueprint. This should be an object with:
+                * \`relative_to_shot_id\`: The 'shot_id' of an EXISTING shot in the blueprint.
+                * \`position\`: "before" or "after" the \`relative_to_shot_id\`.
+                If no specific logical placement is found, omit this field.
 
         **Example Output Format:**
         \`\`\`json
@@ -42,7 +46,11 @@ window.refineBlueprintFromTranscriptAI = async (options) => {
                     "shot_id": "new_shot_1",
                     "shot_type": "On-Camera",
                     "shot_description": "Creator shares a funny anecdote about losing their passport at the airport.",
-                    "reason": "Transcript includes a detailed and humorous story about passport loss not covered in existing blueprint."
+                    "reason": "Transcript includes a detailed and humorous story about passport loss not covered in existing blueprint.",
+                    "placement_suggestion": {
+                        "relative_to_shot_id": "shot_2_1",
+                        "position": "after"
+                    }
                 },
                 {
                     "type": "modify",
