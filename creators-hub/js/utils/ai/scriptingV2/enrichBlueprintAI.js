@@ -7,6 +7,17 @@
 window.enrichBlueprintAI = async ({ shot, video, settings }) => {
     console.log(`Researching shot: ${shot.shot_description}`);
 
+    // --- Input Validation ---
+    if (!shot || !shot.location_name || !shot.shot_description || !shot.scene_narrative_purpose) {
+        throw new Error("Missing critical 'shot' details (location, description, or narrative purpose) for research.");
+    }
+    if (!video || !video.title) {
+        throw new Error("Missing 'video' context (title) for research.");
+    }
+    if (!settings || !settings.knowledgeBases) {
+        throw new Error("User settings are incomplete for AI research.");
+    }
+
     // Use the globally available helper function
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
@@ -50,8 +61,25 @@ window.enrichBlueprintAI = async ({ shot, video, settings }) => {
         required: ["research_notes"]
     };
 
-    // Call the upgraded global function with the 'lite' task tier.
-    const response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'lite' }, { responseSchema });
+    let response;
+    try {
+        // Call the upgraded global function with the 'lite' task tier.
+        response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'lite' }, { responseSchema });
+
+        // --- Output Validation ---
+        if (!response || !Array.isArray(response.research_notes)) {
+            console.error("AI response for research is malformed:", response);
+            throw new Error("AI returned an invalid research notes structure. Expected an array of strings.");
+        }
+
+        // Optionally, filter out empty or malformed notes if AI occasionally returns them
+        response.research_notes = response.research_notes.filter(note => typeof note === 'string' && note.trim() !== '');
+
+    } catch (err) {
+        console.error("Error enriching blueprint with AI research:", err);
+        // Re-throw a more user-friendly error message
+        throw new Error(`Failed to enrich blueprint with research: ${err.message || "An unknown AI error occurred."}`);
+    }
 
     return response;
 };
