@@ -4,7 +4,7 @@
 // It uses the shot's location and narrative purpose to find interesting
 // facts, historical notes, or talking points to enrich the voiceover.
 
-window.enrichBlueprintAI = async ({ shot, video, settings }) => {
+window.aiUtils.enrichBlueprintAI = async ({ shot, video, settings }) => { // CHANGED: Attached to window.aiUtils
     console.log(`Researching shot: ${shot.shot_description}`);
 
     // --- Input Validation ---
