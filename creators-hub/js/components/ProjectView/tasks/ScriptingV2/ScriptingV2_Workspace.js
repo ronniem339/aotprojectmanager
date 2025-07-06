@@ -4,12 +4,14 @@ const { useState, useEffect, useRef } = React;
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
 const { useDebounce } = window;
 
-// MODIFICATION: Add triggerAiTask to the list of expected props.
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
+
+    // MODIFICATION: Added state for managing blueprint full-screen mode.
+    const [isBlueprintFullScreen, setIsBlueprintFullScreen] = useState(false);
 
     useEffect(() => {
         if (debouncedCurrentStep && debouncedCurrentStep !== initialCurrentStep) {
@@ -33,7 +35,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        // MODIFICATION: Add triggerAiTask to the props object passed to all step components.
         const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
@@ -52,17 +53,19 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', { className: 'text-red-400' }, error));
         }
         
+        // MODIFICATION: Pass full-screen state down to the display component.
         return React.createElement(BlueprintDisplay, {
             blueprint: blueprint,
             project: project,
             video: video,
             settings: settings,
             fetchPlaceDetails: fetchPlaceDetails,
-            updateFootageInventoryItem: updateFootageInventoryItem
+            updateFootageInventoryItem: updateFootageInventoryItem,
+            isFullScreen: isBlueprintFullScreen
         });
     };
 
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-hidden text-white' }, // MODIFICATION: Changed overflow-y-auto to overflow-hidden
+    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-hidden text-white' },
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
                 React.createElement('h2', { className: 'text-2xl font-bold' },
@@ -71,18 +74,40 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 ),
                 React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
             ),
-            // MODIFICATION: Added min-h-0 to this flex container to fix scrolling issues in its children.
             React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
-                // Left Column (Stepper and Step Content)
-                React.createElement('div', { className: 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col' },
+                // MODIFICATION: Left column is now conditionally hidden.
+                React.createElement('div', { 
+                    className: `
+                        ${isBlueprintFullScreen ? 'hidden' : 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col'}
+                    `
+                },
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                    // MODIFICATION: This div now correctly scrolls its own content.
                     React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 custom-scrollbar' }, renderCurrentStepContent())
                 ),
-                // Right Column (Blueprint Display)
-                React.createElement('div', { className: 'w-full lg:w-1/2 p-4 sm:p-6 flex flex-col' },
-                    React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
-                    // MODIFICATION: This div also now correctly scrolls its own content.
+                // MODIFICATION: Right column now conditionally expands.
+                React.createElement('div', { 
+                    className: `
+                        ${isBlueprintFullScreen ? 'w-full' : 'w-full lg:w-1/2'} 
+                        p-4 sm:p-6 flex flex-col transition-all duration-300
+                    `
+                },
+                    React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center mb-4' },
+                        React.createElement('h3', { className: 'text-xl font-semibold text-amber-400' }, 'Creative Blueprint'),
+                        // MODIFICATION: Added Full-Screen Toggle Button
+                        React.createElement('button', {
+                            onClick: () => setIsBlueprintFullScreen(prev => !prev),
+                            className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
+                            title: isBlueprintFullScreen ? 'Collapse View' : 'Expand View'
+                        },
+                            isBlueprintFullScreen 
+                                ? React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' }, 
+                                    React.createElement('path', { fillRule: 'evenodd', d: 'M15.707 15.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L12.414 10l3.293 3.293a1 1 0 010 1.414zM4.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L7.586 10 4.293 6.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
+                                  )
+                                : React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' }, 
+                                    React.createElement('path', { fillRule: 'evenodd', d: 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
+                                  )
+                        )
+                    ),
                     React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700 custom-scrollbar' },
                         React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                     )
