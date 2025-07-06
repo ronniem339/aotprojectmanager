@@ -66,7 +66,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 };
                 updateTask(taskId, 'pending', dataToReset);
                 break;
-            // ... other cases from original file
             case 'videoEdited':
                 dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
                 updateTask(taskId, 'pending', dataToReset);
@@ -106,6 +105,18 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 return;
         }
     }, [updateTask, video.title, video.metadata]);
+    
+    // This new handler will create the V2 blueprint, triggering the UI switch.
+    const handleStartV2Workflow = useCallback(async () => {
+        const updatePayload = {
+            'tasks.scriptingV2_blueprint': {
+                shots: [],
+                initialThoughts: video.tasks?.initialThoughts || video.concept || '',
+                migratedFromLegacy: true, 
+            }
+        };
+        await updateTask('scripting', 'in-progress', updatePayload);
+    }, [updateTask, video.tasks, video.concept]);
 
     const handleRegenerateShotList = async () => {
         if (!video.script) {
@@ -185,6 +196,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setStagedScenes(prev => prev.filter(s => s.id !== scene.id));
     };
 
+
     const isTaskLocked = (task) => {
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
         return !task.dependsOn.every(dependencyId => video.tasks?.[dependencyId] === 'complete');
@@ -195,16 +207,16 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
         switch (task.id) {
             case 'scripting': {
+                // This is the new, simplified logic.
                 const isV2 = !!video.tasks?.scriptingV2_blueprint;
-                const isLegacyInProgressOrComplete = (video.tasks?.scripting === 'in-progress' || video.tasks?.scripting === 'complete') && !isV2;
 
-                if (isLegacyInProgressOrComplete) {
-                    // For legacy scripts, pass a function to allow upgrading to the V2 workflow
-                    return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} onStartV2Workflow={() => handleResetTask('scripting')} />;
+                if (isV2) {
+                    // If a V2 blueprint exists, it's definitively a V2 script.
+                    return <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+                } else {
+                    // Otherwise, render the legacy component and give it the function to upgrade to V2.
+                    return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} onStartV2Workflow={handleStartV2Workflow} />;
                 }
-                
-                // Default to V2 for new scripts or existing V2 scripts
-                return <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
             }
             case 'videoEdited':
                 return <window.EditVideoTask {...commonProps} />;
@@ -228,7 +240,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     };
 
     return (
-        // ... a lot of code that has not been changed
         <>
             <main className="flex-grow">
                 <div className="flex items-center mb-4">
@@ -318,6 +329,5 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 document.body
             )}
         </>
-        //...
     );
 });
