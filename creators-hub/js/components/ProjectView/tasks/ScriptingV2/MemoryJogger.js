@@ -3,11 +3,10 @@
 const { useState, useEffect } = React;
 const { LoadingSpinner, ImageComponent } = window;
 
-window.MemoryJogger = ({ project, video, settings }) => { // MODIFICATION: Accept settings as a prop
+window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICATION: Accept handlers as a prop
     const [locations, setLocations] = useState([]);
     const [isInitiallyLoading, setIsInitiallyLoading] = useState(true);
-    // MODIFICATION: Get handlers from useAppState, but NOT settings
-    const { handlers } = window.useAppState();
+    // MODIFICATION: No longer calls useAppState() at all.
 
     useEffect(() => {
         const processLocationsSequentially = async () => {
@@ -41,7 +40,6 @@ window.MemoryJogger = ({ project, video, settings }) => { // MODIFICATION: Accep
 
                     if (!placeId) {
                         updateLocationStatus(location.name, 'finding_place_id', 'Searching for a map reference...');
-                        // MODIFICATION: Pass the settings prop to the AI function
                         const aiResponse = await window.aiUtils.findPlaceIdAI({ locationName: location.name, settings });
                         placeId = aiResponse.place_id;
                         
@@ -81,16 +79,14 @@ window.MemoryJogger = ({ project, video, settings }) => { // MODIFICATION: Accep
             ));
         };
 
-        // We check for settings to ensure we don't run with empty keys on the first render.
-        if (settings.geminiApiKey) {
+        if (settings && settings.geminiApiKey) {
             processLocationsSequentially();
         } else {
-            // Display a message if keys are not loaded yet.
             setIsInitiallyLoading(false);
             setLocations([]);
         }
     
-    }, [project.id, video.id, settings]); // MODIFICATION: Correctly listen for settings changes
+    }, [project.id, video.id, settings]);
 
     if (isInitiallyLoading) {
         return React.createElement('div', { className: 'flex flex-col items-center justify-center h-full text-center' },
@@ -99,6 +95,10 @@ window.MemoryJogger = ({ project, video, settings }) => { // MODIFICATION: Accep
         );
     }
     
+    if (!settings || !settings.geminiApiKey) {
+        return React.createElement('p', { className: 'text-red-500 text-center' }, 'API Keys are not configured in settings.');
+    }
+
     return React.createElement('div', { className: 'space-y-4' },
         React.createElement('h3', { className: 'text-lg font-semibold text-amber-300 text-center' }, "Memory Joggers"),
         locations.map((location, index) => (
