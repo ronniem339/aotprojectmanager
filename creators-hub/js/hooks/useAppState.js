@@ -577,9 +577,31 @@ window.useAppState = () => {
                 return task;
             }));
         },
-    };
+    fetchPlaceDetails: useCallback(async (placeId) => {
+        if (!placeId) {
+            console.error("fetchPlaceDetails called without a placeId.");
+            return null;
+        }
+        try {
+            // This calls our own Netlify function, which in turn calls the Google Places API securely
+            const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
+            }
+            const data = await response.json();
+            return data.details; // Assuming the netlify function returns { details: ... }
+        } catch (error) {
+            console.error("Error in fetchPlaceDetails handler:", error);
+            // Use the global notification handler to show the error to the user
+            handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
+            return null;
+        }
+      }, []), // CORRECTED: The dependency array is now empty
 
-    return {
+  }; // This is the closing bracket for the handlers object.
+
+  return {
         user,
         isAuthReady,
         currentView,
