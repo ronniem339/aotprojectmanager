@@ -218,7 +218,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         switch (task.id) {
             case 'scripting': {
                 const isV2 = !!video.tasks?.scriptingV2_blueprint;
-                const componentProps = { ...commonProps, userId, db, allVideos, onNavigate };
+                const componentProps = {
+                    ...commonProps,
+                    userId,
+                    db,
+                    allVideos,
+                    onNavigate,
+                    fetchPlaceDetails: handlers.fetchPlaceDetails,
+                    updateFootageInventoryItem: handlers.updateFootageInventoryItem
+                };
 
                 if (isV2) {
                     return <SafeComponentRenderer componentName="ScriptingTaskV2" {...componentProps} />;
