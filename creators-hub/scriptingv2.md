@@ -1,4 +1,3 @@
-Scripting V2: Implementation & Architecture Guide
 This document provides a comprehensive overview of the new Scripting V2 workflow, designed to serve as a reference for developers.
 
 Core Philosophy & Goal
@@ -20,7 +19,7 @@ New File Structure
 To ensure maintainability and separation from the legacy system, the V2 workflow is built with a new, modular file structure.
 
 2.1 UI Components
-A new component, scriptingTaskV2.js, serves as the entry point and is rendered alongside the original in VideoWorkspace.js. It launches the main ScriptingV2_Workspace.js component, which contains the new UI.
+A new component, scriptingTaskV2.js, serves as the entry point for the V2 workflow. It is conditionally rendered by VideoWorkspace.js, which acts as a router: ScriptingTaskV2 is shown for all new videos (as the recommended default) and for any video already using the V2 system.
 
 New Directory: creators-hub/js/components/ProjectView/tasks/ScriptingV2/
 
@@ -109,6 +108,7 @@ Update task status with detailed progress messages.
 Catch errors from AI utility functions and display user-friendly notifications globally.
 
 Ensure local component isProcessing states are managed correctly.
+
 This significantly improves error visibility and task transparency for the user during AI-driven processes within Scripting V2.
 
 V2 Compatibility and Final Polishing
