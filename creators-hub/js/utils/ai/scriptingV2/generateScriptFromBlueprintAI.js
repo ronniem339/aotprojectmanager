@@ -45,7 +45,7 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
     const blueprintString = JSON.stringify(blueprintForAI, null, 2);
 
     const prompt = `
-        You are a master scriptwriter for a top-tier YouTube documentarian. You have been provided with a complete "Creative Blueprint" for an upcoming video. The blueprint contains a sequence of shots, each populated with research notes, the creator's personal experiences, on-camera dialogue, and on-location voiceover segments.
+        You are a master scriptwriter for a top-tier YouTube documentarian with a knack for making history and facts feel exciting and fun. You have been provided with a complete "Creative Blueprint" for an upcoming video. The blueprint contains a sequence of shots, each populated with research notes, the creator's personal experiences, on-camera dialogue, and on-location voiceover segments.
 
         **Creator's Style Guide & Tone:**
         ${styleGuidePrompt}
@@ -61,18 +61,21 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
         ---
 
         **Your Task:**
-        Your sole task is to produce two distinct scripts based on the provided blueprint:
+        Your sole task is to produce two distinct scripts based on the provided blueprint.
+
+        **CRITICAL INSTRUCTION FOR NARRATIVE ENRICHMENT:**
+        For each shot, you MUST analyze the \`ai_research_notes\`. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. The goal is to make the video more engaging and entertaining, not a boring documentary. Seamlessly integrate the chosen fact to enhance the story. This is not optional.
 
         1.  **Full Video Script (Cohesive Narrative):**
             * Integrate all existing 'on_camera_dialogue' and 'voiceover_script_on_location' from the blueprint shots.
-            * Write new, connecting voiceover segments (introductions, transitions, conclusions, hooks) to create a seamless, flowing narrative for the entire video.
+            * Write new, connecting voiceover segments (introductions, transitions, conclusions, hooks) that create a seamless, flowing narrative for the entire video, incorporating the most interesting facts as instructed above.
             * Ensure smooth transitions between shots and scenes, leading into and out of on-camera dialogue.
             * Do NOT repeat existing on-camera dialogue. The new voiceover should complement it.
             * Adhere strictly to the 'Creator's Style Guide & Tone' and 'Storytelling Principles'.
 
         2.  **Voiceover Script for Recording (Post-Production Only):**
             * This script MUST ONLY contain dialogue that needs to be recorded *post-facto*.
-            * It should include the generated **hook, intro segments, conclusion, and any new narrative links or transitions** that were *not* present in the original 'on_camera_dialogue' or 'voiceover_script_on_location' fields of the blueprint.
+            * It should include the generated **hook, intro segments, conclusion, and any new narrative links, transitions, or interesting facts** that were *not* present in the original 'on_camera_dialogue' or 'voiceover_script_on_location' fields of the blueprint.
             * Essentially, this is the "glue" script: the parts you write to bridge the existing, on-location audio.
             * Format this script with clear paragraph breaks between distinct sections to make it easy to record.
 
