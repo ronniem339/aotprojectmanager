@@ -1,56 +1,46 @@
 // creators-hub/js/components/ProjectView/tasks/scriptingTaskV2.js
 
-// This is the main entry point for the new Scripting V2 workflow.
-// It will be rendered in the main task list in the ProjectView.
+const { useState, Fragment } = React;
+const { ScriptingV2_Workspace } = window; // Keep this for clarity, though it's on window
 
-const { useState, useMemo } = React;
+window.ScriptingTaskV2 = (props) => { // MODIFICATION: We will now pass the whole 'props' object
+    const [showWorkspace, setShowWorkspace] = useState(false);
 
-// The placeholder component has been removed.
-
-window.ScriptingTaskV2 = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
-    // State to control the visibility of the new workspace modal.
-    const [showV2Workspace, setShowV2Workspace] = useState(false);
-
-    // This function will be called to open the new workspace.
-    const handleOpenV2Workspace = () => {
-        if (isLocked) {
-            // Optionally, show a message that previous tasks must be completed.
+    const openWorkspace = () => {
+        if (props.isLocked) {
             console.log("Scripting V2 is locked until previous tasks are complete.");
             return;
         }
-        setShowV2Workspace(true);
+        setShowWorkspace(true);
     };
 
-    // This function will be passed to the workspace to handle closing it.
-    const handleCloseV2Workspace = () => {
-        setShowV2Workspace(false);
+    const closeWorkspace = () => {
+        setShowWorkspace(false);
     };
 
-    // Render the button to launch the new V2 workflow.
-    return React.createElement('div', { className: 'text-center py-4' },
-        React.createElement('p', { className: 'text-gray-400 mb-4' }, 'A new, more powerful scripting experience is available.'),
-        React.createElement('button', {
-            onClick: handleOpenV2Workspace,
-            disabled: isLocked,
-            className: 'button-primary disabled:opacity-50 disabled:cursor-not-allowed'
-        }, 'Try the New Scripting Workspace (Beta)'),
+    const renderTaskSummary = () => {
+        return React.createElement('div', { className: 'text-center py-4' },
+            React.createElement('p', { className: 'text-gray-400 mb-4' }, 'A new, more powerful scripting experience is available.'),
+            React.createElement('button', {
+                onClick: openWorkspace,
+                disabled: props.isLocked,
+                className: 'button-primary disabled:opacity-50 disabled:cursor-not-allowed'
+            }, 'Try the New Scripting Workspace (Beta)')
+        );
+    };
+
+    return React.createElement(Fragment, null,
+        !showWorkspace && renderTaskSummary(),
 
         // When showV2Workspace is true, render the new workspace component as a portal.
-        // We now correctly call the component from the window object.
-        showV2Workspace && ReactDOM.createPortal(
+        showWorkspace && ReactDOM.createPortal(
+            // MODIFICATION: Spread all received props (...) into the workspace.
+            // This will correctly pass down the 'handlers' object and all others.
             React.createElement(window.ScriptingV2_Workspace, {
-                video: video,
-                project: project,
-                settings: settings,
-                // --- THIS IS THE FIX ---
-                // Pass the 'onUpdateTask' function directly without wrapping it.
-                // This preserves the correct function signature.
-                onUpdateTask: onUpdateTask,
-                onClose: handleCloseV2Workspace,
-                userId: userId,
-                db: db
+                ...props,
+                onClose: closeWorkspace // We override onClose with our local close handler.
             }),
-            document.body // Mount the portal directly on the body element.
+            document.body
         )
     );
 };
