@@ -1,13 +1,15 @@
 // creators-hub/js/components/ProjectView/tasks/scriptingTaskV2.js
 
 const { useState, Fragment } = React;
-const { ScriptingV2_Workspace } = window; // Keep this for clarity, though it's on window
 
-window.ScriptingTaskV2 = (props) => { // MODIFICATION: We will now pass the whole 'props' object
+// By destructuring `props`, we can be more explicit about what's being used.
+// The `...rest` pattern collects all other props into a single object.
+window.ScriptingTaskV2 = (props) => {
+    const { isLocked, ...rest } = props;
     const [showWorkspace, setShowWorkspace] = useState(false);
 
     const openWorkspace = () => {
-        if (props.isLocked) {
+        if (isLocked) {
             console.log("Scripting V2 is locked until previous tasks are complete.");
             return;
         }
@@ -23,7 +25,7 @@ window.ScriptingTaskV2 = (props) => { // MODIFICATION: We will now pass the whol
             React.createElement('p', { className: 'text-gray-400 mb-4' }, 'A new, more powerful scripting experience is available.'),
             React.createElement('button', {
                 onClick: openWorkspace,
-                disabled: props.isLocked,
+                disabled: isLocked,
                 className: 'button-primary disabled:opacity-50 disabled:cursor-not-allowed'
             }, 'Try the New Scripting Workspace (Beta)')
         );
@@ -32,13 +34,13 @@ window.ScriptingTaskV2 = (props) => { // MODIFICATION: We will now pass the whol
     return React.createElement(Fragment, null,
         !showWorkspace && renderTaskSummary(),
 
-        // When showV2Workspace is true, render the new workspace component as a portal.
         showWorkspace && ReactDOM.createPortal(
-            // MODIFICATION: Spread all received props (...) into the workspace.
-            // This will correctly pass down the 'handlers' object and all others.
+            // We spread the `rest` of the props into the workspace, ensuring all necessary
+            // handlers and data like `fetchPlaceDetails` and `updateFootageInventoryItem`
+            // are passed down from the parent component.
             React.createElement(window.ScriptingV2_Workspace, {
-                ...props,
-                onClose: closeWorkspace // We override onClose with our local close handler.
+                ...rest,
+                onClose: closeWorkspace // We provide a specific `onClose` handler for the portal.
             }),
             document.body
         )
