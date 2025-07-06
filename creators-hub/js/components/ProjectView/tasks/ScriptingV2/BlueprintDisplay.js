@@ -2,10 +2,10 @@
 
 const { ShotCard, MemoryJogger } = window;
 
-window.BlueprintDisplay = ({ blueprint, project, video, settings }) => { // MODIFICATION: Accept settings prop
+window.BlueprintDisplay = ({ blueprint, project, video, settings, handlers }) => { // MODIFICATION: Accept handlers prop
     if (!blueprint || !blueprint.shots || blueprint.shots.length === 0) {
-        // MODIFICATION: Pass settings down to MemoryJogger
-        return React.createElement(MemoryJogger, { project, video, settings });
+        // MODIFICATION: Pass handlers down to MemoryJogger
+        return React.createElement(MemoryJogger, { project, video, settings, handlers });
     }
 
     const scenes = blueprint.shots.reduce((acc, shot) => {
