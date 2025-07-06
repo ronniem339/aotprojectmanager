@@ -150,7 +150,6 @@ window.useAppState = () => {
                 return;
             }
 
-            // Process the first queued task
             const taskToProcess = taskQueue[0];
             if (taskToProcess && taskToProcess.status === 'queued') {
                 setIsTaskQueueProcessing(true);
@@ -159,30 +158,27 @@ window.useAppState = () => {
                 } else if (taskToProcess.type === 'publish-post') {
                     await handlers.executePublishToWordPress(taskToProcess);
                 }
-                // No need for else if for new scriptingV2 tasks here, as triggerAiTask will manage execution and removal
                 setIsTaskQueueProcessing(false);
             }
         };
 
-        // Set a timer to periodically check and clean up the queue
         const cleanupInterval = setInterval(() => {
             setTaskQueue(prevQueue => {
                 const now = Date.now();
                 return prevQueue.filter(task => {
                     if ((task.status === 'complete' || task.status === 'failed') && task.completedAt) {
-                        return (now - task.completedAt) < 120000; // Keep for 120 seconds (2 minutes)
+                        return (now - task.completedAt) < 120000;
                     }
-                    return true; // Keep other tasks (queued, generating, publishing)
+                    return true;
                 });
             });
-        }, 5000); // Check every 5 seconds
+        }, 5000);
 
         processTaskQueue();
 
-        return () => clearInterval(cleanupInterval); // Cleanup interval on unmount
+        return () => clearInterval(cleanupInterval);
     }, [taskQueue, isTaskQueueProcessing, handlers]);
 
-    // All handler functions are defined here...
     const handlers = {
         handleSelectProject: (project) => {
             setSelectedProject(project);
@@ -381,115 +377,6 @@ window.useAppState = () => {
                 throw error;
             }
         }, [user, firebaseDb]),
-    setProjectToDelete,
-    setDraftToDelete,
-    setShowProjectSelection,
-    setShowPublisherModal,
-    setContentToView,
-    handleRetryTask: (taskId) => {
-        setTaskQueue(prevQueue => prevQueue.map(task => {
-            if (task.id === taskId && task.status === 'failed') {
-                return { ...task, status: 'queued', completedAt: null, result: null };
-            }
-            return task;
-        }));
-    },
-    // --- ADDED FOR MEMORY JOGGER ---
-    fetchPlaceDetails: useCallback(async (placeId) => {
-        if (!placeId) {
-            console.error("fetchPlaceDetails called without a placeId.");
-            return null;
-        }
-        try {
-            const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
-            }
-            const data = await response.json();
-            return data.details;
-        } catch (error) {
-            console.error("Error in fetchPlaceDetails handler:", error);
-            handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
-            return null;
-        }
-    }, []),
-    updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
-        if (!user || !firebaseDb) {
-            console.error("User or Firestore not available.");
-            return;
-        }
-        const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
-        try {
-            const updatePayload = {};
-            updatePayload[`footageInventory.${inventoryId}`] = updatedData;
-            await projectRef.update(updatePayload);
-            console.log(`Successfully updated footage inventory for ${inventoryId}`);
-        } catch (error) {
-            console.error(`Error updating footage inventory item ${inventoryId}:`, error);
-            handlers.displayNotification(`Failed to save Place ID: ${error.message}`, 'error');
-        }
-    }, [user, firebaseDb, APP_ID]),
-    // --- END ADDED FOR MEMORY JOGGER ---
-};
-        
-        // --- ADDED FOR MEMORY JOGGER ---
-        fetchPlaceDetails: useCallback(async (placeId) => {
-            if (!placeId) {
-                console.error("fetchPlaceDetails called without a placeId.");
-                return null;
-            }
-            try {
-                const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
-                }
-                const data = await response.json();
-                return data.details;
-            } catch (error) {
-                console.error("Error in fetchPlaceDetails handler:", error);
-                handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
-                return null;
-            }
-        }, []),
-
-        updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
-            if (!user || !firebaseDb) {
-                console.error("User or Firestore not available.");
-                return;
-            }
-            
-            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
-    
-            try {
-                const updatePayload = {};
-                updatePayload[`footageInventory.${inventoryId}`] = updatedData;
-                
-                await projectRef.update(updatePayload);
-                
-                console.log(`Successfully updated footage inventory for ${inventoryId}`);
-    
-            } catch (error) {
-                console.error(`Error updating footage inventory item ${inventoryId}:`, error);
-                handlers.displayNotification(`Failed to save Place ID: ${error.message}`, 'error');
-            }
-        }, [user, firebaseDb, APP_ID]),
-        // --- END ADDED FOR MEMORY JOGGER ---
-
-        // NOTE: The `handleRetryTask` function from your file is missing from this pasted block.
-        // Make sure it is present in your final code. I am adding it back below for completeness.
-        handleRetryTask: (taskId) => {
-            setTaskQueue(prevQueue => prevQueue.map(task => {
-                if (task.id === taskId && task.status === 'failed') {
-                    return { ...task, status: 'queued', completedAt: null, result: null };
-                }
-                return task;
-            }));
-        },
-    };
-
-        // Placeholder for task execution logic
         executeGenerateBlogContent: async (task) => {
             const { idea, video } = task.data;
             try {
@@ -498,7 +385,6 @@ window.useAppState = () => {
                     handlers.updateTaskStatus(task.id, 'generating', { message: progressMessage });
                 });
                 handlers.updateTaskStatus(task.id, 'complete', { ...result, viewable: true });
-                // Also update the idea in Firestore
                 const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
                 await ideaRef.update({ status: 'generated', blogPostContent: result.blogPostContent });
             } catch (error) {
@@ -512,55 +398,39 @@ window.useAppState = () => {
             const { idea } = task.data;
             try {
                 handlers.updateTaskStatus(task.id, 'publishing', { message: 'Generating final HTML for WordPress...' });
-
-                // Step 1: Generate the final HTML content and metadata using the AI function
-                // **FIX:** Added the 'tone' parameter to the function call
                 const { htmlContent, excerpt, tags, categories } = await window.aiUtils.generateWordPressPostHTMLAI({
                     idea: idea,
                     settings: settings,
                     tone: settings.tone || 'neutral'
                 });
-
                 const wordpressConfig = settings.wordpress;
                 if (!wordpressConfig || !wordpressConfig.url || !wordpressConfig.username || !wordpressConfig.applicationPassword) {
                     throw new Error('WordPress settings are not fully configured.');
                 }
-
-                // Step 2: Get or create tag IDs
                 handlers.updateTaskStatus(task.id, 'publishing', { message: 'Processing tags...' });
                 const tagIds = await window.wordpressUtils.getAndCreateTags(tags, wordpressConfig);
-
-                // Step 3: Get WordPress category ID
                 handlers.updateTaskStatus(task.id, 'publishing', { message: 'Processing categories...' });
                 const availableCategories = await window.wordpressUtils.getWordPressCategories(wordpressConfig);
                 const categoryName = categories && categories.length > 0 ? categories[0] : 'Uncategorized';
                 const category = availableCategories.find(cat => cat.name.toLowerCase() === categoryName.toLowerCase());
-                const categoryId = category ? category.id : null; // Default to null if not found
-
-                // Step 4: Post the generated content to WordPress
+                const categoryId = category ? category.id : null;
                 handlers.updateTaskStatus(task.id, 'publishing', { message: 'Uploading to WordPress...' });
-
                 const postData = {
                     title: idea.title,
                     htmlContent,
                     excerpt,
-                    tags: tagIds, // Use the retrieved/created tag IDs
-                    categoryId, // Use the found category ID
+                    tags: tagIds,
+                    categoryId,
                 };
-
                 const result = await window.wordpressUtils.postToWordPress(postData, wordpressConfig);
-
-                // Step 5: Update task status and Firestore
                 handlers.updateTaskStatus(task.id, 'complete', result);
                 const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(idea.id);
                 await ideaRef.update({
                     status: 'published',
-                    finalHtmlContent: htmlContent, // Optionally save the final HTML
+                    finalHtmlContent: htmlContent,
                     publishedAt: new Date()
                 });
-
                 handlers.displayNotification(`Successfully published "${idea.title}" to WordPress!`, 'success');
-
             } catch (error) {
                 console.error("Error executing publish to WordPress task:", error);
                 handlers.updateTaskStatus(task.id, 'failed', { error: error.message });
@@ -607,28 +477,22 @@ window.useAppState = () => {
                 };
                 handlers.addTask(task);
             });
-            handlers.setShowPublisherModal(false);
+            setShowPublisherModal(false);
         },
         handleViewGeneratedPost: (ideaOrTaskId) => {
             let ideaId;
-
             if (typeof ideaOrTaskId === 'string') {
-                // It's a taskId from the TaskQueue, e.g., "generate-post-someIdeaId"
                 ideaId = ideaOrTaskId.replace('generate-post-', '');
             } else if (typeof ideaOrTaskId === 'object' && ideaOrTaskId !== null) {
-                // It's an idea object from the BlogIdeasDashboard
                 ideaId = ideaOrTaskId.id;
             } else {
                 handlers.displayNotification('Invalid item provided to view handler.', 'error');
                 return;
             }
-
             if (!ideaId) {
                 handlers.displayNotification('Could not determine the idea to view.', 'error');
                 return;
             }
-
-            // Fetch the latest content directly from Firestore to ensure it's up-to-date.
             const ideaRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/blogIdeas`).doc(ideaId);
             ideaRef.get().then(doc => {
                 if (doc.exists && doc.data().blogPostContent) {
@@ -654,31 +518,44 @@ window.useAppState = () => {
                 return task;
             }));
         },
-    fetchPlaceDetails: useCallback(async (placeId) => {
-        if (!placeId) {
-            console.error("fetchPlaceDetails called without a placeId.");
-            return null;
-        }
-        try {
-            // This calls our own Netlify function, which in turn calls the Google Places API securely
-            const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
+        fetchPlaceDetails: useCallback(async (placeId) => {
+            if (!placeId) {
+                console.error("fetchPlaceDetails called without a placeId.");
+                return null;
             }
-            const data = await response.json();
-            return data.details; // Assuming the netlify function returns { details: ... }
-        } catch (error) {
-            console.error("Error in fetchPlaceDetails handler:", error);
-            // Use the global notification handler to show the error to the user
-            handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
-            return null;
-        }
-      }, []), // CORRECTED: The dependency array is now empty
+            try {
+                const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
+                }
+                const data = await response.json();
+                return data.details;
+            } catch (error) {
+                console.error("Error in fetchPlaceDetails handler:", error);
+                handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
+                return null;
+            }
+        }, []),
+        updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
+            if (!user || !firebaseDb) {
+                console.error("User or Firestore not available.");
+                return;
+            }
+            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
+            try {
+                const updatePayload = {};
+                updatePayload[`footageInventory.${inventoryId}`] = updatedData;
+                await projectRef.update(updatePayload);
+                console.log(`Successfully updated footage inventory for ${inventoryId}`);
+            } catch (error) {
+                console.error(`Error updating footage inventory item ${inventoryId}:`, error);
+                handlers.displayNotification(`Failed to save Place ID: ${error.message}`, 'error');
+            }
+        }, [user, firebaseDb, APP_ID]),
+    };
 
-  }; // This is the closing bracket for the handlers object.
-
-  return {
+    return {
         user,
         isAuthReady,
         currentView,
