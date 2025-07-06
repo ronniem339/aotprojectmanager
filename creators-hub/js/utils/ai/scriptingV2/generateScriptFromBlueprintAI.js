@@ -64,7 +64,7 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
         Your sole task is to produce two distinct scripts based on the provided blueprint.
 
         **CRITICAL INSTRUCTION FOR NARRATIVE ENRICHMENT:**
-        For each shot, you MUST analyze the \`ai_research_notes\`. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. The goal is to make the video more engaging and entertaining, not a boring documentary. Seamlessly integrate the chosen fact to enhance the story. This is not optional.
+        For each shot, you MUST analyze the 'ai_research_notes'. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. The goal is to make the video more engaging and entertaining, not a boring documentary. Seamlessly integrate the chosen fact to enhance the story. This is not optional.
 
         1.  **Full Video Script (Cohesive Narrative):**
             * Integrate all existing 'on_camera_dialogue' and 'voiceover_script_on_location' from the blueprint shots.
