@@ -2,12 +2,19 @@
 
 const { ShotCard, MemoryJogger } = window;
 
-window.BlueprintDisplay = ({ blueprint, project, video, settings, handlers }) => { // MODIFICATION: Accept handlers prop
+window.BlueprintDisplay = ({ blueprint, project, video, settings, fetchPlaceDetails, updateFootageInventoryItem }) => {
+    // If there are no shots in the blueprint, display the MemoryJogger to help the user.
     if (!blueprint || !blueprint.shots || blueprint.shots.length === 0) {
-        // MODIFICATION: Pass handlers down to MemoryJogger
-        return React.createElement(MemoryJogger, { project, video, settings, handlers });
+        // Pass the correct props to MemoryJogger.
+        return React.createElement(MemoryJogger, {
+            locations: blueprint?.locations || [],
+            footageInventory: project?.footageInventory || {},
+            fetchPlaceDetails: fetchPlaceDetails,
+            updateFootageInventoryItem: updateFootageInventoryItem
+        });
     }
 
+    // If there are shots, group them by scene and display them.
     const scenes = blueprint.shots.reduce((acc, shot) => {
         const sceneId = shot.scene_id || 'unassigned';
         if (!acc[sceneId]) {
