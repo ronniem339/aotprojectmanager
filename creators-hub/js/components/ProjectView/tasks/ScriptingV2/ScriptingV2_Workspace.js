@@ -4,12 +4,10 @@ const { useState, useEffect, useRef } = React;
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
 const { useDebounce } = window;
 
-window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db }) => {
+window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, handlers }) => { // MODIFICATION: Accept 'handlers' prop
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
-
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
-
     const debouncedCurrentStep = useDebounce(currentStep, 500);
 
     useEffect(() => {
@@ -34,8 +32,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose };
-
+        // MODIFICATION: Pass 'handlers' down to step components
+        const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, handlers };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
             case 2: return React.createElement(Step2_ResearchCuration, props);
@@ -52,14 +50,12 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         if (error) {
             return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', { className: 'text-red-400' }, error));
         }
-        // MODIFIED LINE: Pass the 'settings' prop down to the BlueprintDisplay component
-        return React.createElement(BlueprintDisplay, { blueprint: blueprint, project: project, video: video, settings: settings });
+        // MODIFICATION: Pass 'handlers' down to BlueprintDisplay
+        return React.createElement(BlueprintDisplay, { blueprint: blueprint, project: project, video: video, settings: settings, handlers: handlers });
     };
 
-    // Main render
     return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-y-auto text-white' },
         React.createElement('div', { className: 'flex flex-col h-full' },
-            // Header
             React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
                 React.createElement('h2', { className: 'text-2xl font-bold' },
                     'Scripting Workspace: ',
@@ -67,16 +63,11 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 ),
                 React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
             ),
-
-            // Main Content Area
             React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
-                // Left Column
                 React.createElement('div', { className: 'w-full lg:w-1/2 p-6 border-r border-gray-800 flex flex-col' },
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
                     React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, renderCurrentStepContent())
                 ),
-
-                // Right Column
                 React.createElement('div', { className: 'w-full lg:w-1/2 p-6 flex flex-col' },
                     React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
                     React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700' },
