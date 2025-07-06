@@ -198,14 +198,25 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const locked = isTaskLocked(task);
         const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
         switch (task.id) {
-            case 'scripting':
-                return (
-                    <div>
-                        <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />
-                        <hr className="my-6 border-gray-700" />
-                        <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />
-                    </div>
-                );
+            case 'scripting': {
+                // FIX: Conditionally render only one scripting component to prevent conflicts.
+                // Determine which workflow is active or completed for this video.
+                
+                // A V2 script is identified by the presence of the `scriptingV2_blueprint`.
+                const isV2 = !!video.tasks?.scriptingV2_blueprint;
+
+                // A legacy script has a `scriptingStage` but no V2 blueprint.
+                const isLegacy = !!video.tasks?.scriptingStage && !isV2;
+
+                // If the video has been scripted using the legacy system, only show the legacy component.
+                if (isLegacy) {
+                    return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+                }
+
+                // For all other cases (new videos or V2 scripts), default to the new, improved V2 component.
+                // This makes V2 the standard for all new scripting work.
+                return <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+            }
             case 'videoEdited':
                 return <window.EditVideoTask {...commonProps} />;
             case 'titleGenerated':
