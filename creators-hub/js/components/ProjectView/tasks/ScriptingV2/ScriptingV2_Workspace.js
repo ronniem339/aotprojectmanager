@@ -85,7 +85,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         if (error) {
             return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', { className: 'text-red-400' }, error));
         }
-        return React.createElement(BlueprintDisplay, { blueprint: blueprint });
+        return React.createElement(BlueprintDisplay, { blueprint: blueprint, project: project, video: video });
     };
 
     // Main render
