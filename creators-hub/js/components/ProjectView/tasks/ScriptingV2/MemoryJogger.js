@@ -3,10 +3,11 @@
 const { useState, useEffect } = React;
 const { LoadingSpinner, ImageComponent } = window;
 
-window.MemoryJogger = ({ project, video }) => {
+window.MemoryJogger = ({ project, video, settings }) => { // MODIFICATION: Accept settings as a prop
     const [locations, setLocations] = useState([]);
     const [isInitiallyLoading, setIsInitiallyLoading] = useState(true);
-    const { handlers, settings } = window.useAppState();
+    // MODIFICATION: Get handlers from useAppState, but NOT settings
+    const { handlers } = window.useAppState();
 
     useEffect(() => {
         const processLocationsSequentially = async () => {
@@ -15,7 +16,6 @@ window.MemoryJogger = ({ project, video }) => {
                 return;
             }
 
-            // Set up initial state for all locations
             const initialLocations = video.locations_featured.map(name => ({
                 name: name,
                 status: 'pending',
@@ -26,14 +26,12 @@ window.MemoryJogger = ({ project, video }) => {
             setLocations(initialLocations);
             setIsInitiallyLoading(false);
 
-            // Now, process each location one-by-one
             for (const location of initialLocations) {
                 let placeId = null;
                 let inventoryId = null;
                 let inventoryItem = null;
 
                 try {
-                    // Step 1: Find inventory item and check for place_id
                     const inventoryEntry = Object.entries(project.footageInventory || {}).find(([id, item]) => item.name === location.name);
                     if (inventoryEntry) {
                         inventoryId = inventoryEntry[0];
@@ -41,9 +39,9 @@ window.MemoryJogger = ({ project, video }) => {
                         placeId = inventoryItem.place_id;
                     }
 
-                    // Step 2: If place_id is missing, use AI to find it
                     if (!placeId) {
                         updateLocationStatus(location.name, 'finding_place_id', 'Searching for a map reference...');
+                        // MODIFICATION: Pass the settings prop to the AI function
                         const aiResponse = await window.aiUtils.findPlaceIdAI({ locationName: location.name, settings });
                         placeId = aiResponse.place_id;
                         
@@ -55,7 +53,6 @@ window.MemoryJogger = ({ project, video }) => {
                         }
                     }
                     
-                    // Step 3: Fetch details from Google Places API
                     if (placeId) {
                         updateLocationStatus(location.name, 'fetching_details', 'Found map reference, fetching details...');
                         const details = await handlers.fetchPlaceDetails(placeId);
@@ -66,15 +63,12 @@ window.MemoryJogger = ({ project, video }) => {
                                 photos: details.photos ? details.photos.slice(0, 5) : []
                             });
                         } else {
-                            // If Google Places fails, we'll handle the AI fallback in a future step.
-                            // For now, we'll show an error for this specific location.
-                            throw new Error("Could not fetch details from Google Places.");
+                            throw new Error("Could not fetch details from Google Places. The API key may be invalid or the service may be unavailable.");
                         }
                     } else {
                          throw new Error("A Place ID could not be found for this location.");
                     }
                 } catch (err) {
-                    // If any step fails for a location, mark it as an error and continue to the next one.
                     updateLocationStatus(location.name, 'error', err.message);
                     continue;
                 }
@@ -87,13 +81,21 @@ window.MemoryJogger = ({ project, video }) => {
             ));
         };
 
-        processLocationsSequentially();
-    }, [project.id, video.id]); // Rerun only if project or video ID changes
+        // We check for settings to ensure we don't run with empty keys on the first render.
+        if (settings.geminiApiKey) {
+            processLocationsSequentially();
+        } else {
+            // Display a message if keys are not loaded yet.
+            setIsInitiallyLoading(false);
+            setLocations([]);
+        }
+    
+    }, [project.id, video.id, settings]); // MODIFICATION: Correctly listen for settings changes
 
     if (isInitiallyLoading) {
         return React.createElement('div', { className: 'flex flex-col items-center justify-center h-full text-center' },
             React.createElement(LoadingSpinner, null),
-            React.createElement('p', { className: 'text-gray-400 mt-4' }, 'Initializing Memory Jogger...')
+            React.createElement('p', { className: 'text-gray-400 mt-4' }, 'Waiting for settings...')
         );
     }
     
@@ -103,7 +105,6 @@ window.MemoryJogger = ({ project, video }) => {
             React.createElement('div', { key: index, className: 'bg-gray-900/50 p-4 rounded-lg' },
                 React.createElement('h4', { className: 'text-lg font-semibold text-primary-accent mb-3' }, location.name),
                 
-                // Render based on status
                 (location.status === 'pending' || location.status === 'loading') && React.createElement(LoadingSpinner, null),
                 location.status === 'finding_place_id' && React.createElement('p', { className: 'text-blue-400 text-sm' }, location.error),
                 location.status === 'fetching_details' && React.createElement('p', { className: 'text-blue-400 text-sm' }, location.error),
