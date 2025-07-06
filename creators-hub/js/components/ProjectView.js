@@ -345,6 +345,7 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
                                     allVideos={videos} 
                                     onNavigate={onNavigate}
                                     googleMapsLoaded={googleMapsLoaded}
+                                    handlers={handlers} 
                                 />
                             </main>
 
