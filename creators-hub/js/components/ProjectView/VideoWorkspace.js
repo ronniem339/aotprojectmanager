@@ -2,8 +2,17 @@
 
 const { useState, useEffect, useCallback } = React;
 const ReactDOM = window.ReactDOM;
-const ShotListViewer = window.ShotListViewer;
-const AddSceneModal = window.AddSceneModal;
+
+// FIX 1: Added a "Safe" component renderer. This utility checks if a component
+// has been loaded onto the window object before trying to render it. If not, it
+// shows a loading message, preventing the "type is invalid... got: undefined" crash.
+const SafeComponentRenderer = ({ componentName, fallback = null, ...props }) => {
+    const Component = window[componentName];
+    if (Component) {
+        return React.createElement(Component, props);
+    }
+    return fallback || React.createElement('p', { className: 'text-gray-400 text-center py-2 text-sm' }, `Loading...`);
+};
 
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded }) => {
     const [openTask, setOpenTask] = useState(null);
@@ -106,7 +115,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     }, [updateTask, video.title, video.metadata]);
     
-    // This new handler will create the V2 blueprint, triggering the UI switch.
     const handleStartV2Workflow = useCallback(async () => {
         const updatePayload = {
             'tasks.scriptingV2_blueprint': {
@@ -205,35 +213,35 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     const renderTaskComponent = (task, index) => {
         const locked = isTaskLocked(task);
         const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
+        
+        // FIX 2: Using the SafeComponentRenderer for all dynamic tasks.
         switch (task.id) {
             case 'scripting': {
-                // This is the new, simplified logic.
                 const isV2 = !!video.tasks?.scriptingV2_blueprint;
+                const componentProps = { ...commonProps, userId, db, allVideos, onNavigate };
 
                 if (isV2) {
-                    // If a V2 blueprint exists, it's definitively a V2 script.
-                    return <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+                    return <SafeComponentRenderer componentName="ScriptingTaskV2" {...componentProps} />;
                 } else {
-                    // Otherwise, render the legacy component and give it the function to upgrade to V2.
-                    return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} onStartV2Workflow={handleStartV2Workflow} />;
+                    return <SafeComponentRenderer componentName="ScriptingTask" {...componentProps} onStartV2Workflow={handleStartV2Workflow} />;
                 }
             }
             case 'videoEdited':
-                return <window.EditVideoTask {...commonProps} />;
+                return <SafeComponentRenderer componentName="EditVideoTask" {...commonProps} />;
             case 'titleGenerated':
-                return <window.TitleTask {...commonProps} />;
+                return <SafeComponentRenderer componentName="TitleTask" {...commonProps} />;
             case 'descriptionGenerated':
-                return <window.DescriptionTask {...commonProps} studioDetails={studioDetails} />;
+                return <SafeComponentRenderer componentName="DescriptionTask" {...commonProps} studioDetails={studioDetails} />;
             case 'chaptersGenerated':
-                return <window.ChaptersTask {...commonProps} />;
+                return <SafeComponentRenderer componentName="ChaptersTask" {...commonProps} />;
             case 'tagsGenerated':
-                return <window.TagsTask {...commonProps} />;
+                return <SafeComponentRenderer componentName="TagsTask" {...commonProps} />;
             case 'thumbnailsGenerated':
-                return <window.ThumbnailTask {...commonProps} />;
+                return <SafeComponentRenderer componentName="ThumbnailTask" {...commonProps} />;
             case 'videoUploaded':
-                return <window.UploadToYouTubeTask {...commonProps} />;
+                return <SafeComponentRenderer componentName="UploadToYouTubeTask" {...commonProps} />;
             case 'firstCommentGenerated':
-                 return <window.FirstCommentTask {...commonProps} />;
+                 return <SafeComponentRenderer componentName="FirstCommentTask" {...commonProps} />;
             default:
                 return <p>Task component for '{task.id}' not found.</p>;
         }
@@ -302,9 +310,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                             </div>
                         </div>
                         <div className="overflow-y-auto">
-                            {isRegenerating && <div className="absolute inset-0 bg-gray-900/50 flex justify-center items-center z-50"><window.LoadingSpinner /></div>}
+                            {isRegenerating && <div className="absolute inset-0 bg-gray-900/50 flex justify-center items-center z-50"><SafeComponentRenderer componentName="LoadingSpinner" /></div>}
                             {regenerationError && <div className="text-red-400 p-3 bg-red-900/40 rounded-md mb-4">Error: {regenerationError}</div>}
-                            <ShotListViewer 
+                            <SafeComponentRenderer 
+                                componentName="ShotListViewer"
                                 video={video} 
                                 project={project} 
                                 settings={settings} 
@@ -320,7 +329,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             )}
 
             {showAddSceneModal && ReactDOM.createPortal(
-                <AddSceneModal
+                <SafeComponentRenderer
+                    componentName="AddSceneModal"
                     isOpen={showAddSceneModal}
                     onClose={() => setShowAddSceneModal(false)}
                     onStageScene={handleStageScene}
