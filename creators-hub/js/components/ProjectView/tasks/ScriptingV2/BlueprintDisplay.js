@@ -4,15 +4,12 @@
 // It takes the full blueprint object, checks for shots, and maps over them
 // to render a list of ShotCard components.
 
-const { ShotCard } = window;
+const { ShotCard, MemoryJogger } = window; // ADDED MemoryJogger
 
-window.BlueprintDisplay = ({ blueprint }) => {
+window.BlueprintDisplay = ({ blueprint, project, video }) => { // ADDED project, video props
+    // If the blueprint is empty, show the MemoryJogger instead of the old message
     if (!blueprint || !blueprint.shots || blueprint.shots.length === 0) {
-        return React.createElement('div', { className: 'flex items-center justify-center h-full' },
-            React.createElement('p', { className: 'text-gray-500 text-center' },
-                'The Creative Blueprint is empty.\nStart by filling out the "Brain Dump" and generating the initial blueprint.'
-            )
-        );
+        return React.createElement(MemoryJogger, { project, video });
     }
 
     // Group shots by scene_id
