@@ -4,7 +4,6 @@ const { useState, useEffect, useRef } = React;
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
 const { useDebounce } = window;
 
-// MODIFICATION: Add triggerAiTask to the list of expected props.
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
@@ -33,7 +32,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        // MODIFICATION: Add triggerAiTask to the props object passed to all step components.
         const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
@@ -62,7 +60,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         });
     };
 
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-y-auto text-white' },
+    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-hidden text-white' }, // MODIFICATION: Changed overflow-y-auto to overflow-hidden
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
                 React.createElement('h2', { className: 'text-2xl font-bold' },
@@ -71,14 +69,19 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 ),
                 React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
             ),
+            // MODIFICATION: Added min-h-0 to this flex container to fix scrolling issues in its children.
             React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
-                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 border-r border-gray-800 flex flex-col' },
+                // Left Column (Stepper and Step Content)
+                React.createElement('div', { className: 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col' },
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                    React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' }, renderCurrentStepContent())
+                    // MODIFICATION: This div now correctly scrolls its own content.
+                    React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 custom-scrollbar' }, renderCurrentStepContent())
                 ),
-                React.createElement('div', { className: 'w-full lg:w-1/2 p-6 flex flex-col' },
+                // Right Column (Blueprint Display)
+                React.createElement('div', { className: 'w-full lg:w-1/2 p-4 sm:p-6 flex flex-col' },
                     React.createElement('h3', { className: 'text-xl font-semibold mb-4 text-amber-400 flex-shrink-0' }, 'Creative Blueprint'),
-                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700' },
+                    // MODIFICATION: This div also now correctly scrolls its own content.
+                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700 custom-scrollbar' },
                         React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                     )
                 )
