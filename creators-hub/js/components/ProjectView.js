@@ -1,6 +1,6 @@
 // js/components/ProjectView.js
 
-window.ProjectView = ({ userId, project, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance, onNavigate }) => {
+window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance, onNavigate }) => {
     const { useState, useEffect, useCallback, useMemo } = React;
 
     // Core State
