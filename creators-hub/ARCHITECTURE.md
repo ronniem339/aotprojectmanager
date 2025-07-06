@@ -19,12 +19,25 @@ Why: A single, monolithic custom hook, useAppState.js, manages nearly the entire
 
 Trade-offs: This pattern provides excellent traceability but leads to extensive prop-drilling, where state and handlers must be passed down through many component layers. It also means the root <App> component re-renders on almost any state change, requiring careful use of React.memo in child components to prevent performance bottlenecks.
 
+Component Name Scoping & Collisions:
+Why: A critical side-effect of the no-build-step architecture is that all scripts effectively share a single scope. We discovered a bug where components defined in different files but with the same name (e.g., DesktopStepper) would collide, causing the last-loaded version to overwrite all others and leading to unpredictable crashes.
+Solution: To mitigate this, components that are internal to a specific legacy workflow have been renamed with a Legacy prefix (e.g., LegacyDesktopStepper). This enforces a manual namespacing convention and prevents name collisions, ensuring that each part of the application uses its intended components.
+
 NEW: Backward & Forward Compatibility
 A key principle in recent updates has been ensuring that the new Scripting V2 workflow can coexist with the legacy production pipeline.
 
 V2-Aware Metadata Tasks: The legacy metadata generation components (TitleTask, DescriptionTask, ChaptersTask, TagsTask, ThumbnailTask) have been updated to be "V2-aware."
 
 Fallback Logic: These components now intelligently detect if a video was created using ScriptingV2 by checking for the existence of video.full_video_script_text. If this field is present, it is used as the primary context for AI generation. If it is not, the components fall back to the legacy video.concept or video.script fields. This ensures that the highest-quality context is always used, regardless of which scripting workflow was chosen for the video.
+
+UI Workflow Routing (The Scripting Task Router)
+To manage the coexistence of the legacy and V2 scripting workflows, VideoWorkspace.js now contains a routing mechanism. Instead of rendering both task components, it inspects the video's data and makes a decision:
+
+If the video data contains a scriptingV2_blueprint object, it is considered a V2 video, and only the ScriptingTaskV2 component is rendered.
+
+If no scriptingV2_blueprint exists, the video is considered either legacy or brand new. In this case, only the legacy ScriptingTask component is rendered.
+
+The ScriptingTask component itself now contains the necessary UI to either view a completed legacy script or to provide an entry point for users to upgrade and start a new script in the V2 workflow. This makes V2 the recommended default for all new work while preserving access to legacy data.
 
 3. State Management Deep Dive (useAppState.js)
 This file is the single most important file for understanding the application's runtime behaviour. All state is managed via useState and all state modifications are handled by functions within this hook.
@@ -77,7 +90,7 @@ JSON
             "{projectId}": {
               "playlistTitle": "Europe Trip 2025",
               "playlistDescription": "A 5-part series exploring the best of Europe.",
-              "coverImageUrl": "[https://firebasestorage.googleapis.com/](https://firebasestorage.googleapis.com/)...",
+              "coverImageUrl": "https://firebasestorage.googleapis.com/...",
               "createdAt": "ISO 8601 String",
               "lastAccessed": "Timestamp",
               "videoCount": 5,
