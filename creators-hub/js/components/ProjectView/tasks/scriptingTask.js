@@ -930,11 +930,11 @@ case 'review_parsed_transcript': {
         </div>
     );
 };
-window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings, onNavigate }) => {
+window.ScriptingTask = ({ video, settings, onUpdateTask, isLocked, project, userId, db, allVideos, onUpdateSettings, onNavigate, onStartV2Workflow }) => {
     const getFootageNotes = () => {
         if (!project.footageInventory) return '';
         return Object.values(project.footageInventory)
-            .filter(details => (video.locations_featured || []).includes(details.name)) // Only include locations featured in this video
+            .filter(details => (video.locations_featured || []).includes(details.name))
             .map(details => {
                 const footageTypes = [];
                 if (details.bRoll) footageTypes.push('B-Roll');
