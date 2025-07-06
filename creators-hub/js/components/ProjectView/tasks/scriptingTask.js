@@ -1399,36 +1399,43 @@ const handleUpdateAndCloseWorkspace = (updatedTaskData, shouldClose = true) => {
         setLocalOnCameraLocations(null); // <-- ADD THIS
     };
 
-    const renderAccordionContent = () => {
-        if (isLocked) {
-            return <p className="text-gray-400 text-center py-2 text-sm">Please complete previous steps to begin scripting.</p>;
-        }
+const renderAccordionContent = () => {
+    if (isLocked) {
+        return <p className="text-gray-400 text-center py-2 text-sm">Please complete previous steps to begin scripting.</p>;
+    }
 
-        if (video.tasks?.scripting === 'complete') {
-            return (
-                <div className="text-center py-4">
-                    <p className="text-gray-400 pb-2 text-sm">Scripting is complete.</p>
-                    <button onClick={() => handleOpenWorkspace()} className="mt-2 px-4 py-2 text-sm bg-secondary-accent hover:bg-secondary-accent-darker rounded-lg font-semibold">
-                        View/Edit Script
-                    </button>
-                </div>
-            );
-        }
-
+    // Case 1: The script was completed with the legacy workflow.
+    if (video.tasks?.scripting === 'complete') {
         return (
             <div className="text-center py-4">
-                <p className="text-gray-400 mb-4">Use our AI-powered scripting assistant to go from a rough idea to a full script.</p>
-                <div className="flex space-x-2 justify-center">
-                    <button onClick={() => handleOpenWorkspace()} className="button-primary">
-                        Open Scripting Workspace
+                <p className="text-gray-400 pb-2 mb-2 text-sm">This script was completed with the legacy workflow.</p>
+                <div className="flex flex-wrap justify-center items-center gap-4">
+                    <button onClick={() => handleOpenWorkspace()} className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">
+                        View Legacy Script
                     </button>
-                    <button onClick={() => handleOpenWorkspace('full_script_review')} className="button-secondary">
-                        Paste Final Script
+                    <button onClick={onStartV2Workflow} className="px-4 py-2 text-sm bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold">
+                        Start Over in New V2 Workflow
                     </button>
                 </div>
             </div>
         );
-    };
+    }
+
+    // Case 2: The script is new or pending (and not V2). Give the user a choice.
+    return (
+        <div className="text-center py-4">
+            <p className="text-gray-400 mb-4">Choose your scripting workflow.</p>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                 <button onClick={() => handleOpenWorkspace()} className="button-secondary w-full sm:w-auto">
+                    Start with Legacy Workflow
+                </button>
+                <button onClick={onStartV2Workflow} className="button-primary w-full sm:w-auto">
+                    Try the New V2 Workflow (Recommended)
+                </button>
+            </div>
+        </div>
+    );
+};
 
     return (
         <div>
