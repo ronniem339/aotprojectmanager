@@ -1,18 +1,13 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/BlueprintDisplay.js
 
-// This component is the main container for the right-hand panel.
-// It takes the full blueprint object, checks for shots, and maps over them
-// to render a list of ShotCard components.
+const { ShotCard, MemoryJogger } = window;
 
-const { ShotCard, MemoryJogger } = window; // ADDED MemoryJogger
-
-window.BlueprintDisplay = ({ blueprint, project, video }) => { // ADDED project, video props
-    // If the blueprint is empty, show the MemoryJogger instead of the old message
+window.BlueprintDisplay = ({ blueprint, project, video, settings }) => { // MODIFICATION: Accept settings prop
     if (!blueprint || !blueprint.shots || blueprint.shots.length === 0) {
-        return React.createElement(MemoryJogger, { project, video });
+        // MODIFICATION: Pass settings down to MemoryJogger
+        return React.createElement(MemoryJogger, { project, video, settings });
     }
 
-    // Group shots by scene_id
     const scenes = blueprint.shots.reduce((acc, shot) => {
         const sceneId = shot.scene_id || 'unassigned';
         if (!acc[sceneId]) {
