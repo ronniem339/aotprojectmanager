@@ -5,10 +5,11 @@ const { ShotCard, MemoryJogger } = window;
 window.BlueprintDisplay = ({ blueprint, project, video, settings, fetchPlaceDetails, updateFootageInventoryItem }) => {
     // If there are no shots in the blueprint, display the MemoryJogger to help the user.
     if (!blueprint || !blueprint.shots || blueprint.shots.length === 0) {
-        // Pass the correct props to MemoryJogger.
+        // MODIFICATION: Pass all the required props to MemoryJogger.
         return React.createElement(MemoryJogger, {
-            locations: blueprint?.locations || [],
-            footageInventory: project?.footageInventory || {},
+            project: project,
+            video: video,
+            settings: settings,
             fetchPlaceDetails: fetchPlaceDetails,
             updateFootageInventoryItem: updateFootageInventoryItem
         });
