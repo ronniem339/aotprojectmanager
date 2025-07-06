@@ -14,7 +14,8 @@ const SafeComponentRenderer = ({ componentName, fallback = null, ...props }) => 
     return fallback || React.createElement('p', { className: 'text-gray-400 text-center py-2 text-sm' }, `Loading...`);
 };
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded, handlers }) => {
+// MODIFICATION: Add a default empty object for handlers to prevent crash if it's undefined.
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded, handlers = {} }) => {
     const [openTask, setOpenTask] = useState(null);
     const [showShotList, setShowShotList] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
@@ -224,8 +225,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     db,
                     allVideos,
                     onNavigate,
-                    fetchPlaceDetails: handlers.fetchPlaceDetails,
-                    updateFootageInventoryItem: handlers.updateFootageInventoryItem
+                    // MODIFICATION: Safely access handlers using optional chaining to prevent crash.
+                    fetchPlaceDetails: handlers?.fetchPlaceDetails,
+                    updateFootageInventoryItem: handlers?.updateFootageInventoryItem
                 };
 
                 if (isV2) {
