@@ -3,9 +3,6 @@
 const { useState, useEffect, useCallback } = React;
 const ReactDOM = window.ReactDOM;
 
-// FIX 1: Added a "Safe" component renderer. This utility checks if a component
-// has been loaded onto the window object before trying to render it. If not, it
-// shows a loading message, preventing the "type is invalid... got: undefined" crash.
 const SafeComponentRenderer = ({ componentName, fallback = null, ...props }) => {
     const Component = window[componentName];
     if (Component) {
@@ -14,7 +11,6 @@ const SafeComponentRenderer = ({ componentName, fallback = null, ...props }) => 
     return fallback || React.createElement('p', { className: 'text-gray-400 text-center py-2 text-sm' }, `Loading...`);
 };
 
-// MODIFICATION: Add a default empty object for handlers to prevent crash if it's undefined.
 window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded, handlers = {} }) => {
     const [openTask, setOpenTask] = useState(null);
     const [showShotList, setShowShotList] = useState(false);
@@ -215,7 +211,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const locked = isTaskLocked(task);
         const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project, handlers };
         
-        // FIX 2: Using the SafeComponentRenderer for all dynamic tasks.
         switch (task.id) {
             case 'scripting': {
                 const isV2 = !!video.tasks?.scriptingV2_blueprint;
@@ -225,9 +220,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     db,
                     allVideos,
                     onNavigate,
-                    // MODIFICATION: Safely access handlers using optional chaining to prevent crash.
                     fetchPlaceDetails: handlers?.fetchPlaceDetails,
-                    updateFootageInventoryItem: handlers?.updateFootageInventoryItem
+                    updateFootageInventoryItem: handlers?.updateFootageInventoryItem,
+                    // THIS IS THE FINAL FIX
+                    triggerAiTask: handlers?.triggerAiTask
                 };
 
                 if (isV2) {
