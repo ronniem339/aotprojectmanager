@@ -1,3 +1,5 @@
+// creators-hub/js/app.js
+
 const { useState, useEffect, useCallback } = React;
 
 // Correctly import components from their actual locations
@@ -111,6 +113,7 @@ window.App = () => {
                     taskQueue={taskQueue}
                     handleViewGeneratedPost={handlers.handleViewGeneratedPost}
                     displayNotification={handlers.displayNotification}
+                    handlers={handlers} // <-- THIS IS THE FIX
                 />
             </main>
         </div>
