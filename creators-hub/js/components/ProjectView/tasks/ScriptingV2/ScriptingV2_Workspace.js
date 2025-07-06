@@ -4,6 +4,7 @@ const { useState, useEffect, useRef } = React;
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
 const { useDebounce } = window;
 
+// MODIFICATION: Add triggerAiTask to the list of expected props.
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
@@ -32,6 +33,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
+        // MODIFICATION: Add triggerAiTask to the props object passed to all step components.
         const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
