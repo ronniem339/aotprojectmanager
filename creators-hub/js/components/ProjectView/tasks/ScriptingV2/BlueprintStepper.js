@@ -1,10 +1,10 @@
-// creators-hub/js/components/ProjectView/tasks/ScriptingV2/BlueprintStepper.js
+// creators-hub/js/components/ProjectViez/tasks/ScriptingV2/BlueprintStepper.js
 
 const { useMediaQuery } = window;
 
 const DesktopStepper = ({ steps, currentStep, onStepClick }) => {
-    // This is the current base code as provided by the user, with modifications.
-    return React.createElement('div', { className: 'flex flex-wrap justify-center items-center gap-x-2 sm:gap-x-4 gap-y-3 mb-6 pb-4 border-b border-gray-700' },
+    // This is the new, redesigned DesktopStepper.
+    return React.createElement('div', { className: 'flex justify-center items-center gap-x-2 sm:gap-x-4 mb-6 pb-4 border-b border-gray-700' },
         steps.map((step, index) => {
             const isCurrent = currentStep === step.id;
             const isCompleted = step.isCompleted;
@@ -13,39 +13,39 @@ const DesktopStepper = ({ steps, currentStep, onStepClick }) => {
             return React.createElement(React.Fragment, { key: step.id },
                 React.createElement('button', {
                     onClick: () => isClickable && onStepClick(step.id),
-                    className: `flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-colors duration-200
+                    // MODIFICATION: Unified styling and added a border for the current step.
+                    className: `flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-all duration-200 border-2
                                 ${isCurrent
-                                    ? 'bg-primary-accent text-white font-semibold'
+                                    ? 'border-primary-accent bg-blue-900/50 text-white font-semibold scale-105'
                                     : isCompleted
-                                        ? 'bg-green-700 text-white font-semibold hover:bg-green-600'
-                                        : 'bg-gray-800 text-gray-400'
-                                } ${isClickable ? 'hover:bg-primary-accent-darker cursor-pointer' : 'cursor-default'}`
+                                        ? 'border-transparent bg-green-700/50 text-white/90 hover:bg-green-700/80'
+                                        : 'border-transparent bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                } ${isClickable ? 'cursor-pointer' : 'cursor-default'}`
                 },
-                    React.createElement('span', { className: `flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center font-bold ${
+                    React.createElement('span', { className: `flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center font-bold text-base ${
                         isCurrent
-                            ? 'bg-white text-primary-accent'
+                            ? 'bg-primary-accent text-white'
                             : isCompleted
                                 ? 'bg-green-500 text-white'
                                 : 'bg-gray-700'
                     }` },
-                        step.id
+                        // Show a checkmark for completed steps
+                        isCompleted && !isCurrent ? '✓' : step.id
                     ),
                     React.createElement('span', { className: 'hidden sm:inline' },
-                        step.name,
-                        isCompleted && React.createElement('span', { className: 'ml-2' }, '✅')
+                        step.name
                     )
                 ),
-                // UPDATED: Changed the connector from a div to a text span using an em-dash (—) for visual consistency with screenshot.
-                // It correctly only renders between steps using `index < steps.length - 1`.
-                (index < steps.length - 1) && React.createElement('span', {
-                    className: `text-2xl font-bold mx-1 transition-colors duration-200 ${ // Added mx-1 for slight horizontal spacing
-                        isCompleted ? 'text-green-700' : 'text-gray-700'
-                    }`
-                }, '—')
+                // MODIFICATION: This is the new visual connector line.
+                (index < steps.length - 1) && React.createElement('div', {
+                    className: `h-1 flex-grow rounded-full transition-colors duration-500 mx-2 hidden sm:block
+                                ${isCompleted ? 'bg-green-700' : 'bg-gray-700'}`
+                })
             );
         })
     );
 };
+
 
 const MobileStepper = ({ steps, currentStep, onStepClick }) => {
     const [isOpen, setIsOpen] = React.useState(false);
@@ -56,6 +56,7 @@ const MobileStepper = ({ steps, currentStep, onStepClick }) => {
         setIsOpen(false);
     };
 
+    // The mobile stepper remains a dropdown, which is a good UX pattern for small screens.
     return React.createElement('div', { className: 'relative mb-4 pb-4 border-b border-gray-700' },
         React.createElement('button', { onClick: () => setIsOpen(!isOpen), className: 'w-full bg-gray-800 text-white font-semibold py-3 px-4 rounded-lg flex justify-between items-center' },
             React.createElement('span', null, currentStepName),
@@ -81,11 +82,10 @@ const MobileStepper = ({ steps, currentStep, onStepClick }) => {
                                 ? 'bg-green-600 text-white'
                                 : 'bg-gray-600'
                     }` },
-                        step.id
+                        isCompleted ? '✓' : step.id
                     ),
                     React.createElement('span', null,
-                        step.name,
-                        isCompleted && React.createElement('span', { className: 'ml-2' }, '✅')
+                        step.name
                     )
                 );
             })
@@ -94,8 +94,8 @@ const MobileStepper = ({ steps, currentStep, onStepClick }) => {
 };
 
 window.BlueprintStepper = ({ steps, currentStep, onStepClick }) => {
-    // Keep the mobile breakpoint for phone-sized screens, but the desktop version is now much more robust.
-    const isMobile = useMediaQuery('(max-width: 640px)');
+    // MODIFICATION: Changed breakpoint to 767px to better align with typical mobile/tablet layouts.
+    const isMobile = useMediaQuery('(max-width: 767px)');
     return isMobile
         ? React.createElement(MobileStepper, { steps, currentStep, onStepClick })
         : React.createElement(DesktopStepper, { steps, currentStep, onStepClick });
