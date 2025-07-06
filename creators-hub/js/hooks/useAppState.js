@@ -411,6 +411,62 @@ window.useAppState = () => {
                 throw error; // Re-throw to propagate if needed by calling component
             }
         }, [user, firebaseDb]), // Depend on user and firebaseDb
+        
+        // --- ADDED FOR MEMORY JOGGER ---
+        fetchPlaceDetails: useCallback(async (placeId) => {
+            if (!placeId) {
+                console.error("fetchPlaceDetails called without a placeId.");
+                return null;
+            }
+            try {
+                const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
+                }
+                const data = await response.json();
+                return data.details;
+            } catch (error) {
+                console.error("Error in fetchPlaceDetails handler:", error);
+                handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
+                return null;
+            }
+        }, []),
+
+        updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
+            if (!user || !firebaseDb) {
+                console.error("User or Firestore not available.");
+                return;
+            }
+            
+            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
+    
+            try {
+                const updatePayload = {};
+                updatePayload[`footageInventory.${inventoryId}`] = updatedData;
+                
+                await projectRef.update(updatePayload);
+                
+                console.log(`Successfully updated footage inventory for ${inventoryId}`);
+    
+            } catch (error) {
+                console.error(`Error updating footage inventory item ${inventoryId}:`, error);
+                handlers.displayNotification(`Failed to save Place ID: ${error.message}`, 'error');
+            }
+        }, [user, firebaseDb, APP_ID]),
+        // --- END ADDED FOR MEMORY JOGGER ---
+
+        // NOTE: The `handleRetryTask` function from your file is missing from this pasted block.
+        // Make sure it is present in your final code. I am adding it back below for completeness.
+        handleRetryTask: (taskId) => {
+            setTaskQueue(prevQueue => prevQueue.map(task => {
+                if (task.id === taskId && task.status === 'failed') {
+                    return { ...task, status: 'queued', completedAt: null, result: null };
+                }
+                return task;
+            }));
+        },
+    };
 
         // Placeholder for task execution logic
         executeGenerateBlogContent: async (task) => {
