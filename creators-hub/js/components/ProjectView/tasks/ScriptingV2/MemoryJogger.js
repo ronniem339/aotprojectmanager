@@ -7,7 +7,7 @@ window.MemoryJogger = ({ project, video }) => {
     const [locations, setLocations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { handlers } = window.useAppState(); // Assuming handlers are on window.useAppState()
+    const { handlers } = window.useAppState();
 
     useEffect(() => {
         const fetchLocationDetails = async () => {
@@ -20,18 +20,18 @@ window.MemoryJogger = ({ project, video }) => {
                 const locationPromises = video.locations_featured.map(async (locationName) => {
                     const inventoryItem = Object.values(project.footageInventory || {}).find(item => item.name === locationName);
                     if (!inventoryItem || !inventoryItem.place_id) {
-                        return { name: locationName, error: 'No place_id found.' };
+                        return { name: locationName, error: 'No place_id found in footage inventory.' };
                     }
 
-                    // Assumes a handler exists to call the Netlify function for place details
-                    // This is a common pattern in the app. We expect it to return photo references and a summary.
                     const details = await handlers.fetchPlaceDetails(inventoryItem.place_id);
+
+                    if (!details) {
+                        return { name: locationName, error: 'Could not fetch details for this location.' };
+                    }
 
                     return {
                         name: locationName,
-                        // Using editorial_summary or a regular summary, providing a fallback.
                         summary: details.editorial_summary?.overview || details.summary || 'No summary available.',
-                        // We'll just take the first 5 photos as a sample.
                         photos: details.photos ? details.photos.slice(0, 5) : []
                     };
                 });
@@ -79,8 +79,6 @@ window.MemoryJogger = ({ project, video }) => {
                     React.createElement('p', { className: 'text-gray-400 text-sm mb-4' }, location.summary),
                     location.photos.length > 0 && React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2' },
                         location.photos.map(photo =>
-                            // The ImageComponent likely handles constructing the full URL via a handler.
-                            // We pass the photo reference to it.
                             React.createElement(ImageComponent, {
                                 key: photo.photo_reference,
                                 photoReference: photo.photo_reference,
