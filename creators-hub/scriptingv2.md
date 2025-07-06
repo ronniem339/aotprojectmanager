@@ -1,5 +1,3 @@
-This document provides a comprehensive overview of the new Scripting V2 workflow, designed to serve as a reference for developers.
-
 Core Philosophy & Goal
 The primary goal of Scripting V2 was to address shortcomings in the original linear scripting process. The new workflow is built on an iterative model centered around a single, evolving "working document" called the Creative Blueprint.
 
@@ -35,6 +33,26 @@ ShotCard.js: Displays the details of a single shot. UPDATED: The voiceover_scrip
 
 Step1_InitialBlueprint.js: UI for the "brain dump" and initial generation. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js to manage the AI call and provide consistent error reporting and task status updates.
 
+MemoryJogger.js: (NEW) A component designed to enhance the "Brain Dump" phase (Step 1).
+
+Purpose: Instead of showing an empty panel, this component is rendered when the Creative Blueprint is empty. It aims to "jog the user's memory" by providing visual and informational context for the locations featured in the video.
+
+Behavior:
+
+The component iterates through each locationName in the video's locations_featured array.
+
+It processes locations sequentially to avoid overwhelming the browser and backend services with parallel requests.
+
+For each location, it displays its name and current processing status (e.g., "Searching for map reference...", "Fetching details...").
+
+Intelligent Data-Healing:
+
+If a location in the footageInventory is missing its place_id, the component automatically triggers the findPlaceIdAI utility to find it. The found ID is then persisted back to Firestore via the updateFootageInventoryItem handler, permanently fixing the data gap.
+
+Once a place_id is secured, it calls the fetchPlaceDetails handler to retrieve a summary and photos from the Google Places API.
+
+AI Fallback (Proposed): If the Google Places API fails or returns no useful information, the component should trigger the findGenericInfoAndImagesAI utility as a fallback. This function will perform a general web search to find a brief description and publicly available images for the location.
+
 Step2_ResearchCuration.js: UI for the AI-powered research step. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js to manage AI research calls and provide consistent error reporting and task status updates.
 
 Step3_OnCameraScripting.js: (UPDATED) This component replaces Step3_MyExperience.js and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions (including intelligent insertion of new shots), and providing a shot-by-shot editor. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js for both transcript mapping (mapTranscriptToBlueprintAI) and blueprint refinement (refineBlueprintFromTranscriptAI), ensuring consistent task management and error reporting. The location_tag for each shot is now prominently displayed in the shot card, and ai_reason associated with blueprint modification suggestions is cleared from the shot data once applied or ambiguities resolved. BUGFIX: The component now correctly persists the fullTranscript and the active sub-view mode (import, shotByShot, etc.) to the blueprint, preventing data loss on navigation. The local status bar is also immediately populated with a message when transcript processing begins. BUGFIX: Resolved a Firebase crash by ensuring that ai_reason and location_name fields in new or modified shots are explicitly initialized to empty strings ('') rather than undefined before being saved to Firestore.
@@ -57,6 +75,22 @@ getStyleGuidePromptV2.js: Reads from the new detailed style guide in the setting
 createInitialBlueprintAI.js: (Heavy Task) - Creates the initial narrative structure. UPDATED: Includes robust input validation, try-catch blocks for AI calls, and strict output validation to ensure a valid blueprint structure is returned or a clear error is thrown. BUGFIX: Ensured this function is consistently exposed under window.aiUtils to prevent "function not found" errors when called.
 
 enrichBlueprintAI.js: (Lite Task) - Performs factual research for specific shots. UPDATED: Includes robust input validation, try-catch blocks for AI calls, and strict output validation to ensure valid research notes are returned. BUGFIX: Ensured this function is consistently exposed under window.aiUtils to prevent "function not found" errors when called.
+
+findPlaceIdAI.js: (NEW) A "lite" AI task that takes a string (locationName) as input.
+
+Purpose: To programmatically find the official Google Place ID for a location that is missing it from the footageInventory. This is a self-healing mechanism to repair incomplete project data.
+
+Action: It uses an AI model with search capabilities to find the most likely Google Place ID corresponding to the location name.
+
+Output: A JSON object containing the place_id: { "place_id": "ChIJ..." }.
+
+findGenericInfoAndImagesAI.js: (PROPOSED) A fallback AI task for the Memory Jogger.
+
+Purpose: To be used when the Google Places API fails to return useful data for a valid place_id. This ensures the user always sees some helpful context.
+
+Action: It takes a locationName and performs a general, AI-powered web search for interesting facts and photos.
+
+Output: A JSON object containing a short summary and an array of image_urls: { "summary": "...", "image_urls": ["url1.jpg", ...] }.
 
 mapTranscriptToBlueprintAI.js: (UPDATED) Maps a single, combined on-location transcript to the relevant shots. It now intelligently categorizes and extracts dialogue segments into either on_camera_dialogue or voiceover_script fields for corresponding shots in the Creative Blueprint based on shot type and description. This is a Heavy Task. UPDATED: Includes robust input validation, try-catch blocks for AI calls, and strict output validation to ensure the mapped dialogue adheres to the expected structure for each shot. BUGFIX: Ensured this function is consistently exposed under window.aiUtils to prevent "function not found" errors when called.
 
@@ -110,6 +144,21 @@ Catch errors from AI utility functions and display user-friendly notifications g
 Ensure local component isProcessing states are managed correctly.
 
 This significantly improves error visibility and task transparency for the user during AI-driven processes within Scripting V2.
+
+Data Handlers
+handlers.fetchPlaceDetails:
+
+Purpose: Provides a clean, reusable interface for UI components to fetch data from the Google Places API.
+
+Action: Takes a placeId as input and calls the /.netlify/functions/fetch-place-details serverless function, which securely handles the actual API call to Google.
+
+Output: Returns the details object from the Google Places API response.
+
+handlers.updateFootageInventoryItem:
+
+Purpose: Allows components to programmatically correct or enrich the project's data in Firestore.
+
+Action: Takes a projectId, the inventoryId (the unique key for the location in the map), and an updatedData object. It uses dot notation to update a specific location's data within the footageInventory map in the project document. This is used by the MemoryJogger to save a place_id after it has been found by the AI.
 
 V2 Compatibility and Final Polishing
 This section outlines the most recent changes to ensure the V2 workflow is stable and integrates seamlessly with the rest of the application's production pipeline.
