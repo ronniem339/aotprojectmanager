@@ -4,13 +4,15 @@ const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
     const { place_id } = event.queryStringParameters;
-    const apiKey = process.env.GOOGLEAPIKEY; // Using the key without underscores as a test
+    // MODIFICATION: Use the correct environment variable name provided.
+    const apiKey = process.env.VITE_Maps_API_KEY;
 
     if (!place_id) {
         return { statusCode: 400, body: 'Missing place_id parameter' };
     }
 
     if (!apiKey) {
+        // This error will now correctly trigger only if the VITE_Maps_API_KEY is truly missing.
         return { statusCode: 500, body: 'API key not configured on the server.' };
     }
 
@@ -21,7 +23,8 @@ exports.handler = async (event) => {
     const headers = {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'displayName,editorialSummary,photos' // Corresponds to name, editorial_summary, and photos
+        // Requesting displayName, editorialSummary, and photos
+        'X-Goog-FieldMask': 'displayName,editorialSummary,photos' 
     };
 
     try {
@@ -38,12 +41,14 @@ exports.handler = async (event) => {
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ result: result }), // Re-nesting to match the old structure for our front-end
+            // Re-nesting to match the old structure for our front-end
+            body: JSON.stringify({ result: result }), 
         };
     } catch (error) {
+        console.error("Error fetching from Google Places API:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch place details' }),
+            body: JSON.stringify({ error: 'Failed to fetch place details', details: error.message }),
         };
     }
 };
