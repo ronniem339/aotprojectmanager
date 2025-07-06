@@ -32,44 +32,55 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
         setError('');
         setIdeas({ ideas1: [], ideas2: [], ideas3: [] });
 
-        // --- FIX: Intelligently select the best context from V2 or V1 workflows ---
         const videoContentContext = video.full_video_script_text || video.concept;
 
+        // --- MODIFICATION: This is the new, more powerful prompt ---
         const prompt = `
-            You are an expert YouTube thumbnail designer creating variations for an A/B test.
-            A user has provided descriptions for three different images they want to use for the same video.
-            Your task is to generate distinct and compelling text and graphical element suggestions for EACH of the three images. The goal is to create three unique thumbnail concepts that can be tested against each other.
+            You are a master YouTube strategist, specializing in viral hooks and high-click-through-rate (CTR) thumbnails, in the style of creators like Mr. Beast. Your goal is not just to describe, but to SELL the click.
 
-            Video Title: "${video.title}"
-            Video Content Summary: "${videoContentContext}"
+            A user needs thumbnail text for three different images for the same video. Your mission is to write two distinct, powerful, and short (under 7 words) text overlay ideas for EACH image.
+
+            **Core Video Information:**
+            - **Title:** "${video.title}"
+            - **Content Summary:** "${videoContentContext}"
+
+            **Your Task:**
+            For each image description below, generate two text ideas that achieve maximum intrigue and CTR. Use the following techniques:
+            1.  **Create Curiosity Gaps:** Make a statement or ask a question that the viewer *needs* to know the answer to (e.g., "This Mistake Cost Me $10,000" instead of "My Expensive Mistake").
+            2.  **Highlight Stakes & Conflict:** Hint at a major challenge, a surprising outcome, or a conflict (e.g., "I Survived 7 Days On Only..." or "The 1-Star vs 5-Star Hotel").
+            3.  **Use Specificity:** Pull specific, intriguing numbers, names, or details directly from the video content summary. Avoid being generic.
+            4.  **Emotional Triggers:** Use powerful, emotional words (e.g., "Nightmare," "Unbelievable," "Finally," "Biggest").
+
+            **What to AVOID:**
+            - DO NOT use boring, generic phrases like "My Trip To...", "Review of...", "Exploring..."
+            - DO NOT use clickbait like "You Won't Believe This!" or "Shocking!". Be intriguing, not cheap.
+            - DO NOT just describe the image. The user has already done that. Your text should add a new layer of story and intrigue.
 
             ---
-            Image 1 Description: "${imageDescriptions.image1}"
+            **Image 1 Description:** "${imageDescriptions.image1}"
             ---
-            Image 2 Description: "${imageDescriptions.image2}"
+            **Image 2 Description:** "${imageDescriptions.image2}"
             ---
-            Image 3 Description: "${imageDescriptions.image3}"
+            **Image 3 Description:** "${imageDescriptions.image3}"
             ---
 
-            For each image, provide two distinct text/element ideas.
-            Focus on high-contrast, emotionally engaging, and curiosity-driven text. Text should be very concise (ideally under 7 words).
+            **Output Format:**
+            Return a single, valid JSON object with three keys: "thumbnail_1_ideas", "thumbnail_2_ideas", and "thumbnail_3_ideas".
+            Each key must contain an array of two strings.
 
-            Return the result as a single JSON object. The object must have three keys: "thumbnail_1_ideas", "thumbnail_2_ideas", and "thumbnail_3_ideas".
-            Each key must contain an array of strings, where each string is a complete suggestion for that thumbnail.
-
-            Example format:
+            Example:
             {
                 "thumbnail_1_ideas": [
-                    "Suggestion 1 for Image 1...",
-                    "Suggestion 2 for Image 1..."
+                    "Text idea 1 for image 1 using a specific detail.",
+                    "Text idea 2 for image 1 creating a curiosity gap."
                 ],
                 "thumbnail_2_ideas": [
-                    "Suggestion 1 for Image 2...",
-                    "Suggestion 2 for Image 2..."
+                    "Text idea 1 for image 2 highlighting the stakes.",
+                    "Text idea 2 for image 2 using an emotional trigger."
                 ],
                 "thumbnail_3_ideas": [
-                    "Suggestion 1 for Image 3...",
-                    "Suggestion 2 for Image 3..."
+                    "Text idea 1 for image 3 comparing two things.",
+                    "Text idea 2 for image 3 posing a challenge."
                 ]
             }
         `;
