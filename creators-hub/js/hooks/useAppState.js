@@ -305,13 +305,11 @@ window.useAppState = () => {
             setShowNotification(true);
             setTimeout(() => setShowNotification(false), 3000);
         },
-        // Modified addTask to accept an optional 'status' and 'progressMessage'
         addTask: useCallback((task) => {
             setTaskQueue(prevQueue => {
                 if (prevQueue.some(t => t.id === task.id)) {
                     return prevQueue;
                 }
-                // Default status to 'queued' if not provided
                 return [...prevQueue, { ...task, status: task.status || 'queued', createdAt: new Date() }];
             });
         }, []),
@@ -321,12 +319,9 @@ window.useAppState = () => {
                     let newName = task.name;
                     let newStatus = status;
                     let completedAt = task.completedAt;
-
                     if (status === 'complete' || status === 'failed') {
                         completedAt = Date.now();
                     }
-
-                    // Original task type handling
                     if (task.type === 'generate-post') {
                         if (status === 'generating') {
                             newName = `Generating content for: ${task.data.idea.title} - ${result?.message || ''}`;
@@ -343,10 +338,8 @@ window.useAppState = () => {
                         } else if (status === 'failed') {
                             newName = `Failed to publish to WordPress: ${task.data.idea.title}`;
                         }
-                    }
-                    // NEW: Scripting V2 specific task type handling
-                    else if (task.type.startsWith('scriptingV2-')) {
-                        const baseName = task.data?.title || 'Scripting Task'; // Fallback name
+                    } else if (task.type.startsWith('scriptingV2-')) {
+                        const baseName = task.data?.title || 'Scripting Task';
                         if (status === 'in-progress') {
                             newName = `${baseName}: ${result?.message || 'Processing...'}`;
                         } else if (status === 'complete') {
@@ -355,51 +348,28 @@ window.useAppState = () => {
                             newName = `${baseName}: Failed! ${result?.error || 'Unknown error.'}`;
                         }
                     }
-
                     return { ...task, status: newStatus, result, name: newName, completedAt };
                 }
                 return task;
             }));
         },
-        // NEW: Centralized handler for triggering AI tasks specifically for Scripting V2
-        triggerAiTask: useCallback(async ({
-            id, // Unique ID for this task
-            type, // e.g., 'scriptingV2-blueprint-initial', 'scriptingV2-research'
-            name, // Display name for the task
-            aiFunction, // The AI utility function to call (e.g., window.aiUtils.createInitialBlueprintAI)
-            args, // Arguments to pass to the AI function
-            onSuccess, // Callback with AI result on success
-            onFailure, // Callback with error on failure
-            progressMessagePrefix = '' // Optional prefix for progress messages
-        }) => {
+        triggerAiTask: useCallback(async ({ id, type, name, aiFunction, args, onSuccess, onFailure, progressMessagePrefix = '' }) => {
             if (!user || !firebaseDb) {
                 console.error("User not authenticated or Firestore not available.");
                 handlers.displayNotification("Authentication error: Cannot run AI task.", 'error');
                 return;
             }
-
-            // Add the task to the queue with an 'in-progress' status
-            handlers.addTask({
-                id: id,
-                type: type,
-                name: `${progressMessagePrefix || name}: Initializing...`,
-                status: 'in-progress',
-                data: { ...args, title: name }, // Store args and a display title
-            });
-
+            handlers.addTask({ id: id, type: type, name: `${progressMessagePrefix || name}: Initializing...`, status: 'in-progress', data: { ...args, title: name } });
             try {
-                // Call the AI function with a progress callback
                 const result = await aiFunction({ ...args, progressCallback: (msg) => {
                     handlers.updateTaskStatus(id, 'in-progress', { message: msg });
                 }});
-
                 handlers.updateTaskStatus(id, 'complete');
                 handlers.displayNotification(`${name} completed successfully!`, 'success');
                 if (onSuccess) {
                     onSuccess(result);
                 }
-                return result; // Return result for caller if needed
-
+                return result;
             } catch (error) {
                 console.error(`Error in AI Task (${name}):`, error);
                 const errorMessage = error.message || `An unexpected error occurred during ${name}.`;
@@ -408,9 +378,60 @@ window.useAppState = () => {
                 if (onFailure) {
                     onFailure(error);
                 }
-                throw error; // Re-throw to propagate if needed by calling component
+                throw error;
             }
-        }, [user, firebaseDb]), // Depend on user and firebaseDb
+        }, [user, firebaseDb]),
+    setProjectToDelete,
+    setDraftToDelete,
+    setShowProjectSelection,
+    setShowPublisherModal,
+    setContentToView,
+    handleRetryTask: (taskId) => {
+        setTaskQueue(prevQueue => prevQueue.map(task => {
+            if (task.id === taskId && task.status === 'failed') {
+                return { ...task, status: 'queued', completedAt: null, result: null };
+            }
+            return task;
+        }));
+    },
+    // --- ADDED FOR MEMORY JOGGER ---
+    fetchPlaceDetails: useCallback(async (placeId) => {
+        if (!placeId) {
+            console.error("fetchPlaceDetails called without a placeId.");
+            return null;
+        }
+        try {
+            const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
+            }
+            const data = await response.json();
+            return data.details;
+        } catch (error) {
+            console.error("Error in fetchPlaceDetails handler:", error);
+            handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
+            return null;
+        }
+    }, []),
+    updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
+        if (!user || !firebaseDb) {
+            console.error("User or Firestore not available.");
+            return;
+        }
+        const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
+        try {
+            const updatePayload = {};
+            updatePayload[`footageInventory.${inventoryId}`] = updatedData;
+            await projectRef.update(updatePayload);
+            console.log(`Successfully updated footage inventory for ${inventoryId}`);
+        } catch (error) {
+            console.error(`Error updating footage inventory item ${inventoryId}:`, error);
+            handlers.displayNotification(`Failed to save Place ID: ${error.message}`, 'error');
+        }
+    }, [user, firebaseDb, APP_ID]),
+    // --- END ADDED FOR MEMORY JOGGER ---
+};
         
         // --- ADDED FOR MEMORY JOGGER ---
         fetchPlaceDetails: useCallback(async (placeId) => {
