@@ -188,7 +188,8 @@ const LocationDetailsCard = React.memo(({ location, onDescriptionChange, onRemov
 });
 
 // Stepper component for navigation
-const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
+// ADD THIS BLOCK:
+const LegacyDesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
 
     return (
@@ -224,7 +225,8 @@ const DesktopStepper = ({ stages, currentStage, highestCompletedStageId, onStage
     );
 };
 
-const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
+// ADD THIS BLOCK (LegacyMobileStepper):
+const LegacyMobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageClick, isComplete }) => {
     const [isOpen, setIsOpen] = useState(false);
     const highestCompletedIndex = stages.findIndex(s => s.id === highestCompletedStageId);
     const currentStageName = stages.find(s => s.id === currentStage)?.name || 'Menu';
@@ -261,12 +263,12 @@ const MobileStepper = ({ stages, currentStage, highestCompletedStageId, onStageC
     );
 };
 
-const ScriptingStepper = (props) => {
+// ADD THIS BLOCK (LegacyScriptingStepper):
+const LegacyScriptingStepper = (props) => {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isComplete = props.currentStage === 'complete';
-    return isMobile ? <MobileStepper {...props} isComplete={isComplete} /> : <DesktopStepper {...props} isComplete={isComplete} />;
+    return isMobile ? <LegacyMobileStepper {...props} isComplete={isComplete} /> : <LegacyDesktopStepper {...props} isComplete={isComplete} />;
 };
-
 
 const ScriptingWorkspaceModal = ({
     video,
@@ -910,7 +912,7 @@ case 'review_parsed_transcript': {
                 </div>
                 <h2 className="scripting-workspace-title text-3xl font-bold text-white mb-2 text-center">Scripting Workspace: <span className="text-primary-accent">{video.title}</span></h2>
 
-                <ScriptingStepper
+                <LegacyScriptingStepper
                     stages={stages}
                     currentStage={currentStage}
                     highestCompletedStageId={localTaskData.scriptingStage || 'initial_thoughts'}
