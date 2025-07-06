@@ -4,7 +4,8 @@ const { useState, useEffect, useRef } = React;
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
 const { useDebounce } = window;
 
-window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, fetchPlaceDetails, updateFootageInventoryItem }) => {
+// MODIFICATION: Add triggerAiTask to the list of expected props.
+window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask }) => {
     const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
@@ -32,8 +33,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        // Pass all necessary props, including the specific handlers, down to step components
-        const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, fetchPlaceDetails, updateFootageInventoryItem };
+        // MODIFICATION: Add triggerAiTask to the props object passed to all step components.
+        const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
             case 2: return React.createElement(Step2_ResearchCuration, props);
@@ -50,7 +51,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         if (error) {
             return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', { className: 'text-red-400' }, error));
         }
-        // Pass the handlers down to BlueprintDisplay
+        
         return React.createElement(BlueprintDisplay, {
             blueprint: blueprint,
             project: project,
