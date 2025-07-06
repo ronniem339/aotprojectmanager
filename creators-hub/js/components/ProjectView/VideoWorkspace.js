@@ -14,7 +14,7 @@ const SafeComponentRenderer = ({ componentName, fallback = null, ...props }) => 
     return fallback || React.createElement('p', { className: 'text-gray-400 text-center py-2 text-sm' }, `Loading...`);
 };
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded }) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded, handlers }) => {
     const [openTask, setOpenTask] = useState(null);
     const [showShotList, setShowShotList] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
@@ -212,7 +212,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     const renderTaskComponent = (task, index) => {
         const locked = isTaskLocked(task);
-        const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
+        const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project, handlers };
         
         // FIX 2: Using the SafeComponentRenderer for all dynamic tasks.
         switch (task.id) {
