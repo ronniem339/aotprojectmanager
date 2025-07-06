@@ -3,12 +3,18 @@
 const { useState, useEffect } = React;
 const { LoadingSpinner, ImageComponent } = window;
 
-window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICATION: Accept handlers as a prop
+// MODIFICATION: Accept individual handler functions and add guards for props.
+window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFootageInventoryItem }) => {
     const [locations, setLocations] = useState([]);
     const [isInitiallyLoading, setIsInitiallyLoading] = useState(true);
-    // MODIFICATION: No longer calls useAppState() at all.
 
     useEffect(() => {
+        // Guard Clause: Don't run the effect if essential props are missing.
+        if (!project || !video || !settings || !settings.geminiApiKey) {
+            setIsInitiallyLoading(false);
+            return;
+        }
+
         const processLocationsSequentially = async () => {
             if (!video.locations_featured || video.locations_featured.length === 0) {
                 setIsInitiallyLoading(false);
@@ -23,7 +29,7 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
                 error: null
             }));
             setLocations(initialLocations);
-            setIsInitiallyLoading(false);
+            setIsInitiallyLoading(false); // Stop initial loading once we have locations to process
 
             for (const location of initialLocations) {
                 let placeId = null;
@@ -43,9 +49,10 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
                         const aiResponse = await window.aiUtils.findPlaceIdAI({ locationName: location.name, settings });
                         placeId = aiResponse.place_id;
                         
-                        if (placeId && inventoryId) {
+                        if (placeId && inventoryId && updateFootageInventoryItem) {
                             const updatedInventoryData = { ...inventoryItem, place_id: placeId };
-                            await handlers.updateFootageInventoryItem(project.id, inventoryId, updatedInventoryData);
+                            // MODIFICATION: Use updateFootageInventoryItem directly
+                            await updateFootageInventoryItem(project.id, inventoryId, updatedInventoryData);
                         } else if (!inventoryId) {
                             throw new Error("Location exists in video but not in project footage inventory.");
                         }
@@ -53,7 +60,9 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
                     
                     if (placeId) {
                         updateLocationStatus(location.name, 'fetching_details', 'Found map reference, fetching details...');
-                        const details = await handlers.fetchPlaceDetails(placeId);
+                        // MODIFICATION: Use fetchPlaceDetails directly
+                        if (!fetchPlaceDetails) throw new Error("fetchPlaceDetails handler is missing.");
+                        const details = await fetchPlaceDetails(placeId);
                         
                         if (details) {
                              updateLocationStatus(location.name, 'complete', null, {
@@ -67,8 +76,9 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
                          throw new Error("A Place ID could not be found for this location.");
                     }
                 } catch (err) {
+                    console.error(`Failed to process location ${location.name}:`, err);
                     updateLocationStatus(location.name, 'error', err.message);
-                    continue;
+                    continue; // Continue to the next location
                 }
             }
         };
@@ -79,19 +89,15 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
             ));
         };
 
-        if (settings && settings.geminiApiKey) {
-            processLocationsSequentially();
-        } else {
-            setIsInitiallyLoading(false);
-            setLocations([]);
-        }
+        processLocationsSequentially();
     
-    }, [project.id, video.id, settings]);
+    // MODIFICATION: Add guards to dependency array to prevent crash on undefined.
+    }, [project?.id, video?.id, settings]);
 
     if (isInitiallyLoading) {
         return React.createElement('div', { className: 'flex flex-col items-center justify-center h-full text-center' },
             React.createElement(LoadingSpinner, null),
-            React.createElement('p', { className: 'text-gray-400 mt-4' }, 'Waiting for settings...')
+            React.createElement('p', { className: 'text-gray-400 mt-4' }, 'Initializing Memory Jogger...')
         );
     }
     
@@ -99,10 +105,14 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
         return React.createElement('p', { className: 'text-red-500 text-center' }, 'API Keys are not configured in settings.');
     }
 
+    if(locations.length === 0) {
+        return React.createElement('p', { className: 'text-gray-500 text-center' }, 'No locations featured in this video to jog your memory.');
+    }
+
     return React.createElement('div', { className: 'space-y-4' },
         React.createElement('h3', { className: 'text-lg font-semibold text-amber-300 text-center' }, "Memory Joggers"),
         locations.map((location, index) => (
-            React.createElement('div', { key: index, className: 'bg-gray-900/50 p-4 rounded-lg' },
+            React.createElement('div', { key: location.name || index, className: 'bg-gray-900/50 p-4 rounded-lg' },
                 React.createElement('h4', { className: 'text-lg font-semibold text-primary-accent mb-3' }, location.name),
                 
                 (location.status === 'pending' || location.status === 'loading') && React.createElement(LoadingSpinner, null),
@@ -112,7 +122,7 @@ window.MemoryJogger = ({ project, video, settings, handlers }) => { // MODIFICAT
 
                 location.status === 'complete' && React.createElement(React.Fragment, null,
                     React.createElement('p', { className: 'text-gray-400 text-sm mb-4' }, location.summary),
-                    location.photos.length > 0 ?
+                    location.photos && location.photos.length > 0 ?
                         React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2' },
                             location.photos.map(photo =>
                                 React.createElement(ImageComponent, {
