@@ -24,7 +24,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setStagedScenes([]);
     }, [video.id]);
 
-    // FIXED: Refactored to handle dot notation correctly for updates.
     const updateTask = useCallback(async (taskName, status, extraData = {}) => {
         if (!db) {
             console.error("Firestore DB not available for updateTask.");
@@ -33,17 +32,14 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
 
         try {
-            // Build a flat payload object with dot notation for nested fields.
             const payload = {};
-            payload[`tasks.${taskName}`] = status; // e.g., 'tasks.scripting': 'pending'
+            payload[`tasks.${taskName}`] = status;
 
             for (const key in extraData) {
                 if (Object.prototype.hasOwnProperty.call(extraData, key)) {
                     payload[key] = extraData[key];
                 }
             }
-            // The payload will now be flat, e.g., { 'tasks.shotList': FieldValue.delete(), ... }
-            // which is the correct format for Firestore updates.
             
             await videoDocRef.update(payload);
 
@@ -66,10 +62,11 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     'tasks.scriptPlan': '', 
                     'tasks.locationQuestions': [],
                     'tasks.userExperiences': {}, 
-                    'tasks.shotList': firebase.firestore.FieldValue.delete() // This will now work correctly
+                    'tasks.shotList': firebase.firestore.FieldValue.delete()
                 };
                 updateTask(taskId, 'pending', dataToReset);
                 break;
+            // ... other cases from original file
             case 'videoEdited':
                 dataToReset = { 'tasks.feedbackText': '', 'tasks.musicTrack': '' };
                 updateTask(taskId, 'pending', dataToReset);
@@ -188,7 +185,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setStagedScenes(prev => prev.filter(s => s.id !== scene.id));
     };
 
-
     const isTaskLocked = (task) => {
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
         return !task.dependsOn.every(dependencyId => video.tasks?.[dependencyId] === 'complete');
@@ -199,22 +195,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project };
         switch (task.id) {
             case 'scripting': {
-                // FIX: Conditionally render only one scripting component to prevent conflicts.
-                // Determine which workflow is active or completed for this video.
-                
-                // A V2 script is identified by the presence of the `scriptingV2_blueprint`.
                 const isV2 = !!video.tasks?.scriptingV2_blueprint;
+                const isLegacyInProgressOrComplete = (video.tasks?.scripting === 'in-progress' || video.tasks?.scripting === 'complete') && !isV2;
 
-                // A legacy script has a `scriptingStage` but no V2 blueprint.
-                const isLegacy = !!video.tasks?.scriptingStage && !isV2;
-
-                // If the video has been scripted using the legacy system, only show the legacy component.
-                if (isLegacy) {
-                    return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
+                if (isLegacyInProgressOrComplete) {
+                    // For legacy scripts, pass a function to allow upgrading to the V2 workflow
+                    return <window.ScriptingTask {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} onStartV2Workflow={() => handleResetTask('scripting')} />;
                 }
-
-                // For all other cases (new videos or V2 scripts), default to the new, improved V2 component.
-                // This makes V2 the standard for all new scripting work.
+                
+                // Default to V2 for new scripts or existing V2 scripts
                 return <window.ScriptingTaskV2 {...commonProps} userId={userId} db={db} allVideos={allVideos} onNavigate={onNavigate} />;
             }
             case 'videoEdited':
@@ -239,6 +228,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     };
 
     return (
+        // ... a lot of code that has not been changed
         <>
             <main className="flex-grow">
                 <div className="flex items-center mb-4">
@@ -328,5 +318,6 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 document.body
             )}
         </>
+        //...
     );
 });
