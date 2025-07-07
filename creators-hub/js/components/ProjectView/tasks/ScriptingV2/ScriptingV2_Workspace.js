@@ -1,7 +1,8 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect, useRef } = React;
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay } = window;
+// MODIFICATION: Added learnFromTranscriptAI to the imports.
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI } = window;
 const { useDebounce } = window;
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, fetchPlaceDetails, updateFootageInventoryItem, triggerAiTask }) => {
@@ -9,19 +10,31 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
-
-    // MODIFICATION: Added state for managing blueprint full-screen mode.
     const [isBlueprintFullScreen, setIsBlueprintFullScreen] = useState(false);
+
+    // MODIFICATION: Added a ref to track the processed transcript.
+    const processedTranscriptRef = useRef(null);
 
     useEffect(() => {
         if (debouncedCurrentStep && debouncedCurrentStep !== initialCurrentStep) {
-             db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects/${project.id}/videos`).doc(video.id).update({
+            db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects/${project.id}/videos`).doc(video.id).update({
                 'tasks.scriptingV2_current_step': debouncedCurrentStep
             }).catch(err => {
                 console.error("Error auto-saving current step:", err);
             });
         }
     }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
+
+    // MODIFICATION: Added useEffect to learn from the transcript when it changes.
+    useEffect(() => {
+        if (blueprint?.transcript && blueprint.transcript !== processedTranscriptRef.current) {
+            console.log("New transcript detected. Learning from it...");
+            // Run the learning process in the background.
+            learnFromTranscriptAI(blueprint.transcript, project.id);
+            // Update the ref to the current transcript.
+            processedTranscriptRef.current = blueprint.transcript;
+        }
+    }, [blueprint?.transcript, project.id]);
 
     const steps = [
         { id: 1, name: 'Step 1: Initial Blueprint', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
@@ -53,7 +66,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             return React.createElement('div', {className: 'flex items-center justify-center h-full'}, React.createElement('p', { className: 'text-red-400' }, error));
         }
         
-        // MODIFICATION: Pass full-screen state down to the display component.
         return React.createElement(BlueprintDisplay, {
             blueprint: blueprint,
             project: project,
@@ -75,7 +87,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
             ),
             React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
-                // MODIFICATION: Left column is now conditionally hidden.
                 React.createElement('div', { 
                     className: `
                         ${isBlueprintFullScreen ? 'hidden' : 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col'}
@@ -84,7 +95,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
                     React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 custom-scrollbar' }, renderCurrentStepContent())
                 ),
-                // MODIFICATION: Right column now conditionally expands.
                 React.createElement('div', { 
                     className: `
                         ${isBlueprintFullScreen ? 'w-full' : 'w-full lg:w-1/2'} 
@@ -93,7 +103,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 },
                     React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center mb-4' },
                         React.createElement('h3', { className: 'text-xl font-semibold text-amber-400' }, 'Creative Blueprint'),
-                        // MODIFICATION: Added Full-Screen Toggle Button
                         React.createElement('button', {
                             onClick: () => setIsBlueprintFullScreen(prev => !prev),
                             className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
