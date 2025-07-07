@@ -1,6 +1,4 @@
-import { callGeminiAPI } from '../core/callGeminiAPI.js';
-// MODIFICATION: Added logStyleGuideRefinement to imports. I'll assume this function exists in your db utility.
-import { getStyleGuide, updateStyleGuide, logStyleGuideRefinement } from '../../../db.js';
+// creators-hub/js/utils/ai/scriptingv2/learnFromTranscriptAI.js
 
 /**
  * Analyzes a transcript to learn about the user's style and updates the style guide.
@@ -9,7 +7,17 @@ import { getStyleGuide, updateStyleGuide, logStyleGuideRefinement } from '../../
  * @param {string} transcript The user's transcript.
  * @param {string} projectId The ID of the current project.
  */
-export const learnFromTranscriptAI = async (transcript, projectId) => {
+window.learnFromTranscriptAI = async (transcript, projectId) => {
+  // Access utilities from the global window object instead of using imports.
+  const { callGeminiAPI } = window.aiUtils;
+  const { getStyleGuide, updateStyleGuide, logStyleGuideRefinement } = window.db;
+
+  // Defensive check to ensure dependencies are loaded.
+  if (!callGeminiAPI || !getStyleGuide || !updateStyleGuide || !logStyleGuideRefinement) {
+    console.error("learnFromTranscriptAI: Missing required functions on the window object. Make sure aiUtils and db are initialized.");
+    return;
+  }
+
   console.log('--- learnFromTranscriptAI process started ---');
 
   const prompt = `
@@ -47,7 +55,6 @@ export const learnFromTranscriptAI = async (transcript, projectId) => {
 
       await updateStyleGuide(projectId, updatedStyleGuide);
       
-      // MODIFICATION: Log the refinement.
       const refinementLog = {
         whoAmI: analysisResult.who_am_i,
         styleGuide: analysisResult.style_guide,
