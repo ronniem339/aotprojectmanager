@@ -13,85 +13,68 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
             return;
         }
 
-        const processLocationsSequentially = async () => {
-            if (!video.locations_featured || video.locations_featured.length === 0) {
-                setIsInitiallyLoading(false);
-                return;
-            }
+        const processLocation = async (location, isRetry = false) => {
+            let placeId = null;
+            let inventoryId = null;
+            let inventoryItem = null;
 
-            const initialLocations = video.locations_featured.map(name => ({
-                name: name,
-                status: 'pending',
-                summary: '',
-                photos: [],
-                error: null
-            }));
-            setLocations(initialLocations);
-            setIsInitiallyLoading(false);
-
-            for (const location of initialLocations) {
-                let placeId = null;
-                let inventoryId = null;
-                let inventoryItem = null;
-
-                try {
-                    const inventoryEntry = Object.entries(project.footageInventory || {}).find(([id, item]) => item.name === location.name);
-                    if (inventoryEntry) {
-                        inventoryId = inventoryEntry[0];
-                        inventoryItem = inventoryEntry[1];
-                        placeId = inventoryItem.place_id;
-                    }
-
-                    if (!placeId) {
-                        updateLocationStatus(location.name, 'finding_place_id', 'Searching for a map reference...');
-                        const aiResponse = await window.aiUtils.findPlaceIdAI({ locationName: location.name, settings });
-                        
-                        if (!aiResponse || !aiResponse.place_id) {
-                            throw new Error("AI could not determine a valid Place ID for this location.");
-                        }
-                        placeId = aiResponse.place_id;
-                        
-                        if (inventoryId && updateFootageInventoryItem) {
-                            const updatedInventoryData = { ...inventoryItem, place_id: placeId };
-                            await updateFootageInventoryItem(project.id, inventoryId, updatedInventoryData);
-                        } else if (!inventoryId) {
-                            throw new Error("Location exists in video but not in project footage inventory.");
-                        }
-                    }
-                    
-                    if (placeId) {
-                        updateLocationStatus(location.name, 'fetching_details', 'Found map reference, fetching details...');
-                        if (!fetchPlaceDetails) throw new Error("fetchPlaceDetails handler is missing.");
-                        
-                        // MODIFICATION: The fetchPlaceDetails function should ideally return an object with a status and the details.
-                        // We will handle the response as an object { details, status }
-                        const response = await fetchPlaceDetails(placeId);
-
-                        if (response && response.details) {
-                             updateLocationStatus(location.name, 'complete', null, {
-                                // MODIFICATION: Use more reliable fields and provide fallbacks.
-                                summary: response.details.editorial_summary?.overview || `Rating: ${response.details.rating || 'N/A'} ★. Website: ${response.details.website || 'Not available.'}`,
-                                photos: response.details.photos ? response.details.photos.slice(0, 5) : []
-                            });
-                        } else {
-                            // MODIFICATION: Provide a more specific error based on the status returned from the fetch handler.
-                            const status = response?.status || 'UNKNOWN_ERROR';
-                            let errorMessage = `Could not fetch details. Google Maps status: ${status}.`;
-                            if (status === 'ZERO_RESULTS') {
-                                errorMessage = 'This location could not be found on Google Maps.';
-                            } else if (status === 'INVALID_REQUEST') {
-                                 errorMessage = 'An invalid request was sent to Google Maps. The Place ID might be incorrect.';
-                            }
-                            throw new Error(errorMessage);
-                        }
-                    } else {
-                        throw new Error("A Place ID could not be found for this location.");
-                    }
-                } catch (err) {
-                    console.error(`Failed to process location ${location.name}:`, err);
-                    updateLocationStatus(location.name, 'error', err.message);
-                    continue; 
+            try {
+                const inventoryEntry = Object.entries(project.footageInventory || {}).find(([id, item]) => item.name === location.name);
+                if (inventoryEntry) {
+                    inventoryId = inventoryEntry[0];
+                    inventoryItem = inventoryEntry[1];
+                    // On a retry, we must ignore the stale place_id
+                    placeId = isRetry ? null : inventoryItem.place_id;
                 }
+
+                if (!placeId) {
+                    updateLocationStatus(location.name, 'finding_place_id', isRetry ? 'Map reference was stale. Finding a new one...' : 'Searching for a map reference...');
+                    const aiResponse = await window.aiUtils.findPlaceIdAI({ locationName: location.name, settings });
+                    
+                    if (!aiResponse || !aiResponse.place_id) {
+                        throw new Error("AI could not determine a valid Place ID for this location.");
+                    }
+                    placeId = aiResponse.place_id;
+                    
+                    if (inventoryId && updateFootageInventoryItem) {
+                        const updatedInventoryData = { ...inventoryItem, place_id: placeId };
+                        await updateFootageInventoryItem(project.id, inventoryId, updatedInventoryData);
+                    } else if (!inventoryId) {
+                        throw new Error("Location exists in video but not in project footage inventory.");
+                    }
+                }
+                
+                if (placeId) {
+                    updateLocationStatus(location.name, 'fetching_details', 'Found map reference, fetching details...');
+                    if (!fetchPlaceDetails) throw new Error("fetchPlaceDetails handler is missing.");
+                    
+                    const response = await fetchPlaceDetails(placeId);
+
+                    if (response && response.details) {
+                        updateLocationStatus(location.name, 'complete', null, {
+                            summary: response.details.editorial_summary?.overview || `Rating: ${response.details.rating || 'N/A'} ★. Website: ${response.details.website || 'Not available.'}`,
+                            photos: response.details.photos ? response.details.photos.slice(0, 5) : []
+                        });
+                        return; // Success, end execution for this location
+                    } else {
+                        // THE FIX: Check for the specific stale ID error
+                        if (response && response.status === 'NOT_FOUND' && !isRetry) {
+                            console.warn(`Stale Place ID detected for ${location.name}. Retrying...`);
+                            // This is our one-time retry.
+                            await processLocation(location, true); 
+                            return; 
+                        }
+                        const status = response?.status || 'UNKNOWN_ERROR';
+                        let errorMessage = `Could not fetch details. Google Maps status: ${status}.`;
+                        if (status === 'ZERO_RESULTS') errorMessage = 'This location could not be found on Google Maps.';
+                        throw new Error(errorMessage);
+                    }
+                } else {
+                    throw new Error("A Place ID could not be found for this location.");
+                }
+            } catch (err) {
+                console.error(`Failed to process location ${location.name}:`, err);
+                updateLocationStatus(location.name, 'error', err.message);
             }
         };
 
@@ -101,7 +84,20 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
             ));
         };
 
-        processLocationsSequentially();
+        const run = async () => {
+             if (!video.locations_featured || video.locations_featured.length === 0) {
+                setIsInitiallyLoading(false);
+                return;
+            }
+            const initialLocations = video.locations_featured.map(name => ({ name, status: 'pending', summary: '', photos: [], error: null }));
+            setLocations(initialLocations);
+            setIsInitiallyLoading(false);
+            
+            // Process all locations concurrently for speed
+            await Promise.all(initialLocations.map(loc => processLocation(loc)));
+        };
+
+        run();
     
     }, [project?.id, video?.id, settings]);
 
@@ -126,7 +122,7 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
             React.createElement('div', { key: location.name || index, className: 'bg-gray-900/50 p-4 rounded-lg' },
                 React.createElement('h4', { className: 'text-lg font-semibold text-primary-accent mb-3' }, location.name),
                 
-                (location.status === 'pending' || location.status === 'loading' || location.status === 'finding_place_id' || location.status === 'fetching_details') && 
+                (location.status !== 'complete' && location.status !== 'error') && 
                     React.createElement('div', { className: 'flex items-center space-x-2' },
                       React.createElement(LoadingSpinner, null),
                       React.createElement('p', { className: 'text-blue-400 text-sm' }, location.error || 'Processing...')
