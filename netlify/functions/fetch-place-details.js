@@ -4,7 +4,6 @@ const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
     const { place_id } = event.queryStringParameters;
-    // Use the correct environment variable name provided.
     const apiKey = process.env.VITE_Maps_API_KEY;
 
     if (!place_id) {
@@ -15,23 +14,19 @@ exports.handler = async (event) => {
         return { statusCode: 500, body: 'API key not configured on the server.' };
     }
 
-    // --- URL for the "Places API (v1)" ---
     const url = `https://places.googleapis.com/v1/places/${place_id}`;
 
-    // --- Headers are required to specify which fields you want ---
     const headers = {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        // Requesting displayName, editorialSummary, and photos
-        // MODIFICATION: Added 'rating' and 'website' to the field mask for more robust data.
-        'X-Goog-FieldMask': 'displayName,editorialSummary,photos,rating,website'
+        // THE FIX: Changed 'website' to the correct v1 field name 'websiteUri'.
+        'X-Goog-FieldMask': 'displayName,editorialSummary,photos,rating,websiteUri'
     };
 
     try {
         const response = await fetch(url, { method: 'GET', headers: headers });
         const data = await response.json();
         
-        // Handle API errors from Google gracefully
         if (data.error) {
             console.error("Google Places API Error:", data.error);
             return {
@@ -43,20 +38,19 @@ exports.handler = async (event) => {
             };
         }
 
-        // The new API nests the summary differently and uses different names.
-        // We create a new object to match the structure our front-end expects.
+        // Create a new object to match the structure our front-end expects.
         const result = {
             name: data.displayName,
-            editorial_summary: data.editorialSummary, // This can still be undefined
+            editorial_summary: data.editorialSummary,
             photos: data.photos,
             rating: data.rating,
-            website: data.website
+            // THE FIX: Map the correct source field 'websiteUri' to the 'website' field for the client.
+            website: data.websiteUri 
         };
         
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            // THE FIX: Nest the result inside a "details" object to match the front-end.
             body: JSON.stringify({ details: result, status: "OK" }),
         };
         
