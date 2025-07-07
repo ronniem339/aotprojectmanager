@@ -23,7 +23,6 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
                 if (inventoryEntry) {
                     inventoryId = inventoryEntry[0];
                     inventoryItem = inventoryEntry[1];
-                    // On a retry, we must ignore the stale place_id
                     placeId = isRetry ? null : inventoryItem.place_id;
                 }
 
@@ -51,16 +50,14 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
                     const response = await fetchPlaceDetails(placeId);
 
                     if (response && response.details) {
-                        updateLocationStatus(location.name, 'complete', null, {
+                         updateLocationStatus(location.name, 'complete', null, {
                             summary: response.details.editorial_summary?.overview || `Rating: ${response.details.rating || 'N/A'} ★. Website: ${response.details.website || 'Not available.'}`,
-                            photos: response.details.photos ? response.details.photos.slice(0, 5) : []
+                            photos: response.details.photos || []
                         });
-                        return; // Success, end execution for this location
+                        return;
                     } else {
-                        // THE FIX: Check for the specific stale ID error
                         if (response && response.status === 'NOT_FOUND' && !isRetry) {
                             console.warn(`Stale Place ID detected for ${location.name}. Retrying...`);
-                            // This is our one-time retry.
                             await processLocation(location, true); 
                             return; 
                         }
@@ -93,7 +90,6 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
             setLocations(initialLocations);
             setIsInitiallyLoading(false);
             
-            // Process all locations concurrently for speed
             await Promise.all(initialLocations.map(loc => processLocation(loc)));
         };
 
@@ -135,10 +131,11 @@ window.MemoryJogger = ({ project, video, settings, fetchPlaceDetails, updateFoot
                     location.photos && location.photos.length > 0 ?
                         React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2' },
                             location.photos.map(photo =>
+                                // THE FIX: Use photo.name for the key and pass it to photoReference. Use 'alt' prop.
                                 React.createElement(ImageComponent, {
-                                    key: photo.photo_reference,
-                                    photoReference: photo.photo_reference,
-                                    altText: `Image of ${location.name}`,
+                                    key: photo.name,
+                                    photoReference: photo.name,
+                                    alt: `Image of ${location.name}`,
                                     className: 'w-full h-24 object-cover rounded-md'
                                 })
                             )
