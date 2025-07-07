@@ -2,18 +2,25 @@
 
 const { useState } = React;
 
-// MODIFICATION: The component now receives all its dependencies as props.
 window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings, triggerAiTask }) => {
-    // REMOVED: Direct call to window.useAppState();
-
     const [researchingShotId, setResearchingShotId] = useState(null);
     const [error, setError] = useState('');
 
     const handleResearchClick = async (shotToResearch) => {
-        // Guard clause in case the handler prop isn't passed correctly.
         if (!triggerAiTask) {
             console.error("triggerAiTask handler is missing. Cannot perform research.");
             setError("The AI research function is not available. Please contact support.");
+            return;
+        }
+
+        // **FIX APPLIED HERE**
+        // This guard clause checks if the essential details exist on the shot object
+        // before making the AI call. Note that 'scene_narrative_purpose' is checked on the shot itself.
+        if (!shotToResearch.location && !shotToResearch.shot_description && !shotToResearch.scene_narrative_purpose) {
+            const errorMessage = "Cannot research this shot. Critical details like its location, description, or the scene's narrative purpose are missing.";
+            console.error(errorMessage, shotToResearch);
+            setError(errorMessage + " Please add more detail to the shot or scene in the blueprint first.");
+            // We return early to prevent the error.
             return;
         }
 
@@ -21,10 +28,10 @@ window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings, tri
         setError('');
 
         const taskId = `scriptingV2-research-${shotToResearch.shot_id}-${Date.now()}`;
+        // We can now safely access shot_description as we've already checked it exists.
         const taskName = `Researching Shot: ${shotToResearch.shot_description.substring(0, 30)}...`;
 
         try {
-            // MODIFICATION: Call the handler from props.
             await triggerAiTask({
                 id: taskId,
                 type: 'scriptingV2-research',
@@ -37,7 +44,7 @@ window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings, tri
                 },
                 onSuccess: (response) => {
                     if (!response || !Array.isArray(response.research_notes)) {
-                         throw new Error("AI did not return valid research notes. (Post-processing validation)");
+                        throw new Error("AI did not return valid research notes. (Post-processing validation)");
                     }
 
                     const updatedShots = blueprint.shots.map(shot => {
