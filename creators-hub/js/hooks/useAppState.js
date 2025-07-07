@@ -518,53 +518,6 @@ window.useAppState = () => {
                 return task;
             }));
         },
-        // *** THE FIX IS HERE ***
-        fetchPlaceDetails: useCallback(async (placeId) => {
-            if (!placeId) {
-                console.error("fetchPlaceDetails called without a placeId.");
-                return { details: null, status: 'INVALID_REQUEST' };
-            }
-
-            if (!window.google || !window.google.maps || !window.google.maps.places) {
-                 console.error("Google Maps Places Service is not available.");
-                 handlers.displayNotification("Google Maps Places Service is not available.", 'error');
-                 return { details: null, status: 'API_NOT_LOADED' };
-            }
-
-            const service = new window.google.maps.places.PlacesService(document.createElement('div'));
-            const request = {
-                placeId: placeId,
-                fields: ['name', 'rating', 'editorial_summary', 'website', 'photos']
-            };
-
-            return new Promise((resolve) => {
-                service.getDetails(request, (place, status) => {
-                    if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-                        resolve({ details: place, status: status });
-                    } else {
-                        console.error("Google Places Error:", status);
-                        // Do not show a notification here. The calling component will handle it.
-                        resolve({ details: null, status: status });
-                    }
-                });
-            });
-        }, []),
-        updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
-            if (!user || !firebaseDb) {
-                console.error("User or Firestore not available.");
-                return;
-            }
-            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
-            try {
-                const updatePayload = {};
-                updatePayload[`footageInventory.${inventoryId}`] = updatedData;
-                await projectRef.update(updatePayload);
-                console.log(`Successfully updated footage inventory for ${inventoryId}`);
-            } catch (error) {
-                console.error(`Error updating footage inventory item ${inventoryId}:`, error);
-                handlers.displayNotification(`Failed to save Place ID: ${error.message}`, 'error');
-            }
-        }, [user, firebaseDb, APP_ID]),
     };
 
     return {
