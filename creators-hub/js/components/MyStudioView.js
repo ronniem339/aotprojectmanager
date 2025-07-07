@@ -34,6 +34,8 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         musicStyle: ''
     });
 
+    // MODIFICATION: Added state for V2 refinement logs.
+    const [styleGuideV2Refinements, setStyleGuideV2Refinements] = useState([]);
 
     useEffect(() => {
         // This effect syncs the component if the 'settings' prop itself is replaced.
@@ -53,6 +55,9 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
             humorLevel: '', pacing: '', targetAudience: '', keyTerminology: '',
             thingsToAvoid: '', outroMessage: '', visualStyle: '', musicStyle: ''
         });
+
+        // MODIFICATION: Populate the V2 refinement logs.
+        setStyleGuideV2Refinements(settings.knowledgeBases?.styleV2?.refinements || []);
 
     }, [settings]);
 
@@ -135,7 +140,6 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         }
     };
 
-
     const handleSave = () => {
         const updatedSettings = {
             ...settings,
@@ -186,7 +190,7 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
     
     // **NEW:** Helper to render a textarea for the V2 style guide.
     const renderV2StyleGuideTextarea = (field, label, placeholder) => (
-         React.createElement('div', null,
+       React.createElement('div', null,
             React.createElement('label', { className: 'block text-sm font-medium text-gray-300' }, label),
             React.createElement('textarea', {
                 className: 'mt-1 block w-full rounded-md bg-gray-900 border-gray-600 shadow-sm focus:border-primary-accent focus:ring-primary-accent sm:text-sm',
@@ -290,9 +294,33 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                         {renderV2StyleGuideInput('visualStyle', 'Visual Style', 'e.g., Cinematic, high-contrast, wide lenses')}
                         {renderV2StyleGuideInput('musicStyle', 'Music Style', 'e.g., Lo-fi beats, epic orchestral, no vocals')}
                     </div>
-                </div>
+                    {/* MODIFICATION: Added V2 Refinement Log */}
+                    <div className="mt-8">
+                        <h4 className="text-lg font-semibold text-gray-200 mb-2">V2 Style Guide Refinement History</h4>
+                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto custom-scrollbar">
+                            {styleGuideV2Refinements.length > 0 ? (
+                                <ul className="space-y-4">
+                                    {styleGuideV2Refinements.map((entry, index) => (
+                                        <li key={index} className="text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0">
+                                            <span className="block font-semibold text-gray-400 text-xs mb-2">
+                                                {new Date(entry.timestamp).toLocaleString()} - Source: {entry.source}
+                                            </span>
+                                            <div className="pl-2 border-l-2 border-secondary-accent">
+                                              <p className="font-semibold text-gray-300">Who Am I:</p>
+                                              <p className="text-gray-400 italic mb-2">"{entry.whoAmI}"</p>
+                                              <p className="font-semibold text-gray-300">Style Guide:</p>
+                                              <p className="text-gray-400 italic">"{entry.styleGuide}"</p>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-gray-400 text-sm italic">No V2 style guide refinements yet. They will appear here automatically after you import a transcript.</p>
+                            )}
+                        </div>
+                    </div>
+                 </div>
             </div>
-
 
             <div className="mt-8 text-right">
                 <button onClick={handleSave} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save All Style Guides</button>
