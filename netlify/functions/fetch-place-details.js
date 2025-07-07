@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
     const { place_id } = event.queryStringParameters;
-    const apiKey = process.env.VITE_Maps_API_KEY;
+    const apiKey = process.env.Maps_API_KEY;
 
     if (!place_id) {
         return { statusCode: 400, body: 'Missing place_id parameter' };
