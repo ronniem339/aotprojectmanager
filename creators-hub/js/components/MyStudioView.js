@@ -1,4 +1,4 @@
-// js/components/MyStudioView.js
+// creators-hub/js/components/MyStudioView.js
 
 const { useState, useEffect } = React;
 
@@ -18,7 +18,7 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
     const [refinementText, setRefinementText] = useState('');
     const [isRefining, setIsRefining] = useState(false);
 
-    // **NEW:** State for the new, detailed V2 style guide object.
+    // State for the new, detailed V2 style guide object.
     const [styleGuideV2, setStyleGuideV2] = useState({
         brandVoice: '',
         videoTone: '',
@@ -34,7 +34,7 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         musicStyle: ''
     });
 
-    // MODIFICATION: Added state for V2 refinement logs.
+    // State for V2 refinement logs.
     const [styleGuideV2Refinements, setStyleGuideV2Refinements] = useState([]);
 
     useEffect(() => {
@@ -49,14 +49,14 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
             excludedPhrases: settings.excludedPhrases || ''
         });
         
-        // **NEW:** Populate the detailed V2 style guide state from its own separate object.
+        // Populate the detailed V2 style guide state from its own separate object.
         setStyleGuideV2(settings.knowledgeBases?.styleV2?.detailedStyleGuide || {
             brandVoice: '', videoTone: '', videoStyle: '', speakingStyle: '',
             humorLevel: '', pacing: '', targetAudience: '', keyTerminology: '',
             thingsToAvoid: '', outroMessage: '', visualStyle: '', musicStyle: ''
         });
 
-        // MODIFICATION: Populate the V2 refinement logs.
+        // Populate the V2 refinement logs.
         setStyleGuideV2Refinements(settings.knowledgeBases?.styleV2?.refinements || []);
 
     }, [settings]);
@@ -140,6 +140,7 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         }
     };
 
+
     const handleSave = () => {
         const updatedSettings = {
             ...settings,
@@ -151,7 +152,6 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                     styleGuideText: styleGuideText,
                     styleGuideLog: styleGuideLog
                 },
-                // **NEW:** Save the new V2 style guide to its own separate object.
                 styleV2: {
                     ...settings.knowledgeBases?.styleV2,
                     detailedStyleGuide: styleGuideV2,
@@ -169,12 +169,10 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         return 'Back to Settings Menu';
     };
     
-    // **NEW:** Handler for changes within the V2 style guide object.
     const handleStyleGuideV2Change = (field, value) => {
         setStyleGuideV2(prev => ({ ...prev, [field]: value }));
     };
     
-    // **NEW:** Helper to render a text input for the V2 style guide.
     const renderV2StyleGuideInput = (field, label, placeholder) => (
         React.createElement('div', null,
             React.createElement('label', { className: 'block text-sm font-medium text-gray-300' }, label),
@@ -188,7 +186,6 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
         )
     );
     
-    // **NEW:** Helper to render a textarea for the V2 style guide.
     const renderV2StyleGuideTextarea = (field, label, placeholder) => (
        React.createElement('div', null,
             React.createElement('label', { className: 'block text-sm font-medium text-gray-300' }, label),
@@ -204,131 +201,113 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
 
     const refinementLog = styleGuideLog || [];
 
-    return (
-        <div className="p-4 sm:p-8">
-            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ {getBackLinkText()}
-            </button>
-            <h1 className="text-3xl sm:text-4xl font-bold mb-4">🎨 Style & Tone</h1>
-            <p className="text-gray-400 mb-8">Train the AI on your unique creative style. The more detail you provide, the better the AI's suggestions will be.</p>
-            
-            {/* --- Legacy Style Guide UI --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div>
-                    <h3 className="text-lg font-medium text-gray-200">Refine Style Guide with AI (Legacy)</h3>
-                    <p className="mt-1 text-sm text-gray-400">Provide feedback below and let the AI rewrite your legacy style guide.</p>
-                    <div className="mt-4">
-                        <textarea
-                            rows="3"
-                            className="form-textarea"
-                            placeholder="e.g., 'Make the tone more professional' or 'Always use bullet points for lists.'"
-                            value={refinementText}
-                            onChange={(e) => setRefinementText(e.target.value)}
-                        ></textarea>
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                        <button
-                            type="button"
-                            onClick={handleRefineWithAI}
-                            disabled={isRefining}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                        >
-                            {isRefining ? 'Refining...' : 'Refine with AI'}
-                        </button>
-                    </div>
-                </div>
+    const renderV2RefinementLog = () => {
+        return React.createElement('div', { className: 'mt-8' },
+            React.createElement('h4', { className: 'text-lg font-semibold text-gray-200 mb-2' }, 'V2 Style Guide Refinement History'),
+            React.createElement('div', { className: 'bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-64 overflow-y-auto custom-scrollbar' },
+                styleGuideV2Refinements && styleGuideV2Refinements.length > 0 ?
+                    React.createElement('ul', { className: 'space-y-4' },
+                        styleGuideV2Refinements.map((entry, index) =>
+                            React.createElement('li', { key: index, className: 'text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0' },
+                                React.createElement('span', { className: 'block font-semibold text-gray-400 text-xs mb-2' },
+                                    `${new Date(entry.timestamp).toLocaleString()} - Source: ${entry.source}`
+                                ),
+                                React.createElement('div', { className: 'pl-2 border-l-2 border-secondary-accent' },
+                                    Object.entries(entry).map(([key, value]) => {
+                                        if (key === 'timestamp' || key === 'source') return null;
+                                        return React.createElement('div', { key: key, className: 'mb-2' },
+                                            React.createElement('p', { className: 'font-semibold text-gray-300 capitalize' }, `${key.replace(/([A-Z])/g, ' $1')}:`),
+                                            React.createElement('p', { className: 'text-gray-400 italic' }, `"${String(value)}"`)
+                                        );
+                                    })
+                                )
+                            )
+                        )
+                    ) :
+                    React.createElement('p', { className: 'text-gray-400 text-sm italic' }, 'No V2 style guide refinements yet. They will appear here automatically after you import a transcript.')
+            )
+        );
+    };
 
-                <div>
-                    <h3 className="text-xl font-semibold mb-3">Refinement History (Legacy)</h3>
-                    <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto">
-                        {refinementLog.length > 0 ? (
-                            <ul className="space-y-3">
-                                {refinementLog.map((entry, index) => (
-                                    <li key={index} className="text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0">
-                                        <span className="block font-semibold text-gray-400 text-xs">
-                                            {new Date(entry.date).toLocaleDateString()}
-                                        </span>
-                                        <p className="mt-1">{entry.change}</p>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-gray-400 text-sm italic">No refinement history yet.</p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="lg:col-span-2">
-                    <h2 className="text-2xl font-semibold mb-4">Your AI-Powered Style Guide (Legacy)</h2>
-                    <textarea value={styleGuideText} onChange={(e) => setStyleGuideText(e.target.value)} rows="15" className="form-textarea leading-relaxed" placeholder="Your generated style guide will appear here. You can edit it directly."></textarea>
-                </div>
-
-                <div className="lg:col-span-2">
-                    <h2 className="text-2xl font-semibold mb-4">Style Inputs (Legacy)</h2>
-                    <div className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-300 mb-2">An example of your writing</label><textarea value={styleInputs.myWriting} onChange={(e) => setStyleInputs(p => ({ ...p, myWriting: e.target.value }))} rows="6" className="form-textarea" placeholder="Paste a sample of a previous script or blog post here..."></textarea></div>
-                        <div><label className="block text-sm font-medium text-gray-300 mb-2">Writing you admire</label><textarea value={styleInputs.admiredWriting} onChange={(e) => setStyleInputs(p => ({ ...p, admiredWriting: e.target.value }))} rows="6" className="form-textarea" placeholder="Paste a sample from another creator or writer whose style you like..."></textarea></div>
-                        <div><label className="block text-sm font-medium text-gray-300 mb-2">Keywords describing your style</label><input type="text" value={styleInputs.keywords} onChange={(e) => setStyleInputs(p => ({ ...p, keywords: e.target.value }))} className="form-input" placeholder="e.g., witty, cinematic, fast-paced, educational" /></div>
-                        <div><label className="block text-sm font-medium text-gray-300 mb-2">Style Dos and Don'ts</label><textarea value={styleInputs.dosAndDonts} onChange={(e) => setStyleInputs(p => ({ ...p, dosAndDonts: e.target.value }))} rows="3" className="form-textarea" placeholder="e.g., DO use humor. DON'T be too formal."></textarea></div>
-                        <div><label className="block text-sm font-medium text-gray-300 mb-2">Excluded Phrases & Words</label><textarea value={styleInputs.excludedPhrases} onChange={(e) => setStyleInputs(p => ({ ...p, excludedPhrases: e.target.value }))} rows="3" className="form-textarea" placeholder="e.g., synergy, circle back, at the end of the day"></textarea></div>
-                        <button onClick={handleAnalyzeStyle} disabled={isLoading} className="w-full px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-gray-500">{isLoading ? <window.LoadingSpinner isButton={true} /> : '🧬 Analyze & Create Style Guide'}</button>
-                    </div>
-                </div>
-            </div>
-
-            {/* --- **NEW** V2 Style Guide Section --- */}
-            <div className="mt-12 pt-8 border-t border-gray-600">
-                 <div className="glass-card p-6 rounded-lg border-2 border-secondary-accent">
-                    <h3 className="text-2xl font-semibold text-secondary-accent mb-2">Detailed Style Guide (for Scripting V2)</h3>
-                    <p className="text-gray-400 mb-6">Provide specific details about your content style. The more specific you are, the better the new scripting workflow will be at matching your voice.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
-                        {renderV2StyleGuideInput('brandVoice', 'Overall Brand Voice', 'e.g., Inquisitive, adventurous, respectful')}
-                        {renderV2StyleGuideInput('videoTone', 'Video Tone', 'e.g., Educational but entertaining')}
-                        {renderV2StyleGuideTextarea('speakingStyle', 'Speaking Style', 'e.g., Conversational, like talking to a friend. Uses simple language.')}
-                        {renderV2StyleGuideInput('humorLevel', 'Humor Level', 'e.g., Witty and dry, uses puns sparingly')}
-                        {renderV2StyleGuideInput('pacing', 'Pacing', 'e.g., Fast-paced with quick cuts')}
-                        {renderV2StyleGuideInput('targetAudience', 'Target Audience', 'e.g., Curious travelers aged 25-45')}
-                        {renderV2StyleGuideTextarea('keyTerminology', 'Key Terminology', 'List any specific words or phrases you always use.')}
-                        {renderV2StyleGuideTextarea('thingsToAvoid', 'Things to Avoid', 'List any cliches, words, or topics you want to avoid.')}
-                        {renderV2StyleGuideTextarea('outroMessage', 'Standard Outro Message', 'e.g., "Thanks for watching, and keep exploring."')}
-                        {renderV2StyleGuideInput('visualStyle', 'Visual Style', 'e.g., Cinematic, high-contrast, wide lenses')}
-                        {renderV2StyleGuideInput('musicStyle', 'Music Style', 'e.g., Lo-fi beats, epic orchestral, no vocals')}
-                    </div>
-                    {/* MODIFICATION: Added V2 Refinement Log */}
-                <div className="mt-8">
-                        <h4 className="text-lg font-semibold text-gray-200 mb-2">V2 Style Guide Refinement History</h4>
-                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-64 overflow-y-auto custom-scrollbar">
-                            {styleGuideV2Refinements.length > 0 ? (
-                                <ul className="space-y-4">
-                                    {styleGuideV2Refinements.map((entry, index) => (
-                                        <li key={index} className="text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0">
-                                            <span className="block font-semibold text-gray-400 text-xs mb-2">
-                                                {new Date(entry.timestamp).toLocaleString()} - Source: {entry.source}
-                                            </span>
-                                            <div className="pl-2 border-l-2 border-secondary-accent">
-                                              {Object.entries(entry).map(([key, value]) => {
-                                                  // Don't display timestamp or source again inside the details.
-                                                  if (key === 'timestamp' || key === 'source') return null;
-                                                  return (
-                                                      <div key={key} className="mb-2">
-                                                          <p className="font-semibold text-gray-300 capitalize">{key.replace(/([A-Z])/g, ' $1')}:</p>
-                                                          <p className="text-gray-400 italic">"{value}"</p>
-                                                      </div>
-                                                  );
-                                              })}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-gray-400 text-sm italic">No V2 style guide refinements yet. They will appear here automatically after you import a transcript.</p>
-                            )}
-                        </div>
-                    </div>
-
-            <div className="mt-8 text-right">
-                <button onClick={handleSave} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save All Style Guides</button>
-            </div>
-        </div>
+    return React.createElement('div', { className: 'p-4 sm:p-8' },
+        React.createElement('button', { onClick: onBack, className: 'flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6' }, `⬅️ ${getBackLinkText()}`),
+        React.createElement('h1', { className: 'text-3xl sm:text-4xl font-bold mb-4' }, '🎨 Style & Tone'),
+        React.createElement('p', { className: 'text-gray-400 mb-8' }, 'Train the AI on your unique creative style. The more detail you provide, the better the AI\'s suggestions will be.'),
+        React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-8' },
+            React.createElement('div', null,
+                React.createElement('h3', { className: 'text-lg font-medium text-gray-200' }, 'Refine Style Guide with AI (Legacy)'),
+                React.createElement('p', { className: 'mt-1 text-sm text-gray-400' }, 'Provide feedback below and let the AI rewrite your legacy style guide.'),
+                React.createElement('div', { className: 'mt-4' },
+                    React.createElement('textarea', {
+                        rows: '3',
+                        className: 'form-textarea',
+                        placeholder: "e.g., 'Make the tone more professional' or 'Always use bullet points for lists.'",
+                        value: refinementText,
+                        onChange: (e) => setRefinementText(e.target.value)
+                    })
+                ),
+                React.createElement('div', { className: 'mt-4 flex justify-end' },
+                    React.createElement('button', {
+                        type: 'button',
+                        onClick: handleRefineWithAI,
+                        disabled: isRefining,
+                        className: 'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50'
+                    }, isRefining ? 'Refining...' : 'Refine with AI')
+                )
+            ),
+            React.createElement('div', null,
+                React.createElement('h3', { className: 'text-xl font-semibold mb-3' }, 'Refinement History (Legacy)'),
+                React.createElement('div', { className: 'bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto' },
+                    refinementLog.length > 0 ?
+                        React.createElement('ul', { className: 'space-y-3' },
+                            refinementLog.map((entry, index) =>
+                                React.createElement('li', { key: index, className: 'text-gray-300 text-sm border-b border-gray-700 pb-3 last:border-b-0' },
+                                    React.createElement('span', { className: 'block font-semibold text-gray-400 text-xs' }, new Date(entry.date).toLocaleDateString()),
+                                    React.createElement('p', { className: 'mt-1' }, entry.change)
+                                )
+                            )
+                        ) :
+                        React.createElement('p', { className: 'text-gray-400 text-sm italic' }, 'No refinement history yet.')
+                )
+            ),
+            React.createElement('div', { className: 'lg:col-span-2' },
+                React.createElement('h2', { className: 'text-2xl font-semibold mb-4' }, 'Your AI-Powered Style Guide (Legacy)'),
+                React.createElement('textarea', { value: styleGuideText, onChange: (e) => setStyleGuideText(e.target.value), rows: '15', className: 'form-textarea leading-relaxed', placeholder: 'Your generated style guide will appear here. You can edit it directly.' })
+            ),
+            React.createElement('div', { className: 'lg:col-span-2' },
+                React.createElement('h2', { className: 'text-2xl font-semibold mb-4' }, 'Style Inputs (Legacy)'),
+                React.createElement('div', { className: 'space-y-4' },
+                    React.createElement('div', null, React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'An example of your writing'), React.createElement('textarea', { value: styleInputs.myWriting, onChange: (e) => setStyleInputs(p => ({ ...p, myWriting: e.target.value })), rows: '6', className: 'form-textarea', placeholder: 'Paste a sample of a previous script or blog post here...' })),
+                    React.createElement('div', null, React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Writing you admire'), React.createElement('textarea', { value: styleInputs.admiredWriting, onChange: (e) => setStyleInputs(p => ({ ...p, admiredWriting: e.target.value })), rows: '6', className: 'form-textarea', placeholder: 'Paste a sample from another creator or writer whose style you like...' })),
+                    React.createElement('div', null, React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Keywords describing your style'), React.createElement('input', { type: 'text', value: styleInputs.keywords, onChange: (e) => setStyleInputs(p => ({ ...p, keywords: e.target.value })), className: 'form-input', placeholder: 'e.g., witty, cinematic, fast-paced, educational' })),
+                    React.createElement('div', null, React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Style Dos and Don\'ts'), React.createElement('textarea', { value: styleInputs.dosAndDonts, onChange: (e) => setStyleInputs(p => ({ ...p, dosAndDonts: e.target.value })), rows: '3', className: 'form-textarea', placeholder: 'e.g., DO use humor. DON\'T be too formal.' })),
+                    React.createElement('div', null, React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Excluded Phrases & Words'), React.createElement('textarea', { value: styleInputs.excludedPhrases, onChange: (e) => setStyleInputs(p => ({ ...p, excludedPhrases: e.target.value })), rows: '3', className: 'form-textarea', placeholder: 'e.g., synergy, circle back, at the end of the day' })),
+                    React.createElement('button', { onClick: handleAnalyzeStyle, disabled: isLoading, className: 'w-full px-6 py-3 bg-primary-accent hover:bg-primary-accent-darker rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-gray-500' }, isLoading ? React.createElement(window.LoadingSpinner, { isButton: true }) : '🧬 Analyze & Create Style Guide')
+                )
+            )
+        ),
+        React.createElement('div', { className: 'mt-12 pt-8 border-t border-gray-600' },
+            React.createElement('div', { className: 'glass-card p-6 rounded-lg border-2 border-secondary-accent' },
+                React.createElement('h3', { className: 'text-2xl font-semibold text-secondary-accent mb-2' }, 'Detailed Style Guide (for Scripting V2)'),
+                React.createElement('p', { className: 'text-gray-400 mb-6' }, 'Provide specific details about your content style. The more specific you are, the better the new scripting workflow will be at matching your voice.'),
+                React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8' },
+                    renderV2StyleGuideInput('brandVoice', 'Overall Brand Voice', 'e.g., Inquisitive, adventurous, respectful'),
+                    renderV2StyleGuideInput('videoTone', 'Video Tone', 'e.g., Educational but entertaining'),
+                    renderV2StyleGuideTextarea('speakingStyle', 'Speaking Style', 'e.g., Conversational, like talking to a friend. Uses simple language.'),
+                    renderV2StyleGuideInput('humorLevel', 'Humor Level', 'e.g., Witty and dry, uses puns sparingly'),
+                    renderV2StyleGuideInput('pacing', 'Pacing', 'e.g., Fast-paced with quick cuts'),
+                    renderV2StyleGuideInput('targetAudience', 'Target Audience', 'e.g., Curious travelers aged 25-45'),
+                    renderV2StyleGuideTextarea('keyTerminology', 'Key Terminology', 'List any specific words or phrases you always use.'),
+                    renderV2StyleGuideTextarea('thingsToAvoid', 'Things to Avoid', 'List any cliches, words, or topics you want to avoid.'),
+                    renderV2StyleGuideTextarea('outroMessage', 'Standard Outro Message', 'e.g., "Thanks for watching, and keep exploring."'),
+                    renderV2StyleGuideInput('visualStyle', 'Visual Style', 'e.g., Cinematic, high-contrast, wide lenses'),
+                    renderV2StyleGuideInput('musicStyle', 'Music Style', 'e.g., Lo-fi beats, epic orchestral, no vocals')
+                ),
+                renderV2RefinementLog()
+            )
+        ),
+        React.createElement('div', { className: 'mt-8 text-right' },
+            React.createElement('button', { onClick: handleSave, className: 'px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors' }, 'Save All Style Guides')
+        )
     );
 };
