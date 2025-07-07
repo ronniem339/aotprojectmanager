@@ -54,7 +54,7 @@ self.addEventListener('fetch', event => {
       .then(cachedResponse => {
         const fetchPromise = fetch(event.request).then(networkResponse => {
           // If we get a valid response, put it in the dynamic cache.
-          // FIX: Only attempt to cache GET requests.
+          // Only attempt to cache GET requests.
           if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
             return caches.open(CACHE_NAME_DYNAMIC).then(cache => {
               cache.put(event.request, networkResponse.clone());
@@ -68,9 +68,28 @@ self.addEventListener('fetch', event => {
         return cachedResponse || fetchPromise;
       })
       .catch(err => {
-          // This is a fallback for when both cache and network fail.
-          // You could return a generic offline page here if you had one.
-          console.error('[Service Worker] Fetch failed:', err);
+         // This is a fallback for when both cache and network fail.
+         // You could return a generic offline page here if you had one.
+         console.error('[Service Worker] Fetch failed:', err);
       })
   );
+});
+
+// MODIFICATION: Listen for messages from the app.
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    console.log('[Service Worker] Received CLEAR_CACHE command.');
+    event.waitUntil(
+      caches.keys().then(keyList => {
+        console.log('[Service Worker] Deleting all caches:', keyList);
+        return Promise.all(keyList.map(key => caches.delete(key)));
+      }).then(() => {
+        console.log('[Service Worker] All caches cleared.');
+        // Optionally notify clients that the cache is cleared
+        self.clients.matchAll().then(clients => {
+            clients.forEach(client => client.postMessage({ type: 'CACHE_CLEARED' }));
+        });
+      })
+    );
+  }
 });
