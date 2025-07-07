@@ -1,14 +1,9 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step5_FinalAssembly.js
 
-// This is the final step of the V2 workflow. It provides the button to trigger
-// the final AI script generation and a button to mark the entire task as complete.
-
 const { useState } = React;
-const { CopyButton } = window; 
+const { CopyButton } = window;
 
 window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpdateTask, onClose, triggerAiTask }) => {
-    // MODIFICATION: Removed direct call to useAppState and now expect triggerAiTask as a prop
-    
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
 
@@ -19,7 +14,7 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             return;
         }
         setIsGenerating(true);
-        setError(''); 
+        setError('');
 
         const taskId = `scriptingV2-final-script-${video.id}-${Date.now()}`;
         const taskName = "Final Script Assembly";
@@ -73,14 +68,13 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             'script': blueprint.final_full_video_script || '',
             'recording_voiceover_script': blueprint.final_recording_voiceover_script || ''
         });
-        onClose(); 
+        onClose();
     };
 
     const isFinalScriptAssembled = blueprint?.finalScriptGenerated;
 
-    // MODIFICATION: Removed the flex centering and height classes to fix the layout.
-    return React.createElement('div', { className: 'p-6' }, 
-        React.createElement('div', { className: 'text-center' }, // Add a wrapper for centered content
+    return React.createElement('div', { className: 'p-4 sm:p-6' },
+        React.createElement('div', { className: 'text-center' },
             React.createElement('h3', { className: 'text-2xl font-bold text-primary-accent mb-4' }, 'Step 4: Final Assembly'),
             React.createElement('p', { className: 'text-gray-400 mb-8 max-w-2xl mx-auto' },
                 isFinalScriptAssembled
@@ -97,9 +91,10 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             error && React.createElement('p', { className: 'text-red-400 mt-6 mb-4' }, error),
         ),
 
-        // Display scripts and Complete button if script assembled
-        isFinalScriptAssembled && React.createElement(React.Fragment, null,
-            React.createElement('div', { className: 'w-full max-w-4xl mx-auto text-left bg-gray-800/70 p-6 rounded-lg border border-gray-700' },
+        // MODIFICATION: Replaced React.Fragment with a responsive flex container.
+        isFinalScriptAssembled && React.createElement('div', { className: 'mt-8 flex flex-col items-center gap-8' },
+            // Voiceover Script Section
+            React.createElement('div', { className: 'w-full max-w-4xl text-left bg-gray-800/70 p-4 sm:p-6 rounded-lg border border-gray-700' },
                 React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Voiceover Script for Recording'),
                 React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_recording_voiceover_script || 'Recording script not generated.'),
                 blueprint.final_recording_voiceover_script && React.createElement(CopyButton, {
@@ -107,10 +102,20 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
                     buttonText: 'Copy for Recording'
                 })
             ),
-            React.createElement('div', {className: 'text-center'}, // Wrapper for the complete button
-                 React.createElement('button', {
+            // MODIFICATION: Added the full video script display.
+            React.createElement('div', { className: 'w-full max-w-4xl text-left bg-gray-800/70 p-4 sm:p-6 rounded-lg border border-gray-700' },
+                React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Full Video Script'),
+                React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_full_video_script || 'Full script not generated.'),
+                blueprint.final_full_video_script && React.createElement(CopyButton, {
+                    textToCopy: blueprint.final_full_video_script,
+                    buttonText: 'Copy Full Script'
+                })
+            ),
+            // Complete Button
+            React.createElement('div', { className: 'text-center' },
+                React.createElement('button', {
                     onClick: handleCompleteTask,
-                    className: 'button-success text-xl px-10 py-4 mt-8'
+                    className: 'button-success text-xl px-10 py-4' // Removed margin as gap is now used
                 }, '✅ Mark Task as Complete')
             )
         )
