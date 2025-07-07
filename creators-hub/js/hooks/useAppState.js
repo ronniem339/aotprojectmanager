@@ -518,24 +518,38 @@ window.useAppState = () => {
                 return task;
             }));
         },
+        // MODIFICATION: Replaced the serverless function call with a direct client-side API call.
         fetchPlaceDetails: useCallback(async (placeId) => {
             if (!placeId) {
                 console.error("fetchPlaceDetails called without a placeId.");
                 return null;
             }
-            try {
-                const response = await fetch(`/.netlify/functions/fetch-place-details?place_id=${placeId}`);
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    throw new Error(`Failed to fetch place details: ${response.statusText} - ${errorBody}`);
-                }
-                const data = await response.json();
-                return data.details;
-            } catch (error) {
-                console.error("Error in fetchPlaceDetails handler:", error);
-                handlers.displayNotification(`Could not fetch location details. ${error.message}`, 'error');
-                return null;
+
+            if (!window.google || !window.google.maps || !window.google.maps.places) {
+                 console.error("Google Maps Places Service is not available.");
+                 handlers.displayNotification("Google Maps Places Service is not available.", 'error');
+                 return null;
             }
+
+            const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+            const request = {
+                placeId: placeId,
+                fields: ['name', 'rating', 'editorial_summary', 'website', 'photos']
+            };
+
+            return new Promise((resolve) => {
+                service.getDetails(request, (place, status) => {
+                    if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+                        // The MemoryJogger component expects an object with 'details' and 'status'
+                        resolve({ details: place, status: status });
+                    } else {
+                        console.error("Google Places Error:", status);
+                        handlers.displayNotification(`Could not fetch details. Google Maps status: ${status}.`, 'error');
+                        // Resolve with a null or error status to gracefully handle failure
+                        resolve({ details: null, status: status });
+                    }
+                });
+            });
         }, []),
         updateFootageInventoryItem: useCallback(async (projectId, inventoryId, updatedData) => {
             if (!user || !firebaseDb) {
