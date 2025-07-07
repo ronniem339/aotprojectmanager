@@ -1,42 +1,38 @@
 // creators-hub/js/utils/ai/scriptingv2/learnFromTranscriptAI.js
 
-/**
- * Analyzes a transcript to learn about the user's style and updates the style guide.
- * This runs as a secondary, non-blocking process.
- *
- * @param {string} transcript The user's transcript.
- * @param {string} projectId The ID of the current project.
- */
 window.learnFromTranscriptAI = async (transcript, projectId) => {
-  // Access utilities from the global window object instead of using imports.
+  // Access utilities from the global window object.
   const { callGeminiAPI } = window.aiUtils;
-  const { getStyleGuide, updateStyleGuide, logStyleGuideRefinement } = window.db;
+  // We'll need functions to interact with the V2 style guide.
+  const { getV2StyleGuide, updateV2StyleGuide, logV2StyleGuideRefinement } = window.db;
 
-  // Defensive check to ensure dependencies are loaded.
-  if (!callGeminiAPI || !getStyleGuide || !updateStyleGuide || !logStyleGuideRefinement) {
-    console.error("learnFromTranscriptAI: Missing required functions on the window object. Make sure aiUtils and db are initialized.");
+  if (!callGeminiAPI || !getV2StyleGuide || !updateV2StyleGuide || !logV2StyleGuideRefinement) {
+    console.error("learnFromTranscriptAI: Missing required V2 style guide database functions.");
     return;
   }
 
-  console.log('--- learnFromTranscriptAI process started ---');
+  console.log('--- V2 Style Guide learning process started ---');
 
   const prompt = `
-    Analyze the following transcript to understand the user's communication style, personality, and expertise.
-    Based on this analysis, you will update two key areas: the "style guide" and the "who am I" knowledge base.
+    You are an expert style analyst. Analyze the following transcript to understand the creator's communication style for their YouTube videos.
+    Based on your analysis, provide values for the following detailed style guide attributes.
+    If you cannot confidently determine a value for a specific attribute from the text, omit it from the final JSON object.
 
-    - The "style guide" should capture the user's tone, common phrases, sentence structure, and sense of humor.
-    - The "who am I" section should describe the user's personality, their areas of expertise, and their unique perspective.
+    - **speakingStyle:** How does the person speak? (e.g., "Conversational, like talking to a friend," "Uses storytelling and rhetorical questions").
+    - **videoTone:** What is the overall tone? (e.g., "Educational but entertaining," "Humorous and lighthearted," "Serious and investigative").
+    - **humorLevel:** Describe the type and frequency of humor. (e.g., "Witty and dry, uses puns sparingly," "No humor," "Uses observational comedy").
+    - **keyTerminology:** List any specific, recurring words or phrases the creator uses.
 
     Transcript:
     ---
     ${transcript}
     ---
 
-    Based on your analysis, provide a JSON object with the updated "who_am_i" and "style_guide" fields.
-    For example:
+    Return the analysis in a JSON object. Only include the fields you are confident about. For example:
     {
-      "who_am_i": "The creator is a knowledgeable and enthusiastic expert in vintage synthesizers. They have a friendly and approachable demeanor, often using humor to explain complex topics. They are passionate about preserving the history of electronic music.",
-      "style_guide": "The creator's style is conversational and educational. They use rhetorical questions to engage the audience and often use analogies to simplify technical details. They have a recurring sign-off: 'Stay creative and keep innovating.'"
+      "speakingStyle": "Conversational and uses simple, direct language.",
+      "videoTone": "Upbeat and encouraging.",
+      "keyTerminology": "[\"keep exploring\", \"let's dive in\"]"
     }
   `;
 
@@ -44,35 +40,37 @@ window.learnFromTranscriptAI = async (transcript, projectId) => {
     const analysisResultString = await callGeminiAPI(prompt);
     const analysisResult = JSON.parse(analysisResultString);
 
-    if (analysisResult && analysisResult.style_guide && analysisResult.who_am_i) {
-      const currentStyleGuide = await getStyleGuide(projectId);
+    if (analysisResult && Object.keys(analysisResult).length > 0) {
+      // Get the current V2 style guide.
+      const currentStyleGuide = await getV2StyleGuide(projectId);
       
+      // Merge the newly learned attributes with the existing ones.
       const updatedStyleGuide = {
         ...currentStyleGuide,
-        whoAmI: analysisResult.who_am_i,
-        styleGuide: analysisResult.style_guide,
+        ...analysisResult, // The new findings will overwrite existing fields if they conflict.
       };
 
-      await updateStyleGuide(projectId, updatedStyleGuide);
+      // Save the updated V2 style guide.
+      await updateV2StyleGuide(projectId, updatedStyleGuide);
       
+      // Log only the fields that were changed in this refinement.
       const refinementLog = {
-        whoAmI: analysisResult.who_am_i,
-        styleGuide: analysisResult.style_guide,
-        timestamp: new Date().toISOString(), // Use ISO string for consistent formatting.
+        ...analysisResult,
+        timestamp: new Date().toISOString(),
         source: 'Transcript Analysis'
       };
-      await logStyleGuideRefinement(projectId, refinementLog);
+      await logV2StyleGuideRefinement(projectId, refinementLog);
 
-      console.log('--- Style guide and who am I knowledge base updated successfully ---');
+      console.log('--- V2 Style Guide updated successfully ---', refinementLog);
       
       if (window.showNotification) {
-        window.showNotification('Style guide and "who am I" knowledge base have been updated based on your transcript.', 'success');
+        window.showNotification('Successfully refined the V2 Style Guide based on your transcript.', 'success');
       }
     }
   } catch (error) {
     console.error('--- Error in learnFromTranscriptAI ---', error);
     if (window.showNotification) {
-      window.showNotification('Could not automatically update the style guide.', 'error');
+      window.showNotification('Could not automatically update the V2 Style Guide.', 'error');
     }
   }
 };
