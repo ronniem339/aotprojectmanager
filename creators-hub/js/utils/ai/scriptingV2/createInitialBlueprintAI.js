@@ -38,8 +38,6 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
         })
         .join('\n');
 
-    // **THE FIX IS HERE:**
-    // We are now calling the new V2 style guide prompt generator.
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     const prompt = `
@@ -63,15 +61,20 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
         ---
 
         **Your Task:**
-        Based on all the information above, create a structured Creative Blueprint. The blueprint must be a list of scenes, and each scene must contain a list of shots.
+        Based on all the information above, create a structured Creative Blueprint. The blueprint must be a list of shots.
         1.  **Analyze the Brain Dump:** Identify the core message, key points, and narrative goal.
-        2.  **Structure the Narrative:** Create a logical story flow with a hook, rising action, and a conclusion. Assign a "scene_narrative_purpose" to each scene that reflects its role in the story.
-        3.  **Create Shots:** For each scene, create a sequence of shots. A shot can be a "Wide B-Roll Shot", "On-Camera Dialogue", "B-Roll Detail Shot", "Walking and Talking", etc. Be specific. Crucially, you MUST only suggest shot types that are explicitly mentioned as available in the "Available Footage Notes" for a given location. Do NOT invent footage types (like "Drone Shot") if they are not listed for that location.
-        4.  **Describe the Visuals:** For each shot, write a "shot_description" that is general and directly relates to the purpose of the shot within the narrative and the *type* of available footage. Do NOT invent specific visual details or scenes beyond what is strictly implied by the footage notes or initial thoughts. For example, if 'B-Roll' is available for 'Paris', a shot description could be 'General B-Roll of Paris landmarks' rather than 'Close-up of Eiffel Tower at sunset from a boat'.
-        5.  **Estimate Timing:** Provide a rough time estimate in seconds for each shot.
-        6.  **Adhere to the JSON Schema:** Your final output MUST be a JSON object that strictly follows the provided schema. Ensure every required field is present. Generate unique UUIDs for shot_id and scene_id.
+        2.  **Structure the Narrative:** Create a logical story flow with a hook, rising action, and a conclusion. Group shots that serve the same purpose into scenes.
+        3.  **Create Shots:** For each scene, create a sequence of shots.
+        
+        **CRITICAL INSTRUCTIONS FOR JSON OUTPUT:**
+        For EACH and EVERY shot in the output, you MUST:
+        a.  **Assign a Location:** Set the "location" field to one of the names from the "Featured Locations" list provided above.
+        b.  **Assign a Scene ID:** Group related shots by giving them the same "scene_id". A new "scene_id" should be generated only when the location changes or the narrative purpose shifts significantly.
+        c.  **Assign a Narrative Purpose:** All shots in the same scene must have the same "scene_narrative_purpose".
+        d.  **Adhere to the JSON Schema:** Your final output MUST be a JSON object that strictly follows the provided schema. Ensure every required field is present. Generate unique UUIDs for shot_id and scene_id.
     `;
 
+    // MODIFICATION: Changed 'location_name' to 'location' for consistency.
     const responseSchema = {
         type: "OBJECT",
         properties: {
@@ -83,7 +86,7 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
                         shot_id: { type: "STRING" },
                         scene_id: { type: "STRING" },
                         scene_narrative_purpose: { type: "STRING" },
-                        location_name: { type: "STRING" },
+                        location: { type: "STRING" }, // Changed from location_name
                         shot_type: { type: "STRING" },
                         shot_description: { type: "STRING" },
                         voiceover_script: { type: "STRING" },
@@ -92,7 +95,8 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
                         creator_experience_notes: { type: "STRING" },
                         estimated_time_seconds: { type: "NUMBER" },
                     },
-                    required: ["shot_id", "scene_id", "scene_narrative_purpose", "location_name", "shot_type", "shot_description", "estimated_time_seconds"]
+                    // MODIFICATION: Made 'location' required.
+                    required: ["shot_id", "scene_id", "scene_narrative_purpose", "location", "shot_type", "shot_description", "estimated_time_seconds"]
                 }
             }
         },
@@ -101,49 +105,34 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
 
     let response;
     try {
-        // Call the upgraded global function with the 'heavy' task tier and correct generationConfig structure.
         response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'heavy' }, { responseSchema });
 
-        // --- Output Validation ---
         if (!response || !Array.isArray(response.shots)) {
             console.error("AI response is malformed:", response);
             throw new Error("AI returned an invalid blueprint structure. Please try again.");
         }
 
-        // Add unique IDs to the response shots as a fallback and ensure consistency
-        let lastSceneId = simpleUUID();
-        response.shots.forEach((shot, index) => {
+        // --- MODIFICATION: Simplified the post-processing logic ---
+        // The AI is now primarily responsible for structure. This is a fallback/validation step.
+        response.shots.forEach(shot => {
             // Ensure shot_id exists or generate one
             shot.shot_id = shot.shot_id || simpleUUID();
-            
-            // If the scene narrative purpose changes from the previous shot, generate a new scene_id
-            // Otherwise, reuse the lastSceneId to group shots into the same scene
-            if (index > 0 && response.shots[index - 1] && shot.scene_narrative_purpose !== response.shots[index - 1].scene_narrative_purpose) {
-                lastSceneId = simpleUUID();
-            }
-            shot.scene_id = shot.scene_id || lastSceneId;
+            shot.scene_id = shot.scene_id || 'unassigned'; // Assign a default if missing
 
-            // Ensure required fields are present (though schema should handle this,
-            // this is a final defensive check for AI occasional non-compliance)
-            const requiredFields = ["scene_narrative_purpose", "location_name", "shot_type", "shot_description", "estimated_time_seconds"];
-            for (const field of requiredFields) {
-                if (shot[field] === undefined || shot[field] === null || shot[field] === '') {
-                    console.warn(`Missing required field "${field}" in shot_id: ${shot.shot_id}. Attempting to fill with default.`);
-                    // Provide a sensible default or throw an error depending on strictness
-                    shot[field] = shot[field] || `[Missing ${field}]`;
-                }
-            }
+            // Ensure required text fields are not undefined, to prevent crashes.
+            shot.location = shot.location || "Location Not Assigned";
+            shot.scene_narrative_purpose = shot.scene_narrative_purpose || "Narrative Not Assigned";
+            shot.shot_type = shot.shot_type || "Shot Type Not Assigned";
+            shot.shot_description = shot.shot_description || "Description Not Assigned";
 
             // Ensure estimated_time_seconds is a number and positive
             if (typeof shot.estimated_time_seconds !== 'number' || shot.estimated_time_seconds <= 0) {
-                console.warn(`Invalid estimated_time_seconds for shot_id: ${shot.shot_id}. Setting to 5 seconds.`);
                 shot.estimated_time_seconds = 5;
             }
         });
 
     } catch (err) {
         console.error("Error creating initial blueprint with AI:", err);
-        // Re-throw a more user-friendly error message
         throw new Error(`Failed to generate initial blueprint: ${err.message || "An unknown AI error occurred."}`);
     }
 
