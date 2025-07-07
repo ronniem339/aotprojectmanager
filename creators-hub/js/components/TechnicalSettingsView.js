@@ -25,7 +25,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     const [deduplicationProgress, setDeduplicationProgress] = useState('');
     const [deduplicationError, setDeduplicationError] = useState('');
     const [deduplicationSuccess, setDeduplicationSuccess] = useState('');
-    
+
     // MODIFICATION: Added state for cache clearing
     const [isClearingCache, setIsClearingCache] = useState(false);
     const [cacheClearSuccess, setCacheClearSuccess] = useState('');
@@ -54,23 +54,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         }
     }, [settings]);
 
-    // MODIFICATION: Added listener for cache cleared message from service worker
-    useEffect(() => {
-        const handleMessage = (event) => {
-            if (event.data && event.data.type === 'CACHE_CLEARED') {
-                console.log('App received CACHE_CLEARED message. Reloading...');
-                setCacheClearSuccess('Cache cleared successfully! Reloading...');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }
-        };
-        navigator.serviceWorker.addEventListener('message', handleMessage);
-        
-        return () => {
-            navigator.serviceWorker.removeEventListener('message', handleMessage);
-        };
-    }, []);
+    // MODIFICATION: This effect is no longer needed and has been removed to prevent the hanging issue.
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -127,17 +111,31 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         }
     };
 
-    // MODIFICATION: Added handler to clear service worker cache
+    // MODIFICATION: The handler now assumes success and forces a reload.
     const handleClearCache = () => {
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+            setCacheClearError('Service worker not available. Please try reloading the page.');
+            return;
+        }
+
         setIsClearingCache(true);
         setCacheClearError('');
-        setCacheClearSuccess('');
-
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            console.log('Sending CLEAR_CACHE command to service worker.');
+        
+        try {
+            // Send the command to the service worker.
             navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
-        } else {
-            setCacheClearError('Service worker not available or not in control. Try reloading the page.');
+
+            // Immediately show the success message and prepare to reload.
+            setCacheClearSuccess('Cache cleared! The application will now reload...');
+            
+            // Force a reload after a short delay to allow the cache to clear.
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+
+        } catch (error) {
+            console.error('Error sending message to service worker:', error);
+            setCacheClearError('Could not send command to service worker.');
             setIsClearingCache(false);
         }
     };
@@ -215,23 +213,16 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                     )
                 ),
 
-                // Integrations Section
                 React.createElement('div', { className: 'border-t border-gray-700 pt-10 max-w-2xl' },
                     React.createElement('h1', { className: 'text-3xl font-bold mb-2' }, 'Integrations'),
                     React.createElement('p', { className: 'text-gray-400 mb-6' }, 'Connect to external services.'),
                     React.createElement(window.WordpressSettings, { settings: settings, onSave: onSave })
                 ),
                 
-                // --- Data Management Section ---
                 React.createElement('div', { className: 'border-t border-gray-700 pt-10 max-w-2xl' },
                     React.createElement('h1', { className: 'text-3xl font-bold mb-2' }, 'Data Management'),
-
-                    // --- One-Off Updater Tool ---
                     React.createElement(window.OneOffWordPressUpdater, { appState: appState }),
-
                     React.createElement('hr', { className: 'my-8 border-gray-700' }),
-                    
-                    // --- Data Cleanup Tool ---
                     React.createElement('div', { className: 'bg-gray-800/60 border border-gray-700 p-6 rounded-lg' },
                         React.createElement('h3', { className: 'text-xl font-bold mb-4' }, 'Data Cleanup Tool'),
                         React.createElement('p', { className: 'mb-4 text-gray-400' },
@@ -256,7 +247,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                         !isDeduplicating && deduplicationSuccess && React.createElement('p', { className: 'text-green-400 font-semibold mt-4' }, deduplicationSuccess)
                     ),
 
-                    // MODIFICATION: Added PWA Cache Clearing Tool
                     React.createElement('hr', { className: 'my-8 border-gray-700' }),
                     React.createElement('div', { className: 'bg-gray-800/60 border border-red-500/50 p-6 rounded-lg' },
                         React.createElement('h3', { className: 'text-xl font-bold mb-4 text-red-400' }, 'PWA Cache Tool (For Development)'),
@@ -266,7 +256,7 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                         !isClearingCache && !cacheClearSuccess && (
                             React.createElement('button', {
                                 onClick: handleClearCache,
-                                className: 'btn btn-danger' // Assuming you have a danger button style
+                                className: 'btn btn-danger'
                             },
                                 'Clear PWA Cache & Reload'
                             )
