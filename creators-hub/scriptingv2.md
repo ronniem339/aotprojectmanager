@@ -21,15 +21,26 @@ A new component, scriptingTaskV2.js, serves as the entry point for the V2 workfl
 
 New Directory: creators-hub/js/components/ProjectView/tasks/ScriptingV2/
 
-ScriptingV2_Workspace.js: The main container with the two-column layout. It now also manages the current active step and indicates step completion.
+ScriptingV2_Workspace.js: The main container with the two-column layout.
+
+Manages the active step and step completion status.
+Full-Screen Mode: Includes state management and a UI toggle button that allows the user to expand the Creative Blueprint panel to fill the entire screen, hiding the left-hand panel for a focused view.
 
 useBlueprint.js: A crucial custom hook that manages the state of the blueprint object, including fetching and debounced auto-saving to Firestore. UPDATED: The auto-saving logic has been refined to prevent unnecessary Firestore writes by comparing the debounced blueprint content with the last successfully saved version. The onSnapshot listener also now only triggers a state update if incoming data is genuinely different, improving performance and data consistency.
 
 BlueprintStepper.js: The navigation component for moving between steps. It now visually indicates completed steps with distinct styling and a checkmark. The connector lines between steps now use a text dash (—) for improved visual consistency.
 
-BlueprintDisplay.js: Renders the list of "Shot Cards" in the right-hand panel.
+BlueprintDisplay.js: A major UI component that renders the interactive Creative Blueprint.
 
-ShotCard.js: Displays the details of a single shot. UPDATED: The voiceover_script section now accurately reflects all spoken content (on-camera or voiceover) for the shot, removing the "Voiceover will be generated in a later step" advisory when content is present.
+Scene-based Grouping: It now intelligently groups shots into scenes. If the AI provides a scene_id, it uses that. If not, it creates logical scenes by grouping shots that occur at the same location, preventing shots from being listed individually.
+Mark as Complete: Replaces the old "show/hide" functionality. Users can now mark entire scenes or individual shots as "complete" via checkboxes. Completed items are visually distinguished with a green accent and reduced opacity, allowing for clear progress tracking without hiding content.
+Location Display: The primary location for each scene is now prominently displayed in the scene header, providing better context at a glance.
+
+ShotCard.js: Displays the details of a single shot within a scene.
+
+Expanded by Default: Key information such as "On-Camera Dialogue" and "Voiceover Script" are now expanded by default, removing the need for extra clicks to see the content. AI Research Notes remain collapsible to save space.
+Completion Tracking: Receives isCompleted status from its parent and displays a checkbox to allow users to toggle the completion status of the individual shot.
+Location Display: The specific location for the shot is now displayed in the card's header, reinforcing the context provided by the scene.
 
 Step1_InitialBlueprint.js: UI for the "brain dump" and initial generation. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js to manage the AI call and provide consistent error reporting and task status updates.
 
@@ -72,7 +83,11 @@ New Directory: creators-hub/js/utils/ai/scriptingV2/
 
 getStyleGuidePromptV2.js: Reads from the new detailed style guide in the settings.
 
-createInitialBlueprintAI.js: (Heavy Task) - Creates the initial narrative structure. UPDATED: Includes robust input validation, try-catch blocks for AI calls, and strict output validation to ensure a valid blueprint structure is returned or a clear error is thrown. BUGFIX: Ensured this function is consistently exposed under window.aiUtils to prevent "function not found" errors when called.
+createInitialBlueprintAI.js: (Heavy Task) - Creates the initial narrative structure.
+
+Stricter Prompting: The core prompt has been significantly overhauled to act like a "meticulous film director". It now has explicit, critical instructions for the AI to group shots into scenes and to assign a valid location and a consistent scene_id to every shot it generates.
+Data-First Approach: This change fixes the root cause of previous UI bugs by ensuring the data is correctly structured at the moment of creation, rather than relying on fragile post-processing to guess the scene structure.
+Schema Correction: The response schema was updated to require a location field (previously location_name) for better data consistency across the application.
 
 enrichBlueprintAI.js: (Lite Task) - Performs factual research for specific shots. UPDATED: Includes robust input validation, try-catch blocks for AI calls, and strict output validation to ensure valid research notes are returned. BUGFIX: Ensured this function is consistently exposed under window.aiUtils to prevent "function not found" errors when called.
 
