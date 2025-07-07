@@ -1,11 +1,10 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/BlueprintDisplay.js
 
 const { useState, useMemo } = React;
-// REMOVED: MemoryJogger from this line
 const { ShotCard } = window;
 
-// REMOVED: fetchPlaceDetails and updateFootageInventoryItem from props
 window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }) => {
+    // HOOK 1: This hook is correctly placed at the top level.
     const [completedItems, setCompletedItems] = useState({ scenes: {}, shots: {} });
 
     const toggleCompletion = (type, id) => {
@@ -18,13 +17,13 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }
         }));
     };
 
-    // REMOVED: The entire if-block that was rendering the MemoryJogger component
-    if (!blueprint || !blueprint.shots || blueprint.shots.length === 0) {
-        return React.createElement('div', { className: 'text-center text-gray-400 p-4' }, 'The Creative Blueprint is currently empty. Start by running Step 1 to generate the initial structure.');
-    }
-
+    // HOOK 2: This hook is now called on every render, before any early returns.
     const scenes = useMemo(() => {
-        if (!blueprint.shots) return {};
+        // We use optional chaining (?.) to safely access blueprint.shots.
+        // If blueprint or blueprint.shots is null/undefined, it will return {}
+        // without throwing an error, ensuring the hook always runs successfully.
+        if (!blueprint?.shots) return {};
+
         return blueprint.shots.reduce((acc, shot, index) => {
             const sceneId = shot.scene_id || shot.location || `scene-index-${index}`;
             if (!acc[sceneId]) {
@@ -41,8 +40,15 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }
             acc[sceneId].shots.push(shot);
             return acc;
         }, {});
-    }, [blueprint.shots]);
+    }, [blueprint?.shots]); // The dependency array is also safe with optional chaining.
 
+    // CONDITIONAL RENDER: Now that all hooks have been called, we can check the
+    // result of our useMemo hook and decide whether to render the empty state.
+    if (Object.keys(scenes).length === 0) {
+        return React.createElement('div', { className: 'text-center text-gray-400 p-4' }, 'The Creative Blueprint is currently empty. Start by running Step 1 to generate the initial structure.');
+    }
+
+    // MAIN RENDER: This only runs if the 'scenes' object is not empty.
     return React.createElement('div', { className: 'space-y-4' },
         Object.values(scenes).map(sceneData => {
             const isSceneCompleted = completedItems.scenes[sceneData.id];
