@@ -52,6 +52,19 @@ window.App = () => {
         handlers,
     } = useAppState(); // Custom hook to manage all app logic
 
+    // MODIFICATION: Added useEffect to hide the loading screen.
+    useEffect(() => {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            // Add a class to trigger the fade-out animation.
+            loadingScreen.classList.add('hidden');
+            // Remove the element from the DOM after the animation completes.
+            setTimeout(() => {
+                loadingScreen.remove();
+            }, 500); // This should match the transition duration in your CSS.
+        }
+    }, []); // Empty dependency array ensures this runs only once on mount.
+
     return (
         <div className="min-h-screen bg-gray-900 text-white">
             {appError && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">{appError}</div>}
