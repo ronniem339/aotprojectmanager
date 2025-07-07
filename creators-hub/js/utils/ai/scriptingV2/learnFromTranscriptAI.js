@@ -1,5 +1,6 @@
 import { callGeminiAPI } from '../core/callGeminiAPI.js';
-import { getStyleGuide, updateStyleGuide } from '../../../db.js';
+// MODIFICATION: Added logStyleGuideRefinement to imports. I'll assume this function exists in your db utility.
+import { getStyleGuide, updateStyleGuide, logStyleGuideRefinement } from '../../../db.js';
 
 /**
  * Analyzes a transcript to learn about the user's style and updates the style guide.
@@ -37,6 +38,7 @@ export const learnFromTranscriptAI = async (transcript, projectId) => {
 
     if (analysisResult && analysisResult.style_guide && analysisResult.who_am_i) {
       const currentStyleGuide = await getStyleGuide(projectId);
+      
       const updatedStyleGuide = {
         ...currentStyleGuide,
         whoAmI: analysisResult.who_am_i,
@@ -44,9 +46,26 @@ export const learnFromTranscriptAI = async (transcript, projectId) => {
       };
 
       await updateStyleGuide(projectId, updatedStyleGuide);
+      
+      // MODIFICATION: Log the refinement.
+      const refinementLog = {
+        whoAmI: analysisResult.who_am_i,
+        styleGuide: analysisResult.style_guide,
+        timestamp: new Date().toISOString(), // Use ISO string for consistent formatting.
+        source: 'Transcript Analysis'
+      };
+      await logStyleGuideRefinement(projectId, refinementLog);
+
       console.log('--- Style guide and who am I knowledge base updated successfully ---');
+      
+      if (window.showNotification) {
+        window.showNotification('Style guide and "who am I" knowledge base have been updated based on your transcript.', 'success');
+      }
     }
   } catch (error) {
     console.error('--- Error in learnFromTranscriptAI ---', error);
+    if (window.showNotification) {
+      window.showNotification('Could not automatically update the style guide.', 'error');
+    }
   }
 };
