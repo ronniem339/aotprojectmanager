@@ -295,9 +295,9 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                         {renderV2StyleGuideInput('musicStyle', 'Music Style', 'e.g., Lo-fi beats, epic orchestral, no vocals')}
                     </div>
                     {/* MODIFICATION: Added V2 Refinement Log */}
-                    <div className="mt-8">
+                <div className="mt-8">
                         <h4 className="text-lg font-semibold text-gray-200 mb-2">V2 Style Guide Refinement History</h4>
-                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-48 overflow-y-auto custom-scrollbar">
+                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 h-64 overflow-y-auto custom-scrollbar">
                             {styleGuideV2Refinements.length > 0 ? (
                                 <ul className="space-y-4">
                                     {styleGuideV2Refinements.map((entry, index) => (
@@ -306,10 +306,16 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                                                 {new Date(entry.timestamp).toLocaleString()} - Source: {entry.source}
                                             </span>
                                             <div className="pl-2 border-l-2 border-secondary-accent">
-                                              <p className="font-semibold text-gray-300">Who Am I:</p>
-                                              <p className="text-gray-400 italic mb-2">"{entry.whoAmI}"</p>
-                                              <p className="font-semibold text-gray-300">Style Guide:</p>
-                                              <p className="text-gray-400 italic">"{entry.styleGuide}"</p>
+                                              {Object.entries(entry).map(([key, value]) => {
+                                                  // Don't display timestamp or source again inside the details.
+                                                  if (key === 'timestamp' || key === 'source') return null;
+                                                  return (
+                                                      <div key={key} className="mb-2">
+                                                          <p className="font-semibold text-gray-300 capitalize">{key.replace(/([A-Z])/g, ' $1')}:</p>
+                                                          <p className="text-gray-400 italic">"{value}"</p>
+                                                      </div>
+                                                  );
+                                              })}
                                             </div>
                                         </li>
                                     ))}
@@ -319,8 +325,6 @@ window.MyStudioView = ({ settings, onSave, onBack, previousView }) => {
                             )}
                         </div>
                     </div>
-                 </div>
-            </div>
 
             <div className="mt-8 text-right">
                 <button onClick={handleSave} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors">Save All Style Guides</button>
