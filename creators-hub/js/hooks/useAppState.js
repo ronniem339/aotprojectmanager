@@ -518,17 +518,17 @@ window.useAppState = () => {
                 return task;
             }));
         },
-        // MODIFICATION: Replaced the serverless function call with a direct client-side API call.
+        // *** THE FIX IS HERE ***
         fetchPlaceDetails: useCallback(async (placeId) => {
             if (!placeId) {
                 console.error("fetchPlaceDetails called without a placeId.");
-                return null;
+                return { details: null, status: 'INVALID_REQUEST' };
             }
 
             if (!window.google || !window.google.maps || !window.google.maps.places) {
                  console.error("Google Maps Places Service is not available.");
                  handlers.displayNotification("Google Maps Places Service is not available.", 'error');
-                 return null;
+                 return { details: null, status: 'API_NOT_LOADED' };
             }
 
             const service = new window.google.maps.places.PlacesService(document.createElement('div'));
@@ -540,12 +540,10 @@ window.useAppState = () => {
             return new Promise((resolve) => {
                 service.getDetails(request, (place, status) => {
                     if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-                        // The MemoryJogger component expects an object with 'details' and 'status'
                         resolve({ details: place, status: status });
                     } else {
                         console.error("Google Places Error:", status);
-                        handlers.displayNotification(`Could not fetch details. Google Maps status: ${status}.`, 'error');
-                        // Resolve with a null or error status to gracefully handle failure
+                        // Do not show a notification here. The calling component will handle it.
                         resolve({ details: null, status: status });
                     }
                 });
