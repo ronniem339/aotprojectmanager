@@ -25,6 +25,11 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     const [deduplicationProgress, setDeduplicationProgress] = useState('');
     const [deduplicationError, setDeduplicationError] = useState('');
     const [deduplicationSuccess, setDeduplicationSuccess] = useState('');
+    
+    // MODIFICATION: Added state for cache clearing
+    const [isClearingCache, setIsClearingCache] = useState(false);
+    const [cacheClearSuccess, setCacheClearSuccess] = useState('');
+    const [cacheClearError, setCacheClearError] = useState('');
 
     const { db, user, currentSettings } = appState;
     const isConnectionReady = db && user && currentSettings;
@@ -48,6 +53,24 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
             });
         }
     }, [settings]);
+
+    // MODIFICATION: Added listener for cache cleared message from service worker
+    useEffect(() => {
+        const handleMessage = (event) => {
+            if (event.data && event.data.type === 'CACHE_CLEARED') {
+                console.log('App received CACHE_CLEARED message. Reloading...');
+                setCacheClearSuccess('Cache cleared successfully! Reloading...');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        };
+        navigator.serviceWorker.addEventListener('message', handleMessage);
+        
+        return () => {
+            navigator.serviceWorker.removeEventListener('message', handleMessage);
+        };
+    }, []);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -104,128 +127,166 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         }
     };
 
+    // MODIFICATION: Added handler to clear service worker cache
+    const handleClearCache = () => {
+        setIsClearingCache(true);
+        setCacheClearError('');
+        setCacheClearSuccess('');
+
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            console.log('Sending CLEAR_CACHE command to service worker.');
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+        } else {
+            setCacheClearError('Service worker not available or not in control. Try reloading the page.');
+            setIsClearingCache(false);
+        }
+    };
+
     return (
-        <div className="p-8">
-            <button onClick={onBack} className="flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6">
-                ⬅️ Back to Settings Menu
-            </button>
+        React.createElement('div', { className: 'p-8' },
+            React.createElement('button', { onClick: onBack, className: 'flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6' },
+                '⬅️ Back to Settings Menu'
+            ),
 
-            <div className="space-y-12">
-                {/* API Keys & Model Settings Section */}
-                <div className="max-w-2xl">
-                    <h1 className="text-3xl font-bold mb-2">Technical Settings</h1>
-                    <p className="text-gray-400 mb-6">Manage API keys and AI model configurations. Keep API keys secure!</p>
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Google Gemini API Key</label>
-                            <input type="password" name="geminiApiKey" value={localSettings.geminiApiKey} onChange={handleChange} className="w-full form-input" placeholder="Enter your Google Gemini API Key"/>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Google Maps JavaScript API Key</label>
-                            <input type="password" name="googleMapsApiKey" value={localSettings.googleMapsApiKey} onChange={handleChange} className="w-full form-input" placeholder="Enter your Google Maps JavaScript API Key"/>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">YouTube Data API Key</label>
-                            <input type="password" name="youtubeApiKey" value={localSettings.youtubeApiKey} onChange={handleChange} className="w-full form-input" placeholder="Enter your YouTube Data API Key"/>
-                        </div>
-                    </div>
-                    <div className="mt-10 pt-8 border-t border-gray-700">
-                        <h2 className="text-2xl font-semibold mb-2">AI Model Configuration (Legacy)</h2>
-                        <div className="space-y-6">
-                            <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
-                                <span className="text-md font-medium text-white">Use Pro Model for Complex Tasks</span>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="useProModelForComplexTasks" checked={localSettings.useProModelForComplexTasks} onChange={handleChange} className="sr-only peer" />
-                                    <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent"></div>
-                                </label>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name (Legacy)</label>
-                                <input type="text" name="flashModelName" value={localSettings.flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name (Legacy)</label>
-                                <input type="text" name="proModelName" value={localSettings.proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
-                            </div>
-                        </div>
-                    </div>
+            React.createElement('div', { className: 'space-y-12' },
+                // API Keys & Model Settings Section
+                React.createElement('div', { className: 'max-w-2xl' },
+                    React.createElement('h1', { className: 'text-3xl font-bold mb-2' }, 'Technical Settings'),
+                    React.createElement('p', { className: 'text-gray-400 mb-6' }, 'Manage API keys and AI model configurations. Keep API keys secure!'),
+                    React.createElement('div', { className: 'space-y-6' },
+                        React.createElement('div', null,
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Google Gemini API Key'),
+                            React.createElement('input', { type: 'password', name: 'geminiApiKey', value: localSettings.geminiApiKey, onChange: handleChange, className: 'w-full form-input', placeholder: 'Enter your Google Gemini API Key' })
+                        ),
+                        React.createElement('div', null,
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Google Maps JavaScript API Key'),
+                            React.createElement('input', { type: 'password', name: 'googleMapsApiKey', value: localSettings.googleMapsApiKey, onChange: handleChange, className: 'w-full form-input', placeholder: 'Enter your Google Maps JavaScript API Key' })
+                        ),
+                        React.createElement('div', null,
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'YouTube Data API Key'),
+                            React.createElement('input', { type: 'password', name: 'youtubeApiKey', value: localSettings.youtubeApiKey, onChange: handleChange, className: 'w-full form-input', placeholder: 'Enter your YouTube Data API Key' })
+                        )
+                    ),
+                    React.createElement('div', { className: 'mt-10 pt-8 border-t border-gray-700' },
+                        React.createElement('h2', { className: 'text-2xl font-semibold mb-2' }, 'AI Model Configuration (Legacy)'),
+                        React.createElement('div', { className: 'space-y-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between bg-gray-800/50 p-4 rounded-lg' },
+                                React.createElement('span', { className: 'text-md font-medium text-white' }, 'Use Pro Model for Complex Tasks'),
+                                React.createElement('label', { className: 'relative inline-flex items-center cursor-pointer' },
+                                    React.createElement('input', { type: 'checkbox', name: 'useProModelForComplexTasks', checked: localSettings.useProModelForComplexTasks, onChange: handleChange, className: 'sr-only peer' }),
+                                    React.createElement('div', { className: "w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent" })
+                                )
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Flash Model Name (Legacy)'),
+                                React.createElement('input', { type: 'text', name: 'flashModelName', value: localSettings.flashModelName, onChange: handleChange, className: 'w-full form-input', placeholder: 'e.g., gemini-1.5-flash-latest' })
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Pro Model Name (Legacy)'),
+                                React.createElement('input', { type: 'text', name: 'proModelName', value: localSettings.proModelName, onChange: handleChange, className: 'w-full form-input', placeholder: 'e.g., gemini-1.5-pro-latest' })
+                            )
+                        )
+                    ),
 
-                    {/* NEW: Scripting V2 Settings Section */}
-                    <div className="mt-10 pt-8 border-t border-gray-700">
-                        <h2 className="text-2xl font-semibold mb-2">Scripting V2 Model Configuration</h2>
-                        <p className="text-gray-400 mb-4 text-sm">Configure the tiered AI models specifically for the new Scripting V2 workflow.</p>
-                        <div className="space-y-6">
-                            <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
-                                <span className="text-md font-medium text-white">Use Pro for Heavy V2 Tasks</span>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="useProForV2HeavyTasks" checked={localSettings.useProForV2HeavyTasks} onChange={handleChange} className="sr-only peer" />
-                                    <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent"></div>
-                                </label>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Pro Model Name (V2)</label>
-                                <input type="text" name="v2_proModelName" value={localSettings.v2_proModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-pro-latest"/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Model Name (V2)</label>
-                                <input type="text" name="v2_flashModelName" value={localSettings.v2_flashModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-latest"/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Flash Lite Model Name (V2)</label>
-                                <input type="text" name="v2_liteModelName" value={localSettings.v2_liteModelName} onChange={handleChange} className="w-full form-input" placeholder="e.g., gemini-1.5-flash-lite-001"/>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    React.createElement('div', { className: 'mt-10 pt-8 border-t border-gray-700' },
+                        React.createElement('h2', { className: 'text-2xl font-semibold mb-2' }, 'Scripting V2 Model Configuration'),
+                        React.createElement('p', { className: 'text-gray-400 mb-4 text-sm' }, 'Configure the tiered AI models specifically for the new Scripting V2 workflow.'),
+                        React.createElement('div', { className: 'space-y-6' },
+                            React.createElement('div', { className: 'flex items-center justify-between bg-gray-800/50 p-4 rounded-lg' },
+                                React.createElement('span', { className: 'text-md font-medium text-white' }, 'Use Pro for Heavy V2 Tasks'),
+                                React.createElement('label', { className: 'relative inline-flex items-center cursor-pointer' },
+                                    React.createElement('input', { type: 'checkbox', name: 'useProForV2HeavyTasks', checked: localSettings.useProForV2HeavyTasks, onChange: handleChange, className: 'sr-only peer' }),
+                                    React.createElement('div', { className: "w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-accent peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-accent" })
+                                )
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Pro Model Name (V2)'),
+                                React.createElement('input', { type: 'text', name: 'v2_proModelName', value: localSettings.v2_proModelName, onChange: handleChange, className: 'w-full form-input', placeholder: 'e.g., gemini-1.5-pro-latest' })
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Flash Model Name (V2)'),
+                                React.createElement('input', { type: 'text', name: 'v2_flashModelName', value: localSettings.v2_flashModelName, onChange: handleChange, className: 'w-full form-input', placeholder: 'e.g., gemini-1.5-flash-latest' })
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-2' }, 'Flash Lite Model Name (V2)'),
+                                React.createElement('input', { type: 'text', name: 'v2_liteModelName', value: localSettings.v2_liteModelName, onChange: handleChange, className: 'w-full form-input', placeholder: 'e.g., gemini-1.5-flash-lite-001' })
+                            )
+                        )
+                    )
+                ),
 
-                {/* Integrations Section */}
-                <div className="border-t border-gray-700 pt-10 max-w-2xl">
-                     <h1 className="text-3xl font-bold mb-2">Integrations</h1>
-                     <p className="text-gray-400 mb-6">Connect to external services.</p>
-                     <window.WordpressSettings settings={settings} onSave={onSave} />
-                </div>
+                // Integrations Section
+                React.createElement('div', { className: 'border-t border-gray-700 pt-10 max-w-2xl' },
+                    React.createElement('h1', { className: 'text-3xl font-bold mb-2' }, 'Integrations'),
+                    React.createElement('p', { className: 'text-gray-400 mb-6' }, 'Connect to external services.'),
+                    React.createElement(window.WordpressSettings, { settings: settings, onSave: onSave })
+                ),
                 
-                {/* --- Data Management Section --- */}
-                <div className="border-t border-gray-700 pt-10 max-w-2xl">
-                    <h1 className="text-3xl font-bold mb-2">Data Management</h1>
+                // --- Data Management Section ---
+                React.createElement('div', { className: 'border-t border-gray-700 pt-10 max-w-2xl' },
+                    React.createElement('h1', { className: 'text-3xl font-bold mb-2' }, 'Data Management'),
 
-                    {/* --- One-Off Updater Tool --- */}
-                    <window.OneOffWordPressUpdater appState={appState} />
+                    // --- One-Off Updater Tool ---
+                    React.createElement(window.OneOffWordPressUpdater, { appState: appState }),
 
-                    <hr className="my-8 border-gray-700" />
+                    React.createElement('hr', { className: 'my-8 border-gray-700' }),
                     
-                    {/* --- Data Cleanup Tool --- */}
-                    <div className="bg-gray-800/60 border border-gray-700 p-6 rounded-lg">
-                        <h3 className="text-xl font-bold mb-4">Data Cleanup Tool</h3>
-                        <p className="mb-4 text-gray-400">
-                            If a previous import failed, you might have duplicate posts. Run this cleanup tool once to find and remove them.
-                        </p>
-                        {!isDeduplicating && !deduplicationSuccess && (
-                            <button 
-                                onClick={handleRunDeduplicator} 
-                                className="btn btn-secondary"
-                                disabled={!isConnectionReady}
-                            >
-                                {isConnectionReady ? 'Find & Remove Duplicates' : 'Connecting...'}
-                            </button>
-                        )}
-                        {isDeduplicating && (
-                            <div className="flex items-center space-x-2">
-                                <window.LoadingSpinner isButton={false} />
-                                <p className="text-gray-300 font-medium">{deduplicationProgress}</p>
-                            </div>
-                        )}
-                        {!isDeduplicating && deduplicationError && <p className="text-red-400 mt-4 font-semibold">{deduplicationError}</p>}
-                        {!isDeduplicating && deduplicationSuccess && <p className="text-green-400 font-semibold mt-4">{deduplicationSuccess}</p>}
-                    </div>
-                </div>
+                    // --- Data Cleanup Tool ---
+                    React.createElement('div', { className: 'bg-gray-800/60 border border-gray-700 p-6 rounded-lg' },
+                        React.createElement('h3', { className: 'text-xl font-bold mb-4' }, 'Data Cleanup Tool'),
+                        React.createElement('p', { className: 'mb-4 text-gray-400' },
+                            'If a previous import failed, you might have duplicate posts. Run this cleanup tool once to find and remove them.'
+                        ),
+                        !isDeduplicating && !deduplicationSuccess && (
+                            React.createElement('button', {
+                                onClick: handleRunDeduplicator,
+                                className: 'btn btn-secondary',
+                                disabled: !isConnectionReady
+                            },
+                                isConnectionReady ? 'Find & Remove Duplicates' : 'Connecting...'
+                            )
+                        ),
+                        isDeduplicating && (
+                            React.createElement('div', { className: 'flex items-center space-x-2' },
+                                React.createElement(window.LoadingSpinner, { isButton: false }),
+                                React.createElement('p', { className: 'text-gray-300 font-medium' }, deduplicationProgress)
+                            )
+                        ),
+                        !isDeduplicating && deduplicationError && React.createElement('p', { className: 'text-red-400 mt-4 font-semibold' }, deduplicationError),
+                        !isDeduplicating && deduplicationSuccess && React.createElement('p', { className: 'text-green-400 font-semibold mt-4' }, deduplicationSuccess)
+                    ),
+
+                    // MODIFICATION: Added PWA Cache Clearing Tool
+                    React.createElement('hr', { className: 'my-8 border-gray-700' }),
+                    React.createElement('div', { className: 'bg-gray-800/60 border border-red-500/50 p-6 rounded-lg' },
+                        React.createElement('h3', { className: 'text-xl font-bold mb-4 text-red-400' }, 'PWA Cache Tool (For Development)'),
+                        React.createElement('p', { className: 'mb-4 text-gray-400' },
+                            'If you\'ve updated the app\'s code and aren\'t seeing the changes in the installed PWA, use this button to force clear all cached files and reload the application.'
+                        ),
+                        !isClearingCache && !cacheClearSuccess && (
+                            React.createElement('button', {
+                                onClick: handleClearCache,
+                                className: 'btn btn-danger' // Assuming you have a danger button style
+                            },
+                                'Clear PWA Cache & Reload'
+                            )
+                        ),
+                        isClearingCache && (
+                             React.createElement('div', { className: 'flex items-center space-x-2' },
+                                React.createElement(window.LoadingSpinner, { isButton: false }),
+                                React.createElement('p', { className: 'text-gray-300 font-medium' }, cacheClearSuccess || 'Clearing cache...')
+                            )
+                        ),
+                         !isClearingCache && cacheClearError && React.createElement('p', { className: 'text-red-400 mt-4 font-semibold' }, cacheClearError)
+                    )
+                ),
                 
-                <div className="mt-12 pt-8 border-t border-gray-700 text-right max-w-2xl">
-                    <button onClick={handleSaveAll} className="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors text-lg">
-                        Save All Technical Settings
-                    </button>
-                </div>
-            </div>
-        </div>
+                React.createElement('div', { className: 'mt-12 pt-8 border-t border-gray-700 text-right max-w-2xl' },
+                    React.createElement('button', { onClick: handleSaveAll, className: 'px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors text-lg' },
+                        'Save All Technical Settings'
+                    )
+                )
+            )
+        )
     );
 };
