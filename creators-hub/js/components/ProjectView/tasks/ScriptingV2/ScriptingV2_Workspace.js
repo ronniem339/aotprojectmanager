@@ -1,7 +1,6 @@
-// creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
+// creators-hub/js/components/ProjectVew/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect, useRef } = React;
-// MODIFICATION: Added learnFromTranscriptAI to the imports.
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI } = window;
 const { useDebounce } = window;
 
@@ -11,8 +10,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
     const [isBlueprintFullScreen, setIsBlueprintFullScreen] = useState(false);
-
-    // MODIFICATION: Added a ref to track the processed transcript.
     const processedTranscriptRef = useRef(null);
 
     useEffect(() => {
@@ -25,13 +22,10 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         }
     }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
 
-    // MODIFICATION: Added useEffect to learn from the transcript when it changes.
     useEffect(() => {
         if (blueprint?.transcript && blueprint.transcript !== processedTranscriptRef.current) {
             console.log("New transcript detected. Learning from it...");
-            // Run the learning process in the background.
             learnFromTranscriptAI(blueprint.transcript, project.id);
-            // Update the ref to the current transcript.
             processedTranscriptRef.current = blueprint.transcript;
         }
     }, [blueprint?.transcript, project.id]);
@@ -77,7 +71,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         });
     };
 
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-hidden text-white' },
+    // MODIFICATION: Changed 'overflow-hidden' to 'overflow-y-auto' to allow scrolling on smaller screens.
+    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-y-auto text-white' },
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
                 React.createElement('h2', { className: 'text-2xl font-bold' },
@@ -93,7 +88,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                     `
                 },
                     React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                    React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 custom-scrollbar' }, renderCurrentStepContent())
+                    // This inner div no longer needs to scroll, the main container will handle it.
+                    React.createElement('div', { className: 'flex-grow' }, renderCurrentStepContent())
                 ),
                 React.createElement('div', { 
                     className: `
