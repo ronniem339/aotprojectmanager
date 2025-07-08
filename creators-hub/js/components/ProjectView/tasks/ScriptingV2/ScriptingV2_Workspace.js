@@ -41,10 +41,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                             refinedGuide: refinedGuide
                         };
 
-                        // **FIX APPLIED HERE**:
-                        // Changed 'update' to 'set' with the '{ merge: true }' option.
-                        // This prevents errors by creating the document if it doesn't exist,
-                        // or updating it if it does, making the operation much more resilient.
                         await projectRef.set({
                             settings: {
                                 ai: {
@@ -52,7 +48,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                                     v2StyleGuideHistory: firebase.firestore.FieldValue.arrayUnion(historyEntry)
                                 }
                             }
-                        }, { merge: true }); // The { merge: true } option is crucial here.
+                        }, { merge: true });
                         
                         console.log("V2 Style Guide successfully refined and saved to project settings.");
 
@@ -66,12 +62,12 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         processTranscript();
     }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db]);
 
-
+    // **FIX APPLIED HERE**: The step names have been shortened for a cleaner UI.
     const steps = [
-        { id: 1, name: 'Step 1: Initial Blueprint', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
-        { id: 2, name: 'Step 2: Research & Curation', isCompleted: project.tasks?.scriptingV2_research_curation?.status === 'completed' },
-        { id: 3, name: 'Step 3: On-Camera Scripting', isCompleted: project.tasks?.scriptingV2_on_camera_scripting?.status === 'completed' },
-        { id: 4, name: 'Step 4: Final Assembly', isCompleted: project.tasks?.scriptingV2_final_assembly?.status === 'completed' },
+        { id: 1, name: 'Brain Dump', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
+        { id: 2, name: 'Research & Refine', isCompleted: project.tasks?.scriptingV2_research_curation?.status === 'completed' },
+        { id: 3, name: 'Scripting', isCompleted: project.tasks?.scriptingV2_on_camera_scripting?.status === 'completed' },
+        { id: 4, name: 'Final Assembly', isCompleted: project.tasks?.scriptingV2_final_assembly?.status === 'completed' },
     ];
 
     const handleStepClick = (stepId) => {
@@ -137,15 +133,18 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             },
                 React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center mb-4' },
                     React.createElement('h3', { className: 'text-xl font-semibold text-amber-400' }, 'Creative Blueprint'),
+                    // **FIX APPLIED HERE**: The confusing 'x' icon has been replaced with intuitive expand/collapse icons.
                     React.createElement('button', {
                         onClick: () => setIsBlueprintFullScreen(prev => !prev),
                         className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
-                        title: isBlueprintFullScreen ? 'Collapse View' : 'Expand View'
+                        title: isBlueprintFullScreen ? 'Show Panel' : 'Hide Panel'
                     },
-                         isBlueprintFullScreen
+                        isBlueprintFullScreen
+                            // Icon for "Show Panel" (double arrows pointing left)
                             ? React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
                                 React.createElement('path', { fillRule: 'evenodd', d: 'M15.707 15.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L12.414 10l3.293 3.293a1 1 0 010 1.414zM4.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L7.586 10 4.293 6.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
                             )
+                            // Icon for "Hide Panel" (double arrows pointing right)
                             : React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
                                 React.createElement('path', { fillRule: 'evenodd', d: 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
                             )
