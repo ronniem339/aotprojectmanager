@@ -22,13 +22,15 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         }
     }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
 
+    // **FIX APPLIED HERE**
+    // The conditional check now correctly looks for 'blueprint.fullTranscript' instead of 'blueprint.transcript'.
     useEffect(() => {
-        if (blueprint?.transcript && blueprint.transcript !== processedTranscriptRef.current) {
+        if (blueprint?.fullTranscript && blueprint.fullTranscript !== processedTranscriptRef.current) {
             console.log("New transcript detected. Learning from it...");
-            learnFromTranscriptAI(blueprint.transcript, project.id);
-            processedTranscriptRef.current = blueprint.transcript;
+            learnFromTranscriptAI(blueprint.fullTranscript, project.id);
+            processedTranscriptRef.current = blueprint.fullTranscript;
         }
-    }, [blueprint?.transcript, project.id]);
+    }, [blueprint?.fullTranscript, project.id]);
 
     const steps = [
         { id: 1, name: 'Step 1: Initial Blueprint', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
@@ -66,12 +68,10 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             video: video,
             settings: settings,
             isFullScreen: isBlueprintFullScreen,
-            // **CHANGE**: Pass the currentStep down to the blueprint display.
             currentStep: currentStep
         });
     };
 
-    // **CHANGE**: Main container now uses flexbox to manage height correctly.
     return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 text-white flex flex-col' },
         saveStatus === 'saved' && React.createElement(
             'div',
@@ -85,7 +85,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             ),
             React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
         ),
-        // **CHANGE**: This container now correctly manages the two columns.
         React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
             React.createElement('div', {
                 className: `
@@ -93,7 +92,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 `
             },
                 React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                // **CHANGE**: This content area is now scrollable.
                 React.createElement('div', { className: 'flex-grow mt-6 overflow-y-auto custom-scrollbar pr-4' }, renderCurrentStepContent())
             ),
             React.createElement('div', {
