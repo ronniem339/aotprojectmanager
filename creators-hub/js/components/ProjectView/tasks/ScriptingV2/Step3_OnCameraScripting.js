@@ -1,27 +1,36 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step3_OnCameraScripting.js
 
 const { useState, useEffect } = React;
-// mapTranscriptToBlueprintAI and refineBlueprintFromTranscriptAI are now called via handlers.triggerAiTask
-// const { mapTranscriptToBlueprintAI, refineBlueprintFromTranscriptAI = window;
 
 window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) => {
     // Access handlers from useAppState
     const { handlers } = window.useAppState();
 
-    // Initialize state for view and fullTranscript from the blueprint for persistence
-    const [view, setViewInternal] = useState(blueprint?.scriptingV2_view_mode || 'main'); // 'main', 'import', 'shotByShot', 'refineBlueprint', 'resolveAmbiguity'
+    const [view, setViewInternal] = useState(blueprint?.scriptingV2_view_mode || 'main');
     const [fullTranscript, setFullTranscriptInternal] = useState(blueprint?.fullTranscript || '');
-
-    const [isProcessing, setIsProcessing] = useState(false); // Local state for button disabling/immediate feedback
-    const [processingMessage, setProcessingMessage] = useState(''); // Local message for immediate feedback
-    const [error, setError] = useState(''); // Local error for direct component display
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState('');
+    const [error, setError] = useState('');
     const [blueprintSuggestions, setBlueprintSuggestions] = useState([]);
     const [selectedSuggestions, setSelectedSuggestions] = useState(new Set());
-
     const [ambiguousDialogueSegments, setAmbiguousDialogueSegments] = useState([]);
     const [resolvedAmbiguityChoices, setResolvedAmbiguityChoices] = useState({});
 
-    // Helper to update view state and persist to blueprint
+    // **NEW**: State to manage collapsed cards in the shot-by-shot view
+    const [collapsedShots, setCollapsedShots] = useState({});
+
+    // Initialize collapsed state when blueprint shots are loaded
+    useEffect(() => {
+        const initialCollapsedState = {};
+        (blueprint?.shots || []).forEach(shot => {
+            if (shot.shot_type?.toLowerCase().includes('drone')) {
+                initialCollapsedState[shot.shot_id] = true;
+            }
+        });
+        setCollapsedShots(initialCollapsedState);
+    }, [blueprint?.shots]);
+
+
     const setViewAndPersist = (newView) => {
         setViewInternal(newView);
         setBlueprint(prevBlueprint => ({
@@ -30,7 +39,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         }));
     };
 
-    // Helper to update fullTranscript state and persist to blueprint
     const setFullTranscriptAndPersist = (newTranscript) => {
         setFullTranscriptInternal(newTranscript);
         setBlueprint(prevBlueprint => ({
@@ -39,7 +47,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         }));
     };
 
-    // Effect to re-hydrate local states if blueprint changes externally (e.g., loaded from Firestore)
     useEffect(() => {
         if (blueprint?.fullTranscript !== undefined && blueprint.fullTranscript !== fullTranscript) {
             setFullTranscriptInternal(blueprint.fullTranscript || '');
@@ -47,14 +54,12 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         if (blueprint?.scriptingV2_view_mode !== undefined && blueprint.scriptingV2_view_mode !== view) {
             setViewInternal(blueprint.scriptingV2_view_mode || 'main');
         }
-    }, [blueprint]); // Depend on the entire blueprint object
+    }, [blueprint]);
 
-    // Effect to clean up local errors when view changes or process completes/starts
     useEffect(() => {
         setError('');
         setProcessingMessage('');
     }, [view, isProcessing]);
-
 
     const handleMapTranscript = async () => {
         if (!fullTranscript.trim()) {
@@ -63,13 +68,12 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             return;
         }
         setIsProcessing(true);
-        setProcessingMessage('Mapping transcript to shots...'); // ADDED: Initial message for local status bar
-        setError(''); // Clear previous local errors
+        setProcessingMessage('Mapping transcript to shots...');
+        setError('');
 
         const mapTaskId = `scriptingV2-map-transcript-${video.id}-${Date.now()}`;
 
         try {
-            // 1. Map Dialogue to Existing Shots (AI will now return both types of dialogue)
             const mappedDialogueResult = await handlers.triggerAiTask({
                 id: mapTaskId,
                 type: 'scriptingV2-map-transcript',
@@ -88,24 +92,20 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
                     let tempBlueprintForProcessing = {
                         ...blueprint,
-                        // Persist the fullTranscript entered by the user
                         fullTranscript: fullTranscript,
                         shots: blueprint.shots.map(shot => ({
                             ...shot,
-                            // Clear ai_reason when re-processing to ensure fresh state
                             ai_reason: '',
                             on_camera_dialogue: result[shot.shot_id]?.on_camera_dialogue || '',
                             voiceover_script: result[shot.shot_id]?.voiceover_script || ''
                         }))
                     };
 
-                    // Identify ambiguous dialogue segments for user confirmation
                     const ambiguities = [];
                     tempBlueprintForProcessing.shots.forEach(shot => {
                         const isNonOnCameraShot = ['B-Roll', 'Location', 'Activity', 'Product', 'Footage_Only'].includes(shot.shot_type);
                         const isDroneShot = shot.shot_type === 'Drone';
 
-                        // An ambiguity arises if an On-Camera dialogue is found on a non-On-Camera/non-Drone shot type.
                         if (isNonOnCameraShot && !isDroneShot && shot.on_camera_dialogue.trim() !== '') {
                             ambiguities.push({
                                 shot_id: shot.shot_id,
@@ -113,22 +113,20 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                                 shot_description: shot.shot_description,
                                 location_tag: shot.location_tag,
                                 dialogue: shot.on_camera_dialogue,
-                                ai_classification: 'on_camera_dialogue' // AI thinks it's on-camera but type suggests voiceover
+                                ai_classification: 'on_camera_dialogue'
                             });
-                            // Temporarily move to voiceover_script, user will confirm
                             shot.voiceover_script = shot.on_camera_dialogue;
                             shot.on_camera_dialogue = '';
                         }
                     });
 
-                    setBlueprint(tempBlueprintForProcessing); // Update blueprint with mapped dialogue and persisted transcript
+                    setBlueprint(tempBlueprintForProcessing);
 
                     if (ambiguities.length > 0) {
                         setAmbiguousDialogueSegments(ambiguities);
                         setProcessingMessage('Ambiguous dialogue detected. Awaiting your confirmation.');
-                        setViewAndPersist('resolveAmbiguity'); // Use the new setter
+                        setViewAndPersist('resolveAmbiguity');
                     } else {
-                        // If no ambiguities, directly proceed to blueprint refinement
                         handleRefineBlueprint(tempBlueprintForProcessing);
                     }
                 },
@@ -147,8 +145,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
     const handleRefineBlueprint = async (currentBlueprintState) => {
         setIsProcessing(true);
-        setError(''); // Clear previous local errors
-        setProcessingMessage('Analyzing transcript for blueprint refinements...'); // Already present and good
+        setError('');
+        setProcessingMessage('Analyzing transcript for blueprint refinements...');
 
         const refineTaskId = `scriptingV2-refine-blueprint-${video.id}-${Date.now()}`;
 
@@ -159,19 +157,19 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 name: 'Refining Blueprint',
                 aiFunction: window.aiUtils.refineBlueprintFromTranscriptAI,
                 args: {
-                    fullTranscript, // Pass the persisted fullTranscript
-                    blueprint: currentBlueprintState, // Use the blueprint with applied mappings
+                    fullTranscript,
+                    blueprint: currentBlueprintState,
                     settings
                 },
                 onSuccess: (result) => {
                     if (result && result.suggestions && result.suggestions.length > 0) {
                         setBlueprintSuggestions(result.suggestions);
-                        setSelectedSuggestions(new Set(result.suggestions.map((_, i) => i))); // Select all by default
+                        setSelectedSuggestions(new Set(result.suggestions.map((_, i) => i)));
                         setProcessingMessage('Refinement suggestions ready for review.');
-                        setViewAndPersist('refineBlueprint'); // Use the new setter
+                        setViewAndPersist('refineBlueprint');
                     } else {
                         setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.');
-                        setViewAndPersist('shotByShot'); // Use the new setter
+                        setViewAndPersist('shotByShot');
                     }
                 },
                 onFailure: (err) => {
@@ -187,7 +185,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         }
     };
 
-
     const handleShotCardDialogueChange = (shotId, field, value) => {
         const updatedShots = blueprint.shots.map(shot => {
             if (shot.shot_id === shotId) {
@@ -197,7 +194,76 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         });
         setBlueprint({ ...blueprint, shots: updatedShots });
     };
+    
+    // **NEW**: Handler to toggle the collapsed state of a shot
+    const handleToggleShotCollapse = (shotId) => {
+        setCollapsedShots(prev => ({ ...prev, [shotId]: !prev[shotId] }));
+    };
 
+    // **NEW**: Function to get the border color class based on shot type
+    const getShotTypeStyles = (shotType) => {
+        const type = shotType?.toLowerCase() || '';
+        if (type.includes('on-camera')) return 'border-l-4 border-blue-500';
+        if (type.includes('b-roll')) return 'border-l-4 border-green-500';
+        if (type.includes('drone')) return 'border-l-4 border-purple-500';
+        return 'border-l-4 border-gray-600';
+    };
+
+
+    const renderShotByShotView = () => (
+        React.createElement('div', { className: 'flex flex-col h-full' },
+            React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Shot-by-Shot Dialogue"),
+            ),
+            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' },
+                (blueprint?.shots || []).map(shot => {
+                    const isCollapsed = collapsedShots[shot.shot_id];
+                    const cardBorderStyle = getShotTypeStyles(shot.shot_type);
+
+                    return React.createElement('div', {
+                        key: shot.shot_id,
+                        className: `bg-gray-800/70 p-4 rounded-xl border mb-4 ${cardBorderStyle}`
+                    },
+                        React.createElement('div', { className: 'flex justify-between items-start mb-2' },
+                            React.createElement('div', { className: 'flex-grow' },
+                                React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
+                                shot.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${shot.location_tag}`),
+                                React.createElement('p', { className: 'text-sm text-gray-400' }, shot.shot_description)
+                            ),
+                            React.createElement('button', {
+                                onClick: () => handleToggleShotCollapse(shot.shot_id),
+                                className: 'text-gray-400 hover:text-white text-sm'
+                            }, isCollapsed ? 'Show' : 'Hide')
+                        ),
+                        !isCollapsed && React.createElement('div', { className: 'mt-3 pt-3 border-t border-gray-700/60' },
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-1 mt-3' }, 'On-Camera Dialogue (seen speaking):'),
+                            React.createElement('textarea', {
+                                value: shot.on_camera_dialogue || '',
+                                onChange: (e) => handleShotCardDialogueChange(shot.shot_id, 'on_camera_dialogue', e.target.value),
+                                rows: 3,
+                                className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent mb-3',
+                                placeholder: 'Enter on-camera dialogue for this shot...'
+                            }),
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-1' }, 'Voiceover Script (heard over visuals):'),
+                            React.createElement('textarea', {
+                                value: shot.voiceover_script || '',
+                                onChange: (e) => handleShotCardDialogueChange(shot.shot_id, 'voiceover_script', e.target.value),
+                                rows: 3,
+                                className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:focus:border-primary-accent',
+                                placeholder: 'Enter voiceover script for this shot...'
+                            })
+                        )
+                    )
+                })
+            )
+        )
+    );
+
+    // The rest of the functions (handleToggleSuggestion, applyBlueprintSuggestions, etc.) and
+    // the other render views (renderMainView, renderImportView, etc.) remain unchanged.
+
+    // --- PASTE THE UNCHANGED FUNCTIONS HERE ---
     const handleToggleSuggestion = (index) => {
         const newSelection = new Set(selectedSuggestions);
         if (newSelection.has(index)) {
@@ -219,7 +285,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             }
 
             if (suggestion.type === 'add') {
-                // Ensure unique scene_id for new shots if it's a new narrative purpose
                 const newShot = {
                     shot_id: `generated_shot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                     shot_type: suggestion.shot_type || 'New Shot',
@@ -228,10 +293,10 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     voiceover_script: '',
                     ai_research_notes: [],
                     creator_experience_notes: '',
-                    estimated_time_seconds: suggestion.estimated_time_seconds || 5, // Use AI provided time if available
-                    scene_id: suggestion.scene_id || `scene_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Ensure scene_id for new shots
-                    scene_narrative_purpose: suggestion.scene_narrative_purpose || 'New Scene', // Ensure purpose for new shots
-                    ai_reason: suggestion.reason || '' // FIXED: Ensure ai_reason is always a string
+                    estimated_time_seconds: suggestion.estimated_time_seconds || 5,
+                    scene_id: suggestion.scene_id || `scene_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                    scene_narrative_purpose: suggestion.scene_narrative_purpose || 'New Scene',
+                    ai_reason: suggestion.reason || ''
                 };
 
                 const placement = suggestion.placement_suggestion;
@@ -243,13 +308,13 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         } else if (placement.position === 'after') {
                             currentShots.splice(relativeShotIndex + 1, 0, newShot);
                         } else {
-                            currentShots.push(newShot); // Default to end if position is invalid
+                            currentShots.push(newShot);
                         }
                     } else {
-                        currentShots.push(newShot); // Default to end if relative_to_shot_id not found
+                        currentShots.push(newShot);
                     }
                 } else {
-                    currentShots.push(newShot); // Default to end if no placement suggestion
+                    currentShots.push(newShot);
                 }
 
             } else if (suggestion.type === 'modify') {
@@ -258,9 +323,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         return {
                             ...shot,
                             shot_description: suggestion.shot_description || shot.shot_description,
-                            // If AI suggests new narrative purpose, update it
                             scene_narrative_purpose: suggestion.scene_narrative_purpose || shot.scene_narrative_purpose,
-                            ai_reason: suggestion.reason || '' // FIXED: Ensure ai_reason is always a string
+                            ai_reason: suggestion.reason || ''
                         };
                     }
                     return shot;
@@ -275,7 +339,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setSelectedSuggestions(new Set());
         setProcessingMessage('Suggestions applied. Moving to shot-by-shot view.');
         setIsProcessing(false);
-        setViewAndPersist('shotByShot'); // Use the new setter
+        setViewAndPersist('shotByShot');
     };
 
     const handleAmbiguityChoice = (shotId, choice) => {
@@ -299,7 +363,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                             ...shot,
                             on_camera_dialogue: choice === 'on_camera_dialogue' ? segment.dialogue : '',
                             voiceover_script: choice === 'voiceover_script' ? segment.dialogue : '',
-                            ai_reason: `Resolved ambiguity: classified as ${choice}` // This already generates a string
+                            ai_reason: `Resolved ambiguity: classified as ${choice}`
                         };
                     }
                     return shot;
@@ -308,12 +372,11 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         });
 
         const tempBlueprintAfterResolution = { ...blueprint, shots: updatedShots };
-        setBlueprint(tempBlueprintAfterResolution); // Update blueprint with resolved dialogue
+        setBlueprint(tempBlueprintAfterResolution);
 
-        // After resolving ambiguities, proceed to blueprint refinement
         handleRefineBlueprint(tempBlueprintAfterResolution);
 
-        setIsProcessing(false); // This will be set to false by handleRefineBlueprint's finally block
+        setIsProcessing(false);
     };
 
 
@@ -323,11 +386,11 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             React.createElement('p', { className: 'text-gray-400 mb-6' }, "How would you like to add your on-camera dialogue?"),
             React.createElement('div', { className: 'flex justify-center gap-4' },
                 React.createElement('button', {
-                    onClick: () => setViewAndPersist('import'), // Use the new setter
+                    onClick: () => setViewAndPersist('import'),
                     className: 'button-primary'
                 }, '📝 Import Full Transcript'),
                 React.createElement('button', {
-                    onClick: () => setViewAndPersist('shotByShot'), // Use the new setter
+                    onClick: () => setViewAndPersist('shotByShot'),
                     className: 'button-secondary'
                 }, '✍️ Write Shot-by-Shot')
             )
@@ -337,13 +400,13 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderImportView = () => (
         React.createElement('div', {},
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Import Transcript"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "Paste your entire on-camera transcript below. The AI will attempt to assign dialogue to shots. You may be asked to clarify ambiguous segments."),
             React.createElement('textarea', {
                 value: fullTranscript,
-                onChange: (e) => setFullTranscriptAndPersist(e.target.value), // Use the new setter
+                onChange: (e) => setFullTranscriptAndPersist(e.target.value),
                 rows: 15,
                 className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent',
                 placeholder: 'Paste your full transcript here...'
@@ -361,7 +424,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderResolveAmbiguityView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Resolve Ambiguous Dialogue"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI found dialogue segments that could be either on-camera or voiceover based on the shot type. Please clarify for each:"),
@@ -414,7 +477,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderRefineBlueprintView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Review Blueprint Suggestions"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Select the ones you wish to apply."),
@@ -437,15 +500,13 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                                 React.createElement('input', {
                                     type: 'checkbox',
                                     checked: isSelected,
-                                    onChange: () => handleToggleSuggestion(index), // Use onChange here as well for direct checkbox interaction
+                                    onChange: () => handleToggleSuggestion(index),
                                     className: 'h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent'
                                 })
                             ),
-                            // Display user-friendly information based on suggestion type
                             suggestion.type === 'add' && React.createElement('div', null,
                                 React.createElement('p', { className: 'text-sm text-gray-300' }, `Type: ${suggestion.shot_type}`),
                                 React.createElement('p', { className: 'text-sm text-gray-300' }, `New Description: ${suggestion.shot_description}`),
-                                // ADDED: Display placement suggestion for new shots
                                 suggestion.placement_suggestion && React.createElement('p', { className: 'text-sm text-gray-500 mt-1' },
                                     `Suggested Placement: ${suggestion.placement_suggestion.position} existing shot "${
                                         blueprint.shots.find(s => s.shot_id === suggestion.placement_suggestion.relative_to_shot_id)?.shot_description || suggestion.placement_suggestion.relative_to_shot_id
@@ -471,40 +532,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     disabled: selectedSuggestions.size === 0 || isProcessing,
                     className: 'button-primary disabled:opacity-50'
                 }, isProcessing ? processingMessage : '✅ Apply Selected Suggestions & Continue')
-            )
-        )
-    );
-
-    const renderShotByShotView = () => (
-        React.createElement('div', { className: 'flex flex-col h-full' },
-            React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'), // Use the new setter
-                React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Shot-by-Shot Dialogue"),
-            ),
-            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' },
-                (blueprint?.shots || []).map(shot =>
-                    React.createElement('div', { key: shot.shot_id, className: 'bg-gray-800/70 p-4 rounded-xl border border-gray-700 mb-4' },
-                        React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
-                        shot.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${shot.location_tag}`),
-                        React.createElement('p', { className: 'text-sm text-gray-400 mb-3' }, shot.shot_description),
-                        React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-1 mt-3' }, 'On-Camera Dialogue (seen speaking):'),
-                        React.createElement('textarea', {
-                            value: shot.on_camera_dialogue || '',
-                            onChange: (e) => handleShotCardDialogueChange(shot.shot_id, 'on_camera_dialogue', e.target.value),
-                            rows: 3,
-                            className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:border-primary-accent mb-3',
-                            placeholder: 'Enter on-camera dialogue for this shot...'
-                        }),
-                        React.createElement('label', { className: 'block text-sm font-medium text-gray-300 mb-1' }, 'Voiceover Script (heard over visuals):'),
-                        React.createElement('textarea', {
-                            value: shot.voiceover_script || '',
-                            onChange: (e) => handleShotCardDialogueChange(shot.shot_id, 'voiceover_script', e.target.value),
-                            rows: 3,
-                            className: 'w-full form-textarea bg-gray-900 border-gray-600 focus:ring-primary-accent focus:focus:border-primary-accent',
-                            placeholder: 'Enter voiceover script for this shot...'
-                        })
-                    )
-                )
             )
         )
     );
