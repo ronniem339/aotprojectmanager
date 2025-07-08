@@ -1,13 +1,13 @@
-// creators-hub/js/components/ProjectVew/tasks/ScriptingV2/ScriptingV2_Workspace.js
+// creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect, useRef } = React;
-// REMOVED: MemoryJogger from window destructuring
 const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI } = window;
 const { useDebounce } = window;
 
-// REMOVED: fetchPlaceDetails and updateFootageInventoryItem from props
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask }) => {
-    const { blueprint, setBlueprint, isLoading, error } = useBlueprint(video, project, userId, db);
+    // **MODIFICATION**: Destructure the new 'saveStatus' from the useBlueprint hook.
+    const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db);
+
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
@@ -44,7 +44,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        // REMOVED: fetchPlaceDetails and updateFootageInventoryItem from props passed to steps
         const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, triggerAiTask };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
@@ -68,12 +67,17 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             project: project,
             video: video,
             settings: settings,
-            // REMOVED: fetchPlaceDetails and updateFootageInventoryItem props
             isFullScreen: isBlueprintFullScreen
         });
     };
 
     return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-y-auto text-white' },
+        // **NEW UI ELEMENT**: This div will appear when saveStatus is 'saved'.
+        saveStatus === 'saved' && React.createElement(
+            'div',
+            { className: 'fixed bottom-5 right-5 bg-green-600 text-white py-2 px-4 rounded-lg shadow-xl z-50 animate-pulse' },
+            '✅ Saved!'
+        ),
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
                 React.createElement('h2', { className: 'text-2xl font-bold' },
