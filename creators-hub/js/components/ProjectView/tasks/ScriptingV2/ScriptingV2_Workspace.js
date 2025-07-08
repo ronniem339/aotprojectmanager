@@ -23,14 +23,14 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
 
     // **FIX APPLIED HERE**
-    // The conditional check now correctly looks for 'blueprint.fullTranscript' instead of 'blueprint.transcript'.
+    // The call to learnFromTranscriptAI now correctly includes the 'settings' object.
     useEffect(() => {
         if (blueprint?.fullTranscript && blueprint.fullTranscript !== processedTranscriptRef.current) {
             console.log("New transcript detected. Learning from it...");
-            learnFromTranscriptAI(blueprint.fullTranscript, project.id);
+            learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings); // <-- settings added here
             processedTranscriptRef.current = blueprint.fullTranscript;
         }
-    }, [blueprint?.fullTranscript, project.id]);
+    }, [blueprint?.fullTranscript, project.id, settings]); // <-- settings added to dependency array
 
     const steps = [
         { id: 1, name: 'Step 1: Initial Blueprint', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
