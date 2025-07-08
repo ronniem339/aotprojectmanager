@@ -1,32 +1,22 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ShotCard.js
-window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isCompleted, onToggleComplete }) => {
+window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isCompleted, onToggleComplete, currentStep }) => {
     const { useState, useEffect } = React;
 
-    // **NEW**: State to manage the card's overall collapsed state.
-    // Drones are collapsed by default.
     const [isCardCollapsed, setIsCardCollapsed] = useState(() =>
         shot.shot_type?.toLowerCase().includes('drone')
     );
-
-    // State for the AI research notes section.
     const [isAiResearchNotesCollapsed, setIsAiResearchNotesCollapsed] = useState(true);
-
-    // **NEW**: State for the voiceover section. Collapsed if no script exists.
     const [isVoiceoverCollapsed, setIsVoiceoverCollapsed] = useState(() => !shot.voiceover_script);
 
     useEffect(() => {
-        // Auto-expand the research notes if they are added after the component mounts.
         if (shot.ai_research_notes && shot.ai_research_notes.length > 0) {
             setIsAiResearchNotesCollapsed(false);
         }
-        // Auto-expand the voiceover if it's added.
         if (shot.voiceover_script) {
             setIsVoiceoverCollapsed(false);
         }
     }, [shot.ai_research_notes, shot.voiceover_script]);
 
-
-    // **NEW**: Dynamic styling based on shot type.
     const getShotTypeStyles = (shotType) => {
         const type = shotType?.toLowerCase() || '';
         if (type.includes('on-camera')) {
@@ -78,14 +68,15 @@ window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isComp
     },
         React.createElement('div', { className: 'flex justify-between items-start mb-2' },
             React.createElement('div', { className: 'flex items-center gap-3' },
-                React.createElement('input', {
+                // **CHANGE**: The checkbox is now only rendered if currentStep is 4.
+                currentStep === 4 && React.createElement('input', {
                     type: 'checkbox',
                     checked: isCompleted,
                     onChange: onToggleComplete,
                     title: 'Mark shot as complete',
                     className: `h-5 w-5 rounded bg-gray-700 border-gray-600 text-green-500 focus:ring-green-600 cursor-pointer flex-shrink-0 ${isCompleted ? 'ring-2 ring-green-500' : ''}`
                 }),
-                React.createElement('div', { className: 'flex-grow' },
+                React.createElement('div', { className: `flex-grow ${currentStep !== 4 ? 'ml-8' : ''}` },
                     React.createElement('h4', { className: 'font-bold text-md text-white' }, shot.shot_type || 'Untitled Shot'),
                     shot.location && React.createElement('p', { className: 'text-xs text-gray-400 font-mono flex items-center' },
                         React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-3 w-3 mr-1', fill:'none', viewBox: '0 0 24 24', stroke:'currentColor'},
@@ -96,17 +87,14 @@ window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isComp
                     )
                 )
             ),
-             // **NEW**: Master toggle for the entire card content
             React.createElement('div', {className: 'flex items-center gap-2'},
-                 React.createElement('span', { className: 'text-xs text-gray-400 font-mono' }, `~${shot.shot_duration_seconds || 0}s`),
-                 React.createElement('button', {
+                React.createElement('span', { className: 'text-xs text-gray-400 font-mono' }, `~${shot.shot_duration_seconds || 0}s`),
+                React.createElement('button', {
                     onClick: () => setIsCardCollapsed(prev => !prev),
                     className: 'text-gray-400 hover:text-white focus:outline-none text-sm'
                 }, isCardCollapsed ? 'Show Details' : 'Hide Details')
             )
         ),
-
-        // **MODIFICATION**: The entire body of the card is now collapsible
         !isCardCollapsed && React.createElement('div', { className: 'pl-8' },
             React.createElement('p', { className: 'text-sm text-gray-300 mb-2' }, shot.shot_description),
             renderStaticDetail('On-Camera Dialogue', shot.on_camera_dialogue, true),
