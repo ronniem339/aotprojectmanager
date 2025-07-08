@@ -22,15 +22,49 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         }
     }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
 
-    // **FIX APPLIED HERE**
-    // The call to learnFromTranscriptAI now correctly includes the 'settings' object.
+    // **FIX APPLIED HERE**:
+    // The useEffect hook is now an async function that handles the entire process correctly.
     useEffect(() => {
-        if (blueprint?.fullTranscript && blueprint.fullTranscript !== processedTranscriptRef.current) {
-            console.log("New transcript detected. Learning from it...");
-            learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings); // <-- settings added here
-            processedTranscriptRef.current = blueprint.fullTranscript;
-        }
-    }, [blueprint?.fullTranscript, project.id, settings]); // <-- settings added to dependency array
+        const processTranscript = async () => {
+            if (blueprint?.fullTranscript && blueprint.fullTranscript !== processedTranscriptRef.current) {
+                console.log("New transcript detected. Learning from it...");
+                processedTranscriptRef.current = blueprint.fullTranscript; // Mark as processed immediately to prevent re-running
+
+                // 1. Call the AI utility and wait for the refined guide.
+                const refinedGuide = await learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings);
+
+                // 2. If the AI returns a valid guide, save it to the database.
+                if (refinedGuide) {
+                    try {
+                        // **NOTE**: This assumes 'db' is the initialized Firestore instance.
+                        const projectRef = db.collection(`users/${userId}/projects`).doc(project.id);
+                        
+                        // Create a history entry for the refinement.
+                        const historyEntry = {
+                            timestamp: new Date(),
+                            source: `Transcript import from video: "${video.title}"`,
+                            changeSummary: "AI-refined style guide based on new transcript.",
+                            refinedGuide: refinedGuide
+                        };
+
+                        // 3. Update the user's project settings in Firestore.
+                        await projectRef.update({
+                            'settings.ai.v2StyleGuide': refinedGuide,
+                            'settings.ai.v2StyleGuideHistory': firebase.firestore.FieldValue.arrayUnion(historyEntry)
+                        });
+                        
+                        console.log("V2 Style Guide successfully refined and saved to project settings.");
+
+                    } catch (dbError) {
+                        console.error("Failed to save refined V2 Style Guide to Firestore:", dbError);
+                    }
+                }
+            }
+        };
+
+        processTranscript();
+    }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db]); // Dependencies for the effect
+
 
     const steps = [
         { id: 1, name: 'Step 1: Initial Blueprint', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
