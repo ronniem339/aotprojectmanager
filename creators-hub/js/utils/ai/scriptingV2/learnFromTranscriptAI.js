@@ -5,11 +5,9 @@
 // better understand the creator's unique voice, tone, and common phrasing.
 
 window.learnFromTranscriptAI = async (transcript, projectId, settings) => {
-    // **FIX APPLIED HERE**
-    // The aiUtils are now accessed inside the function call (Just-In-Time).
-    // This ensures that the window.aiUtils object is available when the function is
-    // actually invoked, solving the script loading order problem.
-    const { callGeminiAPI, getV2StyleGuide, updateV2StyleGuide } = window.aiUtils;
+    // **FIX APPLIED HERE**: Removed the incorrect 'getV2StyleGuide' and will access
+    // the style guide directly from the settings object.
+    const { callGeminiAPI, updateV2StyleGuide } = window.aiUtils;
 
     console.log("Learning from new transcript to refine V2 Style Guide...");
 
@@ -28,7 +26,14 @@ window.learnFromTranscriptAI = async (transcript, projectId, settings) => {
     }
 
     try {
-        const currentStyleGuide = getV2StyleGuide(settings);
+        // **FIX APPLIED HERE**: The style guide is now correctly accessed directly from the settings object.
+        // Added a fallback to a default structure to ensure it never fails.
+        const currentStyleGuide = settings.ai?.v2StyleGuide || {
+            tone_and_style: "Default tone",
+            common_phrases_or_idioms: [],
+            content_focus: "General",
+            structural_patterns: "Standard video structure"
+        };
 
         const prompt = `
             You are an AI assistant specializing in linguistic analysis and content strategy for YouTubers.
@@ -67,7 +72,7 @@ window.learnFromTranscriptAI = async (transcript, projectId, settings) => {
         };
 
         const refinedGuide = await callGeminiAPI(prompt, settings, { taskTier: 'background' }, { responseSchema });
-        
+
         await updateV2StyleGuide(projectId, refinedGuide, transcript);
 
         console.log("V2 Style Guide successfully refined and saved.");
