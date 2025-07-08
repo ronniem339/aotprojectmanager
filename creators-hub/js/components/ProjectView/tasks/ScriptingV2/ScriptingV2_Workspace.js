@@ -65,11 +65,14 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             project: project,
             video: video,
             settings: settings,
-            isFullScreen: isBlueprintFullScreen
+            isFullScreen: isBlueprintFullScreen,
+            // **CHANGE**: Pass the currentStep down to the blueprint display.
+            currentStep: currentStep
         });
     };
 
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 text-white flex flex-col' }, // MODIFIED: Removed overflow-y-auto here
+    // **CHANGE**: Main container now uses flexbox to manage height correctly.
+    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 text-white flex flex-col' },
         saveStatus === 'saved' && React.createElement(
             'div',
             { className: 'fixed bottom-5 right-5 bg-green-600 text-white py-2 px-4 rounded-lg shadow-xl z-50 animate-pulse' },
@@ -82,14 +85,15 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             ),
             React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
         ),
-        React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' }, // This ensures the container takes up remaining height
+        // **CHANGE**: This container now correctly manages the two columns.
+        React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
             React.createElement('div', {
                 className: `
                     ${isBlueprintFullScreen ? 'hidden' : 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col'}
                 `
             },
                 React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                // **FIX APPLIED HERE**: Added classes to make this container scrollable
+                // **CHANGE**: This content area is now scrollable.
                 React.createElement('div', { className: 'flex-grow mt-6 overflow-y-auto custom-scrollbar pr-4' }, renderCurrentStepContent())
             ),
             React.createElement('div', {
@@ -105,7 +109,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                         className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
                         title: isBlueprintFullScreen ? 'Collapse View' : 'Expand View'
                     },
-                        isBlueprintFullScreen
+                         isBlueprintFullScreen
                             ? React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
                                 React.createElement('path', { fillRule: 'evenodd', d: 'M15.707 15.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L12.414 10l3.293 3.293a1 1 0 010 1.414zM4.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L7.586 10 4.293 6.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
                             )
