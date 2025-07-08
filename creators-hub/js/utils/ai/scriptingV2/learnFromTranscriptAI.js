@@ -5,29 +5,28 @@
 // better understand the creator's unique voice, tone, and common phrasing.
 
 window.learnFromTranscriptAI = async (transcript, projectId, settings) => {
-    // **FIX APPLIED HERE**: Removed the incorrect 'getV2StyleGuide' and will access
-    // the style guide directly from the settings object.
-    const { callGeminiAPI, updateV2StyleGuide } = window.aiUtils;
+    // **FIX**: We only need the 'callGeminiAPI' utility here. The database update
+    // function does not exist on this object and has been removed.
+    const { callGeminiAPI } = window.aiUtils;
 
     console.log("Learning from new transcript to refine V2 Style Guide...");
 
     // Basic validation
     if (!transcript || typeof transcript !== 'string' || transcript.trim().length < 100) {
         console.warn("Transcript is too short or invalid for learning. Skipping refinement.");
-        return;
+        return null; // Return null if there's nothing to do.
     }
     if (!projectId) {
         console.error("Project ID is missing. Cannot save style guide refinements.");
-        return;
+        return null;
     }
     if (!settings) {
         console.error("Settings object is missing. Cannot retrieve current style guide for refinement.");
-        return;
+        return null;
     }
 
     try {
-        // **FIX APPLIED HERE**: The style guide is now correctly accessed directly from the settings object.
-        // Added a fallback to a default structure to ensure it never fails.
+        // Correctly access the style guide from the settings object.
         const currentStyleGuide = settings.ai?.v2StyleGuide || {
             tone_and_style: "Default tone",
             common_phrases_or_idioms: [],
@@ -72,14 +71,13 @@ window.learnFromTranscriptAI = async (transcript, projectId, settings) => {
         };
 
         const refinedGuide = await callGeminiAPI(prompt, settings, { taskTier: 'background' }, { responseSchema });
-
-        await updateV2StyleGuide(projectId, refinedGuide, transcript);
-
-        console.log("V2 Style Guide successfully refined and saved.");
+        
+        // **FIX**: The function now returns the result instead of trying to save it.
+        return refinedGuide;
 
     } catch (err) {
         console.error("Error while learning from transcript:", err);
-        // We don't throw here to avoid breaking the user's flow.
-        // The error is logged for debugging.
+        // Return null on error so the calling function knows the process failed.
+        return null;
     }
 };
