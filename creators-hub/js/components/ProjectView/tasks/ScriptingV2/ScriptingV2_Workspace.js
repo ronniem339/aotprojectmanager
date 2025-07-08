@@ -5,9 +5,7 @@ const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCu
 const { useDebounce } = window;
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask }) => {
-    // **MODIFICATION**: Destructure the new 'saveStatus' from the useBlueprint hook.
     const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db);
-
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
@@ -71,55 +69,53 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         });
     };
 
-    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 overflow-y-auto text-white' },
-        // **NEW UI ELEMENT**: This div will appear when saveStatus is 'saved'.
+    return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 text-white flex flex-col' }, // MODIFIED: Removed overflow-y-auto here
         saveStatus === 'saved' && React.createElement(
             'div',
             { className: 'fixed bottom-5 right-5 bg-green-600 text-white py-2 px-4 rounded-lg shadow-xl z-50 animate-pulse' },
             '✅ Saved!'
         ),
-        React.createElement('div', { className: 'flex flex-col h-full' },
-            React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
-                React.createElement('h2', { className: 'text-2xl font-bold' },
-                    'Scripting Workspace: ',
-                    React.createElement('span', { className: 'text-primary-accent' }, video.title)
-                ),
-                React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
+        React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-700' },
+            React.createElement('h2', { className: 'text-2xl font-bold' },
+                'Scripting Workspace: ',
+                React.createElement('span', { className: 'text-primary-accent' }, video.title)
             ),
-            React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' },
-                React.createElement('div', {
-                    className: `
-                        ${isBlueprintFullScreen ? 'hidden' : 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col'}
-                    `
-                },
-                    React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
-                    React.createElement('div', { className: 'flex-grow' }, renderCurrentStepContent())
-                ),
-                React.createElement('div', {
-                    className: `
-                        ${isBlueprintFullScreen ? 'w-full' : 'w-full lg:w-1/2'}
-                        p-4 sm:p-6 flex flex-col transition-all duration-300
-                    `
-                },
-                    React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center mb-4' },
-                        React.createElement('h3', { className: 'text-xl font-semibold text-amber-400' }, 'Creative Blueprint'),
-                        React.createElement('button', {
-                            onClick: () => setIsBlueprintFullScreen(prev => !prev),
-                            className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
-                            title: isBlueprintFullScreen ? 'Collapse View' : 'Expand View'
-                        },
-                            isBlueprintFullScreen
-                                ? React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
-                                    React.createElement('path', { fillRule: 'evenodd', d: 'M15.707 15.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L12.414 10l3.293 3.293a1 1 0 010 1.414zM4.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L7.586 10 4.293 6.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
-                                )
-                                : React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
-                                    React.createElement('path', { fillRule: 'evenodd', d: 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
-                                )
-                        )
-                    ),
-                    React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700 custom-scrollbar' },
-                        React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
+            React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-white text-3xl leading-none' }, '×')
+        ),
+        React.createElement('div', { className: 'flex-grow flex flex-col lg:flex-row min-h-0' }, // This ensures the container takes up remaining height
+            React.createElement('div', {
+                className: `
+                    ${isBlueprintFullScreen ? 'hidden' : 'w-full lg:w-1/2 p-4 sm:p-6 border-r border-gray-800 flex flex-col'}
+                `
+            },
+                React.createElement(BlueprintStepper, { steps, currentStep, onStepClick: handleStepClick }),
+                // **FIX APPLIED HERE**: Added classes to make this container scrollable
+                React.createElement('div', { className: 'flex-grow mt-6 overflow-y-auto custom-scrollbar pr-4' }, renderCurrentStepContent())
+            ),
+            React.createElement('div', {
+                className: `
+                    ${isBlueprintFullScreen ? 'w-full' : 'w-full lg:w-1/2'}
+                    p-4 sm:p-6 flex flex-col transition-all duration-300
+                `
+            },
+                React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center mb-4' },
+                    React.createElement('h3', { className: 'text-xl font-semibold text-amber-400' }, 'Creative Blueprint'),
+                    React.createElement('button', {
+                        onClick: () => setIsBlueprintFullScreen(prev => !prev),
+                        className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
+                        title: isBlueprintFullScreen ? 'Collapse View' : 'Expand View'
+                    },
+                        isBlueprintFullScreen
+                            ? React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
+                                React.createElement('path', { fillRule: 'evenodd', d: 'M15.707 15.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L12.414 10l3.293 3.293a1 1 0 010 1.414zM4.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L7.586 10 4.293 6.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
+                            )
+                            : React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
+                                React.createElement('path', { fillRule: 'evenodd', d: 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
+                            )
                     )
+                ),
+                React.createElement('div', { className: 'bg-gray-800/50 p-1 rounded-lg flex-grow overflow-y-auto border border-gray-700 custom-scrollbar' },
+                    React.createElement('div', {className: 'p-3'}, renderBlueprintDisplay())
                 )
             )
         )
