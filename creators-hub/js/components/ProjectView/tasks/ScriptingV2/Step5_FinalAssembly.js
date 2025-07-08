@@ -73,6 +73,17 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
 
     const isFinalScriptAssembled = blueprint?.finalScriptGenerated;
 
+    // **NEW**: Helper function to render text with proper paragraph breaks.
+    const renderScriptWithParagraphs = (scriptText) => {
+        if (!scriptText) {
+            return React.createElement('p', { className: 'text-gray-400 italic' }, 'Script not generated yet.');
+        }
+        // Split the script by one or more newline characters, filter out empty lines.
+        return scriptText.split(/\n+/).filter(p => p.trim() !== '').map((paragraph, index) =>
+            React.createElement('p', { key: index, className: 'mb-4' }, paragraph)
+        );
+    };
+
     return React.createElement('div', { className: 'p-4 sm:p-6' },
         React.createElement('div', { className: 'text-center' },
             React.createElement('h3', { className: 'text-2xl font-bold text-primary-accent mb-4' }, 'Step 4: Final Assembly'),
@@ -91,21 +102,26 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             error && React.createElement('p', { className: 'text-red-400 mt-6 mb-4' }, error),
         ),
 
-        // MODIFICATION: Replaced React.Fragment with a responsive flex container.
         isFinalScriptAssembled && React.createElement('div', { className: 'mt-8 flex flex-col items-center gap-8' },
             // Voiceover Script Section
             React.createElement('div', { className: 'w-full max-w-4xl text-left bg-gray-800/70 p-4 sm:p-6 rounded-lg border border-gray-700' },
                 React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Voiceover Script for Recording'),
-                React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_recording_voiceover_script || 'Recording script not generated.'),
+                // **MODIFICATION**: Use the new helper function to render the script.
+                React.createElement('div', { className: 'text-gray-300 text-sm' },
+                    renderScriptWithParagraphs(blueprint.final_recording_voiceover_script)
+                ),
                 blueprint.final_recording_voiceover_script && React.createElement(CopyButton, {
                     textToCopy: blueprint.final_recording_voiceover_script,
                     buttonText: 'Copy for Recording'
                 })
             ),
-            // MODIFICATION: Added the full video script display.
+            // Full Video Script Section
             React.createElement('div', { className: 'w-full max-w-4xl text-left bg-gray-800/70 p-4 sm:p-6 rounded-lg border border-gray-700' },
                 React.createElement('h4', { className: 'text-xl font-semibold text-white mb-3' }, 'Full Video Script'),
-                React.createElement('p', { className: 'text-gray-300 text-sm whitespace-pre-wrap mb-4' }, blueprint.final_full_video_script || 'Full script not generated.'),
+                 // **MODIFICATION**: Use the new helper function here as well for consistency.
+                React.createElement('div', { className: 'text-gray-300 text-sm' },
+                    renderScriptWithParagraphs(blueprint.final_full_video_script)
+                ),
                 blueprint.final_full_video_script && React.createElement(CopyButton, {
                     textToCopy: blueprint.final_full_video_script,
                     buttonText: 'Copy Full Script'
@@ -115,7 +131,7 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             React.createElement('div', { className: 'text-center' },
                 React.createElement('button', {
                     onClick: handleCompleteTask,
-                    className: 'button-success text-xl px-10 py-4' // Removed margin as gap is now used
+                    className: 'button-success text-xl px-10 py-4'
                 }, '✅ Mark Task as Complete')
             )
         )
