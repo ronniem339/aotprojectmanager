@@ -15,8 +15,10 @@ window.useBlueprint = (video, project, userId, db) => {
     const [isLoading, setIsLoading] = useState(true);
     // State to hold any potential errors.
     const [error, setError] = useState(null);
+    // **NEW STATE**: To track the current save status for the UI notification.
+    const [saveStatus, setSaveStatus] = useState('idle'); // can be 'idle', 'saving', 'saved'
 
-    // NEW: A ref to track if the initial blueprint data has been loaded from Firestore.
+    // A ref to track if the initial blueprint data has been loaded from Firestore.
     // This replaces the old isInitialMount logic for more robust auto-saving.
     const hasLoadedInitialBlueprint = useRef(false);
 
@@ -34,73 +36,65 @@ window.useBlueprint = (video, project, userId, db) => {
     // Effect for initial data fetching and real-time listening.
     useEffect(() => {
         setIsLoading(true);
-
-        // onSnapshot listens for real-time updates to the document.
         const unsubscribe = blueprintDocRef.current.onSnapshot(doc => {
             if (doc.exists) {
-                // Extract the blueprint data from the tasks map in the video document.
                 const data = doc.data().tasks?.scriptingV2_blueprint;
-                
-                // Convert current and incoming blueprint data to string for deep comparison
-                const currentBlueprintString = JSON.stringify(blueprint);
                 const incomingDataString = JSON.stringify(data || { shots: [] });
-
-                // Only update state if the incoming data is truly different
-                if (currentBlueprintString !== incomingDataString) {
+                // Only update state if the incoming data is different from what we already have in our local state.
+                // This prevents the user's cursor from jumping if they are typing when a remote save happens.
+                if (JSON.stringify(blueprint) !== incomingDataString) {
                     setBlueprint(data || { shots: [] });
                 }
-                
-                // Update lastSavedBlueprintString only if a new valid blueprint came from Firestore
-                if (data) { // Ensure data is not null/undefined
-                    lastSavedBlueprintString.current = incomingDataString;
-                }
+                lastSavedBlueprintString.current = incomingDataString;
             } else {
                 setError("Document does not exist.");
-                setBlueprint({ shots: [] }); // Initialize empty if doc doesn't exist
+                setBlueprint({ shots: [] });
                 lastSavedBlueprintString.current = JSON.stringify({ shots: [] });
             }
             setIsLoading(false);
-            // Mark that the initial blueprint has been loaded (or initialized as empty).
-            // This ensures auto-saving starts only after the initial state is stable.
             hasLoadedInitialBlueprint.current = true;
         }, err => {
             console.error("Error fetching blueprint:", err);
             setError("Failed to load script blueprint.");
             setIsLoading(false);
-            // Mark as loaded even on error to allow subsequent saves if user makes changes.
             hasLoadedInitialBlueprint.current = true;
         });
 
-        // Cleanup function to unsubscribe from the listener when the component unmounts.
         return () => unsubscribe();
-    }, [project.id, video.id, userId, db]); // Rerun if any of these IDs change.
+    }, [project.id, video.id, userId]); // Keep 'db' out if it's stable, or add if it can change.
 
     // Effect for auto-saving the debounced blueprint data.
     useEffect(() => {
-        // Only save if:
-        // 1. The initial blueprint has been loaded (hasLoadedInitialBlueprint.current is true)
-        // 2. The debouncedBlueprint is not null (meaning there's data to save).
-        // 3. The debouncedBlueprint content is different from the last successfully saved content.
         if (hasLoadedInitialBlueprint.current && debouncedBlueprint !== null) {
             const currentDebouncedBlueprintString = JSON.stringify(debouncedBlueprint);
             
             if (currentDebouncedBlueprintString !== lastSavedBlueprintString.current) {
+                // **STATUS UPDATE**: Set status to 'saving' when the process starts.
+                setSaveStatus('saving');
                 console.log("Auto-saving debounced blueprint...");
+                
                 blueprintDocRef.current.update({
                     'tasks.scriptingV2_blueprint': debouncedBlueprint
                 }).then(() => {
-                    // Update lastSavedBlueprintString on successful save
                     lastSavedBlueprintString.current = currentDebouncedBlueprintString;
+                    // **STATUS UPDATE**: Set status to 'saved' on success.
+                    setSaveStatus('saved');
+                    console.log("Blueprint saved successfully.");
+                    // **STATUS RESET**: Reset the status back to 'idle' after 2 seconds.
+                    setTimeout(() => setSaveStatus('idle'), 2000);
                 }).catch(err => {
                     console.error("Error auto-saving blueprint:", err);
                     setError("Failed to save changes.");
+                    // **STATUS RESET**: Reset status on error too.
+                    setSaveStatus('idle');
                 });
             } else {
-                console.log("Debounced blueprint unchanged, skipping save.");
+                // This console log is now in the component itself for clarity.
+                // console.log("Debounced blueprint unchanged, skipping save.");
             }
         }
-    }, [debouncedBlueprint]); // This effect runs only when the debouncedBlueprint value changes.
+    }, [debouncedBlueprint]);
 
-    // Return the state and the setter function, so the UI components can interact with the blueprint.
-    return { blueprint, setBlueprint, isLoading, error };
+    // **UPDATED RETURN**: Return the new `saveStatus` state.
+    return { blueprint, setBlueprint, isLoading, error, saveStatus };
 };
