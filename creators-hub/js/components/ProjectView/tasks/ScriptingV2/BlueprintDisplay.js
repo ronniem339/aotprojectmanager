@@ -3,8 +3,8 @@
 const { useState, useMemo } = React;
 const { ShotCard } = window;
 
-window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }) => {
-    // HOOK 1: This hook is correctly placed at the top level.
+// **CHANGE**: The component now accepts the 'currentStep' prop.
+window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, currentStep }) => {
     const [completedItems, setCompletedItems] = useState({ scenes: {}, shots: {} });
 
     const toggleCompletion = (type, id) => {
@@ -17,13 +17,8 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }
         }));
     };
 
-    // HOOK 2: This hook is now called on every render, before any early returns.
     const scenes = useMemo(() => {
-        // We use optional chaining (?.) to safely access blueprint.shots.
-        // If blueprint or blueprint.shots is null/undefined, it will return {}
-        // without throwing an error, ensuring the hook always runs successfully.
         if (!blueprint?.shots) return {};
-
         return blueprint.shots.reduce((acc, shot, index) => {
             const sceneId = shot.scene_id || shot.location || `scene-index-${index}`;
             if (!acc[sceneId]) {
@@ -40,33 +35,31 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }
             acc[sceneId].shots.push(shot);
             return acc;
         }, {});
-    }, [blueprint?.shots]); // The dependency array is also safe with optional chaining.
+    }, [blueprint?.shots]);
 
-    // CONDITIONAL RENDER: Now that all hooks have been called, we can check the
-    // result of our useMemo hook and decide whether to render the empty state.
     if (Object.keys(scenes).length === 0) {
         return React.createElement('div', { className: 'text-center text-gray-400 p-4' }, 'The Creative Blueprint is currently empty. Start by running Step 1 to generate the initial structure.');
     }
 
-    // MAIN RENDER: This only runs if the 'scenes' object is not empty.
     return React.createElement('div', { className: 'space-y-4' },
         Object.values(scenes).map(sceneData => {
             const isSceneCompleted = completedItems.scenes[sceneData.id];
 
             return React.createElement('div', {
                 key: sceneData.id,
-                className: `border-l-4 pl-4 py-3 bg-gray-900/50 rounded-r-lg transition-all duration-300 ${isSceneCompleted ? 'border-green-600 opacity-70' : 'border-blue-600'}`
+                className: `pl-4 py-3 bg-gray-900/50 rounded-r-lg transition-all duration-300 ${isSceneCompleted ? 'border-l-4 border-green-600 opacity-70' : 'border-l-4 border-blue-600'}`
             },
                 React.createElement('div', { className: 'flex justify-between items-center mb-2' },
                     React.createElement('div', { className: 'flex items-center gap-3' },
-                        React.createElement('input', {
+                        // **CHANGE**: The checkbox is now only rendered if currentStep is 4.
+                        currentStep === 4 && React.createElement('input', {
                             type: 'checkbox',
                             checked: isSceneCompleted || false,
                             onChange: () => toggleCompletion('scenes', sceneData.id),
                             title: 'Mark whole scene as complete',
                             className: 'h-5 w-5 rounded bg-gray-700 border-gray-600 text-green-500 focus:ring-green-600 cursor-pointer'
                         }),
-                        React.createElement('div', null,
+                        React.createElement('div', {className: currentStep !== 4 ? 'ml-8' : ''}, // Add margin if checkbox is hidden
                             React.createElement('h3', { className: 'text-lg font-bold text-primary-accent' }, sceneData.narrative_purpose),
                             React.createElement('p', { className: 'text-xs text-gray-400 font-mono flex items-center' },
                                 React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-4 w-4 mr-1', fill:'none', viewBox: '0 0 24 24', stroke:'currentColor'},
@@ -83,7 +76,9 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen }
                         key: shot.shot_id,
                         shot: shot,
                         isCompleted: completedItems.shots[shot.shot_id] || false,
-                        onToggleComplete: () => toggleCompletion('shots', shot.shot_id)
+                        onToggleComplete: () => toggleCompletion('shots', shot.shot_id),
+                        // **CHANGE**: Pass currentStep down to the ShotCard.
+                        currentStep: currentStep
                     }))
                 )
             );
