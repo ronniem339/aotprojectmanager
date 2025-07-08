@@ -5,12 +5,30 @@ const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCu
 const { useDebounce } = window;
 
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask }) => {
-    const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db);
+    // **NEW STATE**: This 'lock' will prevent autosaving while any AI task is running.
+    const [isAiTaskActive, setIsAiTaskActive] = useState(false);
+
+    // Pass the lock state to the blueprint hook.
+    const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db, isAiTaskActive);
+    
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
     const [currentStep, setCurrentStep] = useState(initialCurrentStep);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
     const [isBlueprintFullScreen, setIsBlueprintFullScreen] = useState(false);
     const processedTranscriptRef = useRef(null);
+
+    // **NEW**: A wrapped version of triggerAiTask that manages the save lock.
+    const triggerAiTaskWithSaveLock = async (taskDetails) => {
+        setIsAiTaskActive(true); // Engage the lock
+        try {
+            await triggerAiTask(taskDetails);
+        } catch (err) {
+            console.error("An error occurred in a triggered AI task:", err);
+            // The individual task's onFailure should handle UI errors.
+        } finally {
+            setIsAiTaskActive(false); // Always release the lock
+        }
+    };
 
     useEffect(() => {
         if (debouncedCurrentStep && debouncedCurrentStep !== initialCurrentStep) {
@@ -62,7 +80,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         processTranscript();
     }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db]);
 
-    // **FIX APPLIED HERE**: The step names have been shortened for a cleaner UI.
     const steps = [
         { id: 1, name: 'Brain Dump', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
         { id: 2, name: 'Research & Refine', isCompleted: project.tasks?.scriptingV2_research_curation?.status === 'completed' },
@@ -75,7 +92,8 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, triggerAiTask };
+        // **MODIFICATION**: Pass the NEW wrapped function down to the steps.
+        const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, triggerAiTask: triggerAiTaskWithSaveLock };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
             case 2: return React.createElement(Step2_ResearchCuration, props);
@@ -133,18 +151,15 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
             },
                 React.createElement('div', { className: 'flex-shrink-0 flex justify-between items-center mb-4' },
                     React.createElement('h3', { className: 'text-xl font-semibold text-amber-400' }, 'Creative Blueprint'),
-                    // **FIX APPLIED HERE**: The confusing 'x' icon has been replaced with intuitive expand/collapse icons.
                     React.createElement('button', {
                         onClick: () => setIsBlueprintFullScreen(prev => !prev),
                         className: 'p-2 rounded-md hover:bg-gray-700 transition-colors',
                         title: isBlueprintFullScreen ? 'Show Panel' : 'Hide Panel'
                     },
                         isBlueprintFullScreen
-                            // Icon for "Show Panel" (double arrows pointing left)
                             ? React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
                                 React.createElement('path', { fillRule: 'evenodd', d: 'M15.707 15.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L12.414 10l3.293 3.293a1 1 0 010 1.414zM4.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L7.586 10 4.293 6.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
                             )
-                            // Icon for "Hide Panel" (double arrows pointing right)
                             : React.createElement('svg', { xmlns: 'http://www.w3.org/2000/svg', className: 'h-5 w-5', viewBox: '0 0 20 20', fill: 'currentColor' },
                                 React.createElement('path', { fillRule: 'evenodd', d: 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z', clipRule: 'evenodd' })
                             )
