@@ -4,13 +4,18 @@
 // It uses the shot's location and narrative purpose to find interesting
 // facts, historical notes, or talking points to enrich the voiceover.
 
-window.aiUtils.enrichBlueprintAI = async ({ shot, video, settings }) => { // CHANGED: Attached to window.aiUtils
+window.aiUtils.enrichBlueprintAI = async ({ shot, video, settings }) => {
     console.log(`Researching shot: ${shot.shot_description}`);
 
     // --- Input Validation ---
-    if (!shot || !shot.location_name || !shot.shot_description || !shot.scene_narrative_purpose) {
+    // **FIX APPLIED HERE**
+    // The previous validation was too strict, requiring ALL fields to be present.
+    // This new validation correctly checks if AT LEAST ONE of the key fields has content.
+    // It will only throw an error if the location, description, AND narrative purpose are ALL missing or empty.
+    if (!shot || (!shot.location_name?.trim() && !shot.shot_description?.trim() && !shot.scene_narrative_purpose?.trim())) {
         throw new Error("Missing critical 'shot' details (location, description, or narrative purpose) for research.");
     }
+
     if (!video || !video.title) {
         throw new Error("Missing 'video' context (title) for research.");
     }
@@ -30,10 +35,10 @@ window.aiUtils.enrichBlueprintAI = async ({ shot, video, settings }) => { // CHA
         **Video Title:** ${video.title}
 
         **Shot Details:**
-        - **Location:** ${shot.location_name}
-        - **Shot Type:** ${shot.shot_type}
-        - **Shot Description:** ${shot.shot_description}
-        - **Narrative Purpose of the Scene:** ${shot.scene_narrative_purpose}
+        - **Location:** ${shot.location_name || 'Not specified'}
+        - **Shot Type:** ${shot.shot_type || 'Not specified'}
+        - **Shot Description:** ${shot.shot_description || 'Not specified'}
+        - **Narrative Purpose of the Scene:** ${shot.scene_narrative_purpose || 'Not specified'}
 
         **Your Task:**
         Based on the shot details, find 2-4 interesting and relevant facts or talking points about the location. The facts should be concise and suitable for a voiceover script. Focus on information that is directly related to the narrative purpose of the scene. Avoid generic or widely-known information.
