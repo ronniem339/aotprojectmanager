@@ -22,24 +22,18 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         }
     }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
 
-    // **FIX APPLIED HERE**:
-    // The useEffect hook is now an async function that handles the entire process correctly.
     useEffect(() => {
         const processTranscript = async () => {
             if (blueprint?.fullTranscript && blueprint.fullTranscript !== processedTranscriptRef.current) {
                 console.log("New transcript detected. Learning from it...");
-                processedTranscriptRef.current = blueprint.fullTranscript; // Mark as processed immediately to prevent re-running
+                processedTranscriptRef.current = blueprint.fullTranscript;
 
-                // 1. Call the AI utility and wait for the refined guide.
                 const refinedGuide = await learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings);
 
-                // 2. If the AI returns a valid guide, save it to the database.
                 if (refinedGuide) {
                     try {
-                        // **NOTE**: This assumes 'db' is the initialized Firestore instance.
                         const projectRef = db.collection(`users/${userId}/projects`).doc(project.id);
                         
-                        // Create a history entry for the refinement.
                         const historyEntry = {
                             timestamp: new Date(),
                             source: `Transcript import from video: "${video.title}"`,
@@ -47,11 +41,18 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                             refinedGuide: refinedGuide
                         };
 
-                        // 3. Update the user's project settings in Firestore.
-                        await projectRef.update({
-                            'settings.ai.v2StyleGuide': refinedGuide,
-                            'settings.ai.v2StyleGuideHistory': firebase.firestore.FieldValue.arrayUnion(historyEntry)
-                        });
+                        // **FIX APPLIED HERE**:
+                        // Changed 'update' to 'set' with the '{ merge: true }' option.
+                        // This prevents errors by creating the document if it doesn't exist,
+                        // or updating it if it does, making the operation much more resilient.
+                        await projectRef.set({
+                            settings: {
+                                ai: {
+                                    v2StyleGuide: refinedGuide,
+                                    v2StyleGuideHistory: firebase.firestore.FieldValue.arrayUnion(historyEntry)
+                                }
+                            }
+                        }, { merge: true }); // The { merge: true } option is crucial here.
                         
                         console.log("V2 Style Guide successfully refined and saved to project settings.");
 
@@ -63,7 +64,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
         };
 
         processTranscript();
-    }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db]); // Dependencies for the effect
+    }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db]);
 
 
     const steps = [
