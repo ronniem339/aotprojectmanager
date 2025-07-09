@@ -17,32 +17,59 @@ New File Structure
 To ensure maintainability and separation from the legacy system, the V2 workflow is built with a new, modular file structure.
 
 2.1 UI Components
-A new component, scriptingTaskV2.js, serves as the entry point for the V2 workflow. It is conditionally rendered by VideoWorkspace.js, which acts as a router: ScriptingTaskV2 is shown for all new videos (as the recommended default) and for any video already using the V2 system.
+This section requires the most significant updates to reflect the recent UI and state management improvements.
+
+scriptingTaskV2.js: A new component, scriptingTaskV2.js, serves as the entry point for the V2 workflow. It is conditionally rendered by VideoWorkspace.js, which acts as a router: ScriptingTaskV2 is shown for all new videos (as the recommended default) and for any video already using the V2 system.
 
 New Directory: creators-hub/js/components/ProjectView/tasks/ScriptingV2/
 
 ScriptingV2_Workspace.js: The main container with the two-column layout.
 
 Manages the active step and step completion status.
-Full-Screen Mode: Includes state management and a UI toggle button that allows the user to expand the Creative Blueprint panel to fill the entire screen, hiding the left-hand panel for a focused view.
+
+Task Queue Visibility: This component now renders the global TaskQueue component directly within its own view, ensuring users can monitor the status of background AI tasks without leaving the scripting workspace.
+
+Consistent Layout: The layout has been updated to ensure both the left (steps) and right (blueprint) columns have a fixed height and handle content overflow with consistent scrolling behavior, improving the user experience on smaller screens.
+
+Full-Screen Mode: Includes state management and a UI toggle button that allows the user to expand the Creative Blueprint panel to fill the entire screen, hiding the left-hand panel for a focused view. The toggle button's icon has been changed from a simple 'X' to more intuitive expand/collapse chevron icons, which more clearly represents its function.
 
 useBlueprint.js: A crucial custom hook that manages the state of the blueprint object, including fetching and debounced auto-saving to Firestore. UPDATED: The auto-saving logic has been refined to prevent unnecessary Firestore writes by comparing the debounced blueprint content with the last successfully saved version. The onSnapshot listener also now only triggers a state update if incoming data is genuinely different, improving performance and data consistency.
 
+Autosave Lock: The hook now accepts an isAiTaskActive boolean flag. When this flag is true, the autosave functionality is temporarily paused to prevent race conditions and data corruption while background AI tasks are running.
+
+Save Status Notification: The hook now returns a saveStatus state ('idle', 'saving', 'saved'). This allows the ScriptingV2_Workspace to display a "Saved!" notification to the user, providing clear feedback.
+
 BlueprintStepper.js: The navigation component for moving between steps. It now visually indicates completed steps with distinct styling and a checkmark. The connector lines between steps now use a text dash (—) for improved visual consistency.
+
+Labels: The description should be updated to reflect the new, shorter step labels which improve layout on smaller screens: 1. Brain Dump, 2. Research & Refine, 3. Scripting, and 4. Final Assembly.
 
 BlueprintDisplay.js: A major UI component that renders the interactive Creative Blueprint.
 
 Scene-based Grouping: It now intelligently groups shots into scenes. If the AI provides a scene_id, it uses that. If not, it creates logical scenes by grouping shots that occur at the same location, preventing shots from being listed individually.
-Mark as Complete: Replaces the old "show/hide" functionality. Users can now mark entire scenes or individual shots as "complete" via checkboxes. Completed items are visually distinguished with a green accent and reduced opacity, allowing for clear progress tracking without hiding content.
+
+Numbered Titling: The component now displays a clear, numbered title for each section (e.g., "Hook", "Scene 1", "Conclusion") and shows the longer narrative_purpose as an italicized subtitle for better readability.
+
+Mark as Complete: Replaces the old "show/hide" functionality. Users can now mark entire scenes or individual shots as "complete" via checkboxes. Completed items are visually distinguished with a green accent and reduced opacity, allowing for clear progress tracking without hiding content. The completion checkboxes for scenes and shots are now only visible when the user is on Step 4 (Final Assembly), keeping the UI cleaner during the creative stages.
+
 Location Display: The primary location for each scene is now prominently displayed in the scene header, providing better context at a glance.
 
 ShotCard.js: Displays the details of a single shot within a scene.
 
+Visual Differentiation: Each card now has a distinct left-border color based on its shot_type to make it easily identifiable: blue for On-Camera, green for B-Roll, and purple for Drone.
+
 Expanded by Default: Key information such as "On-Camera Dialogue" and "Voiceover Script" are now expanded by default, removing the need for extra clicks to see the content. AI Research Notes remain collapsible to save space.
+
+Default Collapsing: Cards for drone shots are now collapsed by default to reduce initial clutter in the blueprint view.
+
 Completion Tracking: Receives isCompleted status from its parent and displays a checkbox to allow users to toggle the completion status of the individual shot.
+
 Location Display: The specific location for the shot is now displayed in the card's header, reinforcing the context provided by the scene.
 
-Step1_InitialBlueprint.js: UI for the "brain dump" and initial generation. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js to manage the AI call and provide consistent error reporting and task status updates.
+Shot Numbering: The card now receives and displays a shot number (e.g., "Shot 1.1") from the parent BlueprintDisplay component for improved organization.
+
+Step1_InitialBlueprint.js: UI for the "brain dump" and initial generation. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js to manage the AI call and provide consistent error reporting and task status updates. This change fixes a critical bug where this task would be cancelled if the user navigated away from the workspace before it completed.
+
+Button Styling: A bug where the main button appeared unstyled has been fixed by adding the required base .btn class.
 
 MemoryJogger.js: (NEW) A component designed to enhance the "Brain Dump" phase (Step 1).
 
@@ -68,7 +95,15 @@ Step2_ResearchCuration.js: UI for the AI-powered research step. UPDATED: This co
 
 Step3_OnCameraScripting.js: (UPDATED) This component replaces Step3_MyExperience.js and is now central to on-camera dialogue management. It handles importing full transcripts, resolving ambiguous dialogue, reviewing blueprint refinement suggestions (including intelligent insertion of new shots), and providing a shot-by-shot editor. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js for both transcript mapping (mapTranscriptToBlueprintAI) and blueprint refinement (refineBlueprintFromTranscriptAI), ensuring consistent task management and error reporting. The location_tag for each shot is now prominently displayed in the shot card, and ai_reason associated with blueprint modification suggestions is cleared from the shot data once applied or ambiguities resolved. BUGFIX: The component now correctly persists the fullTranscript and the active sub-view mode (import, shotByShot, etc.) to the blueprint, preventing data loss on navigation. The local status bar is also immediately populated with a message when transcript processing begins. BUGFIX: Resolved a Firebase crash by ensuring that ai_reason and location_name fields in new or modified shots are explicitly initialized to empty strings ('') rather than undefined before being saved to Firestore.
 
+UI Consistency: The "Shot-by-Shot Dialogue" view within this step has been updated to use the same color-coding and default-collapsing logic for drone shots as the main BlueprintDisplay, creating a more consistent user experience.
+
+Button Styling: The unstyled buttons on the initial view ("Import Full Transcript", "Write Shot-by-Shot") have been fixed by adding the base .btn class.
+
 Step5_FinalAssembly.js: (UPDATED) UI for the final script generation and task completion. It now orchestrates the generation and display of the recording_voiceover_script_text. The full video script is no longer displayed. Users can also re-generate the script multiple times via an updated button. UPDATED: This component now uses the centralized handlers.triggerAiTask from useAppState.js for the final script generation (generateScriptFromBlueprintAI), providing consistent error reporting and task status updates.
+
+Voiceover Script Formatting: The recording_voiceover_script_text is now rendered with preserved paragraph breaks, making the script much easier to read and perform during a recording session.
+
+Button Styling: The unstyled "Generate Final Script" and "Mark Task as Complete" buttons have been fixed by adding the base .btn class.
 
 Files Deleted:
 
@@ -86,8 +121,12 @@ getStyleGuidePromptV2.js: Reads from the new detailed style guide in the setting
 createInitialBlueprintAI.js: (Heavy Task) - Creates the initial narrative structure.
 
 Stricter Prompting: The core prompt has been significantly overhauled to act like a "meticulous film director". It now has explicit, critical instructions for the AI to group shots into scenes and to assign a valid location and a consistent scene_id to every shot it generates.
+
 Data-First Approach: This change fixes the root cause of previous UI bugs by ensuring the data is correctly structured at the moment of creation, rather than relying on fragile post-processing to guess the scene structure.
+
 Schema Correction: The response schema was updated to require a location field (previously location_name) for better data consistency across the application.
+
+Progress Updates: This function now accepts and utilizes a progressCallback. This allows it to send granular status updates (e.g., "Analyzing...", "Structuring...") back to the Task Queue, providing the user with more detailed feedback than the previous "Initializing..." message.
 
 enrichBlueprintAI.js: (Lite Task) - Performs factual research for specific shots. UPDATED: Includes robust input validation, try-catch blocks for AI calls, and strict output validation to ensure valid research notes are returned. BUGFIX: Ensured this function is consistently exposed under window.aiUtils to prevent "function not found" errors when called.
 
@@ -147,7 +186,7 @@ It contains the logic to read the appropriate model name from the correct sectio
 
 It will now throw an explicit error if a required model name is not configured in the settings, rather than using a silent fallback.
 
-NEW: AI Task Management (in useAppState.js)
+4. NEW: AI Task Management (in useAppState.js)
 A new handlers.triggerAiTask function has been added to window.useAppState(). This function provides a centralized, robust way to:
 
 Add AI-related tasks to the global taskQueue with specific types (e.g., scriptingV2-blueprint-initial).
@@ -159,6 +198,8 @@ Catch errors from AI utility functions and display user-friendly notifications g
 Ensure local component isProcessing states are managed correctly.
 
 This significantly improves error visibility and task transparency for the user during AI-driven processes within Scripting V2.
+
+Global Navigation: A new handlers.handleNavigateToTask function has been added. This global handler allows the TaskQueue to navigate the user directly to the relevant project and video when they click the "View" button on a completed scripting task, regardless of their current location within the application. This makes jumping back into the workflow seamless.
 
 Data Handlers
 handlers.fetchPlaceDetails:
