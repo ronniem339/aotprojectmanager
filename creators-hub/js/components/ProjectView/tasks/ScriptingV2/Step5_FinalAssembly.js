@@ -95,7 +95,7 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             React.createElement('button', {
                 onClick: handleGenerateScript,
                 disabled: isGenerating,
-                className: 'button-primary text-xl px-10 py-4 disabled:opacity-50 mb-8'
+                className: 'btn btn-primary text-xl px-10 py-4 disabled:opacity-50 mb-8'
             },
                 isGenerating ? 'Writing Your Script...' : (isFinalScriptAssembled ? '🔁 Regenerate Script' : '🎬 Generate Final Script')
             ),
