@@ -213,7 +213,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderShotByShotView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'btn btn-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Shot-by-Shot Dialogue"),
             ),
             React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2' },
@@ -391,7 +391,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 }, '📝 Import Full Transcript'),
                 React.createElement('button', {
                     onClick: () => setViewAndPersist('shotByShot'),
-                    className: 'button-secondary'
+                    className: 'btn btn-secondary'
                 }, '✍️ Write Shot-by-Shot')
             )
         )
@@ -400,7 +400,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderImportView = () => (
         React.createElement('div', {},
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'btn btn-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Import Transcript"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "Paste your entire on-camera transcript below. The AI will attempt to assign dialogue to shots. You may be asked to clarify ambiguous segments."),
@@ -424,7 +424,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderResolveAmbiguityView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'btn btn-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Resolve Ambiguous Dialogue"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI found dialogue segments that could be either on-camera or voiceover based on the shot type. Please clarify for each:"),
@@ -477,7 +477,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const renderRefineBlueprintView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
             React.createElement('div', { className: 'flex items-center gap-4 mb-4' },
-                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'button-secondary-small' }, '‹ Back'),
+                React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'btn btn-sm btn-secondary' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Review Blueprint Suggestions"),
             ),
             React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI has analyzed your transcript and generated suggestions for refining your video blueprint. Select the ones you wish to apply."),
