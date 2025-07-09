@@ -1,6 +1,7 @@
 // js/components/ProjectView.js
 
-window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance, onNavigate }) => {
+// **MODIFICATION**: The component now accepts 'taskQueue' as a prop.
+window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onUpdateSettings, googleMapsLoaded, db, auth, firebaseAppInstance, onNavigate, taskQueue }) => {
     const { useState, useEffect, useCallback, useMemo } = React;
 
     // Core State
@@ -137,11 +138,10 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
         }
     }, [localProject, userId, appId, db]);
     
-    // *** THIS IS THE CORRECTED FUNCTION ***
     const handleVideoSelected = useCallback((videoId) => {
-        setActiveVideoId(videoId); // It now correctly accepts the video ID string.
+        setActiveVideoId(videoId);
         if(!isTabletOrLarger) {
-            setIsLeftSidebarOpen(false); // Close mobile sidebar on selection
+            setIsLeftSidebarOpen(false);
         }
     }, [isTabletOrLarger]);
 
@@ -346,6 +346,8 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
                                     onNavigate={onNavigate}
                                     googleMapsLoaded={googleMapsLoaded}
                                     handlers={handlers} 
+                                    // **MODIFICATION**: Pass the taskQueue down to the workspace.
+                                    taskQueue={taskQueue}
                                 />
                             </main>
 
