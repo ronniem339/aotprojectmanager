@@ -77,7 +77,7 @@ window.Step1_InitialBlueprint = ({ blueprint, setBlueprint, video, project, sett
             React.createElement('button', {
                 onClick: handleGenerateBlueprint,
                 disabled: isGenerating || !initialThoughts.trim(),
-                className: 'button-primary text-lg px-8 py-3 disabled:opacity-50'
+                className: 'btn btn-primary text-lg px-8 py-3 disabled:opacity-50'
             },
                 isGenerating ? 'Generating...' : 'Create Initial Blueprint'
             )
