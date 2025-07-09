@@ -83,14 +83,42 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
             cleanDescription = description.split(separator)[0];
         }
 
-        const prompt = `You are a YouTube copy editor. Refine the following YouTube description based on the user's instructions.
-        Current Description:
-        ---
-        ${cleanDescription}
-        ---
-        Instructions: "${refinementPrompt}"
+        // --- FIX: Add full context to the refinement prompt ---
+        const whoAmI = settings?.knowledgeBases?.youtube?.whoAmI || 'I am a solo creator.';
+        const styleGuide = studioDetails?.styleGuide || 'No specific style guide provided.';
+        const videoContentContext = video.full_video_script_text || video.concept;
 
-        Return only the refined description in a JSON object like: {"refinedDescription": "The full text of the refined description..."}.`;
+        const prompt = `
+            **YOUR TASK**
+            You are a YouTube copy editor. Your primary goal is to refine a video description based on specific instructions from the creator. You MUST follow their instructions.
+
+            **CRITICAL: CREATOR'S INSTRUCTIONS**
+            You must follow these instructions to refine the description: "${refinementPrompt}"
+
+            ---
+
+            **CONTEXT FOR THE REFINEMENT**
+
+            **Original Description to Refine:**
+            ---
+            ${cleanDescription}
+            ---
+
+            **Core Video Content (for context, use this to inform your refinement):**
+            "${videoContentContext}"
+
+            **Video Title (for context):**
+            "${video.chosenTitle || video.title}"
+
+            **STYLE GUIDE (Your writing must adhere to this):**
+            - My Identity: ${whoAmI} (Write in the first-person singular: I, my, me).
+            - My Style: ${styleGuide}
+
+            ---
+
+            **OUTPUT**
+            Return only the new, refined description in a JSON object like: {"refinedDescription": "The full text of the refined description..."}.
+        `;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {}, true);
@@ -102,7 +130,8 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
 
                 setDescription(refinedDescription);
                 onUpdateTask('descriptionGenerated', 'in-progress', { 'metadata.description': refinedDescription });
-                setRefinementPrompt('');
+                // Do not clear the refinement prompt so the user can iterate
+                // setRefinementPrompt('');
             } else {
                  setError('The AI did not return a refined description. Please try again.');
             }

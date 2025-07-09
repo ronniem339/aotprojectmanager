@@ -54,16 +54,47 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
     const handleRefineTitle = async () => {
         setGenerating(true);
         setError('');
-        const prompt = `You are a YouTube title expert. Rewrite the following YouTube title based on my instructions.
-        Original Title: "${editableTitle}"
-        Instructions: "${titleRefinement}"
-        Return only the new title in a JSON object like: {"newTitle": "The new improved title"}.`;
+
+        // --- FIX: Add the same rich context to the refinement prompt ---
+        const titlesKnowledgeBase = settings?.knowledgeBases?.youtube?.videoTitles || 'Craft clickable, SEO-friendly titles.';
+        const videoContentContext = video.full_video_script_text || video.concept;
+
+        const prompt = `
+            **YOUR TASK**
+            You are a YouTube title expert. Your primary goal is to rewrite a video title based on specific instructions from the creator. You MUST follow their instructions.
+
+            **CRITICAL: CREATOR'S INSTRUCTIONS**
+            You must follow these instructions to refine the title: "${titleRefinement}"
+
+            ---
+
+            **CONTEXT FOR THE REFINEMENT**
+
+            **Original Title to Refine:**
+            "${editableTitle}"
+
+            **Core Video Content (for context):**
+            "${videoContentContext}"
+
+            **Overall Series Context (less important):**
+            - The video is part of a series called "${project.playlistTitle}", which is about "${project.playlistDescription}".
+
+            **STYLE GUIDE (Follow these best practices):**
+            ${titlesKnowledgeBase}
+
+            ---
+
+            **OUTPUT**
+            Return only the new, refined title in a JSON object like: {"newTitle": "The new improved title"}.
+        `;
+
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings);
             if (parsedJson.newTitle) {
                 const newTitle = parsedJson.newTitle;
                 setEditableTitle(newTitle);
-                setTitleRefinement('');
+                // Do not clear the refinement box so the user can iterate
+                // setTitleRefinement(''); 
                 onUpdateTask('titleGenerated', 'in-progress', { chosenTitle: newTitle });
             }
         } catch (err) {
