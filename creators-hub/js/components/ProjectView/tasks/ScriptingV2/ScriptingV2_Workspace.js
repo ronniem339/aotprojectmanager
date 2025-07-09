@@ -1,10 +1,11 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect, useRef } = React;
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI, TaskQueue } = window; // MODIFICATION: Added TaskQueue
+// MODIFICATION: Added TaskQueue to the list of components.
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI, TaskQueue } = window;
 const { useDebounce } = window;
 
-// **MODIFICATION**: The component now accepts 'aiTasks' to display the queue.
+// MODIFICATION: The component now accepts 'aiTasks' to display the queue.
 window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask, aiTasks }) => {
     const [isAiTaskActive, setIsAiTaskActive] = useState(false);
 
