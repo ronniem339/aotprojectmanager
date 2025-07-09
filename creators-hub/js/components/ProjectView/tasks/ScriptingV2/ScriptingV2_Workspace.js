@@ -1,14 +1,13 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js
 
 const { useState, useEffect, useRef } = React;
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI } = window;
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI, TaskQueue } = window; // MODIFICATION: Added TaskQueue
 const { useDebounce } = window;
 
-window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask }) => {
-    // **NEW STATE**: This 'lock' will prevent autosaving while any AI task is running.
+// **MODIFICATION**: The component now accepts 'aiTasks' to display the queue.
+window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask, aiTasks }) => {
     const [isAiTaskActive, setIsAiTaskActive] = useState(false);
 
-    // Pass the lock state to the blueprint hook.
     const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db, isAiTaskActive);
     
     const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
@@ -17,16 +16,14 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     const [isBlueprintFullScreen, setIsBlueprintFullScreen] = useState(false);
     const processedTranscriptRef = useRef(null);
 
-    // **NEW**: A wrapped version of triggerAiTask that manages the save lock.
     const triggerAiTaskWithSaveLock = async (taskDetails) => {
-        setIsAiTaskActive(true); // Engage the lock
+        setIsAiTaskActive(true);
         try {
             await triggerAiTask(taskDetails);
         } catch (err) {
             console.error("An error occurred in a triggered AI task:", err);
-            // The individual task's onFailure should handle UI errors.
         } finally {
-            setIsAiTaskActive(false); // Always release the lock
+            setIsAiTaskActive(false);
         }
     };
 
@@ -92,7 +89,6 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     const renderCurrentStepContent = () => {
-        // **MODIFICATION**: Pass the NEW wrapped function down to the steps.
         const props = { blueprint, setBlueprint, video, project, settings, onUpdateTask, onClose, triggerAiTask: triggerAiTaskWithSaveLock };
         switch (currentStep) {
             case 1: return React.createElement(Step1_InitialBlueprint, props);
@@ -122,6 +118,9 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 text-white flex flex-col' },
+        // **FIX APPLIED HERE**: The TaskQueue is now rendered inside the workspace overlay.
+        React.createElement(TaskQueue, { tasks: aiTasks }),
+
         saveStatus === 'saved' && React.createElement(
             'div',
             { className: 'fixed bottom-5 right-5 bg-green-600 text-white py-2 px-4 rounded-lg shadow-xl z-50 animate-pulse' },
