@@ -1,3 +1,5 @@
+// creators-hub/js/hooks/useAppState.js
+
 const { useState, useEffect, useCallback } = React;
 
 window.useAppState = () => {
@@ -195,6 +197,17 @@ window.useAppState = () => {
             setPreviousView(currentView);
             setCurrentView(view);
         },
+        // **NEW**: Handler to navigate to a project/video from a completed task
+        handleNavigateToTask: (task) => {
+            if (task.data?.project && task.data?.video) {
+                setSelectedProject(task.data.project);
+                // The ProjectView will handle selecting the active video
+                setCurrentView('project');
+                 // This is a bit of a hack, but we can set the active video ID this way
+                 // so the project view can pick it up.
+                window.history.replaceState({}, '', `#${task.data.video.id}`);
+            }
+        },
         handleShowSettings: () => setCurrentView('settingsMenu'),
         handleShowTools: () => setCurrentView('tools'),
         handleSelectTool: (toolId) => {
@@ -336,8 +349,9 @@ window.useAppState = () => {
                         }
                     } else if (task.type.startsWith('scriptingV2-')) {
                         const baseName = task.data?.title || 'Scripting Task';
+                        // **MODIFICATION**: Use a clearer message for in-progress tasks.
                         if (status === 'in-progress') {
-                            newName = `${baseName}: ${result?.message || 'Processing...'}`;
+                             newName = `${baseName}: ${result?.message || 'Processing...'}`;
                         } else if (status === 'complete') {
                             newName = `${baseName}: Complete!`;
                         } else if (status === 'failed') {
@@ -355,7 +369,8 @@ window.useAppState = () => {
                 handlers.displayNotification("Authentication error: Cannot run AI task.", 'error');
                 return;
             }
-            handlers.addTask({ id: id, type: type, name: `${progressMessagePrefix || name}: Initializing...`, status: 'in-progress', data: { ...args, title: name } });
+            // **MODIFICATION**: Simplified the initial task name.
+            handlers.addTask({ id: id, type: type, name: name, status: 'in-progress', data: { ...args, title: name } });
             try {
                 const result = await aiFunction({ ...args, progressCallback: (msg) => {
                     handlers.updateTaskStatus(id, 'in-progress', { message: msg });
