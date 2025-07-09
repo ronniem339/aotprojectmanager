@@ -387,7 +387,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             React.createElement('div', { className: 'flex justify-center gap-4' },
                 React.createElement('button', {
                     onClick: () => setViewAndPersist('import'),
-                    className: 'button-primary'
+                    className: 'btn btn-primary'
                 }, '📝 Import Full Transcript'),
                 React.createElement('button', {
                     onClick: () => setViewAndPersist('shotByShot'),
@@ -415,7 +415,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 React.createElement('button', {
                     onClick: handleMapTranscript,
                     disabled: isProcessing,
-                    className: 'button-primary disabled:opacity-50'
+                    className: 'btn btn-primary disabled:opacity-50'
                 }, isProcessing ? processingMessage : '🤖 Process Transcript')
             )
         )
@@ -468,7 +468,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 React.createElement('button', {
                     onClick: applyAmbiguityResolutions,
                     disabled: Object.keys(resolvedAmbiguityChoices).length !== ambiguousDialogueSegments.length || isProcessing,
-                    className: 'button-primary disabled:opacity-50'
+                    className: 'btn btn-primary disabled:opacity-50'
                 }, isProcessing ? processingMessage : '✅ Confirm & Continue')
             )
         )
@@ -530,7 +530,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 React.createElement('button', {
                     onClick: applyBlueprintSuggestions,
                     disabled: selectedSuggestions.size === 0 || isProcessing,
-                    className: 'button-primary disabled:opacity-50'
+                    className: 'btn btn-primary disabled:opacity-50'
                 }, isProcessing ? processingMessage : '✅ Apply Selected Suggestions & Continue')
             )
         )
