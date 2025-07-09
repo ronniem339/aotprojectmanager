@@ -91,7 +91,7 @@ window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isComp
                 React.createElement('span', { className: 'text-xs text-gray-400 font-mono' }, `~${shot.shot_duration_seconds || 0}s`),
                 React.createElement('button', {
                     onClick: () => setIsCardCollapsed(prev => !prev),
-                    className: 'text-gray-400 hover:text-white focus:outline-none text-sm'
+                    className: 'btn btn-secondary text-gray-400 hover:text-white focus:outline-none text-sm'
                 }, isCardCollapsed ? 'Show Details' : 'Hide Details')
             )
         ),
@@ -104,7 +104,7 @@ window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isComp
                 React.createElement('button', {
                     onClick: () => onEnrichShot(shot),
                     disabled: isEnriching,
-                    className: 'button-secondary-small disabled:opacity-50'
+                    className: 'btn btn-secondary-small disabled:opacity-50'
                 }, isEnriching ? 'Researching...' : '✨ Find Interesting Facts')
             )
         )
