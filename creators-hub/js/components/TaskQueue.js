@@ -1,5 +1,5 @@
 // creators-hub/js/components/TaskQueue.js
-window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => { // Added onNavigateToTask
+window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => {
     const { useEffect, useState } = React;
     const [visible, setVisible] = useState(false);
 
@@ -16,7 +16,6 @@ window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => { // Added 
     const getStatusIcon = (status) => {
         switch (status) {
             case 'queued': return React.createElement('i', { className: "fas fa-clock text-gray-400" });
-            // **FIX**: Correctly show spinner for 'in-progress' status
             case 'in-progress':
             case 'generating':
             case 'publishing':
@@ -28,7 +27,9 @@ window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => { // Added 
     };
     
     return (
-        React.createElement('div', { className: "fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-[500px] z-50 animate-fade-in-up border border-gray-700" },
+        // **FIX APPLIED HERE**: Increased z-index from z-50 to z-[60] to ensure
+        // it appears on top of the scripting workspace overlay (which is z-50).
+        React.createElement('div', { className: "fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-[500px] z-[60] animate-fade-in-up border border-gray-700" },
             React.createElement('div', { className: "p-3 bg-gray-900 rounded-t-lg" },
                 React.createElement('h4', { className: "font-bold text-base" }, "Task Queue")
             ),
@@ -46,7 +47,6 @@ window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => { // Added 
                             task.status === 'complete' && task.result?.viewable && (
                                 React.createElement('button', { onClick: () => onView(task.id), className: "text-blue-400 hover:underline text-xs" }, "View Content")
                             ),
-                             // **NEW**: "View" button for completed scripting tasks
                             task.status === 'complete' && task.type.startsWith('scriptingV2-') && (
                                 React.createElement('button', { onClick: () => onNavigateToTask(task), className: "text-blue-400 hover:underline text-xs" }, "View")
                             ),
