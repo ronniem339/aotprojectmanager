@@ -1,15 +1,35 @@
 // creators-hub/js/components/TaskQueue.js
 window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => {
-    const { useEffect, useState } = React;
-    const [visible, setVisible] = useState(false);
+    const { useEffect, useState, useRef } = React;
+    const [isVisible, setIsVisible] = useState(false);
+    const prevTasksLength = useRef(0);
 
     const safeTasks = Array.isArray(tasks) ? tasks : [];
 
     useEffect(() => {
-        setVisible(safeTasks.length > 0);
+        // When tasks are first added, show the queue.
+        if (safeTasks.length > 0 && prevTasksLength.current === 0) {
+            setIsVisible(true);
+        }
+        // If all tasks are cleared, hide the queue.
+        if (safeTasks.length === 0) {
+            setIsVisible(false);
+        }
+        prevTasksLength.current = safeTasks.length;
     }, [safeTasks]);
 
-    if (!visible) {
+    if (!isVisible) {
+        if (safeTasks.length > 0) {
+            return React.createElement('div', {
+                className: "fixed bottom-4 right-4 z-[60]"
+            }, React.createElement('button', {
+                onClick: () => setIsVisible(true),
+                className: "bg-indigo-600 text-white rounded-full shadow-lg p-3 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center"
+            }, 
+                React.createElement('i', { className: "fas fa-tasks mr-2" }),
+                `Show Tasks (${safeTasks.length})`
+            ));
+        }
         return null;
     }
 
@@ -27,11 +47,14 @@ window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => {
     };
     
     return (
-        // **FIX APPLIED HERE**: Increased z-index from z-50 to z-[60] to ensure
-        // it appears on top of the scripting workspace overlay (which is z-50).
         React.createElement('div', { className: "fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-[500px] z-[60] animate-fade-in-up border border-gray-700" },
-            React.createElement('div', { className: "p-3 bg-gray-900 rounded-t-lg" },
-                React.createElement('h4', { className: "font-bold text-base" }, "Task Queue")
+            React.createElement('div', { className: "relative flex justify-between items-center p-3 bg-gray-900 rounded-t-lg" },
+                React.createElement('h4', { className: "font-bold text-base" }, "Task Queue"),
+                React.createElement('button', { 
+                    onClick: () => setIsVisible(false), 
+                    className: "absolute top-2 right-3 text-gray-400 hover:text-white text-2xl leading-none",
+                    'aria-label': 'Close Task Queue'
+                }, '×')
             ),
             React.createElement('div', { className: "p-1 max-h-60 overflow-y-auto" },
                 safeTasks.map(task => (
