@@ -2,7 +2,8 @@
 
 const { useState, useEffect, useRef } = React;
 // MODIFICATION: Added TaskQueue to the list of components.
-const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, learnFromTranscriptAI, TaskQueue } = window;
+const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCuration, Step3_OnCameraScripting, Step5_FinalAssembly, BlueprintDisplay, TaskQueue } = window;
+const { learnFromTranscriptAI } = window.aiUtils;
 const { useDebounce } = window;
 
 // MODIFICATION: The component now accepts 'aiTasks' to display the queue.

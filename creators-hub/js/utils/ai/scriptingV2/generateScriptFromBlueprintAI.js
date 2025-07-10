@@ -106,6 +106,11 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
     '\n    ],' +
     '\n    "full_video_script_text": "This is the complete, cohesive narrative for the entire video...",
 
+    "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production..."
+}
+
+**JSON Output:**";
+
     // Updated response schema to match the new dual output requirement
     const responseSchema = {
         type: "OBJECT",
