@@ -54,6 +54,7 @@ window.DescriptionTask = ({ video, onUpdateTask, isLocked, project, settings, st
         } finally {
             setGenerating(false);
         }
+    };
 
     const handleRefineDescription = async () => {
         if (!refinementPrompt) return;
