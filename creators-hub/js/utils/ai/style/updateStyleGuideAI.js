@@ -32,12 +32,10 @@ window.aiUtils.updateStyleGuideAI = async ({ suggestions, currentStyleGuide, set
 
         **Output Format:**
         Your final output MUST be a single, valid JSON object with the following structure.
-        ```json
         {
             "newStyleGuideNarrative": "The updated, single-paragraph description of the creator's brand voice.",
             "logEntry": "The concise, one-sentence summary of the changes made."
         }
-        ```
 
         **JSON Output:**
     `;

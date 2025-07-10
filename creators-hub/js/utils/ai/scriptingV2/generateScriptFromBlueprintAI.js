@@ -98,7 +98,6 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
 
         **Output Format:**
         Your final output MUST be a single, valid JSON object with the following structure. Do NOT include any text or formatting outside of this JSON object.
-        ```json
         {
             "updated_shots": [
                 {
@@ -129,7 +128,6 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
             "full_video_script_text": "This is the complete, cohesive narrative for the entire video...",
             "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production..."
         }
-        ```
 
         **JSON Output:**
     `;
