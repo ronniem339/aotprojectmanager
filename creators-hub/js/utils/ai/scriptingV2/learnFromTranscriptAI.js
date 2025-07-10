@@ -19,7 +19,7 @@ window.aiUtils.learnFromTranscriptAI = async ({ fullTranscript, settings }) => {
         **Your Task:**
         Analyze the transcript and determine the creator's style across several key dimensions. Provide your analysis in a structured JSON format. For each dimension, provide a concise label (e.g., "Conversational," "Energetic," "Witty").
 
-        **JSON Output Format:**
+        **JSON Output Format:
         Your final output MUST be a single, valid JSON object with the following structure. Do not include any text or formatting outside of this JSON object.
         ```json
         {
@@ -31,7 +31,7 @@ window.aiUtils.learnFromTranscriptAI = async ({ fullTranscript, settings }) => {
         }
         ```
 
-        **JSON Output:**
+        **JSON Output:
     `;
 
     const responseSchema = {
