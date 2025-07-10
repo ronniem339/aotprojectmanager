@@ -134,13 +134,14 @@ window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings, tri
         React.createElement('div', { className: 'flex-grow overflow-y-auto' }, // Added overflow for scrolling
             (blueprint?.shots || []).map(shot => {
                 const needsResearch = shot.shot_type.toLowerCase().includes('drone') || shot.shot_type.toLowerCase().includes('b-roll');
-                return React.createElement(window.ShotCard, {
-                    key: shot.shot_id,
-                    shot: shot,
-                    isResearchableShot: needsResearch,
-                    onEnrichShot: handleResearchClick,
-                    isEnriching: researchingShotId === shot.shot_id
-                });
+                return React.createElement('div', { key: shot.shot_id, className: 'mb-4' },
+                    React.createElement(window.ShotCard, {
+                        shot: shot,
+                        isResearchableShot: needsResearch,
+                        onEnrichShot: handleResearchClick,
+                        isEnriching: researchingShotId === shot.shot_id
+                    })
+                );
             })
         )
     );
