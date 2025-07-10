@@ -33,13 +33,15 @@ window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings, tri
                 aiFunction: window.aiUtils.enrichBlueprintAI,
                 args: { shot: shotToResearch, video, settings },
                 onSuccess: (response) => {
-                    const updatedShots = blueprint.shots.map(shot => {
-                        if (shot.shot_id === shotToResearch.shot_id) {
-                            return { ...shot, ai_research_notes: response.research_notes };
-                        }
-                        return shot;
+                    setBlueprint(prevBlueprint => {
+                        const updatedShots = prevBlueprint.shots.map(shot => {
+                            if (shot.shot_id === shotToResearch.shot_id) {
+                                return { ...shot, ai_research_notes: response.research_notes };
+                            }
+                            return shot;
+                        });
+                        return { ...prevBlueprint, shots: updatedShots };
                     });
-                    setBlueprint({ ...blueprint, shots: updatedShots });
                 },
                 onFailure: (err) => {
                     console.error("Local handler caught research error:", err);
@@ -66,26 +68,48 @@ window.Step2_ResearchCuration = ({ blueprint, setBlueprint, video, settings, tri
         setIsResearchingAll(true);
         setError('');
 
-        const researchableShots = (blueprint?.shots || []).filter(shot => {
+        const shotsToResearch = (blueprint?.shots || []).filter(shot => {
             const needsResearch = shot.shot_type.toLowerCase().includes('drone') || shot.shot_type.toLowerCase().includes('b-roll');
             const hasSufficientData = shot.location || shot.shot_description || shot.scene_narrative_purpose;
             const notAlreadyResearched = !shot.ai_research_notes || shot.ai_research_notes.length === 0;
             return needsResearch && hasSufficientData && notAlreadyResearched;
         });
 
-        if (researchableShots.length === 0) {
+        if (shotsToResearch.length === 0) {
             setError("No shots require research or all eligible shots have been researched.");
             setIsResearchingAll(false);
             return;
         }
 
-        for (const shot of researchableShots) {
-            // We can reuse the single-shot handler to queue tasks.
-            await handleResearchClick(shot);
-        }
+        const taskId = `scriptingV2-research-all-${video.id}-${Date.now()}`;
+        const taskName = `Researching ${shotsToResearch.length} shots`;
 
-        setIsResearchingAll(false);
-    }, [blueprint?.shots, triggerAiTask, handleResearchClick]);
+        try {
+            await triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-research-all',
+                name: taskName,
+                aiFunction: window.aiUtils.enrichMultipleShotsAI,
+                args: { shotsToResearch, video, settings },
+                onSuccess: (response) => {
+                    setBlueprint(prevBlueprint => {
+                        const updatedShotsMap = new Map(response.updated_shots.map(shot => [shot.shot_id, shot]));
+                        const newShots = prevBlueprint.shots.map(shot => updatedShotsMap.get(shot.shot_id) || shot);
+                        return { ...prevBlueprint, shots: newShots };
+                    });
+                },
+                onFailure: (err) => {
+                    console.error("Local handler caught bulk research error:", err);
+                    setError(`Failed to research all shots. Details: ${err.message || 'Unknown error.'}`);
+                }
+            });
+        } catch (err) {
+            console.error("Unhandled error from triggerAiTask:", err);
+            setError(`An unhandled error occurred during bulk research: ${err.message || 'Please check console.'}`);
+        } finally {
+            setIsResearchingAll(false);
+        }
+    }, [blueprint?.shots, triggerAiTask, video, settings, setBlueprint]);
 
     const researchableCount = (blueprint?.shots || []).filter(s => 
         (s.shot_type.toLowerCase().includes('drone') || s.shot_type.toLowerCase().includes('b-roll')) &&

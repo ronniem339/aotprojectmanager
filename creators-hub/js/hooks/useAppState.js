@@ -199,13 +199,28 @@ window.useAppState = () => {
         },
         // **NEW**: Handler to navigate to a project/video from a completed task
         handleNavigateToTask: (task) => {
-            if (task.data?.project && task.data?.video) {
+            if (!task.data) {
+                console.error("Task has no data to navigate to.", task);
+                return;
+            }
+
+            // Handle ScriptingV2 tasks specifically
+            if (task.type.startsWith('scriptingV2-') && task.data.project && task.data.video) {
                 setSelectedProject(task.data.project);
-                // The ProjectView will handle selecting the active video
+                // The ProjectView component is responsible for listening to the hash
+                // to open the correct video workspace.
+                window.location.hash = `video=${task.data.video.id}`;
                 setCurrentView('project');
-                 // This is a bit of a hack, but we can set the active video ID this way
-                 // so the project view can pick it up.
-                window.history.replaceState({}, '', `#${task.data.video.id}`);
+                return;
+            }
+
+            // Fallback for other task types that have project/video data
+            if (task.data.project) {
+                setSelectedProject(task.data.project);
+                setCurrentView('project');
+                if (task.data.video) {
+                    window.location.hash = `video=${task.data.video.id}`;
+                }
             }
         },
         handleShowSettings: () => setCurrentView('settingsMenu'),

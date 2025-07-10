@@ -49,6 +49,25 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
 
     // --- EFFECTS ---
 
+    // Listen for hash changes to select a video
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash;
+            if (hash.startsWith('#video=')) {
+                const videoId = hash.substring(7);
+                if (videoId && videos.some(v => v.id === videoId)) {
+                    setActiveVideoId(videoId);
+                }
+            }
+        };
+
+        // Initial check
+        handleHashChange();
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, [videos]); // Rerun if videos array changes
+
     // Initialize local project state from props
     useEffect(() => {
         setLocalProject(project);
