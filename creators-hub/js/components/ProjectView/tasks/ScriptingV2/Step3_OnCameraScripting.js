@@ -266,8 +266,8 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                         React.createElement('div', { className: 'flex justify-between items-start mb-2' },
                             React.createElement('div', { className: 'flex-grow' },
                                 React.createElement('h4', { className: 'font-bold text-lg text-white' }, shot.shot_type),
-                                shot.location_tag && React.createElement('p', { className: 'text-sm text-gray-500 mb-2' }, `Location: ${shot.location_tag}`),
-                                React.createElement('p', { className: 'text-sm text-gray-400' }, shot.shot_description)
+                                shot.location_tag && React.createElement('p', { className: 'text-sm text-gray-500' }, `Location: ${shot.location_tag}`),
+                                React.createElement('p', { className: 'text-sm text-gray-400 mt-1' }, shot.shot_description)
                             ),
                             React.createElement('button', {
                                 onClick: () => handleToggleShotCollapse(shot.shot_id),
