@@ -4,6 +4,38 @@ This document provides a reference for Gemini and other AI assistants interactin
 
 To ensure you have the latest context, please read the `ARCHITECTURE.md` file at the beginning of each new session. This will help you understand the application's structure and design principles.
 
+## Development Notes
+
+### Escaping Backticks in AI Prompts
+
+A recurring syntax error (`Uncaught SyntaxError: Missing semicolon`) has been identified. This error occurs when a JavaScript template literal (a string defined with backticks \`) is used to create a prompt for the AI, and that prompt *itself* contains a markdown code block for a JSON object, which also uses backticks.
+
+The browser's JavaScript parser misinterprets the inner backticks as the end of the template literal, causing a syntax error.
+
+**Rule:** When editing or creating AI prompt strings in `.js` files, you **MUST** escape any backticks that are part of the prompt's text content with a backslash (`\`).
+
+**Example:**
+
+**Incorrect (causes a syntax error):**
+```javascript
+const prompt = `
+    Your output must be in this JSON format:
+    ```json
+    { "key": "value" }
+    ```
+`;
+```
+
+**Correct (with escaped backticks):**
+```javascript
+const prompt = `
+    Your output must be in this JSON format:
+    \`\`\`json
+    { "key": "value" }
+    \`\`\`
+`;
+```
+
 ## Application Overview
 
 ### Purpose
