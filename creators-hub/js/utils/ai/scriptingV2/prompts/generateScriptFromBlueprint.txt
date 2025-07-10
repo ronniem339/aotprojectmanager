@@ -28,7 +28,7 @@ Your goal is to produce a final, polished script and an updated blueprint. You w
 
 3.  **Generate Two Scripts:**
     *   `full_video_script_text`: A single string containing the complete, cohesive narrative for the entire video. It should combine all on-camera dialogue and all newly generated voiceover text into a seamless script.
-    *   `recording_voiceover_script_text`: This script is for post-production recording. It MUST ONLY contain the new voiceover dialogue you generate (the hook, intro, transitions, facts, conclusion). **CRITICAL:** Format this script with double newlines ("\n\n") between paragraphs for readability during recording.
+    *   `recording_voiceover_script_text`: This script is for post-production recording. It MUST contain ALL dialogue that needs to be recorded as a voiceover. This includes both the pre-existing voiceover text from the blueprint (`voiceover_script_on_location`) AND any new connecting dialogue (hooks, transitions, facts, etc.) you generate. It must NOT contain any `on_camera_dialogue`. **CRITICAL:** Format this script with double newlines ("\n\n") between paragraphs for readability during recording.
 
 **--- BLUEPRINT UPDATE INSTRUCTIONS (updated_shots) ---**
 
