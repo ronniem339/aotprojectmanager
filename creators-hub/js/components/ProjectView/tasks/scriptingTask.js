@@ -560,12 +560,12 @@ const ScriptingWorkspaceModal = ({
                             <button
                                 onClick={() => handleAction(onRefineOutline, localTaskData.scriptPlan, localTaskData.outlineRefinementText)}
                                 disabled={isLoading || !(localTaskData.outlineRefinementText || '').trim()}
-                                className="button-secondary-small mt-2 disabled:opacity-50">
+                                className="btn btn-secondary btn-sm mt-2 disabled:opacity-50">
                                     {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Outline'}
                             </button>
                         </div>
                         <div className="flex justify-between items-center mt-8">
-                            <button onClick={() => handleStageClick('initial_thoughts')} className="button-secondary">Start Over</button>
+                            <button onClick={() => handleStageClick('initial_thoughts')} className="btn btn-secondary">Start Over</button>
                             <div className="flex items-center space-x-4">
                                 <button
                                     onClick={() => handleAction(onEnrichOutline, localTaskData)}
@@ -594,7 +594,7 @@ const ScriptingWorkspaceModal = ({
                             className="w-full form-textarea whitespace-pre-wrap leading-relaxed"
                         />
                         <div className="flex justify-between items-center mt-8">
-                            <button onClick={() => handleStageClick('draft_outline_review')} className="button-secondary">Back to Original Outline</button>
+                            <button onClick={() => handleStageClick('draft_outline_review')} className="btn btn-secondary">Back to Original Outline</button>
                             <button
                                 onClick={() => {
                                     // Use the enriched plan as the basis for the next step.
@@ -799,7 +799,7 @@ case 'review_parsed_transcript': {
                         <button
                             onClick={handleAddLocationToTranscript}
                             disabled={!locationToAdd}
-                            className="button-secondary-small disabled:opacity-50"
+                            className="btn btn-secondary btn-sm disabled:opacity-50"
                         >
                             Add Location
                         </button>
@@ -862,7 +862,7 @@ case 'review_parsed_transcript': {
                             <button
                                 onClick={() => handleAction(onRefineScript, localTaskData)}
                                 disabled={isLoading || !(localTaskData.scriptRefinementText || '').trim()}
-                                className="button-secondary-small mt-3 disabled:opacity-50"
+                                className="btn btn-secondary btn-sm mt-3 disabled:opacity-50"
                             >
                                 {isLoading ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine Script'}
                             </button>
@@ -1428,10 +1428,10 @@ const renderAccordionContent = () => {
         <div className="text-center py-4">
             <p className="text-gray-400 mb-4">Choose your scripting workflow.</p>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-                 <button onClick={() => handleOpenWorkspace()} className="button-secondary w-full sm:w-auto">
+                 <button onClick={() => handleOpenWorkspace()} className="btn btn-secondary w-full sm:w-auto">
                     Start with Legacy Workflow
                 </button>
-                <button onClick={onStartV2Workflow} className="button-primary w-full sm:w-auto">
+                <button onClick={onStartV2Workflow} className="btn btn-primary w-full sm:w-auto">
                     Try the New V2 Workflow (Recommended)
                 </button>
             </div>

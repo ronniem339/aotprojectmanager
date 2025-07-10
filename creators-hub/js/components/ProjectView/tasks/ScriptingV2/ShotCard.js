@@ -97,9 +97,21 @@ window.ShotCard = ({ shot, onEnrichShot, isResearchableShot, isEnriching, isComp
         ),
         !isCardCollapsed && React.createElement('div', { className: 'pl-8' },
             React.createElement('p', { className: 'text-sm text-gray-300 mb-2' }, shot.shot_description),
-            renderStaticDetail('On-Camera Dialogue', shot.on_camera_dialogue, true),
-            renderDetailSection('Voiceover Script', shot.voiceover_script, isVoiceoverCollapsed, setIsVoiceoverCollapsed, true),
+            
+            // --- FIX: Conditionally render On-Camera Dialogue only if it exists ---
+            shot.on_camera_dialogue && React.createElement('div', { className: 'mt-3 pt-3 border-t border-gray-700/60' },
+                React.createElement('p', { className: 'text-xs font-bold text-amber-300 uppercase tracking-wider mb-1' }, 'On-Camera Dialogue'),
+                React.createElement('div', { className: 'text-gray-200 text-sm pl-2 border-l-2 border-amber-500/30 whitespace-pre-wrap' }, shot.on_camera_dialogue)
+            ),
+
+            // --- FIX: Conditionally render Voiceover Script only if it exists ---
+            shot.voiceover_script && React.createElement('div', { className: 'mt-3 pt-3 border-t border-gray-700/60' },
+                React.createElement('p', { className: 'text-xs font-bold text-amber-300 uppercase tracking-wider mb-1' }, 'Voiceover Script'),
+                React.createElement('div', { className: 'text-gray-200 text-sm pl-2 border-l-2 border-amber-500/30 whitespace-pre-wrap' }, shot.voiceover_script)
+            ),
+
             renderDetailSection('AI Research Notes', shot.ai_research_notes, isAiResearchNotesCollapsed, setIsAiResearchNotesCollapsed),
+            
             isResearchableShot && !researchDone && React.createElement('div', { className: 'text-center mt-3 pt-3 border-t border-gray-700/60' },
                 React.createElement('button', {
                     onClick: () => onEnrichShot(shot),

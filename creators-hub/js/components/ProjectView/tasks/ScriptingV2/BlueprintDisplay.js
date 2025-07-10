@@ -1,24 +1,57 @@
 // creators-hub/js/components/ProjectView/tasks/ScriptingV2/BlueprintDisplay.js
 
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 const { ShotCard } = window;
 
-window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, currentStep }) => {
-    const [completedItems, setCompletedItems] = useState({ scenes: {}, shots: {} });
+window.BlueprintDisplay = ({ blueprint, setBlueprint, project, video, settings, isFullScreen, currentStep }) => {
+    
+    // --- FIX: Local state to manage UI collapse, separate from data ---
+    const [collapsedScenes, setCollapsedScenes] = useState({});
 
-    const toggleCompletion = (type, id) => {
-        setCompletedItems(prev => ({
-            ...prev,
-            [type]: {
-                ...prev[type],
-                [id]: !prev[type][id]
+    // Initialize completed items from the blueprint data
+    const completedItems = useMemo(() => {
+        return blueprint?.completedItems || { scenes: {}, shots: {} };
+    }, [blueprint?.completedItems]);
+
+    // --- FIX: When completion status changes, update collapsed state ---
+    useEffect(() => {
+        const newCollapsed = {};
+        for (const sceneId in completedItems.scenes) {
+            if (completedItems.scenes[sceneId]) {
+                newCollapsed[sceneId] = true;
             }
+        }
+        setCollapsedScenes(newCollapsed);
+    }, [completedItems]);
+
+
+    // --- FIX: This function now correctly updates the main blueprint object ---
+    const toggleCompletion = (type, id) => {
+        const newCompletedItems = {
+            ...completedItems,
+            [type]: {
+                ...completedItems[type],
+                [id]: !completedItems[type]?.[id]
+            }
+        };
+        
+        // Update the parent state, which will trigger a save to Firestore
+        setBlueprint(prevBlueprint => ({
+            ...prevBlueprint,
+            completedItems: newCompletedItems
         }));
+
+        // Also toggle the local collapse state for immediate UI feedback
+        if (type === 'scenes') {
+            setCollapsedScenes(prev => ({
+                ...prev,
+                [id]: !prev[id]
+            }));
+        }
     };
 
-    // The logic for grouping shots into scenes remains the same.
     const scenes = useMemo(() => {
-        if (!blueprint?.shots) return []; // Return array to preserve order
+        if (!blueprint?.shots) return [];
         
         const sceneMap = blueprint.shots.reduce((acc, shot) => {
             const sceneId = shot.scene_id || shot.location || `scene-index-${shot.shot_description.substring(0,10)}`;
@@ -28,7 +61,6 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, 
 
                 acc[sceneId] = {
                     id: sceneId,
-                    // Use the first shot's purpose and location as representative for the scene
                     narrative_purpose: shot.scene_narrative_purpose || `Scene at ${primaryLocation}`,
                     location: primaryLocation,
                     shots: []
@@ -38,7 +70,6 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, 
             return acc;
         }, {});
         
-        // **NEW**: Sort scenes to try and match the user's preferred structure.
         return Object.values(sceneMap).sort((a, b) => {
             const purposeA = a.narrative_purpose.toLowerCase();
             const purposeB = b.narrative_purpose.toLowerCase();
@@ -47,10 +78,10 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, 
             const indexA = order.findIndex(keyword => purposeA.includes(keyword));
             const indexB = order.findIndex(keyword => purposeB.includes(keyword));
 
-            if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Both are special scenes
-            if (indexA !== -1) return -1; // A is special, B is not
-            if (indexB !== -1) return 1;  // B is special, A is not
-            return 0; // Neither are special, maintain original order
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return 0;
         });
 
     }, [blueprint?.shots]);
@@ -59,14 +90,14 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, 
         return React.createElement('div', { className: 'text-center text-gray-400 p-4' }, 'The Creative Blueprint is currently empty. Start by running Step 1 to generate the initial structure.');
     }
 
-    // **NEW**: Counter for generic scenes.
     let sceneCounter = 1;
 
     return React.createElement('div', { className: 'space-y-4' },
         scenes.map(sceneData => {
-            const isSceneCompleted = completedItems.scenes[sceneData.id];
+            const isSceneCompleted = completedItems.scenes?.[sceneData.id] || false;
+            // --- FIX: Use the new local state for collapsing ---
+            const isSceneCollapsed = collapsedScenes[sceneData.id] || false;
             
-            // **NEW**: Logic to determine the scene title.
             let sceneTitle = '';
             let sceneNumberForShots = '';
             const lowerCasePurpose = sceneData.narrative_purpose.toLowerCase();
@@ -83,7 +114,7 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, 
             } else {
                 sceneTitle = `Scene ${sceneCounter}`;
                 sceneNumberForShots = sceneCounter;
-                sceneCounter++; // Only increment for generic scenes
+                sceneCounter++;
             }
 
             return React.createElement('div', {
@@ -94,26 +125,30 @@ window.BlueprintDisplay = ({ blueprint, project, video, settings, isFullScreen, 
                     React.createElement('div', { className: 'flex items-center gap-3' },
                         currentStep === 4 && React.createElement('input', {
                             type: 'checkbox',
-                            checked: isSceneCompleted || false,
+                            checked: isSceneCompleted,
                             onChange: () => toggleCompletion('scenes', sceneData.id),
                             title: 'Mark whole scene as complete',
                             className: 'h-5 w-5 rounded bg-gray-700 border-gray-600 text-green-500 focus:ring-green-600 cursor-pointer'
                         }),
                         React.createElement('div', {className: currentStep !== 4 ? 'ml-8' : ''},
-                            // **MODIFICATION**: Use the new title and show the purpose as a subtitle.
                             React.createElement('h3', { className: 'text-lg font-bold text-primary-accent' }, sceneTitle),
                             React.createElement('p', { className: 'text-sm text-gray-400 italic' }, sceneData.narrative_purpose)
                         )
-                    )
+                    ),
+                    // --- FIX: Add a button to manually toggle collapse state ---
+                    React.createElement('button', {
+                        onClick: () => setCollapsedScenes(prev => ({...prev, [sceneData.id]: !prev[sceneData.id]})),
+                        className: 'text-gray-400 hover:text-white text-sm p-1'
+                    }, isSceneCollapsed ? 'Show' : 'Hide')
                 ),
-                React.createElement('div', { className: 'space-y-3 border-t border-gray-700/50 pt-3 ml-8' },
+                // --- FIX: Conditionally render the shots based on collapsed state ---
+                !isSceneCollapsed && React.createElement('div', { className: 'space-y-3 border-t border-gray-700/50 pt-3 ml-8' },
                     sceneData.shots.map((shot, shotIndex) => React.createElement(ShotCard, {
                         key: shot.shot_id,
                         shot: shot,
-                        isCompleted: completedItems.shots[shot.shot_id] || false,
+                        isCompleted: completedItems.shots?.[shot.shot_id] || false,
                         onToggleComplete: () => toggleCompletion('shots', shot.shot_id),
                         currentStep: currentStep,
-                        // **MODIFICATION**: Pass down scene and shot numbers.
                         sceneNumber: sceneNumberForShots,
                         shotNumber: shotIndex + 1
                     }))

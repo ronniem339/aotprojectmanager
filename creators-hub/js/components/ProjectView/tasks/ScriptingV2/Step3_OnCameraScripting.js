@@ -16,10 +16,12 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
     const [ambiguousDialogueSegments, setAmbiguousDialogueSegments] = useState([]);
     const [resolvedAmbiguityChoices, setResolvedAmbiguityChoices] = useState({});
 
-    // **NEW**: State to manage collapsed cards in the shot-by-shot view
+    // --- NEW: State for Style Guide Refinement ---
+    const [styleSuggestions, setStyleSuggestions] = useState(null);
+    const [acceptedSuggestions, setAcceptedSuggestions] = useState({});
+
     const [collapsedShots, setCollapsedShots] = useState({});
 
-    // Initialize collapsed state when blueprint shots are loaded
     useEffect(() => {
         const initialCollapsedState = {};
         (blueprint?.shots || []).forEach(shot => {
@@ -61,23 +63,60 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setProcessingMessage('');
     }, [view, isProcessing]);
 
+    const handleLearnFromTranscript = async () => {
+        setIsProcessing(true);
+        setProcessingMessage('Analyzing transcript for style insights...');
+        setError('');
+
+        const learnTaskId = `scriptingV2-learn-style-${video.id}-${Date.now()}`;
+
+        try {
+            await handlers.triggerAiTask({
+                id: learnTaskId,
+                type: 'scriptingV2-learn-style',
+                name: 'Learning from Transcript',
+                aiFunction: window.aiUtils.learnFromTranscriptAI,
+                args: { fullTranscript, settings },
+                onSuccess: (result) => {
+                    if (result) {
+                        setStyleSuggestions(result);
+                        setAcceptedSuggestions(result); // Pre-accept all suggestions
+                        setViewAndPersist('styleUpdate');
+                    } else {
+                        // If no suggestions, just proceed to the next step
+                        handleRefineBlueprint(blueprint);
+                    }
+                },
+                onFailure: (err) => {
+                    setError(`Failed to analyze style: ${err.message}. Proceeding without style update.`);
+                    // Still proceed to the next step even if style learning fails
+                    handleRefineBlueprint(blueprint);
+                }
+            });
+        } catch (err) {
+            console.error("Unhandled error in handleLearnFromTranscript:", err);
+            setError(`An unexpected error occurred during style analysis: ${err.message}. Proceeding without style update.`);
+            handleRefineBlueprint(blueprint);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+    
     const handleMapTranscript = async () => {
         if (!fullTranscript.trim()) {
             setError("Transcript cannot be empty.");
             handlers.displayNotification("Transcript cannot be empty.", 'error');
             return;
         }
-        setIsProcessing(true);
-        setProcessingMessage('Mapping transcript to shots...');
         setError('');
 
         const mapTaskId = `scriptingV2-map-transcript-${video.id}-${Date.now()}`;
 
         try {
-            const mappedDialogueResult = await handlers.triggerAiTask({
+            await handlers.triggerAiTask({
                 id: mapTaskId,
                 type: 'scriptingV2-map-transcript',
-                name: 'Mapping Transcript',
+                name: 'Mapping Transcript to Blueprint',
                 aiFunction: window.aiUtils.mapTranscriptToBlueprintAI,
                 args: {
                     fullTranscript,
@@ -124,10 +163,10 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
 
                     if (ambiguities.length > 0) {
                         setAmbiguousDialogueSegments(ambiguities);
-                        setProcessingMessage('Ambiguous dialogue detected. Awaiting your confirmation.');
                         setViewAndPersist('resolveAmbiguity');
                     } else {
-                        handleRefineBlueprint(tempBlueprintForProcessing);
+                        // --- MODIFIED: Call style learning before blueprint refinement ---
+                        handleLearnFromTranscript();
                     }
                 },
                 onFailure: (err) => {
@@ -138,8 +177,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         } catch (err) {
             console.error("Unhandled error in handleMapTranscript:", err);
             setError(`An unexpected error occurred during transcript mapping: ${err.message || 'Please check console.'}`);
-        } finally {
-            setIsProcessing(false);
         }
     };
 
@@ -151,7 +188,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         const refineTaskId = `scriptingV2-refine-blueprint-${video.id}-${Date.now()}`;
 
         try {
-            const refinementResults = await handlers.triggerAiTask({
+            await handlers.triggerAiTask({
                 id: refineTaskId,
                 type: 'scriptingV2-refine-blueprint',
                 name: 'Refining Blueprint',
@@ -185,6 +222,70 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         }
     };
 
+    const handleUpdateStyleGuide = async () => {
+        setIsProcessing(true);
+        setProcessingMessage('Updating your style guide...');
+        setError('');
+    
+        const updateTaskId = `scriptingV2-update-style-guide-${video.id}-${Date.now()}`;
+    
+        try {
+            await handlers.triggerAiTask({
+                id: updateTaskId,
+                type: 'scriptingV2-update-style-guide',
+                name: 'Updating Style Guide',
+                aiFunction: window.aiUtils.updateStyleGuideAI,
+                args: {
+                    suggestions: acceptedSuggestions,
+                    currentStyleGuide: settings.knowledgeBases?.styleV2?.detailedStyleGuide?.narrative || '',
+                    settings
+                },
+                onSuccess: (result) => {
+                    if (result && result.newStyleGuideNarrative && result.logEntry) {
+                        const newLogEntry = {
+                            timestamp: new Date().toISOString(),
+                            entry: result.logEntry,
+                            videoId: video.id,
+                            videoTitle: video.title
+                        };
+
+                        const currentHistory = settings.knowledgeBases?.styleV2?.refinementHistory || [];
+                        
+                        const newSettings = {
+                            ...settings,
+                            knowledgeBases: {
+                                ...settings.knowledgeBases,
+                                styleV2: {
+                                    ...settings.knowledgeBases?.styleV2,
+                                    detailedStyleGuide: {
+                                        ...settings.knowledgeBases?.styleV2?.detailedStyleGuide,
+                                        narrative: result.newStyleGuideNarrative
+                                    },
+                                    refinementHistory: [...currentHistory, newLogEntry]
+                                }
+                            }
+                        };
+                        handlers.handleSaveSettings(newSettings);
+                        handlers.displayNotification("Style guide updated successfully!", 'success');
+                        handleRefineBlueprint(blueprint);
+                    } else {
+                        throw new Error("AI did not return a new style guide narrative and log entry.");
+                    }
+                },
+                onFailure: (err) => {
+                    setError(`Failed to update style guide: ${err.message}. Proceeding without update.`);
+                    handleRefineBlueprint(blueprint);
+                }
+            });
+        } catch (err) {
+            console.error("Unhandled error in handleUpdateStyleGuide:", err);
+            setError(`An unexpected error occurred during style guide update: ${err.message}. Proceeding without update.`);
+            handleRefineBlueprint(blueprint);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const handleShotCardDialogueChange = (shotId, field, value) => {
         const updatedShots = blueprint.shots.map(shot => {
             if (shot.shot_id === shotId) {
@@ -195,12 +296,10 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setBlueprint({ ...blueprint, shots: updatedShots });
     };
     
-    // **NEW**: Handler to toggle the collapsed state of a shot
     const handleToggleShotCollapse = (shotId) => {
         setCollapsedShots(prev => ({ ...prev, [shotId]: !prev[shotId] }));
     };
 
-    // **NEW**: Function to get the border color class based on shot type
     const getShotTypeStyles = (shotType) => {
         const type = shotType?.toLowerCase() || '';
         if (type.includes('on-camera')) return 'border-l-4 border-blue-500';
@@ -208,7 +307,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         if (type.includes('drone')) return 'border-l-4 border-purple-500';
         return 'border-l-4 border-gray-600';
     };
-
 
     const renderShotByShotView = () => (
         React.createElement('div', { className: 'flex flex-col h-full' },
@@ -260,10 +358,6 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         )
     );
 
-    // The rest of the functions (handleToggleSuggestion, applyBlueprintSuggestions, etc.) and
-    // the other render views (renderMainView, renderImportView, etc.) remain unchanged.
-
-    // --- PASTE THE UNCHANGED FUNCTIONS HERE ---
     const handleToggleSuggestion = (index) => {
         const newSelection = new Set(selectedSuggestions);
         if (newSelection.has(index)) {
@@ -374,11 +468,11 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         const tempBlueprintAfterResolution = { ...blueprint, shots: updatedShots };
         setBlueprint(tempBlueprintAfterResolution);
 
-        handleRefineBlueprint(tempBlueprintAfterResolution);
+        // --- MODIFIED: Call style learning after ambiguity resolution ---
+        handleLearnFromTranscript();
 
         setIsProcessing(false);
     };
-
 
     const renderMainView = () => (
         React.createElement('div', { className: 'text-center' },
@@ -403,7 +497,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                 React.createElement('button', { onClick: () => setViewAndPersist('main'), className: 'btn btn-secondary-small' }, '‹ Back'),
                 React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent' }, "Import Transcript"),
             ),
-            React.createElement('p', { className: 'text-gray-400 mb-4' }, "Paste your entire on-camera transcript below. The AI will attempt to assign dialogue to shots. You may be asked to clarify ambiguous segments."),
+            React.createElement('p', { className: 'text-gray-400 mb-4' }, "Paste your entire on-camera transcript below. The AI will attempt to assign dialogue to shots and learn from your writing style."),
             React.createElement('textarea', {
                 value: fullTranscript,
                 onChange: (e) => setFullTranscriptAndPersist(e.target.value),
@@ -536,15 +630,67 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         )
     );
 
+    const renderStyleUpdateView = () => {
+        if (!styleSuggestions) return null;
+    
+        const suggestionItems = [
+            { key: 'suggestedBrandVoice', label: 'Brand Voice' },
+            { key: 'suggestedPacing', label: 'Pacing' },
+            { key: 'suggestedHumorLevel', label: 'Humor Level' },
+            { key: 'suggestedTone', label: 'Tone' },
+            { key: 'suggestedAudience', label: 'Target Audience' },
+        ];
+    
+        return React.createElement('div', { className: 'flex flex-col h-full' },
+            React.createElement('h3', { className: 'text-xl font-semibold text-primary-accent mb-2' }, "Update Your Style Guide?"),
+            React.createElement('p', { className: 'text-gray-400 mb-4' }, "The AI analyzed your transcript and suggests these attributes for your style guide. Uncheck any you'd like to ignore."),
+            React.createElement('div', { className: 'flex-grow overflow-y-auto pr-2 space-y-3' },
+                suggestionItems.map(item => React.createElement('div', { key: item.key, className: 'bg-gray-800/70 p-3 rounded-lg' },
+                    React.createElement('label', { className: 'flex items-center justify-between' },
+                        React.createElement('span', { className: 'font-semibold text-white' }, item.label),
+                        React.createElement('input', {
+                            type: 'checkbox',
+                            checked: !!acceptedSuggestions[item.key],
+                            onChange: () => {
+                                const newAccepted = { ...acceptedSuggestions };
+                                if (newAccepted[item.key]) {
+                                    delete newAccepted[item.key];
+                                } else {
+                                    newAccepted[item.key] = styleSuggestions[item.key];
+                                }
+                                setAcceptedSuggestions(newAccepted);
+                            },
+                            className: 'h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent'
+                        })
+                    ),
+                    React.createElement('p', { className: 'text-gray-300 mt-1' }, styleSuggestions[item.key])
+                ))
+            ),
+            React.createElement('div', { className: 'flex justify-end gap-4 mt-4' },
+                React.createElement('button', {
+                    onClick: () => handleRefineBlueprint(blueprint), // Skip and continue
+                    disabled: isProcessing,
+                    className: 'btn btn-secondary'
+                }, 'Skip'),
+                React.createElement('button', {
+                    onClick: handleUpdateStyleGuide,
+                    disabled: isProcessing || Object.keys(acceptedSuggestions).length === 0,
+                    className: 'btn btn-primary disabled:opacity-50'
+                }, isProcessing ? processingMessage : 'Accept & Update Style Guide')
+            )
+        );
+    };
+
     return React.createElement('div', { className: 'flex flex-col h-full' },
         error && React.createElement('p', { className: 'text-red-400 mb-4 text-center bg-red-900/50 p-3 rounded-lg' }, error),
-        isProcessing && React.createElement('div', { className: 'text-white text-center mb-4 p-3 bg-blue-900/50 rounded-lg' },
+        isProcessing && !error && React.createElement('div', { className: 'text-white text-center mb-4 p-3 bg-blue-900/50 rounded-lg' },
             React.createElement('p', { className: 'font-semibold' }, processingMessage)
         ),
         view === 'main' && renderMainView(),
         view === 'import' && renderImportView(),
         view === 'resolveAmbiguity' && renderResolveAmbiguityView(),
         view === 'refineBlueprint' && renderRefineBlueprintView(),
-        view === 'shotByShot' && renderShotByShotView()
+        view === 'shotByShot' && renderShotByShotView(),
+        view === 'styleUpdate' && renderStyleUpdateView()
     );
 };

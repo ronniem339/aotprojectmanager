@@ -62,7 +62,7 @@ window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
             <h3 className="task-title">Generate First Comment</h3>
             {video.tasks.firstCommentGenerated === 'complete' && <span className="task-badge-complete">✓ Completed</span>}
             <div className="task-content">
-                <button onClick={handleGenerateComment} disabled={generating} className="button-primary-small w-full justify-center">
+                <button onClick={handleGenerateComment} disabled={generating} className="btn btn-primary btn-sm w-full justify-center">
                     {generating ? <window.LoadingSpinner isButton={true}/> : '🤖 Generate Pinned Comment'}
                 </button>
                 {error && <p className="error-message">{error}</p>}
@@ -74,7 +74,7 @@ window.FirstCommentTask = ({ video, onUpdateTask, settings }) => {
                     }}
                     placeholder="Write or generate the first comment to pin on the video..."
                 />
-                <button onClick={handleSave} className="button-secondary-small mt-4 w-full justify-center">
+                <button onClick={handleSave} className="btn btn-secondary btn-sm mt-4 w-full justify-center">
                     Save and Mark Complete
                 </button>
             </div>

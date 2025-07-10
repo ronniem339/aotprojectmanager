@@ -131,7 +131,7 @@ window.Step5_FinalAssembly = ({ blueprint, setBlueprint, video, settings, onUpda
             React.createElement('div', { className: 'text-center' },
                 React.createElement('button', {
                     onClick: handleCompleteTask,
-                    className: 'button-success text-xl px-10 py-4'
+                    className: 'btn btn-success text-xl px-10 py-4'
                 }, '✅ Mark Task as Complete')
             )
         )

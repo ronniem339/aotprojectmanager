@@ -2,20 +2,60 @@
 window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => {
     const { useEffect, useState, useRef } = React;
     const [isVisible, setIsVisible] = useState(false);
-    const prevTasksLength = useRef(0);
+    const prevTasksRef = useRef([]);
 
     const safeTasks = Array.isArray(tasks) ? tasks : [];
 
+    // --- NEW: Audio Notification Logic ---
+    useEffect(() => {
+        // Function to play a soft notification sound
+        const playCompletionSound = () => {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioContext) return; // Web Audio API not supported
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Configure the sound to be soft and brief
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05); // Quick fade in
+            oscillator.type = 'sine'; // A soft, clean tone
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime); // A pleasant pitch
+
+            oscillator.start(audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5); // Fade out
+            oscillator.stop(audioContext.currentTime + 0.5);
+        };
+
+        // Compare previous tasks with current tasks to find newly completed ones
+        const prevTasks = prevTasksRef.current;
+        if (prevTasks.length > 0 || safeTasks.length > 0) {
+            safeTasks.forEach(currentTask => {
+                const prevTask = prevTasks.find(pt => pt.id === currentTask.id);
+                if (prevTask && prevTask.status !== 'complete' && currentTask.status === 'complete') {
+                    playCompletionSound();
+                }
+            });
+        }
+
+        // Update the ref with the current tasks for the next render
+        prevTasksRef.current = safeTasks;
+
+    }, [safeTasks]);
+    // --- END: Audio Notification Logic ---
+
     useEffect(() => {
         // When tasks are first added, show the queue.
-        if (safeTasks.length > 0 && prevTasksLength.current === 0) {
+        if (safeTasks.length > 0 && prevTasksRef.current.length === 0) {
             setIsVisible(true);
         }
         // If all tasks are cleared, hide the queue.
         if (safeTasks.length === 0) {
             setIsVisible(false);
         }
-        prevTasksLength.current = safeTasks.length;
     }, [safeTasks]);
 
     if (!isVisible) {

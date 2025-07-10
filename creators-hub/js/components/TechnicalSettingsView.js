@@ -3,35 +3,29 @@
 const { useState, useEffect } = React;
 
 window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
-    // This state now holds ALL settings, including the new V2 ones.
     const [localSettings, setLocalSettings] = useState({
         geminiApiKey: '',
         googleMapsApiKey: '',
         youtubeApiKey: '',
-        // V1 settings
         useProModelForComplexTasks: false,
         flashModelName: '',
         proModelName: '',
-        // NEW: V2 settings
         useProForV2HeavyTasks: true,
-        // We will add the v2 model names here as well
         v2_proModelName: '',
         v2_flashModelName: '',
         v2_liteModelName: ''
     });
 
-    // State for the deduplication tool
     const [isDeduplicating, setIsDeduplicating] = useState(false);
     const [deduplicationProgress, setDeduplicationProgress] = useState('');
     const [deduplicationError, setDeduplicationError] = useState('');
     const [deduplicationSuccess, setDeduplicationSuccess] = useState('');
 
-    // MODIFICATION: Added state for cache clearing
     const [isClearingCache, setIsClearingCache] = useState(false);
     const [cacheClearSuccess, setCacheClearSuccess] = useState('');
     const [cacheClearError, setCacheClearError] = useState('');
 
-    const { db, user, currentSettings } = appState;
+    const { db, user, currentSettings, handlers } = appState;
     const isConnectionReady = db && user && currentSettings;
 
     useEffect(() => {
@@ -40,21 +34,16 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                 geminiApiKey: settings.geminiApiKey || '',
                 googleMapsApiKey: settings.googleMapsApiKey || '',
                 youtubeApiKey: settings.youtubeApiKey || '',
-                // V1 settings
                 useProModelForComplexTasks: settings.useProModelForComplexTasks || false,
                 flashModelName: settings.models?.flash || 'gemini-1.5-flash-latest',
                 proModelName: settings.models?.pro || 'gemini-1.5-pro-latest',
-                // NEW: Initialize V2 settings from the main settings object
                 useProForV2HeavyTasks: settings.technical?.useProForV2HeavyTasks !== undefined ? settings.technical.useProForV2HeavyTasks : true,
-                // NEW: Separate model names for V2
                 v2_proModelName: settings.models?.v2_pro || 'gemini-1.5-pro-latest',
                 v2_flashModelName: settings.models?.v2_flash || 'gemini-1.5-flash-latest',
                 v2_liteModelName: settings.models?.v2_lite || 'gemini-1.5-flash-lite-001'
             });
         }
     }, [settings]);
-
-    // MODIFICATION: This effect is no longer needed and has been removed to prevent the hanging issue.
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -63,31 +52,37 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
     };
 
     const handleSaveAll = () => {
-        // This function now correctly structures the settings object for saving.
         const updatedSettings = {
             ...settings,
             geminiApiKey: localSettings.geminiApiKey,
             googleMapsApiKey: localSettings.googleMapsApiKey,
             youtubeApiKey: localSettings.youtubeApiKey,
-            // V1 setting
             useProModelForComplexTasks: localSettings.useProModelForComplexTasks,
-            // NEW: Add V2 settings to the technical object
             technical: {
                 ...settings.technical,
                 useProForV2HeavyTasks: localSettings.useProForV2HeavyTasks,
             },
             models: {
                 ...settings.models,
-                // Legacy models
                 flash: localSettings.flashModelName,
                 pro: localSettings.proModelName,
-                // NEW: Add separate V2 models to the models object
                 v2_pro: localSettings.v2_proModelName,
                 v2_flash: localSettings.v2_flashModelName,
                 v2_lite: localSettings.v2_liteModelName,
             }
         };
         onSave(updatedSettings);
+    };
+
+    const handleClearRefinementHistory = () => {
+        if (confirm("Are you sure you want to permanently delete the style guide refinement history?")) {
+            const newSettings = { ...settings };
+            if (newSettings.knowledgeBases && newSettings.knowledgeBases.styleV2) {
+                delete newSettings.knowledgeBases.styleV2.refinementHistory;
+            }
+            onSave(newSettings);
+            handlers.displayNotification("Style guide history cleared.", "success");
+        }
     };
 
     const handleRunDeduplicator = async () => {
@@ -111,7 +106,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         }
     };
 
-    // MODIFICATION: The handler now assumes success and forces a reload.
     const handleClearCache = () => {
         if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
             setCacheClearError('Service worker not available. Please try reloading the page.');
@@ -122,13 +116,8 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         setCacheClearError('');
         
         try {
-            // Send the command to the service worker.
             navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
-
-            // Immediately show the success message and prepare to reload.
             setCacheClearSuccess('Cache cleared! The application will now reload...');
-            
-            // Force a reload after a short delay to allow the cache to clear.
             setTimeout(() => {
                 window.location.reload();
             }, 2000);
@@ -140,6 +129,8 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
         }
     };
 
+    const refinementHistory = settings?.knowledgeBases?.styleV2?.refinementHistory || [];
+
     return (
         React.createElement('div', { className: 'p-8' },
             React.createElement('button', { onClick: onBack, className: 'flex items-center gap-2 text-secondary-accent hover:text-secondary-accent-light mb-6' },
@@ -147,7 +138,6 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
             ),
 
             React.createElement('div', { className: 'space-y-12' },
-                // API Keys & Model Settings Section
                 React.createElement('div', { className: 'max-w-2xl' },
                     React.createElement('h1', { className: 'text-3xl font-bold mb-2' }, 'Technical Settings'),
                     React.createElement('p', { className: 'text-gray-400 mb-6' }, 'Manage API keys and AI model configurations. Keep API keys secure!'),
@@ -210,6 +200,25 @@ window.TechnicalSettingsView = ({ settings, onSave, onBack, appState }) => {
                                 React.createElement('input', { type: 'text', name: 'v2_liteModelName', value: localSettings.v2_liteModelName, onChange: handleChange, className: 'w-full form-input', placeholder: 'e.g., gemini-1.5-flash-lite-001' })
                             )
                         )
+                    ),
+                    
+                    refinementHistory.length > 0 && React.createElement('div', { className: 'mt-10 pt-8 border-t border-gray-700' },
+                        React.createElement('h2', { className: 'text-2xl font-semibold mb-2' }, 'Style Guide Refinement History'),
+                        React.createElement('p', { className: 'text-gray-400 mb-4 text-sm' }, 'A log of automated style guide refinements based on transcript analysis.'),
+                        React.createElement('div', { className: 'space-y-3 max-h-60 overflow-y-auto bg-gray-900/50 p-4 rounded-lg' },
+                            [...refinementHistory].reverse().map((log, index) => 
+                                React.createElement('div', { key: index, className: 'p-3 bg-gray-800 rounded-md' },
+                                    React.createElement('p', { className: 'text-sm text-gray-300' }, log.entry),
+                                    React.createElement('p', { className: 'text-xs text-gray-500 mt-1' }, 
+                                        `On ${new Date(log.timestamp).toLocaleString()} from video: ${log.videoTitle || log.videoId}`
+                                    )
+                                )
+                            )
+                        ),
+                        React.createElement('button', {
+                            onClick: handleClearRefinementHistory,
+                            className: 'btn btn-danger-small mt-4'
+                        }, 'Clear History')
                     )
                 ),
 

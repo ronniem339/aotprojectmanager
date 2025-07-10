@@ -2,6 +2,7 @@
 
 window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
     const { useState, useEffect } = React;
+    const { DragDropContext, Droppable, Draggable } = window.ReactBeautifulDnd;
 
     const [chapters, setChapters] = useState(video.chapters || []);
     const [generating, setGenerating] = useState(false);
@@ -71,6 +72,7 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
             const result = await window.aiUtils.callGeminiAPI(prompt, settings, {});
             const suggestedTitles = result.chapters || [];
             const newChapters = suggestedTitles.map((title, index) => ({
+                id: `chapter-${index}-${Date.now()}`, // Add a unique ID for dnd
                 time: index === 0 ? '00:00' : '',
                 title: title
             }));
@@ -140,18 +142,47 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         setChapters(newChapters);
     };
 
+    const handleTimeChange = (index, value) => {
+        const newChapters = [...chapters];
+        const numericValue = value.replace(/\D/g, '');
+        
+        let formattedTime = '';
+        if (numericValue.length > 0) {
+            const seconds = numericValue.slice(-2);
+            const minutes = numericValue.slice(0, -2);
+            
+            if (minutes) {
+                formattedTime = `${minutes}:${seconds.padStart(2, '0')}`;
+            } else {
+                formattedTime = seconds;
+            }
+        }
+        
+        newChapters[index]['time'] = formattedTime;
+        setChapters(newChapters);
+    };
+
     const handleAddChapter = () => {
-        setChapters([...chapters, { time: '', title: '' }]);
+        setChapters([...chapters, { id: `chapter-new-${Date.now()}`, time: '', title: '' }]);
     };
 
     const handleRemoveChapter = (indexToRemove) => {
         setChapters(chapters.filter((_, index) => index !== indexToRemove));
     };
 
+    const onDragEnd = (result) => {
+        if (!result.destination) {
+            return;
+        }
+        const items = Array.from(chapters);
+        const [reorderedItem] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, reorderedItem);
+
+        setChapters(items);
+    };
+
     const handleSave = () => {
         for (const chapter of chapters) {
-            // --- THIS IS THE FIX ---
-            // We now trim the `chapter.time` before validating it to remove any accidental whitespace.
             if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test((chapter.time || '').trim()) || !chapter.title) {
                 setError('All chapters must have a valid title and timestamp (e.g., 01:23 or 1:01:23). Please review your chapters.');
                 return;
@@ -188,7 +219,7 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
         }
 
         onUpdateTask('chaptersGenerated', 'complete', {
-            chapters: chapters.map(ch => ({ ...ch, time: ch.time.trim() })), // Save the trimmed time
+            chapters: chapters.map(ch => ({ ...ch, time: ch.time.trim() })),
             'metadata.description': newDescription
         });
     };
@@ -201,7 +232,7 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
 
     return (
         <div className="task-content space-y-4">
-            <button onClick={handleGenerateChapters} disabled={generating || !scriptToUse} className="button-primary-small w-full justify-center">
+            <button onClick={handleGenerateChapters} disabled={generating || !scriptToUse} className="btn btn-primary btn-sm w-full justify-center">
                 {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Suggested Chapters'}
             </button>
             {!scriptToUse && <p className="text-yellow-400 text-sm text-center">A finalized script is needed to generate chapter suggestions.</p>}
@@ -220,39 +251,57 @@ window.ChaptersTask = ({ video, settings, onUpdateTask, isLocked }) => {
                     <button
                         onClick={handleRefineChapters}
                         disabled={refining || !refinePrompt}
-                        className="button-secondary-small flex-shrink-0"
+                        className="btn btn-secondary btn-sm flex-shrink-0"
                     >
                         {refining ? <window.LoadingSpinner isButton={true} /> : 'Refine Titles'}
                     </button>
                 </div>
             )}
 
-            <div className="space-y-3 mt-4">
-                {chapters.map((chapter, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                        <input
-                            type="text"
-                            placeholder="00:00"
-                            value={chapter.time}
-                            onChange={(e) => handleChapterChange(index, 'time', e.target.value)}
-                            className="form-input w-28 text-center"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Chapter Title"
-                            value={chapter.title}
-                            onChange={(e) => handleChapterChange(index, 'title', e.target.value)}
-                            className="form-input flex-grow"
-                        />
-                        <button onClick={() => handleRemoveChapter(index)} className="button-danger-small flex-shrink-0">
-                            Remove
-                        </button>
-                    </div>
-                ))}
-            </div>
+            <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="chapters">
+                    {(provided) => (
+                        <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3 mt-4">
+                            {chapters.map((chapter, index) => (
+                                <Draggable key={chapter.id || index} draggableId={chapter.id || `chapter-${index}`} index={index}>
+                                    {(provided) => (
+                                        <div
+                                            ref={provided.innerRef}
+                                            {...provided.draggableProps}
+                                            className="flex items-center gap-3 bg-gray-800 p-2 rounded-lg"
+                                        >
+                                            <div {...provided.dragHandleProps} className="text-gray-500 hover:text-white cursor-grab px-2">
+                                                <i className="fas fa-grip-vertical"></i>
+                                            </div>
+                                            <input
+                                                type="tel"
+                                                placeholder="1:23"
+                                                value={chapter.time}
+                                                onChange={(e) => handleTimeChange(index, e.target.value)}
+                                                className="form-input w-28 text-center"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Chapter Title"
+                                                value={chapter.title}
+                                                onChange={(e) => handleChapterChange(index, 'title', e.target.value)}
+                                                className="form-input flex-grow"
+                                            />
+                                            <button onClick={() => handleRemoveChapter(index)} className="btn btn-danger btn-sm flex-shrink-0">
+                                                Remove
+                                            </button>
+                                        </div>
+                                    )}
+                                </Draggable>
+                            ))}
+                            {provided.placeholder}
+                        </div>
+                    )}
+                </Droppable>
+            </DragDropContext>
 
             <div className="mt-4 flex justify-start">
-                <button onClick={handleAddChapter} className="button-secondary-small">
+                <button onClick={handleAddChapter} className="btn btn-secondary btn-sm">
                     + Add Chapter
                 </button>
             </div>

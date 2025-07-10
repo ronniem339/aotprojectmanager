@@ -6,7 +6,7 @@ const { useBlueprint, BlueprintStepper, Step1_InitialBlueprint, Step2_ResearchCu
 const { useDebounce } = window;
 
 // MODIFICATION: The component now accepts 'aiTasks' to display the queue.
-window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask, aiTasks }) => {
+window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask, aiTasks, handlers }) => {
     const [isAiTaskActive, setIsAiTaskActive] = useState(false);
 
     const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db, isAiTaskActive);
@@ -44,11 +44,20 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                 console.log("New transcript detected. Learning from it...");
                 processedTranscriptRef.current = blueprint.fullTranscript;
 
-                const refinedGuide = await learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings);
+                // --- FIX: Add a try-catch around the AI call itself ---
+                let refinedGuide;
+                try {
+                    refinedGuide = await learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings);
+                } catch (aiError) {
+                    console.error("Error learning from transcript:", aiError);
+                    handlers.displayNotification(`AI failed to learn from transcript: ${aiError.message}`, 'error');
+                    return; // Stop execution if AI fails
+                }
 
                 if (refinedGuide) {
                     try {
-                        const projectRef = db.collection(`users/${userId}/projects`).doc(project.id);
+                        // --- FIX: Use the correct Firestore path ---
+                        const projectRef = db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects`).doc(project.id);
                         
                         const historyEntry = {
                             timestamp: new Date(),
@@ -57,26 +66,27 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
                             refinedGuide: refinedGuide
                         };
 
-                        await projectRef.set({
-                            settings: {
-                                ai: {
-                                    v2StyleGuide: refinedGuide,
-                                    v2StyleGuideHistory: firebase.firestore.FieldValue.arrayUnion(historyEntry)
-                                }
-                            }
-                        }, { merge: true });
+                        // --- FIX: Use the correct data structure for saving ---
+                        await projectRef.update({
+                            'settings.knowledgeBases.styleV2.detailedStyleGuide': refinedGuide,
+                            'settings.knowledgeBases.styleV2.history': firebase.firestore.FieldValue.arrayUnion(historyEntry)
+                        });
                         
                         console.log("V2 Style Guide successfully refined and saved to project settings.");
+                        // --- FIX: Add user notification on success ---
+                        handlers.displayNotification("Style Guide updated based on transcript!", 'success');
 
                     } catch (dbError) {
                         console.error("Failed to save refined V2 Style Guide to Firestore:", dbError);
+                        // --- FIX: Add user notification on failure ---
+                        handlers.displayNotification(`Error saving updated Style Guide: ${dbError.message}`, 'error');
                     }
                 }
             }
         };
 
         processTranscript();
-    }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db]);
+    }, [blueprint?.fullTranscript, project.id, userId, video.title, settings, db, handlers]);
 
     const steps = [
         { id: 1, name: 'Brain Dump', isCompleted: project.tasks?.scriptingV2_initial_blueprint?.status === 'completed' },
@@ -110,6 +120,7 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
 
         return React.createElement(BlueprintDisplay, {
             blueprint: blueprint,
+            setBlueprint: setBlueprint, // Pass the setter down
             project: project,
             video: video,
             settings: settings,
@@ -120,7 +131,12 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
 
     return React.createElement('div', { className: 'fixed inset-0 bg-gray-900 z-50 text-white flex flex-col' },
         // **FIX APPLIED HERE**: The TaskQueue is now rendered inside the workspace overlay.
-        React.createElement(TaskQueue, { tasks: aiTasks }),
+        React.createElement(TaskQueue, { 
+            tasks: aiTasks,
+            onNavigateToTask: handlers.handleNavigateToTask,
+            onView: handlers.handleViewGeneratedPost,
+            onRetry: handlers.handleRetryTask
+        }),
 
         saveStatus === 'saved' && React.createElement(
             'div',

@@ -126,7 +126,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                         <textarea id={key} value={imageDescriptions[key]} onChange={(e) => handleDescriptionChange(key, e.target.value)} placeholder={`e.g., A wide shot of the entire building with a clear blue sky.`} className="form-textarea" rows={2} disabled={generating} />
                     </div>
                 ))}
-                <button onClick={handleGenerateIdeas} disabled={generating || !areAllDescriptionsFilled} className="button-primary-small w-full justify-center">
+                <button onClick={handleGenerateIdeas} disabled={generating || !areAllDescriptionsFilled} className="btn btn-primary btn-sm w-full justify-center">
                     {generating ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate A/B Test Ideas'}
                 </button>
                 {error && <p className="error-message">{error}</p>}
@@ -151,7 +151,7 @@ window.ThumbnailTask = ({ video, settings, onUpdateTask, isLocked }) => {
                                                     setCopiedIdeaId(ideaId);
                                                     setTimeout(() => setCopiedIdeaId(null), 2000);
                                                 }}
-                                                className={`button-secondary-small flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                                                className={`btn btn-secondary btn-sm flex-shrink-0 transition-colors duration-200 ${isCopied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                                                 title="Add this idea to the brief"
                                                 disabled={isCopied}
                                             >

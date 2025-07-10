@@ -45,7 +45,7 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
     const blueprintString = JSON.stringify(blueprintForAI, null, 2);
 
     const prompt = `
-        You are a master scriptwriter for a top-tier YouTube documentarian with a knack for making history and facts feel exciting and fun. You have been provided with a complete "Creative Blueprint" for an upcoming video. The blueprint contains a sequence of shots, each populated with research notes, the creator's personal experiences, on-camera dialogue, and on-location voiceover segments.
+        You are a master scriptwriter and film director for a top-tier YouTube documentarian. Your job is to take a "Creative Blueprint" and transform it into a complete, engaging video script. You must be meticulous and follow all instructions to the letter.
 
         **Creator's Style Guide & Tone:**
         ${styleGuidePrompt}
@@ -55,58 +55,81 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
 
         **Video Title:** ${video.title}
 
-        **The Creative Blueprint (in JSON format, including existing on-location dialogue):**
+        **The Creative Blueprint (in JSON format):**
         ---
         ${blueprintString}
         ---
 
         **Your Task:**
-        Your sole task is to produce two distinct scripts based on the provided blueprint.
+        Your goal is to produce a final, polished script and an updated blueprint. You will deliver two script versions and an updated list of shots.
 
-        **CRITICAL INSTRUCTION FOR NARRATIVE ENRICHMENT:**
-        For each shot, you MUST analyze the 'ai_research_notes'. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. The goal is to make the video more engaging and entertaining, not a boring documentary. Seamlessly integrate the chosen fact to enhance the story. This is not optional.
+        **--- CORE SCRIPTING INSTRUCTIONS ---**
 
-        1.  **Full Video Script (Cohesive Narrative):**
-            * Integrate all existing 'on_camera_dialogue' and 'voiceover_script_on_location' from the blueprint shots.
-            * Write new, connecting voiceover segments (introductions, transitions, conclusions, hooks) that create a seamless, flowing narrative for the entire video, incorporating the most interesting facts as instructed above.
-            * Ensure smooth transitions between shots and scenes, leading into and out of on-camera dialogue.
-            * Do NOT repeat existing on-camera dialogue. The new voiceover should complement it.
-            * Adhere strictly to the 'Creator's Style Guide & Tone' and 'Storytelling Principles'.
+        1.  **Narrative Structure:** The final `full_video_script_text` MUST follow a clear, four-part structure:
+            *   **Hook:** A compelling opening (15-30 seconds) that grabs the viewer's attention.
+            *   **Introduction:** Briefly introduce the topic and what the video will cover.
+            *   **Main Content:** The body of the video, logically flowing from one scene to the next.
+            *   **Conclusion:** A summary of the key points and a strong call to action or concluding thought.
 
-        2.  **Voiceover Script for Recording (Post-Production Only):**
-            * This script MUST ONLY contain dialogue that needs to be recorded *post-facto*.
-            * It should include the generated **hook, intro segments, conclusion, and any new narrative links, transitions, or interesting facts** that were *not* present in the original 'on_camera_dialogue' or 'voiceover_script_on_location' fields of the blueprint.
-            * Essentially, this is the "glue" script: the parts you write to bridge the existing, on-location audio.
-            * Format this script with clear paragraph breaks between distinct sections to make it easy to record.
+        2.  **Narrative Enrichment:** For each shot, you MUST analyze the 'ai_research_notes'. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. Seamlessly integrate the chosen fact to enhance the story. This is not optional.
 
-        **CRITICAL INSTRUCTION FOR updated_shots:**
-        For each shot object within the 'updated_shots' array in your JSON response, you MUST populate the 'voiceover_script' field with the complete spoken narrative intended for that shot.
-        - **For 'On-Camera' shots:** If 'on_camera_dialogue' is present, this content MUST be included in 'voiceover_script' for that shot, potentially combined with any new overlaying voiceover you generate for that specific segment. The 'voiceover_script' should NOT be an empty string if there is relevant 'on_camera_dialogue' or any newly generated voiceover for that shot.
-        - **For other shot types:** Combine 'voiceover_script_on_location' and any newly generated voiceover to form the full voiceover for that shot.
-        - The goal is for 'voiceover_script' to represent *all* spoken content (whether on-camera dialogue or voiceover) for that specific shot, making the ShotCard a complete reference. ONLY provide an empty string for 'voiceover_script' if a shot genuinely has no spoken content whatsoever.
+        3.  **Generate Two Scripts:**
+            *   **`full_video_script_text`:** A single string containing the complete, cohesive narrative for the entire video. It should combine all on-camera dialogue and all newly generated voiceover text into a seamless script.
+            *   **`recording_voiceover_script_text`:** This script is for post-production recording. It MUST ONLY contain the new voiceover dialogue you generate (the hook, intro, transitions, facts, conclusion). **CRITICAL:** Format this script with double newlines ("\n\n") between paragraphs for readability during recording.
+
+        **--- BLUEPRINT UPDATE INSTRUCTIONS (updated_shots) ---**
+
+        You will return a new `updated_shots` array in your JSON response. Every single shot from the original blueprint MUST be included, with the following strict rules applied:
+
+        1.  **Scene & Location Integrity:**
+            *   Every shot MUST have a `scene_id` and a `location_tag`.
+            *   Shots at the same location should share the same `scene_id`.
+            *   The `location_tag` must be a simple, descriptive name (e.g., "Eiffel Tower", "Louvre Museum").
+
+        2.  **Dialogue Integrity (CRITICAL):**
+            *   **If `shot_type` is "On-Camera":**
+                *   The `on_camera_dialogue` field MUST contain the original dialogue from the blueprint.
+                *   The `voiceover_script` field for this shot MUST be an empty string (`""`). **On-Camera shots NEVER have a voiceover.**
+            *   **If `shot_type` is "B-Roll" or "Drone":**
+                *   The `on_camera_dialogue` field MUST be an empty string (`""`).
+                *   The `voiceover_script` field should contain the NEW voiceover text you generate for that specific shot. If no voiceover is needed, it MUST be an empty string (`""`).
+
+        3.  **Completeness:** Every field in each shot object must be present and correctly typed as specified in the output format.
 
         **Output Format:**
-        Your final output MUST be a JSON object with the following structure.
-        \`\`\`json
+        Your final output MUST be a single, valid JSON object with the following structure. Do NOT include any text or formatting outside of this JSON object.
+        ```json
         {
             "updated_shots": [
                 {
                     "shot_id": "shot_1_1",
+                    "scene_id": "scene-uuid-1",
                     "shot_type": "On-Camera",
                     "shot_description": "...",
-                    "location_tag": "...",
-                    "on_camera_dialogue": "...",
-                    "voiceover_script": "This field contains the complete spoken narrative for this specific shot. For 'On-Camera' shots, this should include the 'on_camera_dialogue' if that is the primary audio, potentially combined with any new overlaying voiceover for this segment. For other shot types, it combines 'voiceover_script_on_location' and any newly generated voiceover to form the full voiceover for this shot. Ensure this field is always populated with relevant dialogue or an empty string ONLY if absolutely no spoken content is intended for this shot.",
+                    "location_tag": "Eiffel Tower",
+                    "on_camera_dialogue": "This is the original on-camera dialogue. It should not be changed.",
+                    "voiceover_script": "",
                     "ai_research_notes": [],
                     "creator_experience_notes": "...",
-                    "estimated_time_seconds": 0
+                    "estimated_time_seconds": 15
+                },
+                {
+                    "shot_id": "shot_1_2",
+                    "scene_id": "scene-uuid-1",
+                    "shot_type": "B-Roll",
+                    "shot_description": "...",
+                    "location_tag": "Eiffel Tower",
+                    "on_camera_dialogue": "",
+                    "voiceover_script": "This is the NEW voiceover text generated for this B-Roll shot.",
+                    "ai_research_notes": [],
+                    "creator_experience_notes": "...",
+                    "estimated_time_seconds": 10
                 }
-                // ... all shots from the blueprint, with updated voiceover_script fields
             ],
-            "full_video_script_text": "This is the complete, cohesive narrative for the entire video, combining all on-camera, on-location voiceover, and newly generated transitional/hook/conclusion dialogue. This is a single string.",
-            "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production: the hook, intro, conclusion, and any new connecting narrative that was not part of the original on-location transcript. Format this script with clear paragraph breaks between distinct sections to make it easy to record."
+            "full_video_script_text": "This is the complete, cohesive narrative for the entire video...",
+            "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production..."
         }
-        \`\`\`
+        ```
 
         **JSON Output:**
     `;

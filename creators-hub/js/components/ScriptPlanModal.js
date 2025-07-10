@@ -174,7 +174,7 @@ export const ScriptPlanModal = (options) => {
                     <h3 class="text-xl font-bold text-white mb-2">Step 1: Brain Dump</h3>
                     <p class="text-gray-400 mb-4">Let's start with your raw ideas. Don't worry about structure. Just jot down everything you're thinking for this video: key points, locations, things to say, emotions to convey, etc.</p>
                     <textarea class="form-textarea w-full h-64" placeholder="- Start with the crazy story about the cat...\n- Main point: why ancient maps are so cool\n- Visit the old library\n- End with a question for the audience">${state.initialThoughts}</textarea>
-                    <button id="braindump-submit" class="button-primary mt-4">Generate Draft Outline</button>
+                    <button id="braindump-submit" class="btn btn-primary mt-4">Generate Draft Outline</button>
                 `;
                 break;
 
@@ -188,12 +188,12 @@ export const ScriptPlanModal = (options) => {
                         <h4 class="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
                         <p class="text-gray-400 text-sm mb-2">Tell the AI what to change. E.g., "Make the intro shorter and more mysterious," or "Add a section about the local food."</p>
                         <textarea id="outline-refinement-input" class="form-textarea w-full" rows="2" placeholder="Your refinement instructions...">${state.outlineRefinementText}</textarea>
-                        <button id="refine-outline" class="button-secondary-small mt-2">✍️ Refine Outline</button>
+                        <button id="refine-outline" class="btn btn-secondary btn-sm mt-2">✍️ Refine Outline</button>
                     </div>
 
                     <div class="flex justify-end mt-6">
-                        <button id="restart-outline" class="button-secondary mr-2">Start Over</button>
-                        <button id="approve-outline" class="button-primary">Looks Good, Ask Me More</button>
+                        <button id="restart-outline" class="btn btn-secondary mr-2">Start Over</button>
+                        <button id="approve-outline" class="btn btn-primary">Looks Good, Ask Me More</button>
                     </div>
                 `;
                 break;
@@ -210,7 +210,7 @@ export const ScriptPlanModal = (options) => {
                             </div>
                         `).join('')}
                     </div>
-                    <button id="answers-submit" class="button-primary mt-6">Generate Full Script</button>
+                    <button id="answers-submit" class="btn btn-primary mt-6">Generate Full Script</button>
                 `;
                 break;
 
@@ -224,12 +224,12 @@ export const ScriptPlanModal = (options) => {
                         <h4 class="text-md font-semibold text-amber-400 mb-2">Refinement Instructions</h4>
                         <p class="text-gray-400 text-sm mb-2">E.g., "Make the conclusion more powerful," or "Rewrite the intro to be funnier."</p>
                         <textarea id="script-refinement-input" class="form-textarea w-full" rows="2" placeholder="Your refinement instructions...">${state.scriptRefinementText}</textarea>
-                        <button id="refine-script" class="button-secondary-small mt-2">✍️ Refine Script</button>
+                        <button id="refine-script" class="btn btn-secondary btn-sm mt-2">✍️ Refine Script</button>
                     </div>
                     
                     <div class="flex justify-between items-center mt-6">
-                        <button id="teleprompter-btn" class="button-secondary">🎬 Go to Teleprompter</button>
-                        <button id="save-close" class="button-primary">Save and Close</button>
+                        <button id="teleprompter-btn" class="btn btn-secondary">🎬 Go to Teleprompter</button>
+                        <button id="save-close" class="btn btn-primary">Save and Close</button>
                     </div>
                 `;
                 break;

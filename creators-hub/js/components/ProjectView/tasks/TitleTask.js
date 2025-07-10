@@ -132,7 +132,7 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
             </div>
 
             <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
-                <button onClick={handleGenerateSuggestions} disabled={generating} className="button-primary-small w-full justify-center">
+                <button onClick={handleGenerateSuggestions} disabled={generating} className="btn btn-primary btn-sm w-full justify-center">
                     {generating && !titleSuggestions.length ? <window.LoadingSpinner isButton={true} /> : '🤖 Generate Suggestions'}
                 </button>
                 {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
@@ -168,7 +168,7 @@ window.TitleTask = ({ video, onUpdateTask, isLocked, project, settings }) => {
                    <button 
                         onClick={handleRefineTitle} 
                         disabled={generating || !titleRefinement} 
-                        className="button-secondary-small flex-shrink-0"
+                        className="btn btn-secondary btn-sm flex-shrink-0"
                    >
                         {generating ? <window.LoadingSpinner isButton={true} /> : '✍️ Refine'}
                    </button>

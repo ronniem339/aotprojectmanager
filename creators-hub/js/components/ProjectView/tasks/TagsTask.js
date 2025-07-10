@@ -28,37 +28,63 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
 
         const tagsKnowledgeBase = settings?.knowledgeBases?.youtube?.videoTags || 'Generate relevant SEO tags.';
 
-        // --- FIX: Determine the best available context for the AI ---
-        let bestContext = video.concept || ''; // Start with concept
+        let bestContext = video.concept || '';
         if (video.metadata?.description) {
-            bestContext = video.metadata.description; // Description is better
+            bestContext = video.metadata.description;
         }
         if (video.full_video_script_text) {
-            bestContext = video.full_video_script_text; // Full script is best
+            bestContext = video.full_video_script_text;
         }
 
         const prompt = `
+            **YOUR TASK**
+            You are a YouTube SEO expert. Your mission is to generate a comprehensive and highly strategic list of YouTube tags for a video, aiming to use as much of the 500-character limit as possible without exceeding it.
+
+            **CRITICAL INSTRUCTIONS**
+            1.  **Maximize Character Count:** Generate a large number of diverse tags.
+            2.  **Diverse Tag Types:** Your list MUST include a mix of the following:
+                - **Broad Tags:** High-level topics (e.g., "travel guide", "history documentary").
+                - **Specific, Long-Tail Tags:** Detailed phrases directly from the video content (e.g., "best food in florence italy", "how to use a gopro hero 12").
+                - **Synonyms & Variations:** Alternative ways people might search for the topic.
+                - **Common Misspellings:** Include common, plausible misspellings of key terms (e.g., "florece" for "florence").
+            3.  **Prioritize Relevance:** All tags must be highly relevant to the video content.
+
+            ---
+
             **CONTEXT: TAGGING BEST PRACTICES**
             ${tagsKnowledgeBase}
 
             ---
 
-            **YOUR TASK**
-            You are a YouTube SEO expert. Following the best practices outlined in the context above, generate a list of 15-20 relevant SEO tags for the following video.
-            Include a mix of broad and specific long-tail keywords.
-
             **VIDEO DETAILS**
-            - Video Title: "${video.chosenTitle || video.title}"
-            - Video Content Summary: "${bestContext}"
+            - **Video Title:** "${video.chosenTitle || video.title}"
+            - **Video Content:** "${bestContext}"
 
-            Return the tags as a JSON array like: {"tags": ["tag1", "tag2", "tag3", ...]}.
+            ---
+
+            **OUTPUT FORMAT**
+            Return the tags as a single JSON array. The combined length of all tags plus commas should be as close to 500 characters as possible.
+            Example: {"tags": ["tag1", "tag2", "tag3", ...]}
         `;
 
         try {
             const parsedJson = await window.aiUtils.callGeminiAPI(prompt, settings, {});
             if (parsedJson.tags && Array.isArray(parsedJson.tags)) {
-                setTags(parsedJson.tags);
-                onUpdateTask('tagsGenerated', 'in-progress', { 'metadata.tags': parsedJson.tags });
+                // Enforce the 500 character limit client-side as a safeguard
+                let finalTags = [];
+                let totalLength = 0;
+                for (const tag of parsedJson.tags) {
+                    // YouTube counts the comma as a character
+                    const tagLength = tag.length + 1; 
+                    if (totalLength + tagLength <= 500) {
+                        finalTags.push(tag);
+                        totalLength += tagLength;
+                    } else {
+                        break; // Stop if we exceed the limit
+                    }
+                }
+                setTags(finalTags);
+                onUpdateTask('tagsGenerated', 'in-progress', { 'metadata.tags': finalTags });
             }
         } catch (err) {
             setError(`Error generating tags: ${err.message}`);
@@ -97,7 +123,7 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
     return (
         <div className="task-container">
             <div className="task-content space-y-4">
-                <button onClick={handleGenerateTags} disabled={generating} className="button-primary-small w-full justify-center">
+                <button onClick={handleGenerateTags} disabled={generating} className="btn btn-primary btn-sm w-full justify-center">
                     {generating ? <window.LoadingSpinner isButton={true}/> : '🤖 Generate Tags'}
                 </button>
                 {error && <p className="error-message">{error}</p>}
@@ -120,7 +146,7 @@ window.TagsTask = ({ video, settings, onUpdateTask, isLocked, project }) => {
                         </div>
                         
                         <div className="pt-4 border-t border-gray-600 flex items-center justify-end gap-4">
-                            <button onClick={handleCopyTags} className="button-secondary-small">
+                            <button onClick={handleCopyTags} className="btn btn-secondary btn-sm">
                                 {copySuccess || '📋 Copy All Tags'}
                             </button>
                         </div>

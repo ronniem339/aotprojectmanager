@@ -26,7 +26,7 @@ window.ScriptingTaskV2 = (props) => {
             React.createElement('button', {
                 onClick: openWorkspace,
                 disabled: isLocked,
-                className: 'button-primary disabled:opacity-50 disabled:cursor-not-allowed'
+                className: 'btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed'
             }, 'Try the New Scripting Workspace (Beta)')
         );
     };

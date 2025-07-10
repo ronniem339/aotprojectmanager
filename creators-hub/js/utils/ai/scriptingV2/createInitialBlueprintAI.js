@@ -41,7 +41,7 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
     const styleGuidePrompt = window.aiUtils.getStyleGuidePromptV2(settings);
 
     const prompt = `
-        You are an expert YouTube scriptwriter and video producer. Your task is to take a creator's initial "brain dump" for a video and structure it into a compelling narrative blueprint and shot list.
+        You are an expert YouTube scriptwriter and film director. Your task is to take a creator's initial "brain dump" and structure it into a compelling, well-organized Creative Blueprint and shot list. You must be meticulous and follow all instructions to the letter.
 
         **Creator's Style Guide & Tone:**
         ${styleGuidePrompt}
@@ -60,18 +60,63 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
         ${initialThoughts}
         ---
 
-        **Your Task:**
-        Based on all the information above, create a structured Creative Blueprint. The blueprint must be a list of shots.
-        1.  **Analyze the Brain Dump:** Identify the core message, key points, and narrative goal.
-        2.  **Structure the Narrative:** Create a logical story flow with a hook, rising action, and a conclusion. Group shots that serve the same purpose into scenes.
-        3.  **Create Shots:** For each scene, create a sequence of shots.
-        
-        **CRITICAL INSTRUCTIONS FOR JSON OUTPUT:**
-        For EACH and EVERY shot in the output, you MUST:
-        a.  **Assign a Location:** Set the "location" field to one of the names from the "Featured Locations" list provided above.
-        b.  **Assign a Scene ID:** Group related shots by giving them the same "scene_id". A new "scene_id" should be generated only when the location changes or the narrative purpose shifts significantly.
-        c.  **Assign a Narrative Purpose:** All shots in the same scene must have the same "scene_narrative_purpose".
-        d.  **Adhere to the JSON Schema:** Your final output MUST be a JSON object that strictly follows the provided schema. Ensure every required field is present. Generate unique UUIDs for shot_id and scene_id.
+        **--- YOUR TASK ---**
+        Based on all the information above, create a structured Creative Blueprint. The blueprint is a JSON object containing a list of "shots".
+
+        **--- CORE STRUCTURE INSTRUCTIONS ---**
+
+        1.  **Four-Part Narrative Structure:** You MUST organize the shots to follow a clear, four-part narrative structure. You will define this structure using the \`scene_narrative_purpose\` field for each scene. The required narrative purposes are:
+            *   **Hook:** A compelling opening (15-30 seconds) to grab the viewer.
+            *   **Introduction:** Briefly introduce the topic and what the video will cover.
+            *   **Main Content:** The body of the video. You can have multiple "Main Content" scenes.
+            *   **Conclusion:** A summary and a strong call to action or concluding thought.
+
+        2.  **Scene and Location Integrity (CRITICAL):**
+            *   You MUST group related shots into scenes by giving them the same \`scene_id\`.
+            *   A new \`scene_id\` should be generated only when the location or the \`scene_narrative_purpose\` changes.
+            *   Every single shot MUST have a \`location_tag\` field, which MUST be one of the exact string values from the "Featured Locations" list provided above. Do not make up new locations.
+
+        3.  **Shot Completeness:**
+            *   For each shot, determine the most logical \`shot_type\` (e.g., "On-Camera", "B-Roll", "Drone") based on the available footage notes and the narrative.
+            *   Write a clear and concise \`shot_description\`.
+            *   The \`on_camera_dialogue\` and \`voiceover_script\` fields MUST be included in the JSON, but they should be empty strings (\`""\`) at this stage.
+
+        **--- JSON OUTPUT FORMAT ---**
+        Your final output MUST be a single, valid JSON object. Do NOT include any text or formatting outside of this JSON object. Adhere strictly to this schema:
+        \`\`\`json
+        {
+            "shots": [
+                {
+                    "shot_id": "uuid-for-shot-1",
+                    "scene_id": "uuid-for-scene-1",
+                    "scene_narrative_purpose": "Hook",
+                    "location_tag": "Eiffel Tower",
+                    "shot_type": "B-Roll",
+                    "shot_description": "Dynamic opening shot of the Eiffel Tower at sunrise.",
+                    "on_camera_dialogue": "",
+                    "voiceover_script": "",
+                    "ai_research_notes": [],
+                    "creator_experience_notes": "",
+                    "estimated_time_seconds": 10
+                },
+                {
+                    "shot_id": "uuid-for-shot-2",
+                    "scene_id": "uuid-for-scene-2",
+                    "scene_narrative_purpose": "Introduction",
+                    "location_tag": "Louvre Museum",
+                    "shot_type": "On-Camera",
+                    "shot_description": "Creator stands in front of the Louvre pyramid, introducing the video's topic.",
+                    "on_camera_dialogue": "",
+                    "voiceover_script": "",
+                    "ai_research_notes": [],
+                    "creator_experience_notes": "",
+                    "estimated_time_seconds": 15
+                }
+            ]
+        }
+        \`\`\`
+
+        **JSON Output:**
     `;
 
     // MODIFICATION: Changed 'location_name' to 'location' for consistency.
@@ -120,7 +165,6 @@ window.aiUtils.createInitialBlueprintAI = async ({ initialThoughts, video, proje
             shot.scene_id = shot.scene_id || 'unassigned'; // Assign a default if missing
 
             // Ensure required text fields are not undefined, to prevent crashes.
-            shot.location = shot.location || "Location Not Assigned";
             shot.scene_narrative_purpose = shot.scene_narrative_purpose || "Narrative Not Assigned";
             shot.shot_type = shot.shot_type || "Shot Type Not Assigned";
             shot.shot_description = shot.shot_description || "Description Not Assigned";

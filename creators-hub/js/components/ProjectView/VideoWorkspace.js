@@ -220,10 +220,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     db,
                     allVideos,
                     onNavigate,
-                    fetchPlaceDetails: handlers?.fetchPlaceDetails,
-                    updateFootageInventoryItem: handlers?.updateFootageInventoryItem,
-                    // THIS IS THE FINAL FIX
-                    triggerAiTask: handlers?.triggerAiTask
+                    handlers, // Pass the whole handlers object
+                    triggerAiTask: handlers?.triggerAiTask // Keep this for direct access if needed
                 };
 
                 if (isV2) {
