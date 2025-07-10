@@ -207,9 +207,17 @@ window.useAppState = () => {
             // Handle ScriptingV2 tasks specifically
             if (task.type.startsWith('scriptingV2-') && task.data.project && task.data.video) {
                 setSelectedProject(task.data.project);
-                // The ProjectView component is responsible for listening to the hash
-                // to open the correct video workspace.
-                window.location.hash = `video=${task.data.video.id}`;
+                
+                let step = 1; // Default to step 1
+                if (task.type === 'scriptingV2-research' || task.type === 'scriptingV2-research-all') {
+                    step = 2;
+                } else if (task.type === 'scriptingV2-map-transcript' || task.type === 'scriptingV2-refine-blueprint') {
+                    step = 3;
+                } else if (task.type === 'scriptingV2-final-script') {
+                    step = 4;
+                }
+                
+                window.location.hash = `video=${task.data.video.id}&step=${step}`;
                 setCurrentView('project');
                 return;
             }

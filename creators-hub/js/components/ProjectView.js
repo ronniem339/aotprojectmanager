@@ -8,6 +8,7 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
     const [localProject, setLocalProject] = useState(null);
     const [videos, setVideos] = useState([]);
     const [activeVideoId, setActiveVideoId] = useState(null);
+    const [initialStep, setInitialStep] = useState(null);
     
     // UI/Loading State
     const [loading, setLoading] = useState(true);
@@ -49,23 +50,30 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
 
     // --- EFFECTS ---
 
-    // Listen for hash changes to select a video
+    // Listen for hash changes to select a video and step
     useEffect(() => {
         const handleHashChange = () => {
-            const hash = window.location.hash;
-            if (hash.startsWith('#video=')) {
-                const videoId = hash.substring(7);
-                if (videoId && videos.some(v => v.id === videoId)) {
-                    setActiveVideoId(videoId);
+            const hash = window.location.hash.substring(1); // remove #
+            const params = new URLSearchParams(hash);
+            const videoId = params.get('video');
+            const step = params.get('step');
+
+            if (videoId && videos.some(v => v.id === videoId)) {
+                setActiveVideoId(videoId);
+                if (step) {
+                    setInitialStep(parseInt(step, 10));
                 }
             }
         };
 
-        // Initial check
-        handleHashChange();
+        handleHashChange(); // Initial check
 
         window.addEventListener('hashchange', handleHashChange);
-        return () => window.removeEventListener('hashchange', handleHashChange);
+        return () => {
+            window.removeEventListener('hashchange', handleHashChange);
+            // Clear hash on component unmount to prevent re-triggering
+            window.history.replaceState(null, null, ' '); 
+        };
     }, [videos]); // Rerun if videos array changes
 
     // Initialize local project state from props
@@ -365,8 +373,8 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
                                     onNavigate={onNavigate}
                                     googleMapsLoaded={googleMapsLoaded}
                                     handlers={handlers} 
-                                    // **MODIFICATION**: Pass the taskQueue down to the workspace.
                                     taskQueue={taskQueue}
+                                    initialStep={initialStep} // Pass down the initial step
                                 />
                             </main>
 

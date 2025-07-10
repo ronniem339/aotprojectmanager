@@ -11,7 +11,7 @@ const SafeComponentRenderer = ({ componentName, fallback = null, ...props }) => 
     return fallback || React.createElement('p', { className: 'text-gray-400 text-center py-2 text-sm' }, `Loading...`);
 };
 
-window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded, handlers = {} }) => {
+window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allVideos, onUpdateSettings, onNavigate, studioDetails, googleMapsLoaded, handlers = {}, initialStep = null }) => {
     const [openTask, setOpenTask] = useState(null);
     const [showShotList, setShowShotList] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
@@ -225,7 +225,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 };
 
                 if (isV2) {
-                    return <SafeComponentRenderer componentName="ScriptingTaskV2" {...componentProps} />;
+                    return <SafeComponentRenderer componentName="ScriptingTaskV2" {...componentProps} initialStep={initialStep} />;
                 } else {
                     return <SafeComponentRenderer componentName="ScriptingTask" {...componentProps} onStartV2Workflow={handleStartV2Workflow} />;
                 }

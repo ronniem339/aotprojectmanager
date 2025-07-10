@@ -5,7 +5,7 @@ const { useState, Fragment } = React;
 // By destructuring `props`, we can be more explicit about what's being used.
 // The `...rest` pattern collects all other props into a single object.
 window.ScriptingTaskV2 = (props) => {
-    const { isLocked, ...rest } = props;
+    const { isLocked, initialStep, ...rest } = props;
     const [showWorkspace, setShowWorkspace] = useState(false);
 
     const openWorkspace = () => {
@@ -19,6 +19,13 @@ window.ScriptingTaskV2 = (props) => {
     const closeWorkspace = () => {
         setShowWorkspace(false);
     };
+
+    // If an initial step is provided, open the workspace automatically.
+    React.useEffect(() => {
+        if (initialStep) {
+            openWorkspace();
+        }
+    }, [initialStep]);
 
     const renderTaskSummary = () => {
         return React.createElement('div', { className: 'text-center py-4' },
@@ -35,12 +42,10 @@ window.ScriptingTaskV2 = (props) => {
         !showWorkspace && renderTaskSummary(),
 
         showWorkspace && ReactDOM.createPortal(
-            // We spread the `rest` of the props into the workspace, ensuring all necessary
-            // handlers and data like `fetchPlaceDetails` and `updateFootageInventoryItem`
-            // are passed down from the parent component.
             React.createElement(window.ScriptingV2_Workspace, {
                 ...rest,
-                onClose: closeWorkspace // We provide a specific `onClose` handler for the portal.
+                initialStep: initialStep, // Pass the initial step to the workspace
+                onClose: closeWorkspace
             }),
             document.body
         )

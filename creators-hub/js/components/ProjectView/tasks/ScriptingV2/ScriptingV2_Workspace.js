@@ -7,13 +7,12 @@ const { learnFromTranscriptAI } = window.aiUtils;
 const { useDebounce } = window;
 
 // MODIFICATION: The component now accepts 'aiTasks' to display the queue.
-window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask, aiTasks, handlers }) => {
+window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClose, userId, db, triggerAiTask, aiTasks, handlers, initialStep = null }) => {
     const [isAiTaskActive, setIsAiTaskActive] = useState(false);
 
     const { blueprint, setBlueprint, isLoading, error, saveStatus } = useBlueprint(video, project, userId, db, isAiTaskActive);
     
-    const initialCurrentStep = video.tasks?.scriptingV2_current_step || 1;
-    const [currentStep, setCurrentStep] = useState(initialCurrentStep);
+    const [currentStep, setCurrentStep] = useState(initialStep || video.tasks?.scriptingV2_current_step || 1);
     const debouncedCurrentStep = useDebounce(currentStep, 500);
     const [isBlueprintFullScreen, setIsBlueprintFullScreen] = useState(false);
     const processedTranscriptRef = useRef(null);
