@@ -29,14 +29,14 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
     };
 
     useEffect(() => {
-        if (debouncedCurrentStep && debouncedCurrentStep !== initialCurrentStep) {
+        if (debouncedCurrentStep && debouncedCurrentStep !== (video.tasks?.scriptingV2_current_step || 1)) {
             db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects/${project.id}/videos`).doc(video.id).update({
                 'tasks.scriptingV2_current_step': debouncedCurrentStep
             }).catch(err => {
                 console.error("Error auto-saving current step:", err);
             });
         }
-    }, [debouncedCurrentStep, video.id, project.id, userId, db, initialCurrentStep]);
+    }, [debouncedCurrentStep, video.id, project.id, userId, db, video.tasks?.scriptingV2_current_step]);
 
     useEffect(() => {
         const processTranscript = async () => {
