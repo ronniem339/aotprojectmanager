@@ -40,45 +40,44 @@ window.ScriptingV2_Workspace = ({ video, project, settings, onUpdateTask, onClos
 
     useEffect(() => {
         const processTranscript = async () => {
-            if (blueprint?.fullTranscript && blueprint.fullTranscript !== processedTranscriptRef.current) {
-                console.log("New transcript detected. Learning from it...");
+            // Only run if the transcript is substantial and has actually changed.
+            if (blueprint?.fullTranscript && blueprint.fullTranscript.length > 100 && blueprint.fullTranscript !== processedTranscriptRef.current) {
+                console.log("New, substantial transcript detected. Learning from it...");
                 processedTranscriptRef.current = blueprint.fullTranscript;
 
-                // --- FIX: Add a try-catch around the AI call itself ---
                 let refinedGuide;
                 try {
-                    refinedGuide = await learnFromTranscriptAI(blueprint.fullTranscript, project.id, settings);
+                    refinedGuide = await learnFromTranscriptAI({ // Pass object
+                        fullTranscript: blueprint.fullTranscript, 
+                        settings
+                    });
                 } catch (aiError) {
                     console.error("Error learning from transcript:", aiError);
                     handlers.displayNotification(`AI failed to learn from transcript: ${aiError.message}`, 'error');
-                    return; // Stop execution if AI fails
+                    return;
                 }
 
                 if (refinedGuide) {
                     try {
-                        // --- FIX: Use the correct Firestore path ---
                         const projectRef = db.collection(`artifacts/${window.CREATOR_HUB_CONFIG.APP_ID}/users/${userId}/projects`).doc(project.id);
                         
                         const historyEntry = {
-                            timestamp: new Date(),
+                            timestamp: new Date().toISOString(),
                             source: `Transcript import from video: "${video.title}"`,
                             changeSummary: "AI-refined style guide based on new transcript.",
                             refinedGuide: refinedGuide
                         };
 
-                        // --- FIX: Use the correct data structure for saving ---
                         await projectRef.update({
                             'settings.knowledgeBases.styleV2.detailedStyleGuide': refinedGuide,
                             'settings.knowledgeBases.styleV2.history': firebase.firestore.FieldValue.arrayUnion(historyEntry)
                         });
                         
                         console.log("V2 Style Guide successfully refined and saved to project settings.");
-                        // --- FIX: Add user notification on success ---
                         handlers.displayNotification("Style Guide updated based on transcript!", 'success');
 
                     } catch (dbError) {
                         console.error("Failed to save refined V2 Style Guide to Firestore:", dbError);
-                        // --- FIX: Add user notification on failure ---
                         handlers.displayNotification(`Error saving updated Style Guide: ${dbError.message}`, 'error');
                     }
                 }
