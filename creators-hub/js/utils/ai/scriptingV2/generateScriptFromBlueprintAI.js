@@ -44,93 +44,67 @@ window.aiUtils.generateScriptFromBlueprintAI = async ({ blueprint, video, settin
     });
     const blueprintString = JSON.stringify(blueprintForAI, null, 2);
 
-    const prompt = `
-        You are a master scriptwriter and film director for a top-tier YouTube documentarian. Your job is to take a "Creative Blueprint" and transform it into a complete, engaging video script. You must be meticulous and follow all instructions to the letter.
-
-        **Creator's Style Guide & Tone:**
-        ${styleGuidePrompt}
-
-        **Storytelling Principles to Follow:**
-        ${settings.knowledgeBases?.storytelling?.videoStorytellingPrinciples || 'Create a clear hook, a developing middle, and a satisfying conclusion.'}
-
-        **Video Title:** ${video.title}
-
-        **The Creative Blueprint (in JSON format):**
-        ---
-        ${blueprintString}
-        ---
-
-        **Your Task:**
-        Your goal is to produce a final, polished script and an updated blueprint. You will deliver two script versions and an updated list of shots.
-
-        **--- CORE SCRIPTING INSTRUCTIONS ---**
-
-        1.  **Narrative Structure:** The final `full_video_script_text` MUST follow a clear, four-part structure:
-            *   **Hook:** A compelling opening (15-30 seconds) that grabs the viewer's attention.
-            *   **Introduction:** Briefly introduce the topic and what the video will cover.
-            *   **Main Content:** The body of the video, logically flowing from one scene to the next.
-            *   **Conclusion:** A summary of the key points and a strong call to action or concluding thought.
-
-        2.  **Narrative Enrichment:** For each shot, you MUST analyze the 'ai_research_notes'. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. Seamlessly integrate the chosen fact to enhance the story. This is not optional.
-
-        3.  **Generate Two Scripts:**
-            *   **`full_video_script_text`:** A single string containing the complete, cohesive narrative for the entire video. It should combine all on-camera dialogue and all newly generated voiceover text into a seamless script.
-            *   **`recording_voiceover_script_text`:** This script is for post-production recording. It MUST ONLY contain the new voiceover dialogue you generate (the hook, intro, transitions, facts, conclusion). **CRITICAL:** Format this script with double newlines ("\n\n") between paragraphs for readability during recording.
-
-        **--- BLUEPRINT UPDATE INSTRUCTIONS (updated_shots) ---**
-
-        You will return a new `updated_shots` array in your JSON response. Every single shot from the original blueprint MUST be included, with the following strict rules applied:
-
-        1.  **Scene & Location Integrity:**
-            *   Every shot MUST have a `scene_id` and a `location_tag`.
-            *   Shots at the same location should share the same `scene_id`.
-            *   The `location_tag` must be a simple, descriptive name (e.g., "Eiffel Tower", "Louvre Museum").
-
-        2.  **Dialogue Integrity (CRITICAL):**
-            *   **If `shot_type` is "On-Camera":**
-                *   The `on_camera_dialogue` field MUST contain the original dialogue from the blueprint.
-                *   The `voiceover_script` field for this shot MUST be an empty string (`""`). **On-Camera shots NEVER have a voiceover.**
-            *   **If `shot_type` is "B-Roll" or "Drone":**
-                *   The `on_camera_dialogue` field MUST be an empty string (`""`).
-                *   The `voiceover_script` field should contain the NEW voiceover text you generate for that specific shot. If no voiceover is needed, it MUST be an empty string (`""`).
-
-        3.  **Completeness:** Every field in each shot object must be present and correctly typed as specified in the output format.
-
-        **Output Format:**
-        Your final output MUST be a single, valid JSON object with the following structure. Do NOT include any text or formatting outside of this JSON object.
-        {
-            "updated_shots": [
-                {
-                    "shot_id": "shot_1_1",
-                    "scene_id": "scene-uuid-1",
-                    "shot_type": "On-Camera",
-                    "shot_description": "...",
-                    "location_tag": "Eiffel Tower",
-                    "on_camera_dialogue": "This is the original on-camera dialogue. It should not be changed.",
-                    "voiceover_script": "",
-                    "ai_research_notes": [],
-                    "creator_experience_notes": "...",
-                    "estimated_time_seconds": 15
-                },
-                {
-                    "shot_id": "shot_1_2",
-                    "scene_id": "scene-uuid-1",
-                    "shot_type": "B-Roll",
-                    "shot_description": "...",
-                    "location_tag": "Eiffel Tower",
-                    "on_camera_dialogue": "",
-                    "voiceover_script": "This is the NEW voiceover text generated for this B-Roll shot.",
-                    "ai_research_notes": [],
-                    "creator_experience_notes": "...",
-                    "estimated_time_seconds": 10
-                }
-            ],
-            "full_video_script_text": "This is the complete, cohesive narrative for the entire video...",
-            "recording_voiceover_script_text": "This is ONLY the dialogue that needs to be recorded in post-production..."
-        }
-
-        **JSON Output:**
-    `;
+    const prompt = 'You are a master scriptwriter and film director for a top-tier YouTube documentarian. Your job is to take a "Creative Blueprint" and transform it into a complete, engaging video script. You must be meticulous and follow all instructions to the letter.' +
+    '\n\n**Creator\'s Style Guide & Tone:**\n' + styleGuidePrompt +
+    '\n\n**Storytelling Principles to Follow:**\n' + (settings.knowledgeBases?.storytelling?.videoStorytellingPrinciples || 'Create a clear hook, a developing middle, and a satisfying conclusion.') +
+    '\n\n**Video Title:** ' + video.title +
+    '\n\n**The Creative Blueprint (in JSON format):**\n---' + blueprintString + '\n---' +
+    '\n\n**Your Task:**' +
+    '\nYour goal is to produce a final, polished script and an updated blueprint. You will deliver two script versions and an updated list of shots.' +
+    '\n\n**--- CORE SCRIPTING INSTRUCTIONS ---**' +
+    '\n\n1.  **Narrative Structure:** The final `full_video_script_text` MUST follow a clear, four-part structure:' +
+    '\n    *   **Hook:** A compelling opening (15-30 seconds) that grabs the viewer\'s attention.' +
+    '\n    *   **Introduction:** Briefly introduce the topic and what the video will cover.' +
+    '\n    *   **Main Content:** The body of the video, logically flowing from one scene to the next.' +
+    '\n    *   **Conclusion:** A summary of the key points and a strong call to action or concluding thought.' +
+    '\n\n2.  **Narrative Enrichment:** For each shot, you MUST analyze the \'ai_research_notes\'. If that array contains facts, you are required to skillfully weave the **single most interesting, surprising, or quirky fact** into the new voiceover segments you are writing. Do NOT just list facts. Seamlessly integrate the chosen fact to enhance the story. This is not optional.' +
+    '\n\n3.  **Generate Two Scripts:**' +
+    '\n    *   **`full_video_script_text`:** A single string containing the complete, cohesive narrative for the entire video. It should combine all on-camera dialogue and all newly generated voiceover text into a seamless script.' +
+    '\n    *   **`recording_voiceover_script_text`:** This script is for post-production recording. It MUST ONLY contain the new voiceover dialogue you generate (the hook, intro, transitions, facts, conclusion). **CRITICAL:** Format this script with double newlines ("\\n\\n") between paragraphs for readability during recording.' +
+    '\n\n**--- BLUEPRINT UPDATE INSTRUCTIONS (updated_shots) ---**' +
+    '\n\nYou will return a new `updated_shots` array in your JSON response. Every single shot from the original blueprint MUST be included, with the following strict rules applied:' +
+    '\n\n1.  **Scene & Location Integrity:**' +
+    '\n    *   Every shot MUST have a `scene_id` and a `location_tag`.' +
+    '\n    *   Shots at the same location should share the same `scene_id`.' +
+    '\n    *   The `location_tag` must be a simple, descriptive name (e.g., "Eiffel Tower", "Louvre Museum").' +
+    '\n\n2.  **Dialogue Integrity (CRITICAL):**' +
+    '\n    *   **If `shot_type` is "On-Camera":**' +
+    '\n        *   The `on_camera_dialogue` field MUST contain the original dialogue from the blueprint.' +
+    '\n        *   The `voiceover_script` field for this shot MUST be an empty string (`""`). **On-Camera shots NEVER have a voiceover.**' +
+    '\n    *   **If `shot_type` is "B-Roll" or "Drone":**' +
+    '\n        *   The `on_camera_dialogue` field MUST be an empty string (`""`).' +
+    '\n        *   The `voiceover_script` field should contain the NEW voiceover text you generate for that specific shot. If no voiceover is needed, it MUST be an empty string (`""`).' +
+    '\n\n3.  **Completeness:** Every field in each shot object must be present and correctly typed as specified in the output format.' +
+    '\n\n**Output Format:**' +
+    '\nYour final output MUST be a single, valid JSON object with the following structure. Do NOT include any text or formatting outside of this JSON object.' +
+    '\n{' +
+    '\n    "updated_shots": [' +
+    '\n        {' +
+    '\n            "shot_id": "shot_1_1",' +
+    '\n            "scene_id": "scene-uuid-1",' +
+    '\n            "shot_type": "On-Camera",' +
+    '\n            "shot_description": "...",' +
+    '\n            "location_tag": "Eiffel Tower",' +
+    '\n            "on_camera_dialogue": "This is the original on-camera dialogue. It should not be changed.",' +
+    '\n            "voiceover_script": "",' +
+    '\n            "ai_research_notes": [],' +
+    '\n            "creator_experience_notes": "...",' +
+    '\n            "estimated_time_seconds": 15' +
+    '\n        },' +
+    '\n        {' +
+    '\n            "shot_id": "shot_1_2",' +
+    '\n            "scene_id": "scene-uuid-1",' +
+    '\n            "shot_type": "B-Roll",' +
+    '\n            "shot_description": "...",' +
+    '\n            "location_tag": "Eiffel Tower",' +
+    '\n            "on_camera_dialogue": "",' +
+    '\n            "voiceover_script": "This is the NEW voiceover text generated for this B-Roll shot.",' +
+    '\n            "ai_research_notes": [],' +
+    '\n            "creator_experience_notes": "...",' +
+    '\n            "estimated_time_seconds": 10' +
+    '\n        }' +
+    '\n    ],' +
+    '\n    "full_video_script_text": "This is the complete, cohesive narrative for the entire video...",
 
     // Updated response schema to match the new dual output requirement
     const responseSchema = {

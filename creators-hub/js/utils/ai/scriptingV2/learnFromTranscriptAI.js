@@ -8,29 +8,20 @@ window.aiUtils.learnFromTranscriptAI = async ({ fullTranscript, settings }) => {
         return null;
     }
 
-    const prompt = `
-        You are an expert linguistic analyst and writing coach. You have been given a transcript of a content creator's on-camera dialogue. Your task is to analyze this transcript and extract the key elements of their communication style to help them build a consistent brand voice.
-
-        **Transcript to Analyze:**
-        ---
-        ${fullTranscript}
-        ---
-
-        **Your Task:**
-        Analyze the transcript and determine the creator's style across several key dimensions. Provide your analysis in a structured JSON format. For each dimension, provide a concise label (e.g., "Conversational," "Energetic," "Witty").
-
-        **JSON Output Format:**
-        Your final output MUST be a single, valid JSON object with the following structure. Do not include any text or formatting outside of this JSON object.
-        {
-            "suggestedBrandVoice": "A one-sentence summary of the overall voice (e.g., 'A friendly and approachable expert who simplifies complex topics.')",
-            "suggestedPacing": "A label describing the speed and rhythm (e.g., 'Fast-paced and energetic' or 'Calm and deliberate').",
-            "suggestedHumorLevel": "A label for the type and frequency of humor (e.g., 'Witty and sarcastic,' 'Uses puns and wordplay,' or 'Minimal to no humor').",
-            "suggestedTone": "A label for the overall feeling or attitude (e.g., 'Inspirational and motivational,' 'Objective and informative,' or 'Enthusiastic and passionate').",
-            "suggestedAudience": "A label describing the likely target audience (e.g., 'Beginners and hobbyists,' 'Industry experts,' or 'General audience')."
-        }
-
-        **JSON Output:**
-    `;
+    const prompt = 'You are an expert linguistic analyst and writing coach. You have been given a transcript of a content creator\'s on-camera dialogue. Your task is to analyze this transcript and extract the key elements of their communication style to help them build a consistent brand voice.' +
+    '\n\n**Transcript to Analyze:**\n---' + fullTranscript + '\n---' +
+    '\n\n**Your Task:**' +
+    '\nAnalyze the transcript and determine the creator\'s style across several key dimensions. Provide your analysis in a structured JSON format. For each dimension, provide a concise label (e.g., "Conversational," "Energetic," "Witty").' +
+    '\n\n**JSON Output Format:**' +
+    '\nYour final output MUST be a single, valid JSON object with the following structure. Do not include any text or formatting outside of this JSON object.' +
+    '\n{' +
+    '\n    "suggestedBrandVoice": "A one-sentence summary of the overall voice (e.g., \'A friendly and approachable expert who simplifies complex topics.\')",' +
+    '\n    "suggestedPacing": "A label describing the speed and rhythm (e.g., \'Fast-paced and energetic\' or \'Calm and deliberate\').",' +
+    '\n    "suggestedHumorLevel": "A label for the type and frequency of humor (e.g., \'Witty and sarcastic,\' \'Uses puns and wordplay,\' or \'Minimal to no humor\').",' +
+    '\n    "suggestedTone": "A label for the overall feeling or attitude (e.g., \'Inspirational and motivational,\' \'Objective and informative,\' or \'Enthusiastic and passionate\').",' +
+    '\n    "suggestedAudience": "A label describing the likely target audience (e.g., \'Beginners and hobbyists,\' \'Industry experts,\' or \'General audience\')."' +
+    '\n}' +
+    '\n\n**JSON Output:**';
 
     const responseSchema = {
         type: "OBJECT",

@@ -9,36 +9,24 @@ window.aiUtils.updateStyleGuideAI = async ({ suggestions, currentStyleGuide, set
 
     const styleGuideForPrompt = typeof currentStyleGuide === 'object' ? JSON.stringify(currentStyleGuide, null, 2) : currentStyleGuide;
 
-    const prompt = `
-        You are an expert brand strategist and copywriter. A content creator has analyzed one of their transcripts and extracted key style elements. Your task is to integrate these new findings into their existing style guide and provide a log of the change.
-
-        **Existing Style Guide Narrative:**
-        ---
-        ${styleGuideForPrompt || "No existing style guide provided."}
-        ---
-
-        **New Style Insights from Transcript Analysis:**
-        ---
-        - **Brand Voice:** ${suggestions.suggestedBrandVoice}
-        - **Pacing:** ${suggestions.suggestedPacing}
-        - **Humor Level:** ${suggestions.suggestedHumorLevel}
-        - **Tone:** ${suggestions.suggestedTone}
-        - **Audience:** ${suggestions.suggestedAudience}
-        ---
-
-        **Your Task:**
-        1.  **Synthesize Narrative:** Create a single, cohesive, and updated paragraph that synthesizes the "Existing Style Guide Narrative" with the "New Style Insights". This new paragraph should replace the old style guide, seamlessly incorporating the new insights.
-        2.  **Create Log Entry:** Write a concise, one-sentence log entry describing the change. This log should start with "Refined style guide to be more..." and summarize the key changes. For example: "Refined style guide to be more witty and fast-paced, targeting an expert audience."
-
-        **Output Format:**
-        Your final output MUST be a single, valid JSON object with the following structure.
-        {
-            "newStyleGuideNarrative": "The updated, single-paragraph description of the creator's brand voice.",
-            "logEntry": "The concise, one-sentence summary of the changes made."
-        }
-
-        **JSON Output:**
-    `;
+    const prompt = 'You are an expert brand strategist and copywriter. A content creator has analyzed one of their transcripts and extracted key style elements. Your task is to integrate these new findings into their existing style guide and provide a log of the change.' +
+    '\n\n**Existing Style Guide Narrative:**\n---' + (styleGuideForPrompt || "No existing style guide provided.") + '\n---' +
+    '\n\n**New Style Insights from Transcript Analysis:**\n---' +
+    '\n- **Brand Voice:** ' + suggestions.suggestedBrandVoice +
+    '\n- **Pacing:** ' + suggestions.suggestedPacing +
+    '\n- **Humor Level:** ' + suggestions.suggestedHumorLevel +
+    '\n- **Tone:** ' + suggestions.suggestedTone +
+    '\n- **Audience:** ' + suggestions.suggestedAudience + '\n---' +
+    '\n\n**Your Task:**' +
+    '\n1.  **Synthesize Narrative:** Create a single, cohesive, and updated paragraph that synthesizes the "Existing Style Guide Narrative" with the "New Style Insights". This new paragraph should replace the old style guide, seamlessly incorporating the new insights.' +
+    '\n2.  **Create Log Entry:** Write a concise, one-sentence log entry describing the change. This log should start with "Refined style guide to be more..." and summarize the key changes. For example: "Refined style guide to be more witty and fast-paced, targeting an expert audience."' +
+    '\n\n**Output Format:**' +
+    '\nYour final output MUST be a single, valid JSON object with the following structure.' +
+    '\n{' +
+    '\n    "newStyleGuideNarrative": "The updated, single-paragraph description of the creator\'s brand voice.",' +
+    '\n    "logEntry": "The concise, one-sentence summary of the changes made."' +
+    '\n}' +
+    '\n\n**JSON Output:**';
 
     const responseSchema = {
         type: "OBJECT",
