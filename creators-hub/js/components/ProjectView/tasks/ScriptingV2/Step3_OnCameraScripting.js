@@ -63,163 +63,76 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         setProcessingMessage('');
     }, [view, isProcessing]);
 
-    const handleLearnFromTranscript = async () => {
-        setIsProcessing(true);
-        setProcessingMessage('Analyzing transcript for style insights...');
-        setError('');
-
-        const learnTaskId = `scriptingV2-learn-style-${video.id}-${Date.now()}`;
-
-        try {
-            await handlers.triggerAiTask({
-                id: learnTaskId,
-                type: 'scriptingV2-learn-style',
-                name: 'Learning from Transcript',
-                aiFunction: window.aiUtils.learnFromTranscriptAI,
-                args: { fullTranscript, settings },
-                onSuccess: (result) => {
-                    if (result) {
-                        setStyleSuggestions(result);
-                        setAcceptedSuggestions(result); // Pre-accept all suggestions
-                        setViewAndPersist('styleUpdate');
-                    } else {
-                        // If no suggestions, just proceed to the next step
-                        handleRefineBlueprint(blueprint);
-                    }
-                },
-                onFailure: (err) => {
-                    setError(`Failed to analyze style: ${err.message}. Proceeding without style update.`);
-                    // Still proceed to the next step even if style learning fails
-                    handleRefineBlueprint(blueprint);
-                }
-            });
-        } catch (err) {
-            console.error("Unhandled error in handleLearnFromTranscript:", err);
-            setError(`An unexpected error occurred during style analysis: ${err.message}. Proceeding without style update.`);
-            handleRefineBlueprint(blueprint);
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-    
-    const handleMapTranscript = async () => {
+    const handleProcessTranscript = async () => {
         if (!fullTranscript.trim()) {
             setError("Transcript cannot be empty.");
             handlers.displayNotification("Transcript cannot be empty.", 'error');
             return;
         }
-        setError('');
-
-        const mapTaskId = `scriptingV2-map-transcript-${video.id}-${Date.now()}`;
-
-        try {
-            await handlers.triggerAiTask({
-                id: mapTaskId,
-                type: 'scriptingV2-map-transcript',
-                name: 'Mapping Transcript to Blueprint',
-                aiFunction: window.aiUtils.mapTranscriptToBlueprintAI,
-                args: {
-                    fullTranscript,
-                    blueprint,
-                    video,
-                    settings
-                },
-                onSuccess: (result) => {
-                    if (!result) {
-                        throw new Error("AI did not return a valid dialogue mapping.");
-                    }
-
-                    let tempBlueprintForProcessing = {
-                        ...blueprint,
-                        fullTranscript: fullTranscript,
-                        shots: blueprint.shots.map(shot => ({
-                            ...shot,
-                            ai_reason: '',
-                            on_camera_dialogue: result[shot.shot_id]?.on_camera_dialogue || '',
-                            voiceover_script: result[shot.shot_id]?.voiceover_script || ''
-                        }))
-                    };
-
-                    const ambiguities = [];
-                    tempBlueprintForProcessing.shots.forEach(shot => {
-                        const isNonOnCameraShot = ['B-Roll', 'Location', 'Activity', 'Product', 'Footage_Only'].includes(shot.shot_type);
-                        const isDroneShot = shot.shot_type === 'Drone';
-
-                        if (isNonOnCameraShot && !isDroneShot && shot.on_camera_dialogue.trim() !== '') {
-                            ambiguities.push({
-                                shot_id: shot.shot_id,
-                                shot_type: shot.shot_type,
-                                shot_description: shot.shot_description,
-                                location_tag: shot.location_tag,
-                                dialogue: shot.on_camera_dialogue,
-                                ai_classification: 'on_camera_dialogue'
-                            });
-                            shot.voiceover_script = shot.on_camera_dialogue;
-                            shot.on_camera_dialogue = '';
-                        }
-                    });
-
-                    setBlueprint(tempBlueprintForProcessing);
-
-                    if (ambiguities.length > 0) {
-                        setAmbiguousDialogueSegments(ambiguities);
-                        setViewAndPersist('resolveAmbiguity');
-                    } else {
-                        // --- MODIFIED: Call style learning before blueprint refinement ---
-                        handleLearnFromTranscript();
-                    }
-                },
-                onFailure: (err) => {
-                    setError(`Failed to map transcript: ${err.message || 'An unknown error occurred.'}`);
-                }
-            });
-
-        } catch (err) {
-            console.error("Unhandled error in handleMapTranscript:", err);
-            setError(`An unexpected error occurred during transcript mapping: ${err.message || 'Please check console.'}`);
-        }
-    };
-
-    const handleRefineBlueprint = async (currentBlueprintState) => {
+        
         setIsProcessing(true);
         setError('');
-        setProcessingMessage('Analyzing transcript for blueprint refinements...');
 
-        const refineTaskId = `scriptingV2-refine-blueprint-${video.id}-${Date.now()}`;
-
+        // Step 1: Map Transcript
+        setProcessingMessage('Mapping transcript to blueprint...');
+        const mapTaskId = `scriptingV2-map-transcript-${video.id}-${Date.now()}`;
+        let mappedBlueprint;
         try {
-            await handlers.triggerAiTask({
-                id: refineTaskId,
-                type: 'scriptingV2-refine-blueprint',
-                name: 'Refining Blueprint',
-                aiFunction: window.aiUtils.refineBlueprintFromTranscriptAI,
-                args: {
-                    fullTranscript,
-                    blueprint: currentBlueprintState,
-                    settings
-                },
-                onSuccess: (result) => {
-                    if (result && result.suggestions && result.suggestions.length > 0) {
-                        setBlueprintSuggestions(result.suggestions);
-                        setSelectedSuggestions(new Set(result.suggestions.map((_, i) => i)));
-                        setProcessingMessage('Refinement suggestions ready for review.');
-                        setViewAndPersist('refineBlueprint');
-                    } else {
-                        setProcessingMessage('No refinement suggestions generated. Moving to shot-by-shot view.');
-                        setViewAndPersist('shotByShot');
-                    }
-                },
-                onFailure: (err) => {
-                    setError(`Failed to refine blueprint: ${err.message || 'An unknown error occurred.'}`);
-                }
+            const mapResult = await handlers.triggerAiTask({
+                id: mapTaskId,
+                type: 'scriptingV2-map-transcript',
+                name: 'Mapping Transcript',
+                aiFunction: window.aiUtils.mapTranscriptToBlueprintAI,
+                args: { fullTranscript, blueprint, video, settings }
             });
 
+            if (!mapResult) throw new Error("AI did not return a valid dialogue mapping.");
+
+            mappedBlueprint = {
+                ...blueprint,
+                fullTranscript: fullTranscript,
+                shots: blueprint.shots.map(shot => ({
+                    ...shot,
+                    ai_reason: '',
+                    on_camera_dialogue: mapResult[shot.shot_id]?.on_camera_dialogue || '',
+                    voiceover_script: mapResult[shot.shot_id]?.voiceover_script || ''
+                }))
+            };
+            setBlueprint(mappedBlueprint);
+
         } catch (err) {
-            console.error("Unhandled error in handleRefineBlueprint:", err);
-            setError(`An unexpected error occurred during blueprint refinement: ${err.message || 'Please check console.'}`);
-        } finally {
+            setError(`Failed to map transcript: ${err.message}`);
             setIsProcessing(false);
+            return;
         }
+
+        // Step 2: Learn from Transcript
+        setProcessingMessage('Learning from your writing style...');
+        const learnTaskId = `scriptingV2-learn-style-${video.id}-${Date.now()}`;
+        try {
+            const styleResult = await handlers.triggerAiTask({
+                id: learnTaskId,
+                type: 'scriptingV2-learn-style',
+                name: 'Learning from Transcript',
+                aiFunction: window.aiUtils.learnFromTranscriptAI,
+                args: { fullTranscript, settings }
+            });
+
+            if (styleResult) {
+                // This part just prepares the suggestions, the user will confirm in the next view.
+                setStyleSuggestions(styleResult);
+                setAcceptedSuggestions(styleResult);
+                setViewAndPersist('styleUpdate'); // Move to the confirmation view
+                setIsProcessing(false); // Stop processing here, wait for user input
+                return; // Exit the chain
+            }
+        } catch (err) {
+            console.warn(`Could not learn from transcript: ${err.message}. Proceeding without style update.`);
+        }
+
+        // If style learning is skipped or fails, proceed directly to refinement
+        await handleRefineBlueprint(mappedBlueprint);
+        setIsProcessing(false);
     };
 
     const handleUpdateStyleGuide = async () => {
@@ -230,7 +143,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
         const updateTaskId = `scriptingV2-update-style-guide-${video.id}-${Date.now()}`;
     
         try {
-            await handlers.triggerAiTask({
+            const result = await handlers.triggerAiTask({
                 id: updateTaskId,
                 type: 'scriptingV2-update-style-guide',
                 name: 'Updating Style Guide',
@@ -239,50 +152,77 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
                     suggestions: acceptedSuggestions,
                     currentStyleGuide: settings.knowledgeBases?.styleV2?.detailedStyleGuide?.narrative || '',
                     settings
-                },
-                onSuccess: (result) => {
-                    if (result && result.newStyleGuideNarrative && result.logEntry) {
-                        const newLogEntry = {
-                            timestamp: new Date().toISOString(),
-                            entry: result.logEntry,
-                            videoId: video.id,
-                            videoTitle: video.title
-                        };
-
-                        const currentHistory = settings.knowledgeBases?.styleV2?.refinementHistory || [];
-                        
-                        const newSettings = {
-                            ...settings,
-                            knowledgeBases: {
-                                ...settings.knowledgeBases,
-                                styleV2: {
-                                    ...settings.knowledgeBases?.styleV2,
-                                    detailedStyleGuide: {
-                                        ...settings.knowledgeBases?.styleV2?.detailedStyleGuide,
-                                        narrative: result.newStyleGuideNarrative
-                                    },
-                                    refinementHistory: [...currentHistory, newLogEntry]
-                                }
-                            }
-                        };
-                        handlers.handleSaveSettings(newSettings);
-                        handlers.displayNotification("Style guide updated successfully!", 'success');
-                        handleRefineBlueprint(blueprint);
-                    } else {
-                        throw new Error("AI did not return a new style guide narrative and log entry.");
-                    }
-                },
-                onFailure: (err) => {
-                    setError(`Failed to update style guide: ${err.message}. Proceeding without update.`);
-                    handleRefineBlueprint(blueprint);
                 }
             });
+
+            if (result && result.newStyleGuideNarrative && result.logEntry) {
+                const newLogEntry = {
+                    timestamp: new Date().toISOString(),
+                    entry: result.logEntry,
+                    videoId: video.id,
+                    videoTitle: video.title
+                };
+                const currentHistory = settings.knowledgeBases?.styleV2?.refinementHistory || [];
+                const newSettings = {
+                    ...settings,
+                    knowledgeBases: {
+                        ...settings.knowledgeBases,
+                        styleV2: {
+                            ...settings.knowledgeBases?.styleV2,
+                            detailedStyleGuide: {
+                                ...settings.knowledgeBases?.styleV2?.detailedStyleGuide,
+                                narrative: result.newStyleGuideNarrative
+                            },
+                            refinementHistory: [...currentHistory, newLogEntry]
+                        }
+                    }
+                };
+                await handlers.handleSaveSettings(newSettings);
+                handlers.displayNotification("Style guide updated successfully!", 'success');
+            } else {
+                throw new Error("AI did not return a new style guide narrative and log entry.");
+            }
         } catch (err) {
-            console.error("Unhandled error in handleUpdateStyleGuide:", err);
-            setError(`An unexpected error occurred during style guide update: ${err.message}. Proceeding without update.`);
-            handleRefineBlueprint(blueprint);
+            setError(`Failed to update style guide: ${err.message}.`);
+        } finally {
+            // After updating (or failing), proceed to the final refinement step
+            await handleRefineBlueprint(blueprint);
+            setIsProcessing(false);
+        }
+    };
+
+    const handleRefineBlueprint = async (currentBlueprintState) => {
+        setIsProcessing(true); // Ensure processing state is active
+        setProcessingMessage('Analyzing transcript for blueprint refinements...');
+        setError('');
+
+        const refineTaskId = `scriptingV2-refine-blueprint-${video.id}-${Date.now()}`;
+
+        try {
+            const result = await handlers.triggerAiTask({
+                id: refineTaskId,
+                type: 'scriptingV2-refine-blueprint',
+                name: 'Refining Blueprint',
+                aiFunction: window.aiUtils.refineBlueprintFromTranscriptAI,
+                args: {
+                    fullTranscript,
+                    blueprint: currentBlueprintState,
+                    settings
+                }
+            });
+
+            if (result && result.suggestions && result.suggestions.length > 0) {
+                setBlueprintSuggestions(result.suggestions);
+                setSelectedSuggestions(new Set(result.suggestions.map((_, i) => i)));
+                setViewAndPersist('refineBlueprint');
+            } else {
+                setViewAndPersist('shotByShot');
+            }
+        } catch (err) {
+            setError(`Failed to refine blueprint: ${err.message}`);
         } finally {
             setIsProcessing(false);
+            setProcessingMessage('');
         }
     };
 
@@ -507,7 +447,7 @@ window.Step3_OnCameraScripting = ({ blueprint, setBlueprint, video, settings }) 
             }),
             React.createElement('div', { className: 'text-center mt-4' },
                 React.createElement('button', {
-                    onClick: handleMapTranscript,
+                    onClick: handleProcessTranscript,
                     disabled: isProcessing,
                     className: 'btn btn-primary disabled:opacity-50'
                 }, isProcessing ? processingMessage : '🤖 Process Transcript')
