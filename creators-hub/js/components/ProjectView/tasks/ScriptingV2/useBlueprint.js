@@ -55,14 +55,21 @@ window.useBlueprint = (video, project, userId, db, isAiTaskActive) => {
                 console.log("Auto-saving debounced blueprint...");
 
                 // **THE FIX IS HERE**
-                // Clean the blueprint object to remove any `undefined` values before saving.
-                const cleanedBlueprint = window.cleanObject(debouncedBlueprint);
+                // 1. Check if the cleanObject function exists before calling it.
+                if (typeof window.cleanObject !== 'function') {
+                    console.error("CRITICAL ERROR: window.cleanObject is not loaded. Saving data without cleaning. This may lead to Firestore errors.");
+                    // We will still attempt to save, but this makes the problem clear.
+                }
+
+                // 2. Clean the blueprint object to remove any `undefined` values before saving.
+                // If cleanObject doesn't exist, it will use the original object.
+                const blueprintToSave = typeof window.cleanObject === 'function'
+                    ? window.cleanObject(debouncedBlueprint)
+                    : debouncedBlueprint;
 
                 blueprintDocRef.current.update({
-                    'tasks.scriptingV2_blueprint': cleanedBlueprint // Use the cleaned object
+                    'tasks.scriptingV2_blueprint': blueprintToSave // Use the (potentially) cleaned object
                 }).then(() => {
-                    // Update the last saved string with the *original* debounced string
-                    // to prevent unnecessary re-saves if cleaning didn't change anything.
                     lastSavedBlueprintString.current = currentDebouncedBlueprintString;
                     setSaveStatus('saved');
                     console.log("Blueprint saved successfully.");
