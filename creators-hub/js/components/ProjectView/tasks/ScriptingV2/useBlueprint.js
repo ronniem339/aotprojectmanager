@@ -3,7 +3,6 @@
 const { useState, useEffect, useRef } = React;
 const { useDebounce } = window;
 
-// **MODIFICATION**: The hook now accepts the 'isAiTaskActive' lock as an argument.
 window.useBlueprint = (video, project, userId, db, isAiTaskActive) => {
     const [blueprint, setBlueprint] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -44,36 +43,40 @@ window.useBlueprint = (video, project, userId, db, isAiTaskActive) => {
 
     // Effect for auto-saving the debounced blueprint data.
     useEffect(() => {
-        // **FIX APPLIED HERE**: The hook now checks the lock before saving.
         if (
-            !isAiTaskActive && // 1. Don't save if an AI task is active.
+            !isAiTaskActive &&
             hasLoadedInitialBlueprint.current &&
             debouncedBlueprint !== null
         ) {
             const currentDebouncedBlueprintString = JSON.stringify(debouncedBlueprint);
-            
+
             if (currentDebouncedBlueprintString !== lastSavedBlueprintString.current) {
                 setSaveStatus('saving');
                 console.log("Auto-saving debounced blueprint...");
-                
+
+                // **THE FIX IS HERE**
+                // Clean the blueprint object to remove any `undefined` values before saving.
+                const cleanedBlueprint = window.cleanObject(debouncedBlueprint);
+
                 blueprintDocRef.current.update({
-                    'tasks.scriptingV2_blueprint': debouncedBlueprint
+                    'tasks.scriptingV2_blueprint': cleanedBlueprint // Use the cleaned object
                 }).then(() => {
+                    // Update the last saved string with the *original* debounced string
+                    // to prevent unnecessary re-saves if cleaning didn't change anything.
                     lastSavedBlueprintString.current = currentDebouncedBlueprintString;
                     setSaveStatus('saved');
                     console.log("Blueprint saved successfully.");
                     setTimeout(() => setSaveStatus('idle'), 2000);
                 }).catch(err => {
                     console.error("Error auto-saving blueprint:", err);
-                    setError("Failed to save changes.");
+                    setError("Failed to save changes. Please check the console for details.");
                     setSaveStatus('idle');
                 });
             }
         } else if (isAiTaskActive) {
-            // Optional: Log when a save is skipped due to the lock.
             console.log("AI task is active. Auto-save is paused.");
         }
-    }, [debouncedBlueprint, isAiTaskActive]); // **MODIFICATION**: Added the lock to the dependency array.
+    }, [debouncedBlueprint, isAiTaskActive]);
 
     return { blueprint, setBlueprint, isLoading, error, saveStatus };
 };
