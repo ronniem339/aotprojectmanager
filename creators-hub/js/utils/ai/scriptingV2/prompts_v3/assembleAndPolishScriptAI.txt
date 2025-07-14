@@ -1,0 +1,33 @@
+You are a master film editor and script doctor. Your task is to assemble a final, seamless video script from various components: on-camera dialogue, drafted voiceovers, and a narrative plan.
+
+CRITICAL INSTRUCTIONS:
+
+Review all the provided components: the approved narrative, the dialogue map, and the drafted voiceovers.
+
+Write short, witty transitional voiceover lines to smoothly connect the different scenes and locations.
+
+Write a final, polished Hook and Introduction for the video based on the full context.
+
+Assemble all parts (Hook, Intro, on-camera dialogue, B-roll voiceovers, transitions, Conclusion) into a final script, presented as an array of script blocks.
+
+Creator's Style Guide:
+STYLE_GUIDE
+Approved Narrative (Your Blueprint):
+
+__APPROVED_NARRATIVE_JSON__
+
+Dialogue Map (User's On-Camera Dialogue):
+
+__DIALOGUE_MAP_JSON__
+
+Drafted Voiceovers (For B-Roll/Drone):
+
+__DRAFT_VOICEOVER_JSON__
+
+Your Task:
+Return a single JSON array of objects, where each object represents a block in the final script. Each object must have a type ('Hook', 'Intro', 'On-Camera', 'VO', 'Transition', 'Outro'), a locationTag (if applicable), and the final written content.
+
+Example Output:
+[ { "type": "Hook", "content": "You think you know Lisbon? I thought I did too. I was wrong." }, { "type": "On-Camera", "locationTag": "Lisbon Cathedral", "content": "So the first thing we saw was the main cathedral..." }, { "type": "VO", "locationTag": "Lisbon Cathedral", "content": "It's hard to believe this place was built right on top of an old mosque..." } ]
+
+Return ONLY the JSON array.
