@@ -1,59 +1,64 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step1_TranscriptInput.js
 
-import React, { useState } from 'react';
+const { useState } = React;
 
-const Step1_TranscriptInput = ({ video, updateVideo }) => {
-    const [transcript, setTranscript] = useState(video?.tasks?.scriptingV2_blueprint?.rawTranscript || '');
+window.Step1_TranscriptInput = ({ video, updateVideo }) => {
+    const { handlers } = window.useAppState(); // Access global handlers
+    const blueprint = video?.tasks?.scriptingV2_blueprint || {};
+    
+    const [transcript, setTranscript] = useState(blueprint.rawTranscript || '');
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const handleNext = () => {
-        // Here you would trigger the first AI task: mapDialogueToLocationsAI
-        // For now, we'll just update the state to move to the next step
-        const newBlueprint = {
-            ...video.tasks.scriptingV2_blueprint,
-            rawTranscript: transcript,
-            workflowStatus: 'dialogue_mapping' // Move to the next step
-        };
+        setIsProcessing(true);
         
-        // This function needs to be passed down from a higher-level component, likely through useAppState
-        // and it would handle the AI call and the subsequent state update.
-        // For example: triggerAiTask('mapDialogueToLocationsAI', { videoId: video.id, transcript });
+        // This is where you will trigger the first AI task
+        // const taskId = `scriptingV2-map-dialogue-${video.id}-${Date.now()}`;
+        // handlers.triggerAiTask({
+        //     id: taskId,
+        //     type: 'scriptingV2-map-dialogue',
+        //     name: 'Mapping Dialogue to Locations',
+        //     aiFunction: window.aiUtils.mapDialogueToLocationsAI,
+        //     args: { videoId: video.id, transcript }
+        // }).then(dialogueMap => {
+        //     const newBlueprint = { ... };
+        //     updateVideo(...);
+        //     setIsProcessing(false);
+        // });
 
-        console.log("Moving to dialogue mapping. In a real scenario, an AI task would be triggered here.");
-        
-        // Simulate updating the video object for now.
-        // The real implementation will rely on the triggerAiTask function to handle this.
-        updateVideo({
-            ...video,
-            tasks: {
-                ...video.tasks,
-                scriptingV2_blueprint: newBlueprint
-            }
-        });
+        // For now, we'll simulate the update to move to the next step
+        console.log("Triggering AI task 'mapDialogueToLocationsAI'...");
+        setTimeout(() => { // Simulate async AI call
+            const newBlueprint = {
+                ...blueprint,
+                rawTranscript: transcript,
+                workflowStatus: 'dialogue_mapping' // Move to the next step
+            };
+            updateVideo({
+                ...video,
+                tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint }
+            });
+            setIsProcessing(false);
+        }, 1000);
     };
 
-    return (
-        <div className="p-4 border rounded-lg">
-            <h2 className="text-xl font-bold mb-3">Step 1: Input Your On-Camera Transcript</h2>
-            <p className="mb-4 text-gray-600">
-                Paste the full, unedited transcript of all your on-camera dialogue here. This will form the foundation of your video's narrative.
-            </p>
-            <textarea
-                className="w-full h-64 p-2 border rounded"
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder="Paste your transcript here..."
-            />
-            <div className="mt-4 flex justify-end">
-                <button
-                    onClick={handleNext}
-                    disabled={!transcript.trim()}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400"
-                >
-                    Map Dialogue to Locations
-                </button>
-            </div>
-        </div>
+    return React.createElement('div', { className: 'p-4 border border-gray-700 rounded-lg' },
+        React.createElement('h2', { className: 'text-xl font-bold text-white mb-3' }, "Step 1: Input Your On-Camera Transcript"),
+        React.createElement('p', { className: 'mb-4 text-gray-400' },
+            "Paste the full, unedited transcript of all your on-camera dialogue here. This will form the foundation of your video's narrative."
+        ),
+        React.createElement('textarea', {
+            className: 'w-full h-64 p-2 border border-gray-600 rounded bg-gray-900 text-white',
+            value: transcript,
+            onChange: (e) => setTranscript(e.target.value),
+            placeholder: 'Paste your transcript here...'
+        }),
+        React.createElement('div', { className: 'mt-4 flex justify-end' },
+            React.createElement('button', {
+                onClick: handleNext,
+                disabled: !transcript.trim() || isProcessing,
+                className: 'btn btn-primary disabled:opacity-50'
+            }, isProcessing ? 'Processing...' : 'Map Dialogue to Locations')
+        )
     );
 };
-
-export default Step1_TranscriptInput;
