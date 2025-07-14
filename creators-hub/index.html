@@ -23,10 +23,10 @@
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-     <div id="loading-screen" class="loading-screen">
-         <div class="loading-spinner"></div>
-         <p>Loading Dependencies...</p>
-     </div>
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>Loading Dependencies...</p>
+    </div>
     <div id="root"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -56,6 +56,7 @@
     <script src="./js/utils/imageUploadUtils.js" type="text/babel" defer></script>
     <script src="./js/utils/wordpressUtils.js" type="text/babel" defer></script>
 
+    <!-- AI Planning Utilities -->
     <script src="./js/utils/ai/planning/findPointsOfInterestAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateKeywordsAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateInitialQuestionsAI.js" type="text/babel" defer></script>
@@ -71,22 +72,24 @@
     <script src="./js/utils/ai/planning/extractVideoMetadataAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateSceneSnippetAI.js" type="text/babel" defer></script>
 
+    <!-- AI Blog Utilities -->
     <script src="./js/utils/ai/blog/generateBlogPostFromVideoAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/blog/generateAffiliatePostAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/blog/generateDestinationGuideAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/blog/generateWordPressPostHTMLAI.js" type="text/babel" defer></script>
 
+    <!-- AI Shorts Utilities -->
     <script src="./js/utils/ai/shorts/generateShortsIdeasAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/shorts/generateShortsMetadataAI.js" type="text/babel" defer></script>
 
-    <script src="./js/utils/ai/scriptingV2/createInitialBlueprintAI.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/scriptingV2/enrichBlueprintAI.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/scriptingV2/enrichMultipleShotsAI.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/scriptingV2/mapTranscriptToBlueprintAI.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/scriptingV2/refineBlueprintFromTranscriptAI.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/scriptingV2/generateScriptFromBlueprintAI.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/scriptingV2/learnFromTranscriptAI.js" type="text/babel" defer></script> <script src="./js/utils/ai/scriptingV2/findPlaceIdAI.js" type="text/babel" defer></script> <script src="./js/utils/ai/scriptingV2/findGenericInfoAndImagesAI.js" type="text/babel" defer></script> <script src="./js/utils/ai/style/updateStyleGuideAI.js" type="text/babel" defer></script>
+    <!-- AI Style Utilities -->
+    <script src="./js/utils/ai/style/updateStyleGuideAI.js" type="text/babel" defer></script>
 
+    <!-- START: REMOVED OBSOLETE SCRIPTING V2 AI UTILITIES -->
+    <!-- These files were causing the 404 errors and will be replaced by our new AI functions -->
+    <!-- END: REMOVED OBSOLETE SCRIPTING V2 AI UTILITIES -->
+
+    <!-- UI Components -->
     <script src="./js/components/ui/LoadingSpinner.js" type="text/babel" defer></script>
     <script src="./js/components/ui/ImageComponent.js" type="text/babel" defer></script>
     <script src="./js/components/auth/LoginScreen.js" type="text/babel" defer></script>
@@ -97,6 +100,7 @@
     <script src="./js/components/ui/CanvaModal.js" type="text/babel" defer></script>
     <script src="./js/components/ui/Accordion.js" type="text/babel" defer></script>
     
+    <!-- Main Components -->
     <script src="./js/components/NewProjectWizard/WizardStep_AIParse.js" type="text/babel" defer></script>
     <script src="./js/components/NewProjectWizard/WizardStep1_Foundation.js" type="text/babel" defer></script>
     <script src="./js/components/NewProjectWizard/WizardStep2_Inventory.js" type="text/babel" defer></script>
@@ -124,6 +128,7 @@
     <script src="./js/components/WordpressPublisher.js" type="text/babel" defer></script>
     <script src="./js/components/BlogTool.js" type="text/babel" defer></script>
 
+    <!-- Project View Components -->
     <script src="./js/components/ProjectView/ProjectHeader.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/VideoList.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/EditProjectModal.js" type="text/babel" defer></script>
@@ -143,13 +148,15 @@
     <script src="./js/components/ProjectView/tasks/FirstCommentTask.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/LogChangesTask.js" type="text/babel" defer></script>
 
+    <!-- NEW SCRIPTING WORKFLOW COMPONENTS (Placeholders for now) -->
+    <!-- We will add the new files here once they are created -->
     <script src="./js/components/ProjectView/tasks/ScriptingV2/BlueprintStepper.js" type="text/babel" defer></script>
+    <script src="./js/components/ProjectView/tasks/ScriptingV2/LegacyScriptView.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/Step1_TranscriptInput.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/Step2_DialogueMapper.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/Step3_NarrativeRefiner.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/Step4_ResearchApproval.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/Step5_DraftReviewer.js" type="text/babel" defer></script>
-    <script src="./js/components/ProjectView/tasks/ScriptingV2/LegacyScriptView.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/ScriptingV2_Workspace.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/scriptingTaskV2.js" type="text/babel" defer></script>
     
@@ -161,6 +168,7 @@
     
     <script src="./js/components/ProjectView.js" type="text/babel" defer></script>
 
+    <!-- Router and App Entry -->
     <script src="./js/components/Router.js" type="text/babel" defer></script>
     <script src="./js/app.js" type="text/babel" defer></script>
 
