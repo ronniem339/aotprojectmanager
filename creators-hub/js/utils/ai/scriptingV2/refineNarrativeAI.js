@@ -36,7 +36,11 @@ window.aiUtils.refineNarrativeAI = async ({ narrativeProposals, userFeedback, se
                     type: "OBJECT",
                     properties: {
                         step: { type: "STRING" },
-                        description: { type: "STRING" }
+                        description: { type: "STRING" },
+                        locations_featured: {
+                            type: "ARRAY",
+                            items: { type: "STRING" }
+                        }
                     },
                     required: ["step", "description"]
                 }
