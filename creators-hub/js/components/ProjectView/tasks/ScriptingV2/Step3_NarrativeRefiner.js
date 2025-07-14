@@ -1,6 +1,6 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step3_NarrativeRefiner.js
 
-const { useState, useEffect } = React;
+const { useState: useState3, useEffect: useEffect3, useRef: useRef3 } = React; // Use aliases to avoid redeclaration errors
 
 window.Step3_NarrativeRefiner = () => {
     // --- ANTI-PROP-DRILLING PATTERN ---
