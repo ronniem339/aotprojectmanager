@@ -1,6 +1,6 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step2_DialogueMapper.js
 
-const { useState, useEffect, useRef } = React;
+const { useState: useState2, useEffect: useEffect2, useRef: useRef2 } = React; // Use aliases to avoid redeclaration errors
 
 window.Step2_DialogueMapper = () => {
     // --- ANTI-PROP-DRILLING PATTERN ---
