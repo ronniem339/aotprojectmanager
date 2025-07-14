@@ -2,44 +2,55 @@
 
 const { useState } = React;
 
-window.Step1_TranscriptInput = ({ video, updateVideo }) => {
-    const { handlers } = window.useAppState(); // Access global handlers
+window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
+    const { handlers } = window.useAppState();
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     
     const [transcript, setTranscript] = useState(blueprint.rawTranscript || '');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const handleNext = () => {
-        setIsProcessing(true);
-        
-        // This is where you will trigger the first AI task
-        // const taskId = `scriptingV2-map-dialogue-${video.id}-${Date.now()}`;
-        // handlers.triggerAiTask({
-        //     id: taskId,
-        //     type: 'scriptingV2-map-dialogue',
-        //     name: 'Mapping Dialogue to Locations',
-        //     aiFunction: window.aiUtils.mapDialogueToLocationsAI,
-        //     args: { videoId: video.id, transcript }
-        // }).then(dialogueMap => {
-        //     const newBlueprint = { ... };
-        //     updateVideo(...);
-        //     setIsProcessing(false);
-        // });
+    const handleNext = async () => {
+        setIsProcessing(true); // 1. Provide immediate in-component feedback
 
-        // For now, we'll simulate the update to move to the next step
-        console.log("Triggering AI task 'mapDialogueToLocationsAI'...");
-        setTimeout(() => { // Simulate async AI call
+        const taskId = `scriptingV2-map-dialogue-${video.id}-${Date.now()}`;
+        
+        try {
+            // 2. Use the global task queue and trigger the AI function
+            const dialogueMapResult = await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-map-dialogue',
+                name: 'Mapping Dialogue to Locations',
+                aiFunction: window.aiUtils.mapDialogueToLocationsAI, // This is the new AI function we will create
+                args: { 
+                    transcript: transcript,
+                    footage_log: video.footage_log, // Pass necessary context
+                    settings
+                }
+            });
+
+            if (!dialogueMapResult) {
+                throw new Error("AI did not return a valid dialogue map.");
+            }
+
+            // Update the blueprint with the result and move to the next status
             const newBlueprint = {
                 ...blueprint,
                 rawTranscript: transcript,
-                workflowStatus: 'dialogue_mapping' // Move to the next step
+                dialogueMap: dialogueMapResult, // Store the AI's output
+                workflowStatus: 'dialogue_mapping'
             };
+            
             updateVideo({
                 ...video,
                 tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint }
             });
-            setIsProcessing(false);
-        }, 1000);
+
+        } catch (error) {
+            console.error("Failed to map dialogue:", error);
+            handlers.displayNotification(`Error mapping dialogue: ${error.message}`, 'error');
+        } finally {
+            setIsProcessing(false); // Reset in-component feedback
+        }
     };
 
     return React.createElement('div', { className: 'p-4 border border-gray-700 rounded-lg' },
@@ -58,7 +69,7 @@ window.Step1_TranscriptInput = ({ video, updateVideo }) => {
                 onClick: handleNext,
                 disabled: !transcript.trim() || isProcessing,
                 className: 'btn btn-primary disabled:opacity-50'
-            }, isProcessing ? 'Processing...' : 'Map Dialogue to Locations')
+            }, isProcessing ? '🤖 Analyzing Transcript...' : 'Map Dialogue to Locations')
         )
     );
 };
