@@ -24,15 +24,18 @@ window.Step1_TranscriptInput = ({ video, settings, handlers, project }) => {
 
         const featuredLocationObjects = allProjectLocations.filter(loc => featuredLocationNames.includes(loc.name));
 
-        const videoSpecificFootageLog = {};
+        const videoSpecificFootageLog = [];
         featuredLocationObjects.forEach(loc => {
             const key = loc.place_id || loc.name;
             if (projectFootage[key]) {
-                videoSpecificFootageLog[key] = projectFootage[key];
+                videoSpecificFootageLog.push({ 
+                    ...projectFootage[key],
+                    location_tag: loc.name // Add the location_tag the AI expects
+                });
             }
         });
 
-        if (Object.keys(videoSpecificFootageLog).length === 0) {
+        if (videoSpecificFootageLog.length === 0) {
             handlers.displayNotification("Error: No footage has been inventoried for the locations in this video. Please update the footage log in the video's settings.", "error");
             return;
         }
