@@ -1,6 +1,6 @@
 // js/components/ProjectView/tasks/EditVideoTask.js
 
-window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings }) => {
+window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings, project, handlers }) => {
     const { useState, useEffect } = React;
 
     const [musicTrack, setMusicTrack] = useState('');
@@ -9,6 +9,8 @@ window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings }) => {
     const [generatingScript, setGeneratingScript] = useState(false);
     const [updatedScript, setUpdatedScript] = useState(null); // To hold the AI-rewritten script
     const [error, setError] = useState('');
+    const [editingShotList, setEditingShotList] = useState(video.tasks?.scriptingV2_blueprint?.editingShotList || []);
+    const [isGeneratingShotList, setIsGeneratingShotList] = useState(false);
 
     // Sync local state with data from Firestore
     useEffect(() => {
@@ -16,6 +18,7 @@ window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings }) => {
         setChangeLog(video.tasks?.feedbackText || '');
         setUpdatedScript(null); // Reset updated script when video changes
         setError('');
+        setEditingShotList(video.tasks?.scriptingV2_blueprint?.editingShotList || []);
         // If the task is already in progress but logging isn't shown, reset the flag
         if (video.tasks?.videoEdited === 'in-progress') {
             setShowLogChanges(false);
@@ -29,6 +32,73 @@ window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings }) => {
     const handleSaveMusic = () => {
         // This just saves the text, doesn't complete the task
         onUpdateTask('videoEdited', 'in-progress', { 'tasks.musicTrack': musicTrack });
+    };
+
+    const handleToggleSequenceComplete = async (index) => {
+        const updatedList = [...editingShotList];
+        updatedList[index].isComplete = !updatedList[index].isComplete;
+        setEditingShotList(updatedList);
+
+        const newBlueprint = {
+            ...video.tasks?.scriptingV2_blueprint,
+            editingShotList: updatedList
+        };
+        await handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+    };
+
+    const handleGenerateShotList = async () => {
+        setIsGeneratingShotList(true);
+        setError('');
+        const taskId = `scriptingV2-generate-shotlist-${video.id}-${Date.now()}`;
+        try {
+            const blueprint = video?.tasks?.scriptingV2_blueprint || {};
+            const featuredLocationNames = video.locations_featured || [];
+            const allProjectLocations = project.locations || [];
+            const projectFootage = project.footageInventory || {};
+
+            const featuredLocationObjects = allProjectLocations.filter(loc => featuredLocationNames.includes(loc.name));
+
+            const videoSpecificFootageLog = [];
+            featuredLocationObjects.forEach(loc => {
+                const key = loc.place_id || loc.name;
+                if (projectFootage[key]) {
+                    videoSpecificFootageLog.push({ 
+                        ...projectFootage[key],
+                        location_tag: loc.name
+                    });
+                }
+            });
+
+            const shotList = await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-generate-shotlist',
+                name: 'Generating Editing Shot List',
+                intensity: 'heavy',
+                aiFunction: window.aiUtils.generateShotListForEditingAI,
+                args: {
+                    approvedNarrative: blueprint.approvedNarrative,
+                    dialogueMap: blueprint.dialogueMap,
+                    footage_log: videoSpecificFootageLog,
+                    finalScript: blueprint.finalScript,
+                    recordableVoiceover: blueprint.recordableVoiceover,
+                    settings
+                }
+            });
+            if (!shotList) throw new Error("AI did not return a shot list.");
+            
+            // Update the blueprint with the new shot list
+            const newBlueprint = {
+                ...blueprint,
+                editingShotList: shotList
+            };
+            await handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+            setEditingShotList(shotList);
+        } catch (err) {
+            console.error("Error generating shot list:", err);
+            setError(`Failed to generate shot list: ${err.message}`);
+        } finally {
+            setIsGeneratingShotList(false);
+        }
     };
 
     const handleConfirmAndLog = () => {
@@ -123,6 +193,76 @@ IMPORTANT: Please provide only the complete, rewritten, raw text script as your 
     if (status === 'in-progress' && !showLogChanges) {
         return (
             <div className="space-y-4">
+                {/* Shot List Section */}
+                <div className="p-4 border border-gray-700 rounded-lg">
+                    <h3 className="text-lg font-bold text-white mb-3">Editing Shot List</h3>
+                    {editingShotList.length === 0 ? (
+                        <div className="text-center">
+                            <p className="text-gray-400 mb-4">Generate a detailed shot list to guide your video editing process.</p>
+                            <button
+                                onClick={handleGenerateShotList}
+                                disabled={isGeneratingShotList}
+                                className="btn btn-primary disabled:opacity-50"
+                            >
+                                {isGeneratingShotList ? '🤖 Generating Shot List...' : 'Generate Shot List'}
+                            </button>
+                            {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {editingShotList.map((sequence, index) => (
+                                <window.Accordion
+                                    key={index}
+                                    title={`Sequence: ${sequence.name} (${sequence.type})`}
+                                    defaultOpen={true}
+                                    onToggle={() => { /* No-op, controlled by checkbox */ }}
+                                    status={sequence.isComplete ? 'complete' : 'pending'}
+                                    isLocked={false}
+                                >
+                                    <div className="p-3 bg-gray-800/70 rounded-b-lg border border-gray-700 border-t-0">
+                                        {sequence.voiceover_script && (
+                                            <div className="mb-2">
+                                                <h4 className="font-semibold text-gray-300">Voiceover Script:</h4>
+                                                <p className="text-gray-400 whitespace-pre-wrap text-sm">{sequence.voiceover_script}</p>
+                                            </div>
+                                        )}
+
+                                        {sequence.on_camera_dialogue && (
+                                            <div className="mb-2">
+                                                <h4 className="font-semibold text-gray-300">On-Camera Dialogue:</h4>
+                                                <p className="text-gray-400 whitespace-pre-wrap text-sm">{sequence.on_camera_dialogue}</p>
+                                            </div>
+                                        )}
+
+                                        {sequence.locations && sequence.locations.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold text-gray-300">Locations & Footage:</h4>
+                                                <ul className="list-disc list-inside pl-4 text-sm">
+                                                    {sequence.locations.map((loc, locIndex) => (
+                                                        <li key={locIndex} className="text-gray-400">
+                                                            {loc.name} ({loc.footage_types.join(', ')})
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        <div className="mt-4 flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={sequence.isComplete || false}
+                                                onChange={() => handleToggleSequenceComplete(index)}
+                                                className="h-5 w-5 rounded bg-gray-900 border-gray-600 text-primary-accent focus:ring-primary-accent"
+                                            />
+                                            <label className="ml-2 text-gray-300 text-sm">Mark Sequence as Complete</label>
+                                        </div>
+                                    </div>
+                                </window.Accordion>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Music Track Section */}
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Background Music (Placeholder)</label>
                     <div className="flex gap-2">

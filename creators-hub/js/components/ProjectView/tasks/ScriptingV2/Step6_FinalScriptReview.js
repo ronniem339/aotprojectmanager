@@ -58,56 +58,15 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers, project }) => {
         }
     };
 
-    const handleFinalize = async () => {
-        setIsProcessing(true);
-        const taskId = `scriptingV2-generate-shotlist-${video.id}-${Date.now()}`;
-        try {
-            const featuredLocationNames = video.locations_featured || [];
-            const allProjectLocations = project.locations || [];
-            const projectFootage = project.footageInventory || {};
-
-            const featuredLocationObjects = allProjectLocations.filter(loc => featuredLocationNames.includes(loc.name));
-
-            const videoSpecificFootageLog = [];
-            featuredLocationObjects.forEach(loc => {
-                const key = loc.place_id || loc.name;
-                if (projectFootage[key]) {
-                    videoSpecificFootageLog.push({ 
-                        ...projectFootage[key],
-                        location_tag: loc.name
-                    });
-                }
-            });
-
-            const shotList = await handlers.triggerAiTask({
-                id: taskId,
-                type: 'scriptingV2-generate-shotlist',
-                name: 'Generating Editing Shot List',
-                intensity: 'heavy',
-                aiFunction: window.aiUtils.generateShotListForEditingAI,
-                args: {
-                    approvedNarrative: blueprint.approvedNarrative,
-                    dialogueMap: blueprint.dialogueMap,
-                    footage_log: videoSpecificFootageLog,
-                    finalScript: fullScript,
-                    recordableVoiceover: recordableVoiceover,
-                    settings
-                }
-            });
-            if (!shotList) throw new Error("AI did not return a shot list.");
-            const newBlueprint = {
-                ...blueprint,
-                finalScript: fullScript,
-                recordableVoiceover,
-                editingShotList: shotList,
-                workflowStatus: 'editing_shot_list'
-            };
-            handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
-        } catch (error) {
-            handlers.displayNotification(`Error generating shot list: ${error.message}`, 'error');
-        } finally {
-            setIsProcessing(false);
-        }
+    const handleFinalize = () => {
+        const newBlueprint = {
+            ...blueprint,
+            finalScript: fullScript,
+            recordableVoiceover,
+            workflowStatus: 'voiceover_recording'
+        };
+        handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+        handlers.displayNotification("Script finalized! Proceed to voiceover recording.", 'success');
     };
 
     return (

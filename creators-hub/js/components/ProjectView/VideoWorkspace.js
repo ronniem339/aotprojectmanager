@@ -158,7 +158,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                                     status = 'in-progress';
                                 }
                             }
-                        } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
+                        case 'videoEdited': return <SafeComponentRenderer componentName="EditVideoTask" {...commonProps} project={project} handlers={handlers} />;
                             status = 'in-progress';
                         }
                         const locked = isTaskLocked(task);
