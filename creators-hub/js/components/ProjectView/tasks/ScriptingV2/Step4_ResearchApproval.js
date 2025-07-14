@@ -1,6 +1,6 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step4_ResearchApproval.js
 
-const { useState, useEffect, useRef } = React;
+const { useState: useState4, useEffect: useEffect4, useRef: useRef4 } = React; // Use aliases to avoid redeclaration errors
 
 window.Step4_ResearchApproval = () => {
     // --- ANTI-PROP-DRILLING PATTERN ---
