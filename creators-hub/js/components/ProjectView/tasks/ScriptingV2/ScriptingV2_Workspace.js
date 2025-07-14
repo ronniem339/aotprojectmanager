@@ -7,11 +7,12 @@ const {
     Step4_ResearchApproval,
     Step5_DraftReviewer,
     LegacyScriptView,
-    BlueprintStepper // Assuming this is globally available like other components
+    BlueprintStepper,
+    TaskQueue // Import TaskQueue
 } = window;
 
 const ScriptingV2_Workspace = () => {
-    const { video } = window.useAppState();
+    const { video, handlers, taskQueue } = window.useAppState(); // Get handlers and taskQueue
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
 
     const getWorkflowStatus = () => {
@@ -51,11 +52,27 @@ const ScriptingV2_Workspace = () => {
 
     // We don't show the stepper for the legacy view
     if (status === 'legacy_view') {
-        return React.createElement('div', { className: 'scripting-v2-workspace' }, renderStepComponent());
+        return React.createElement('div', { className: 'scripting-v2-workspace' },
+            renderStepComponent(),
+            // TaskQueue for legacy view also
+            React.createElement(TaskQueue, {
+                tasks: taskQueue,
+                onView: handlers.handleViewGeneratedPost,
+                onRetry: handlers.handleRetryTask,
+                onNavigateToTask: handlers.handleNavigateToTask
+            })
+        );
     }
 
     return React.createElement('div', { className: 'scripting-v2-workspace' },
         React.createElement(BlueprintStepper, { steps, currentStepIndex }),
-        React.createElement('div', { className: 'mt-6' }, renderStepComponent())
+        React.createElement('div', { className: 'mt-6' }, renderStepComponent()),
+        // Add TaskQueue here as well for the V2 workflow
+        React.createElement(TaskQueue, {
+            tasks: taskQueue,
+            onView: handlers.handleViewGeneratedPost,
+            onRetry: handlers.handleRetryTask,
+            onNavigateToTask: handlers.handleNavigateToTask
+        })
     );
 };
