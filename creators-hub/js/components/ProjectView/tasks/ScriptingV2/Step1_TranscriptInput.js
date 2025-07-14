@@ -10,21 +10,24 @@ window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleNext = async () => {
-        setIsProcessing(true); // 1. Provide immediate in-component feedback
+        setIsProcessing(true);
 
         const taskId = `scriptingV2-map-dialogue-${video.id}-${Date.now()}`;
         
         try {
-            // 2. Use the global task queue and trigger the AI function
             const dialogueMapResult = await handlers.triggerAiTask({
                 id: taskId,
                 type: 'scriptingV2-map-dialogue',
                 name: 'Mapping Dialogue to Locations',
-                aiFunction: window.aiUtils.mapDialogueToLocationsAI, // This is the new AI function we will create
+                // --- THIS IS THE CRITICAL ADDITION ---
+                // Specify the intensity of the task. 'medium' is appropriate for
+                // analyzing a transcript and mapping it to locations.
+                intensity: 'medium', 
+                aiFunction: window.aiUtils.mapDialogueToLocationsAI,
                 args: { 
                     transcript: transcript,
-                    footage_log: video.footage_log, // Pass necessary context
-                    settings
+                    footage_log: video.footage_log,
+                    settings // Pass settings through for the AI to use
                 }
             });
 
@@ -32,11 +35,10 @@ window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
                 throw new Error("AI did not return a valid dialogue map.");
             }
 
-            // Update the blueprint with the result and move to the next status
             const newBlueprint = {
                 ...blueprint,
                 rawTranscript: transcript,
-                dialogueMap: dialogueMapResult, // Store the AI's output
+                dialogueMap: dialogueMapResult,
                 workflowStatus: 'dialogue_mapping'
             };
             
@@ -49,7 +51,7 @@ window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
             console.error("Failed to map dialogue:", error);
             handlers.displayNotification(`Error mapping dialogue: ${error.message}`, 'error');
         } finally {
-            setIsProcessing(false); // Reset in-component feedback
+            setIsProcessing(false);
         }
     };
 
