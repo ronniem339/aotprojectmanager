@@ -45,7 +45,7 @@ window.aiUtils.assembleAndPolishScriptAI = async ({ draftScript, approvedNarrati
         // This is a heavy-intensity task for comprehensive script assembly
         const response = await window.aiUtils.callGeminiAPI(prompt, settings, { taskTier: 'heavy' }, { responseSchema });
 
-        if (!response || typeof response !== 'object' || typeof response.finalScript !== 'string') {
+        if (!response || typeof response !== 'object' || typeof response.fullScript !== 'string' || typeof response.recordableVoiceover !== 'string') {
             throw new Error("AI returned an invalid response format for the final script.");
         }
         
