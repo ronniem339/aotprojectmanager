@@ -126,6 +126,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     video={video} 
                     settings={settings} 
                     handlers={{...handlers, updateVideo}}
+                    project={project}
                 />
             </React.Fragment>
         );

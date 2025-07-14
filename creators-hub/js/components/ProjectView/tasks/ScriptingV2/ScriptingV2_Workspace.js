@@ -1,4 +1,4 @@
-window.ScriptingV2_Workspace = ({ video, settings, handlers }) => {
+window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
 
     const getWorkflowStatus = () => {
@@ -19,7 +19,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers }) => {
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
-    const stepProps = { video, settings, handlers };
+    const stepProps = { video, settings, handlers, project };
 
     const renderStepComponent = () => {
         switch (status) {

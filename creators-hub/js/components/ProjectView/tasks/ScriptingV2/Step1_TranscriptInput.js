@@ -1,6 +1,6 @@
 const { useState: useState1, useEffect: useEffect1, useRef: useRef1 } = React; // Use aliases to avoid redeclaration errors
 
-window.Step1_TranscriptInput = ({ video, settings, handlers }) => {
+window.Step1_TranscriptInput = ({ video, settings, handlers, project }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const [transcript, setTranscript] = useState1(blueprint.rawTranscript || '');
     const [isProcessing, setIsProcessing] = useState1(false);
@@ -18,8 +18,22 @@ window.Step1_TranscriptInput = ({ video, settings, handlers }) => {
     }, [transcript, isProcessing, blueprint.rawTranscript, video.id, handlers]);
 
     const handleNext = async () => {
-        if (!video.footage_log || video.footage_log.length === 0) {
-            handlers.displayNotification("Error: Footage log is empty. Please add footage before mapping dialogue.", "error");
+        const featuredLocationNames = video.locations_featured || [];
+        const allProjectLocations = project.locations || [];
+        const projectFootage = project.footageInventory || {};
+
+        const featuredLocationObjects = allProjectLocations.filter(loc => featuredLocationNames.includes(loc.name));
+
+        const videoSpecificFootageLog = {};
+        featuredLocationObjects.forEach(loc => {
+            const key = loc.place_id || loc.name;
+            if (projectFootage[key]) {
+                videoSpecificFootageLog[key] = projectFootage[key];
+            }
+        });
+
+        if (Object.keys(videoSpecificFootageLog).length === 0) {
+            handlers.displayNotification("Error: No footage has been inventoried for the locations in this video. Please update the footage log in the video's settings.", "error");
             return;
         }
 
@@ -32,7 +46,7 @@ window.Step1_TranscriptInput = ({ video, settings, handlers }) => {
                 name: 'Mapping Dialogue to Locations',
                 intensity: 'medium',
                 aiFunction: window.aiUtils.mapDialogueToLocationsAI,
-                args: { transcript, footage_log: video.footage_log, settings }
+                args: { transcript, footage_log: videoSpecificFootageLog, settings }
             });
 
             if (!dialogueMapResult) throw new Error("AI did not return a valid dialogue map.");
