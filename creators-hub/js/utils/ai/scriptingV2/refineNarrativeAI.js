@@ -47,7 +47,14 @@ window.aiUtils.refineNarrativeAI = async ({ narrativeProposals, userFeedback, se
             },
             valueAddResearch: {
                 type: "ARRAY",
-                items: { type: "STRING" }
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        location: { type: "STRING" },
+                        topic: { type: "STRING" }
+                    },
+                    required: ["location", "topic"]
+                }
             }
         },
         required: ["coreAngle", "narrativeArc", "valueAddResearch"]
