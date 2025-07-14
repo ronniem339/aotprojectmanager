@@ -101,7 +101,8 @@ window.Step5_DraftReviewer = ({ video, settings, handlers }) => {
             const newBlueprint = {
                 ...blueprint,
                 draftScript,
-                finalScript,
+                finalScript: finalScript.fullScript,
+                recordableVoiceover: finalScript.recordableVoiceover,
                 workflowStatus: 'final_review'
             };
             handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });

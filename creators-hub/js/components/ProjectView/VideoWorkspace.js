@@ -149,8 +149,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 <div className="space-y-4">
                     {taskPipeline.map((task, index) => {
                         let status = video.tasks?.[task.id] || 'pending';
-                        if (task.id === 'scripting' && video.tasks?.scriptingStage && !['pending', 'complete'].includes(video.tasks.scriptingStage)) {
-                            status = 'in-progress';
+                        if (task.id === 'scripting') {
+                            const scriptingBlueprint = video.tasks?.scriptingV2_blueprint;
+                            if (scriptingBlueprint) {
+                                if (scriptingBlueprint.workflowStatus === 'final') {
+                                    status = 'complete';
+                                } else if (scriptingBlueprint.workflowStatus) {
+                                    status = 'in-progress';
+                                }
+                            }
                         } else if (task.id === 'videoEdited' && video.tasks?.videoEdited === 'in-progress') {
                             status = 'in-progress';
                         }

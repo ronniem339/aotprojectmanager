@@ -2,25 +2,31 @@ const { useState: useState6, useEffect: useEffect6, useRef: useRef6 } = React;
 
 window.Step6_FinalScriptReview = ({ video, settings, handlers }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
-    const [finalScript, setFinalScript] = useState6(blueprint.finalScript || '');
+    const [fullScript, setFullScript] = useState6(blueprint.finalScript || '');
+    const [recordableVoiceover, setRecordableVoiceover] = useState6(blueprint.recordableVoiceover || '');
     const [globalFeedback, setGlobalFeedback] = useState6('');
     const [isProcessing, setIsProcessing] = useState6(false);
+    const [viewMode, setViewMode] = useState6('full'); // 'full' or 'recordable'
 
     useEffect6(() => {
-        setFinalScript(blueprint.finalScript || '');
-    }, [blueprint.finalScript]);
+        setFullScript(blueprint.finalScript || '');
+        setRecordableVoiceover(blueprint.recordableVoiceover || '');
+    }, [blueprint.finalScript, blueprint.recordableVoiceover]);
 
     const autosaveTimeout = useRef6(null);
     useEffect6(() => {
         if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
         autosaveTimeout.current = setTimeout(() => {
-            if (!isProcessing && finalScript !== (blueprint.finalScript || '')) {
-                const newBlueprint = { ...blueprint, finalScript };
+            if (!isProcessing && (
+                fullScript !== (blueprint.finalScript || '') ||
+                recordableVoiceover !== (blueprint.recordableVoiceover || '')
+            )) {
+                const newBlueprint = { ...blueprint, finalScript: fullScript, recordableVoiceover };
                 handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } }, true);
             }
         }, 2000);
         return () => clearTimeout(autosaveTimeout.current);
-    }, [finalScript, isProcessing, blueprint.finalScript, video.id, handlers]);
+    }, [fullScript, recordableVoiceover, isProcessing, blueprint.finalScript, blueprint.recordableVoiceover, video.id, handlers]);
 
     const handleGlobalRefine = async () => {
         if (!globalFeedback.trim()) {
@@ -36,10 +42,14 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers }) => {
                 name: 'Applying Global Refinements to Final Script',
                 intensity: 'heavy',
                 aiFunction: window.aiUtils.refineEntireScriptAI,
-                args: { draftScript: [{ content: finalScript, type: 'full_script' }], globalFeedback, settings } // Pass as a single block
+                args: { draftScript: [{ content: viewMode === 'full' ? fullScript : recordableVoiceover, type: 'full_script' }], globalFeedback, settings } // Pass as a single block
             });
             if (!refinedScript) throw new Error("AI did not return a refined script.");
-            setFinalScript(refinedScript[0].content); // Assuming it returns an array with one item
+            if (viewMode === 'full') {
+                setFullScript(refinedScript[0].content);
+            } else {
+                setRecordableVoiceover(refinedScript[0].content);
+            }
             setGlobalFeedback('');
         } catch (error) {
             handlers.displayNotification(`Error applying global refinements: ${error.message}`, 'error');
@@ -48,23 +58,62 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers }) => {
         }
     };
 
-    const handleFinalize = () => {
-        const newBlueprint = {
-            ...blueprint,
-            finalScript,
-            workflowStatus: 'final'
-        };
-        handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
-        handlers.displayNotification("Script finalized successfully!", 'success');
+    const handleFinalize = async () => {
+        setIsProcessing(true);
+        const taskId = `scriptingV2-generate-shotlist-${video.id}-${Date.now()}`;
+        try {
+            const shotList = await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-generate-shotlist',
+                name: 'Generating Editing Shot List',
+                intensity: 'heavy',
+                aiFunction: window.aiUtils.generateShotListForEditingAI,
+                args: {
+                    approvedNarrative: blueprint.approvedNarrative,
+                    dialogueMap: blueprint.dialogueMap,
+                    footage_log: blueprint.footage_log, // Assuming footage_log is stored in blueprint
+                    finalScript: fullScript,
+                    recordableVoiceover: recordableVoiceover,
+                    settings
+                }
+            });
+            if (!shotList) throw new Error("AI did not return a shot list.");
+            const newBlueprint = {
+                ...blueprint,
+                finalScript: fullScript,
+                recordableVoiceover,
+                editingShotList: shotList,
+                workflowStatus: 'editing_shot_list'
+            };
+            handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+        } catch (error) {
+            handlers.displayNotification(`Error generating shot list: ${error.message}`, 'error');
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (
         <div className="p-4 border border-gray-700 rounded-lg">
             <h2 className="text-xl font-bold text-white mb-3">Step 6: Final Script Review</h2>
             <p className="mb-4 text-gray-400">Review the complete, assembled script. Make any final edits or apply global refinements.</p>
+            <div className="flex justify-center mb-4">
+                <button
+                    onClick={() => setViewMode('full')}
+                    className={`px-4 py-2 rounded-l-lg text-sm font-semibold ${viewMode === 'full' ? 'bg-primary-accent text-white' : 'bg-gray-700 text-gray-300'}`}
+                >
+                    Full Script
+                </button>
+                <button
+                    onClick={() => setViewMode('recordable')}
+                    className={`px-4 py-2 rounded-r-lg text-sm font-semibold ${viewMode === 'recordable' ? 'bg-primary-accent text-white' : 'bg-gray-700 text-gray-300'}`}
+                >
+                    Recordable Voiceover
+                </button>
+            </div>
             <textarea
-                value={finalScript}
-                onChange={(e) => setFinalScript(e.target.value)}
+                value={viewMode === 'full' ? fullScript : recordableVoiceover}
+                onChange={(e) => viewMode === 'full' ? setFullScript(e.target.value) : setRecordableVoiceover(e.target.value)}
                 className="w-full h-96 p-2 border border-gray-600 rounded bg-gray-900 text-white font-mono text-sm"
                 disabled={isProcessing}
             />

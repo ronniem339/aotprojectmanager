@@ -35,9 +35,10 @@ window.aiUtils.assembleAndPolishScriptAI = async ({ draftScript, approvedNarrati
     const responseSchema = {
         type: "OBJECT",
         properties: {
-            finalScript: { type: "STRING" }
+            fullScript: { type: "STRING" },
+            recordableVoiceover: { type: "STRING" }
         },
-        required: ["finalScript"]
+        required: ["fullScript", "recordableVoiceover"]
     };
 
     try {
@@ -48,7 +49,7 @@ window.aiUtils.assembleAndPolishScriptAI = async ({ draftScript, approvedNarrati
             throw new Error("AI returned an invalid response format for the final script.");
         }
         
-        return response.finalScript;
+        return response;
 
     } catch (err) {
         console.error("Error assembling and polishing script with AI:", err);

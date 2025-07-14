@@ -35,7 +35,8 @@ window.CREATOR_HUB_CONFIG = {
     // **UPDATED**: Reordered tasks and added `dependsOn` arrays for the new workflow.
     TASK_PIPELINE: [
         { id: 'scripting', title: 'Scripting & Recording', dependsOn: [] },
-        { id: 'videoEdited', title: 'Edit Video & Log Changes', dependsOn: ['scripting'] },
+        { id: 'voiceoverRecorded', title: 'Record Voiceover', dependsOn: ['scripting'] },
+        { id: 'videoEdited', title: 'Edit Video & Log Changes', dependsOn: ['voiceoverRecorded'] },
         { id: 'titleGenerated', title: 'Finalize Title', dependsOn: ['videoEdited'] },
         { id: 'descriptionGenerated', title: 'Finalize Description', dependsOn: ['titleGenerated'] },
         
