@@ -46,7 +46,6 @@
     <script src="./js/hooks/useDebounce.js" type="text/babel" defer></script>
     <script src="./js/hooks/useAppState.js" type="text/babel" defer></script>
     <script src="./js/hooks/useMediaQuery.js" type="text/babel" defer></script>
-    <script src="./js/utils/ai/core/getStyleGuidePrompt.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/core/getStyleGuidePromptV2.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/core/callGeminiAPI.js" type="text/babel" defer></script>
     
@@ -61,7 +60,7 @@
     <script src="./js/utils/ai/planning/generateKeywordsAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateInitialQuestionsAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateDraftOutlineAI.js" type="text/babel" defer></script>
-    <script src="js/utils/ai/planning/enrichOutlineWithResearchAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/planning/enrichOutlineWithResearchAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateScriptPlanAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateRefinedScriptPlanAI.js" type="text/babel" defer></script>
     <script src="./js/utils/ai/planning/generateShotListFromScriptAI.js" type="text/babel" defer></script>
@@ -85,9 +84,16 @@
     <!-- AI Style Utilities -->
     <script src="./js/utils/ai/style/updateStyleGuideAI.js" type="text/babel" defer></script>
 
-    <!-- START: REMOVED OBSOLETE SCRIPTING V2 AI UTILITIES -->
-    <!-- These files were causing the 404 errors and will be replaced by our new AI functions -->
-    <!-- END: REMOVED OBSOLETE SCRIPTING V2 AI UTILITIES -->
+    <!-- START: NEW SCRIPTING V3 AI UTILITIES -->
+    <script src="./js/utils/ai/scriptingV2/mapDialogueToLocationsAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/proposeNarrativeAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/refineNarrativeAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/conductResearchAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/draftVoiceoverAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/assembleAndPolishScriptAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/refineScriptBlockAI.js" type="text/babel" defer></script>
+    <script src="./js/utils/ai/scriptingV2/refineEntireScriptAI.js" type="text/babel" defer></script>
+    <!-- END: NEW SCRIPTING V3 AI UTILITIES -->
 
     <!-- UI Components -->
     <script src="./js/components/ui/LoadingSpinner.js" type="text/babel" defer></script>
@@ -148,8 +154,7 @@
     <script src="./js/components/ProjectView/tasks/FirstCommentTask.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/LogChangesTask.js" type="text/babel" defer></script>
 
-    <!-- NEW SCRIPTING WORKFLOW COMPONENTS (Placeholders for now) -->
-    <!-- We will add the new files here once they are created -->
+    <!-- NEW SCRIPTING WORKFLOW COMPONENTS -->
     <script src="./js/components/ProjectView/tasks/ScriptingV2/BlueprintStepper.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/LegacyScriptView.js" type="text/babel" defer></script>
     <script src="./js/components/ProjectView/tasks/ScriptingV2/Step1_TranscriptInput.js" type="text/babel" defer></script>
