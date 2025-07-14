@@ -2,7 +2,7 @@ const { useMediaQuery } = window;
 
 const DesktopStepper = ({ steps, currentStepId, onStepClick }) => {
     return (
-        <div className="flex justify-center items-center gap-x-2 sm:gap-x-4 mb-6 pb-4 border-b border-gray-700">
+        <div className="flex items-center gap-x-1 sm:gap-x-2 mb-6 pb-4 border-b border-gray-700">
             {steps.map((step, index) => {
                 const isCurrent = currentStepId === step.id;
                 const isCompleted = step.isCompleted;
@@ -12,7 +12,7 @@ const DesktopStepper = ({ steps, currentStepId, onStepClick }) => {
                     <React.Fragment key={step.id}>
                         <button
                             onClick={() => isClickable && onStepClick(step.id)}
-                            className={`flex items-center space-x-2 text-xs sm:text-sm p-2 rounded-lg transition-all duration-200 border-2
+                            className={`flex items-center px-2 py-1 rounded-lg transition-all duration-200 border-2
                                 ${isCurrent
                                     ? 'border-primary-accent bg-blue-900/50 text-white font-semibold scale-105'
                                     : isCompleted
@@ -28,7 +28,7 @@ const DesktopStepper = ({ steps, currentStepId, onStepClick }) => {
                             <span className="hidden sm:inline">{step.name}</span>
                         </button>
                         {(index < steps.length - 1) && (
-                            <div className={`h-1 flex-grow rounded-full transition-colors duration-500 mx-2 hidden sm:block
+                            <div className={`h-1 flex-grow rounded-full transition-colors duration-500 mx-1 hidden sm:block
                                 ${isCompleted ? 'bg-green-700' : 'bg-gray-700'}`}
                             />
                         )}

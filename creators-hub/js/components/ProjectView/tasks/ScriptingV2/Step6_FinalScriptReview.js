@@ -1,6 +1,6 @@
 const { useState: useState6, useEffect: useEffect6, useRef: useRef6 } = React;
 
-window.Step6_FinalScriptReview = ({ video, settings, handlers }) => {
+window.Step6_FinalScriptReview = ({ video, settings, handlers, project }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const [fullScript, setFullScript] = useState6(blueprint.finalScript || '');
     const [recordableVoiceover, setRecordableVoiceover] = useState6(blueprint.recordableVoiceover || '');
@@ -62,6 +62,23 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers }) => {
         setIsProcessing(true);
         const taskId = `scriptingV2-generate-shotlist-${video.id}-${Date.now()}`;
         try {
+            const featuredLocationNames = video.locations_featured || [];
+            const allProjectLocations = project.locations || [];
+            const projectFootage = project.footageInventory || {};
+
+            const featuredLocationObjects = allProjectLocations.filter(loc => featuredLocationNames.includes(loc.name));
+
+            const videoSpecificFootageLog = [];
+            featuredLocationObjects.forEach(loc => {
+                const key = loc.place_id || loc.name;
+                if (projectFootage[key]) {
+                    videoSpecificFootageLog.push({ 
+                        ...projectFootage[key],
+                        location_tag: loc.name
+                    });
+                }
+            });
+
             const shotList = await handlers.triggerAiTask({
                 id: taskId,
                 type: 'scriptingV2-generate-shotlist',
@@ -71,7 +88,7 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers }) => {
                 args: {
                     approvedNarrative: blueprint.approvedNarrative,
                     dialogueMap: blueprint.dialogueMap,
-                    footage_log: blueprint.footage_log, // Assuming footage_log is stored in blueprint
+                    footage_log: videoSpecificFootageLog,
                     finalScript: fullScript,
                     recordableVoiceover: recordableVoiceover,
                     settings
