@@ -1,6 +1,6 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step5_DraftReviewer.js
 
-const { useState, useEffect, useRef } = React;
+const { useState: useState5, useEffect: useEffect5, useRef: useRef5 } = React; // Use aliases to avoid redeclaration errors
 
 window.Step5_DraftReviewer = () => {
     // --- ANTI-PROP-DRILLING PATTERN ---
