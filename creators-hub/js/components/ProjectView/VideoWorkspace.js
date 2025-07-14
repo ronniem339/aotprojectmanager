@@ -29,57 +29,55 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setStagedScenes([]);
     }, [video.id]);
 
-    const updateTask = useCallback(async (taskName, status, extraData = {}) => {
+    const updateVideo = useCallback(async (videoId, dataToUpdate) => {
         if (!db) {
-            console.error("Firestore DB not available for updateTask.");
+            console.error("Firestore DB not available for updateVideo.");
             return;
         }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(video.id);
+        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(videoId);
         try {
-            const payload = {};
-            payload[`tasks.${taskName}`] = status;
-            for (const key in extraData) {
-                if (Object.prototype.hasOwnProperty.call(extraData, key)) {
-                    payload[key] = extraData[key];
-                }
-            }
-            await videoDocRef.update(payload);
+            await videoDocRef.update(dataToUpdate);
         } catch (e) {
             console.error("Database transaction failed: ", e);
             setRegenerationError(`Failed to save changes: ${e.message}`);
         }
-    }, [userId, project.id, video.id, appId, db]);
+    }, [userId, project.id, db, appId]);
 
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
         switch (taskId) {
             case 'scripting':
                 dataToReset = {
-                    script: '', 
-                    'tasks.scriptingStage': 'pending', 
-                    'tasks.initialQuestions': [],
-                    'tasks.initialAnswers': [], 
-                    'tasks.scriptPlan': '', 
-                    'tasks.locationQuestions': [],
-                    'tasks.userExperiences': {}, 
-                    'tasks.shotList': firebase.firestore.FieldValue.delete()
+                    'tasks.scripting': 'pending',
+                    'tasks.scriptingV2_blueprint': firebase.firestore.FieldValue.delete(),
+                    'tasks.scriptingStage': firebase.firestore.FieldValue.delete(),
+                    'tasks.initialQuestions': firebase.firestore.FieldValue.delete(),
+                    'tasks.initialAnswers': firebase.firestore.FieldValue.delete(),
+                    'tasks.scriptPlan': firebase.firestore.FieldValue.delete(),
+                    'tasks.locationQuestions': firebase.firestore.FieldValue.delete(),
+                    'tasks.userExperiences': firebase.firestore.FieldValue.delete(),
+                    'tasks.shotList': firebase.firestore.FieldValue.delete(),
+                    script: ''
                 };
-                updateTask(taskId, 'pending', dataToReset);
                 break;
             // ... other reset cases
         }
-    }, [updateTask, video.title, video.metadata]);
+        if (Object.keys(dataToReset).length > 0) {
+            await updateVideo(video.id, dataToReset);
+        }
+    }, [updateVideo, video.id]);
     
     const handleStartV2Workflow = useCallback(async () => {
         const updatePayload = {
+            'tasks.scripting': 'in-progress',
             'tasks.scriptingV2_blueprint': {
                 shots: [],
                 initialThoughts: video.tasks?.initialThoughts || video.concept || '',
-                migratedFromLegacy: true, 
+                migratedFromLegacy: true,
             }
         };
-        await updateTask('scripting', 'in-progress', updatePayload);
-    }, [updateTask, video.tasks, video.concept]);
+        await updateVideo(video.id, updatePayload);
+    }, [updateVideo, video.id, video.tasks, video.concept]);
 
     const handleRegenerateShotList = async () => { /* ... existing code ... */ };
     const handleStageScene = async (sceneData) => { /* ... existing code ... */ };
@@ -96,7 +94,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     const renderTaskComponent = (task, index) => {
         const locked = isTaskLocked(task);
-        const commonProps = { video, settings, onUpdateTask: updateTask, isLocked: locked, project, handlers, onOpenWorkspace: handleOpenScriptingV2 };
+        const commonProps = { video, settings, updateVideo, isLocked: locked, project, handlers, onOpenWorkspace: handleOpenScriptingV2 };
         
         switch (task.id) {
             case 'scripting': {
@@ -127,7 +125,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     componentName="ScriptingV2_Workspace" 
                     video={video} 
                     settings={settings} 
-                    handlers={handlers}
+                    handlers={{...handlers, updateVideo}}
                 />
             </React.Fragment>
         );

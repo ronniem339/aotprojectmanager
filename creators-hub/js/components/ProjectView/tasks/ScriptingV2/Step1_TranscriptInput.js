@@ -18,6 +18,11 @@ window.Step1_TranscriptInput = ({ video, settings, handlers }) => {
     }, [transcript, isProcessing, blueprint.rawTranscript, video.id, handlers]);
 
     const handleNext = async () => {
+        if (!video.footage_log || video.footage_log.length === 0) {
+            handlers.displayNotification("Error: Footage log is empty. Please add footage before mapping dialogue.", "error");
+            return;
+        }
+
         setIsProcessing(true);
         const taskId = `scriptingV2-map-dialogue-${video.id}-${Date.now()}`;
         try {
