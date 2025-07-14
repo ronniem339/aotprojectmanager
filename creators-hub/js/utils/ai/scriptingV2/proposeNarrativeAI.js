@@ -43,7 +43,14 @@ window.aiUtils.proposeNarrativeAI = async ({ dialogueMap, footage_log, settings 
             },
             valueAddResearch: {
                 type: "ARRAY",
-                items: { type: "STRING" }
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        location: { type: "STRING" },
+                        topic: { type: "STRING" }
+                    },
+                    required: ["location", "topic"]
+                }
             }
         },
         required: ["coreAngle", "narrativeArc", "valueAddResearch"]

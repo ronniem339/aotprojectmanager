@@ -84,9 +84,19 @@ window.Step3_NarrativeRefiner = ({ video, settings, handlers }) => {
                     ))}
                 </ul>
                 <h3 className="font-bold text-lg text-primary-accent mb-2">Proposed Research Topics:</h3>
-                <ul className="list-disc list-inside pl-2">
-                    {(latestProposal.valueAddResearch || []).map((item, index) => <li key={index} className="text-gray-300">{item}</li>)}
-                </ul>
+                {
+                    Object.entries(latestProposal.valueAddResearch.reduce((acc, item) => {
+                        (acc[item.location] = acc[item.location] || []).push(item.topic);
+                        return acc;
+                    }, {})).map(([location, topics]) => (
+                        <div key={location} className="mb-3">
+                            <h4 className="font-semibold text-white mb-1">Location: {location}</h4>
+                            <ul className="list-disc list-inside pl-4">
+                                {topics.map((topic, index) => <li key={index} className="text-gray-300">{topic}</li>)}
+                            </ul>
+                        </div>
+                    ))
+                }
             </div>
         );
     };
