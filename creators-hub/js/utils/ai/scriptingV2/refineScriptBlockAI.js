@@ -2,7 +2,7 @@
 // FILE: ./creators-hub/js/utils/ai/scriptingV2/refineScriptBlockAI.js
 // ================================================================== //
 
-window.aiUtils.refineScriptBlockAI = async ({ blockContent, settings }) => {
+window.aiUtils.refineScriptBlockAI = async ({ blockContent, userFeedback, settings }) => {
     if (!blockContent || !blockContent.trim()) {
         throw new Error("A script block is required for refinement.");
     }
@@ -18,7 +18,8 @@ window.aiUtils.refineScriptBlockAI = async ({ blockContent, settings }) => {
     // Replace placeholders
     const prompt = promptTemplate
         .replace('__STYLE_GUIDE__', styleGuidePrompt)
-        .replace('__BLOCK_CONTENT__', blockContent);
+        .replace('__BLOCK_CONTENT__', blockContent)
+        .replace('__USER_FEEDBACK__', userFeedback);
 
     // Define the expected JSON schema for the AI's response
     const responseSchema = {

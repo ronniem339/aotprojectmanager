@@ -4,6 +4,7 @@ window.Step5_DraftReviewer = ({ video, settings, handlers }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const [draftScript, setDraftScript] = useState5(blueprint.draftScript || []);
     const [globalFeedback, setGlobalFeedback] = useState5('');
+    const [blockFeedback, setBlockFeedback] = useState5({});
     const [isProcessingGlobal, setIsProcessingGlobal] = useState5(false);
     const [processingBlock, setProcessingBlock] = useState5(null);
 
@@ -107,10 +108,20 @@ window.Step5_DraftReviewer = ({ video, settings, handlers }) => {
                         className="w-full h-24 p-2 border border-gray-600 rounded bg-gray-900 text-white"
                         disabled={isProcessingGlobal || isBlockProcessing}
                     />
+                    <div className="mt-3">
+                        <h4 className="text-sm font-semibold text-gray-400 mb-1">Refine this block:</h4>
+                        <textarea
+                            value={blockFeedback[index] || ''}
+                            onChange={(e) => setBlockFeedback({ ...blockFeedback, [index]: e.target.value })}
+                            className="w-full h-16 p-2 border border-gray-600 rounded bg-gray-900 text-white text-sm"
+                            placeholder="e.g., 'Make this more concise and impactful.'"
+                            disabled={isProcessingGlobal || isBlockProcessing}
+                        />
+                    </div>
                     <div className="text-right mt-2">
                         <button
-                            onClick={() => handleRefineBlock(index, block)}
-                            disabled={isProcessingGlobal || isBlockProcessing}
+                            onClick={() => handleRefineBlock(index, block, blockFeedback[index])}
+                            disabled={isProcessingGlobal || isBlockProcessing || !blockFeedback[index]?.trim()}
                             className="btn btn-secondary-small disabled:opacity-50"
                         >
                             {isBlockProcessing ? '🤖 Refining...' : 'Refine this block'}
