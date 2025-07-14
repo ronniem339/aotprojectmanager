@@ -60,7 +60,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
 
     return (
         <div className="scripting-v2-workspace">
-            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} video={video} handlers={handlers} />
+            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} video={video} handlers={handlers} highestStepIndex={highestStepIndex} />
             <div className="mt-6">{renderStepComponent()}</div>
         </div>
     );

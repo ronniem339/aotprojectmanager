@@ -86,7 +86,7 @@ const MobileStepper = ({ steps, currentStepId, onStepClick }) => {
     );
 };
 
-window.BlueprintStepper = ({ steps, currentStepIndex, video, handlers }) => {
+window.BlueprintStepper = ({ steps, currentStepIndex, video, handlers, highestStepIndex }) => {
     const handleStepClick = (stepId) => {
         const clickedStepIndex = steps.findIndex(s => s.id === stepId);
         if (clickedStepIndex < currentStepIndex) {
