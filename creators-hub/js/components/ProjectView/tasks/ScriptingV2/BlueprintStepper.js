@@ -86,13 +86,11 @@ const MobileStepper = ({ steps, currentStepId, onStepClick }) => {
     );
 };
 
-window.BlueprintStepper = ({ steps, currentStepIndex }) => {
-    const { video, handlers } = window.useAppState();
-    const blueprint = video?.tasks?.scriptingV2_blueprint || {};
-    
+window.BlueprintStepper = ({ steps, currentStepIndex, video, handlers }) => {
     const handleStepClick = (stepId) => {
         const clickedStepIndex = steps.findIndex(s => s.id === stepId);
         if (clickedStepIndex < currentStepIndex) {
+            const blueprint = video?.tasks?.scriptingV2_blueprint || {};
             const newBlueprint = { ...blueprint, workflowStatus: stepId };
             handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
         }

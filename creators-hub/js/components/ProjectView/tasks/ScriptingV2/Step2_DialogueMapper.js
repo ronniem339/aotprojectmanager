@@ -1,6 +1,6 @@
 const { useState: useState2, useEffect: useEffect2, useRef: useRef2 } = React;
 
-window.Step2_DialogueMapper = ({ video, settings, handlers }) => {
+window.Step2_DialogueMapper = ({ video, settings, handlers, project }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const [dialogueMap, setDialogueMap] = useState2(blueprint.dialogueMap || []);
     const [isProcessing, setIsProcessing] = useState2(false);
@@ -38,7 +38,7 @@ window.Step2_DialogueMapper = ({ video, settings, handlers }) => {
                 name: 'Proposing Story Narrative',
                 intensity: 'heavy',
                 aiFunction: window.aiUtils.proposeNarrativeAI,
-                args: { dialogueMap, footage_log: video.footage_log, settings }
+                args: { dialogueMap, footage_log: videoSpecificFootageLog, settings }
             });
             if (!narrativeProposal) throw new Error("AI did not return a valid narrative proposal.");
             const newBlueprint = {
@@ -55,7 +55,24 @@ window.Step2_DialogueMapper = ({ video, settings, handlers }) => {
         }
     };
 
-    const locationTags = [...new Set(video.footage_log?.map(item => item.location_tag) || [])];
+    const featuredLocationNames = video.locations_featured || [];
+    const allProjectLocations = project.locations || [];
+    const projectFootage = project.footageInventory || {};
+
+    const featuredLocationObjects = allProjectLocations.filter(loc => featuredLocationNames.includes(loc.name));
+
+    const videoSpecificFootageLog = [];
+    featuredLocationObjects.forEach(loc => {
+        const key = loc.place_id || loc.name;
+        if (projectFootage[key]) {
+            videoSpecificFootageLog.push({ 
+                ...projectFootage[key],
+                location_tag: loc.name
+            });
+        }
+    });
+
+    const locationTags = [...new Set(videoSpecificFootageLog.map(item => item.location_tag) || [])];
     locationTags.unshift('Unassigned');
     const allDialogueAssigned = dialogueMap.every(item => item.locationTag && item.locationTag !== 'Unassigned');
 
