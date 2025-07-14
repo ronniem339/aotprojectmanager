@@ -308,7 +308,27 @@ Return ONLY the updated JSON object.`;
             for (let i = 0; i < acceptedVideos.length; i++) {
                 const video = acceptedVideos[i];
                 const videoRef = projectRef.collection('videos').doc();
-                batch.set(videoRef, { ...video, chosenTitle: video.title, script: '', order: i, createdAt: new Date().toISOString() });
+                batch.set(videoRef, { 
+        ...video, 
+        chosenTitle: video.title, 
+        script: '', 
+        order: i, 
+        createdAt: new Date().toISOString(),
+
+        // ADD THIS TASKS OBJECT
+        tasks: {
+            scriptingV2_blueprint: {
+                workflowStatus: 'transcript_input',
+                rawTranscript: '',
+                dialogueMap: [],
+                narrativeProposals: [],
+                approvedNarrative: {},
+                researchNotes: {},
+                draftScript: [],
+                finalScript: ''
+            }
+        }
+    });
                 if ((i + 1) % 400 === 0) await commitBatch();
             }
             await commitBatch();
