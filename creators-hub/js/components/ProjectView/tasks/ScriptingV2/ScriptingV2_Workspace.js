@@ -1,23 +1,9 @@
-// REPLACE THE ENTIRE FILE: ScriptingV2_Workspace.js
-
-const {
-    Step1_TranscriptInput,
-    Step2_DialogueMapper,
-    Step3_NarrativeRefiner,
-    Step4_ResearchApproval,
-    Step5_DraftReviewer,
-    LegacyScriptView,
-    BlueprintStepper,
-    TaskQueue // Import TaskQueue
-} = window;
-
-const ScriptingV2_Workspace = () => {
-    const { video, handlers, taskQueue } = window.useAppState(); // Get handlers and taskQueue
+window.ScriptingV2_Workspace = ({ video, settings, handlers }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
 
     const getWorkflowStatus = () => {
         if (blueprint.workflowStatus) return blueprint.workflowStatus;
-        if (blueprint.final_script || blueprint.full_video_script_text) return 'legacy_view';
+        if (blueprint.finalScript || blueprint.full_video_script_text) return 'legacy_view';
         return 'transcript_input';
     };
 
@@ -33,46 +19,34 @@ const ScriptingV2_Workspace = () => {
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
+    const stepProps = { video, settings, handlers };
 
     const renderStepComponent = () => {
         switch (status) {
-            case 'transcript_input': return React.createElement(Step1_TranscriptInput);
-            case 'dialogue_mapping': return React.createElement(Step2_DialogueMapper);
-            case 'narrative_refinement': return React.createElement(Step3_NarrativeRefiner);
-            case 'research_approval': return React.createElement(Step4_ResearchApproval);
-            case 'draft_review': return React.createElement(Step5_DraftReviewer);
-            case 'legacy_view': return React.createElement(LegacyScriptView);
-            case 'final': return React.createElement('div', { className: 'text-center p-8' },
-                                React.createElement('h2', { className: 'text-2xl font-bold text-green-400' }, 'Script Complete!'),
-                                React.createElement('p', { className: 'text-gray-400 mt-2' }, 'You can now view the final script in the project details.')
-                             );
-            default: return React.createElement(Step1_TranscriptInput);
+            case 'transcript_input': return <window.Step1_TranscriptInput {...stepProps} />;
+            case 'dialogue_mapping': return <window.Step2_DialogueMapper {...stepProps} />;
+            case 'narrative_refinement': return <window.Step3_NarrativeRefiner {...stepProps} />;
+            case 'research_approval': return <window.Step4_ResearchApproval {...stepProps} />;
+            case 'draft_review': return <window.Step5_DraftReviewer {...stepProps} />;
+            case 'legacy_view': return <window.LegacyScriptView {...stepProps} />;
+            case 'final': return (
+                <div className="text-center p-8">
+                    <h2 className="text-2xl font-bold text-green-400">Script Complete!</h2>
+                    <p className="text-gray-400 mt-2">You can now view the final script in the project details.</p>
+                </div>
+            );
+            default: return <window.Step1_TranscriptInput {...stepProps} />;
         }
     };
 
-    // We don't show the stepper for the legacy view
     if (status === 'legacy_view') {
-        return React.createElement('div', { className: 'scripting-v2-workspace' },
-            renderStepComponent(),
-            // TaskQueue for legacy view also
-            React.createElement(TaskQueue, {
-                tasks: taskQueue,
-                onView: handlers.handleViewGeneratedPost,
-                onRetry: handlers.handleRetryTask,
-                onNavigateToTask: handlers.handleNavigateToTask
-            })
-        );
+        return <div className="scripting-v2-workspace">{renderStepComponent()}</div>;
     }
 
-    return React.createElement('div', { className: 'scripting-v2-workspace' },
-        React.createElement(BlueprintStepper, { steps, currentStepIndex }),
-        React.createElement('div', { className: 'mt-6' }, renderStepComponent()),
-        // Add TaskQueue here as well for the V2 workflow
-        React.createElement(TaskQueue, {
-            tasks: taskQueue,
-            onView: handlers.handleViewGeneratedPost,
-            onRetry: handlers.handleRetryTask,
-            onNavigateToTask: handlers.handleNavigateToTask
-        })
+    return (
+        <div className="scripting-v2-workspace">
+            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} />
+            <div className="mt-6">{renderStepComponent()}</div>
+        </div>
     );
 };
