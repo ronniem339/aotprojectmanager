@@ -19,7 +19,8 @@ window.aiUtils.proposeNarrativeAI = async ({ dialogueMap, footage_log, settings 
     // Replace placeholders
     const prompt = promptTemplate
         .replace('__STYLE_GUIDE__', styleGuidePrompt)
-        .replace('__DIALOGUE_MAP_JSON__', dialogueMapJson);
+        .replace('__DIALOGUE_MAP_JSON__', dialogueMapJson)
+        .replace('__FOOTAGE_LOG_JSON__', JSON.stringify(footage_log, null, 2));
 
     // Define the expected JSON schema for the AI's response
     const responseSchema = {
