@@ -1,97 +1,105 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step2_DialogueMapper.js
 
-import React, { useState, useEffect } from 'react';
+const { useState, useEffect, useRef } = React;
 
-const Step2_DialogueMapper = ({ video, updateVideo }) => {
-    const blueprint = video.tasks.scriptingV2_blueprint;
-    // We will use the dialogueMap from the state, or initialize it if it doesn't exist.
+window.Step2_DialogueMapper = () => {
+    // --- ANTI-PROP-DRILLING PATTERN ---
+    const { video, settings, handlers } = window.useAppState();
+    const blueprint = video?.tasks?.scriptingV2_blueprint || {};
+    // ------------------------------------
+
     const [dialogueMap, setDialogueMap] = useState(blueprint.dialogueMap || []);
-    
-    // This effect runs once when the component loads.
-    // It simulates the AI having processed the raw transcript.
-    // In a real app, this data would be populated by the 'mapDialogueToLocationsAI' call.
-    useEffect(() => {
-        if (dialogueMap.length === 0 && blueprint.rawTranscript) {
-            // Simulate breaking the transcript into paragraphs/chunks.
-            const chunks = blueprint.rawTranscript.split('\n').filter(chunk => chunk.trim() !== '');
-            
-            // In a real app, this would be the output of the mapDialogueToLocationsAI function.
-            // We simulate it here for UI development purposes.
-            const simulatedAiOutput = chunks.map(chunk => ({
-                dialogueChunk: chunk,
-                locationTag: 'Unassigned', // AI would make a best guess here
-                status: 'needs_review'
-            }));
-            setDialogueMap(simulatedAiOutput);
-        }
-    }, [blueprint.rawTranscript, dialogueMap.length]);
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    // Extract unique location tags from the footage log to populate dropdowns.
-    // This assumes a 'footage_log' exists on the video object.
-    const locationTags = [...new Set(video.footage_log?.map(item => item.location_tag) || [])];
-    locationTags.unshift('Unassigned'); // Add an option for unassigned dialogue
+    // Effect to sync local state if the global blueprint changes
+    useEffect(() => {
+        setDialogueMap(blueprint.dialogueMap || []);
+    }, [blueprint.dialogueMap]);
+
+    // Debounced Autosave Logic for the dialogue map state
+    const autosaveTimeout = useRef(null);
+    useEffect(() => {
+        if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
+        autosaveTimeout.current = setTimeout(() => {
+            if (!isProcessing && JSON.stringify(dialogueMap) !== JSON.stringify(blueprint.dialogueMap || [])) {
+                console.log('Autosaving dialogue map...');
+                const newBlueprint = { ...blueprint, dialogueMap: dialogueMap };
+                handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } }, true);
+            }
+        }, 2000); // A longer debounce for more complex data
+        return () => clearTimeout(autosaveTimeout.current);
+    }, [dialogueMap, isProcessing, blueprint.dialogueMap]);
 
     const handleLocationChange = (index, newLocationTag) => {
         const updatedMap = [...dialogueMap];
         updatedMap[index].locationTag = newLocationTag;
-        updatedMap[index].status = 'confirmed'; // Mark as reviewed by the user
+        updatedMap[index].status = 'confirmed';
         setDialogueMap(updatedMap);
     };
 
-    const handleNext = () => {
-        const newBlueprint = {
-            ...blueprint,
-            dialogueMap: dialogueMap,
-            workflowStatus: 'narrative_refinement' // Move to the next step
-        };
+    const handleNext = async () => {
+        setIsProcessing(true);
+        const taskId = `scriptingV2-propose-narrative-${video.id}-${Date.now()}`;
+        try {
+            const narrativeProposal = await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-propose-narrative',
+                name: 'Proposing Story Narrative',
+                intensity: 'heavy', // This is a significant creative task
+                aiFunction: window.aiUtils.proposeNarrativeAI,
+                args: { 
+                    dialogueMap, // Pass the user-verified map
+                    footage_log: video.footage_log, 
+                    settings 
+                }
+            });
 
-        // Here you would trigger the 'proposeNarrativeAI' task
-        console.log("Moving to narrative refinement. An AI task would be triggered here.");
-        
-        updateVideo({
-            ...video,
-            tasks: {
-                ...video.tasks,
-                scriptingV2_blueprint: newBlueprint
-            }
-        });
+            if (!narrativeProposal) throw new Error("AI did not return a valid narrative proposal.");
+
+            const newBlueprint = {
+                ...blueprint,
+                dialogueMap,
+                narrativeProposals: [narrativeProposal], // Initialize the proposal history
+                workflowStatus: 'narrative_refinement'
+            };
+            handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+
+        } catch (error) {
+            handlers.displayNotification(`Error proposing narrative: ${error.message}`, 'error');
+        } finally {
+            setIsProcessing(false);
+        }
     };
-    
-    const allDialogueAssigned = dialogueMap.every(item => item.locationTag !== 'Unassigned');
 
-    return (
-        <div className="p-4 border rounded-lg">
-            <h2 className="text-xl font-bold mb-3">Step 2: Verify Dialogue Mapping</h2>
-            <p className="mb-4 text-gray-600">
-                The AI has analyzed your transcript. Please review its work and assign each dialogue chunk to the correct location.
-            </p>
-            <div className="space-y-4">
-                {dialogueMap.map((item, index) => (
-                    <div key={index} className="p-3 border rounded-md bg-gray-50 flex items-start">
-                        <p className="flex-grow mr-4 text-gray-800">{item.dialogueChunk}</p>
-                        <select
-                            value={item.locationTag}
-                            onChange={(e) => handleLocationChange(index, e.target.value)}
-                            className="p-2 border rounded bg-white"
-                        >
-                            {locationTags.map(tag => (
-                                <option key={tag} value={tag}>{tag}</option>
-                            ))}
-                        </select>
-                    </div>
-                ))}
-            </div>
-            <div className="mt-4 flex justify-end">
-                <button
-                    onClick={handleNext}
-                    disabled={!allDialogueAssigned}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400"
-                >
-                    Confirm Mapping & Propose Narrative
-                </button>
-            </div>
-        </div>
+    // Prepare dropdown options from the footage log
+    const locationTags = [...new Set(video.footage_log?.map(item => item.location_tag) || [])];
+    locationTags.unshift('Unassigned');
+    
+    const allDialogueAssigned = dialogueMap.every(item => item.locationTag && item.locationTag !== 'Unassigned');
+
+    const dialogueRows = dialogueMap.map((item, index) => {
+        const selectOptions = locationTags.map(tag => React.createElement('option', { key: tag, value: tag }, tag));
+        
+        return React.createElement('div', { key: index, className: 'p-3 border border-gray-700 rounded-md bg-gray-800/70 flex flex-col sm:flex-row sm:items-start' },
+            React.createElement('p', { className: 'flex-grow mb-2 sm:mb-0 sm:mr-4 text-gray-300' }, item.dialogueChunk),
+            React.createElement('select', {
+                value: item.locationTag || 'Unassigned',
+                onChange: (e) => handleLocationChange(index, e.target.value),
+                className: 'p-2 border border-gray-600 rounded bg-gray-900 text-white w-full sm:w-auto'
+            }, ...selectOptions)
+        );
+    });
+
+    return React.createElement('div', { className: 'p-4 border border-gray-700 rounded-lg' },
+        React.createElement('h2', { className: 'text-xl font-bold text-white mb-3' }, "Step 2: Verify Dialogue Mapping"),
+        React.createElement('p', { className: 'mb-4 text-gray-400' }, "The AI has analyzed your transcript. Please review its work and assign each dialogue chunk to the correct location. This ensures the story is built on an accurate foundation."),
+        React.createElement('div', { className: 'space-y-4' }, dialogueMap.length > 0 ? dialogueRows : React.createElement('p', {className: 'text-center text-gray-500'}, 'No dialogue to map. Please go back and provide a transcript.')),
+        React.createElement('div', { className: 'mt-4 flex justify-end' },
+            React.createElement('button', {
+                onClick: handleNext,
+                disabled: !allDialogueAssigned || isProcessing,
+                className: 'btn btn-primary disabled:opacity-50'
+            }, isProcessing ? '🤖 Proposing Narrative...' : 'Confirm Mapping & Propose Narrative')
+        )
     );
 };
-
-export default Step2_DialogueMapper;
