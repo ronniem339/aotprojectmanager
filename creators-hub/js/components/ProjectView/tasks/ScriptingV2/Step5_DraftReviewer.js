@@ -80,16 +80,36 @@ window.Step5_DraftReviewer = ({ video, settings, handlers }) => {
         }
     };
 
-    const handleFinalize = () => {
-        const finalScriptText = draftScript.map(block => `[${block.type} - ${block.locationTag || 'General'}]\n${block.content}`).join('\n\n');
-        const newBlueprint = {
-            ...blueprint,
-            draftScript,
-            finalScript: finalScriptText,
-            workflowStatus: 'final'
-        };
-        handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
-        handlers.displayNotification("Script finalized successfully!", 'success');
+    const handleFinalize = async () => {
+        setIsProcessingGlobal(true);
+        const taskId = `scriptingV2-assemble-polish-${video.id}-${Date.now()}`;
+        try {
+            const finalScript = await handlers.triggerAiTask({
+                id: taskId,
+                type: 'scriptingV2-assemble-polish',
+                name: 'Assembling and Polishing Final Script',
+                intensity: 'heavy',
+                aiFunction: window.aiUtils.assembleAndPolishScriptAI,
+                args: {
+                    draftScript,
+                    approvedNarrative: blueprint.approvedNarrative,
+                    dialogueMap: blueprint.dialogueMap,
+                    settings
+                }
+            });
+            if (!finalScript) throw new Error("AI did not return a final script.");
+            const newBlueprint = {
+                ...blueprint,
+                draftScript,
+                finalScript,
+                workflowStatus: 'final_review'
+            };
+            handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+        } catch (error) {
+            handlers.displayNotification(`Error finalizing script: ${error.message}`, 'error');
+        } finally {
+            setIsProcessingGlobal(false);
+        }
     };
     
     const renderScriptBlocks = () => {

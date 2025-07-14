@@ -74,7 +74,7 @@ window.Step4_ResearchApproval = ({ video, settings, handlers }) => {
         }
         return locationKeys.map(locationTag => (
             <div key={locationTag} className="mb-4">
-                <h3 className="font-bold text-lg text-primary-accent mb-2 border-b border-gray-700 pb-1">Location: {locationTag}</h3>
+                <h3 className="font-bold text-lg text-primary-accent mb-2 border-b border-gray-700 pb-1">{locationTag}</h3>
                 <div className="space-y-2 pl-2">
                     {researchNotes[locationTag].map((note, index) => (
                         <div key={index} className="flex items-start space-x-3">

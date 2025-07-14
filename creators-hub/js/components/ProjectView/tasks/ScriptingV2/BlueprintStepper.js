@@ -98,7 +98,7 @@ window.BlueprintStepper = ({ steps, currentStepIndex, video, handlers }) => {
     
     const stepsWithStatus = steps.map((step, index) => ({
         ...step,
-        isCompleted: index <= currentStepIndex
+        isCompleted: index <= highestStepIndex
     }));
     
     const currentStepId = steps[currentStepIndex]?.id;
