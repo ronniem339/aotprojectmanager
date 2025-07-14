@@ -1,6 +1,6 @@
 // WRITE to file: ./creators-hub/js/components/ProjectView/tasks/ScriptingV2/Step1_TranscriptInput.js
 
-const { useState } = React;
+const { useState, useEffect, useRef } = React;
 
 window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
     const { handlers } = window.useAppState();
@@ -9,9 +9,41 @@ window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
     const [transcript, setTranscript] = useState(blueprint.rawTranscript || '');
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // --- NEW: Autosave Logic ---
+    const autosaveTimeout = useRef(null);
+    useEffect(() => {
+        // Clear any existing pending save
+        if (autosaveTimeout.current) {
+            clearTimeout(autosaveTimeout.current);
+        }
+
+        // Set up a new save to run after 1.5 seconds
+        autosaveTimeout.current = setTimeout(() => {
+            // Only save if an AI task is NOT in progress and the text has actually changed
+            if (!isProcessing && transcript !== (blueprint.rawTranscript || '')) {
+                console.log('Autosaving transcript...');
+                const newBlueprint = {
+                    ...blueprint,
+                    rawTranscript: transcript
+                };
+                updateVideo({
+                    ...video,
+                    tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint }
+                }, true); // Pass true for a 'silent' update that doesn't show a notification
+            }
+        }, 1500);
+
+        // Cleanup function to clear the timeout if the component unmounts
+        return () => {
+            if (autosaveTimeout.current) {
+                clearTimeout(autosaveTimeout.current);
+            }
+        };
+    }, [transcript, isProcessing, blueprint.rawTranscript, updateVideo]);
+    // --- End Autosave Logic ---
+
     const handleNext = async () => {
         setIsProcessing(true);
-
         const taskId = `scriptingV2-map-dialogue-${video.id}-${Date.now()}`;
         
         try {
@@ -19,15 +51,12 @@ window.Step1_TranscriptInput = ({ video, updateVideo, settings }) => {
                 id: taskId,
                 type: 'scriptingV2-map-dialogue',
                 name: 'Mapping Dialogue to Locations',
-                // --- THIS IS THE CRITICAL ADDITION ---
-                // Specify the intensity of the task. 'medium' is appropriate for
-                // analyzing a transcript and mapping it to locations.
                 intensity: 'medium', 
                 aiFunction: window.aiUtils.mapDialogueToLocationsAI,
                 args: { 
                     transcript: transcript,
                     footage_log: video.footage_log,
-                    settings // Pass settings through for the AI to use
+                    settings
                 }
             });
 
