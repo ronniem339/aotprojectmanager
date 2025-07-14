@@ -32,7 +32,11 @@ window.aiUtils.proposeNarrativeAI = async ({ dialogueMap, footage_log, settings 
                     type: "OBJECT",
                     properties: {
                         step: { type: "STRING" },
-                        description: { type: "STRING" }
+                        description: { type: "STRING" },
+                        locations_featured: {
+                            type: "ARRAY",
+                            items: { type: "STRING" }
+                        }
                     },
                     required: ["step", "description"]
                 }
