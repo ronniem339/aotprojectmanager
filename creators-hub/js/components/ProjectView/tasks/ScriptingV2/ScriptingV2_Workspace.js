@@ -18,6 +18,18 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
         { id: 'final', name: 'Complete' }
     ];
 
+    const getHighestStepIndex = (bp) => {
+        if (!bp) return 0;
+        let highestIndex = 0;
+        if (bp.dialogueMap) highestIndex = Math.max(highestIndex, 1);
+        if (bp.narrativeProposals) highestIndex = Math.max(highestIndex, 2);
+        if (bp.researchTopics) highestIndex = Math.max(highestIndex, 3);
+        if (bp.researchFindings) highestIndex = Math.max(highestIndex, 4);
+        if (bp.draftScript || bp.workflowStatus === 'final') highestIndex = Math.max(highestIndex, 5);
+        return highestIndex;
+    }
+
+    const highestStepIndex = getHighestStepIndex(blueprint);
     const currentStepIndex = steps.findIndex(s => s.id === status);
     const stepProps = { video, settings, handlers, project };
 

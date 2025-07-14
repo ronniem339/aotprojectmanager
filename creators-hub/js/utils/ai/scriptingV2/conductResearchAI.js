@@ -29,8 +29,9 @@ window.aiUtils.conductResearchAI = async ({ approvedNarrative, settings }) => {
         .filter((v, i, a) => a.indexOf(v) === i && v); // Get unique location tags
     
     const properties = {};
-    locationTags.forEach(tag => {
-        properties[tag] = {
+    if (locationTags.length === 0) {
+        // Fallback for when no specific locations are identified
+        properties.default_research = {
             type: "ARRAY",
             items: {
                 type: "OBJECT",
@@ -40,7 +41,20 @@ window.aiUtils.conductResearchAI = async ({ approvedNarrative, settings }) => {
                 }
             }
         };
-    });
+    } else {
+        locationTags.forEach(tag => {
+            properties[tag] = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        fact: { type: "STRING" },
+                        story: { type: "STRING" }
+                    }
+                }
+            };
+        });
+    }
 
     const responseSchema = {
         type: "OBJECT",
