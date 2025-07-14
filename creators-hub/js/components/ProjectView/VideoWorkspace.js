@@ -106,6 +106,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     return <SafeComponentRenderer componentName="ScriptingTask" {...componentProps} onStartV2Workflow={handleStartV2Workflow} />;
                 }
             }
+            case 'videoEdited': return <SafeComponentRenderer componentName="EditVideoTask" {...commonProps} project={project} handlers={handlers} />;
             // ... other task cases
             default:
                 return <SafeComponentRenderer componentName="SimpleConfirmationTask" {...commonProps} />;
