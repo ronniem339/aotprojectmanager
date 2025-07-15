@@ -63,10 +63,10 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers, project }) => {
             ...blueprint,
             finalScript: fullScript,
             recordableVoiceover,
-            workflowStatus: 'voiceover_recording'
+            workflowStatus: 'final'
         };
         handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
-        handlers.displayNotification("Script finalized! Proceed to voiceover recording.", 'success');
+        handlers.displayNotification("Script finalized!", 'success');
     };
 
     return (
