@@ -1,4 +1,16 @@
+const { useState, useEffect } = React;
+
 window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
+    const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+
+    useEffect(() => {
+        if (settings.google_maps_api_key) {
+            window.loadGoogleMapsScript(settings.google_maps_api_key, () => {
+                setGoogleMapsLoaded(true);
+            });
+        }
+    }, [settings.google_maps_api_key]);
+
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
 
     const getHighestStepIndex = (bp) => {
@@ -34,7 +46,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
-    const stepProps = { video, settings, handlers, project };
+    const stepProps = { video, settings, handlers, project, googleMapsLoaded };
 
     const handleStepClick = (stepId) => {
         const newBlueprint = { ...blueprint, workflowStatus: stepId };
