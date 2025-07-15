@@ -1,8 +1,12 @@
 const { useState } = React;
 
-window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
+window.DeleteConfirmationModal = ({ project, itemType, itemName, onConfirm, onCancel }) => {
     const [confirmText, setConfirmText] = useState('');
     const isConfirmationMatching = confirmText === 'YES';
+
+    const displayItemType = itemType || (project?.playlistTitle === 'this draft' ? 'Draft' : 'Project');
+    const displayItemName = itemName || (project?.playlistTitle === 'this draft' ? 'this draft' : project?.playlistTitle);
+    const confirmActionText = itemType === 'task' ? 'Restart' : 'Delete';
 
     return (
         <div
@@ -10,9 +14,9 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
             onMouseDown={e => e.stopPropagation()}
         >
             <div className="glass-card rounded-lg p-8 w-full max-w-md text-center">
-                <h3 className="text-2xl font-bold text-red-400 mb-4">Delete {project.playlistTitle === 'this draft' ? 'Draft' : 'Project'}</h3>
-                <p className="text-gray-300 mb-2">This action is irreversible and will permanently delete the {project.playlistTitle === 'this draft' ? 'draft' : 'project'}:</p>
-                <p className="font-bold text-lg text-white mb-6">"{project.playlistTitle === 'this draft' ? 'this draft' : project.playlistTitle}"</p>
+                <h3 className="text-2xl font-bold text-red-400 mb-4">{confirmActionText} {displayItemType}</h3>
+                <p className="text-gray-300 mb-2">This action is irreversible and will permanently {confirmActionText.toLowerCase()} the {displayItemType.toLowerCase()}:</p>
+                <p className="font-bold text-lg text-white mb-6">"{displayItemName}"</p>
                 <p className="text-gray-400 mb-4">To confirm, please type <strong className="text-red-300">YES</strong> in the box below.</p>
 
                 <input
@@ -26,11 +30,11 @@ window.DeleteConfirmationModal = ({ project, onConfirm, onCancel }) => {
                 <div className="flex justify-center gap-4 mt-6">
                     <button onClick={onCancel} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Cancel</button>
                     <button
-                        onClick={() => onConfirm(project.id)}
+                        onClick={() => onConfirm(project?.id)}
                         disabled={!isConfirmationMatching}
                         className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold disabled:bg-red-900/50 disabled:cursor-not-allowed disabled:text-gray-400"
                     >
-                        Confirm Delete
+                        {confirmActionText} Confirm
                     </button>
                 </div>
             </div>
