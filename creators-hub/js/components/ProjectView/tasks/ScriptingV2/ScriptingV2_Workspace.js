@@ -28,8 +28,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
         { id: 'narrative_refinement', name: 'Narrative' },
         { id: 'research_approval', name: 'Research' },
         { id: 'draft_review', name: 'Draft VO' },
-        { id: 'final_review', name: 'Final Script' },
-        { id: 'final', name: 'Complete' }
+        { id: 'final_review', name: 'Final Script' }
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
@@ -48,13 +47,8 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
             case 'research_approval': return <window.Step4_ResearchApproval {...stepProps} />;
             case 'draft_review': return <window.Step5_DraftReviewer {...stepProps} />;
             case 'final_review': return <window.Step6_FinalScriptReview {...stepProps} />;
+            case 'voiceover_recording': return <window.RecordVoiceoverTask task={{ id: 'voiceoverRecorded', title: 'Record Voiceover' }} {...stepProps} />;
             case 'legacy_view': return <window.LegacyScriptView {...stepProps} />;
-            case 'final': return (
-                <div className="text-center p-8">
-                    <h2 className="text-2xl font-bold text-green-400">Script Complete!</h2>
-                    <p className="text-gray-400 mt-2">You can now view the final script in the project details.</p>
-                </div>
-            );
             default: return <window.Step1_TranscriptInput {...stepProps} />;
         }
     };
