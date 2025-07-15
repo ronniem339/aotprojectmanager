@@ -6,7 +6,7 @@ const DesktopStepper = ({ steps, currentStepId, onStepClick }) => {
             {steps.map((step, index) => {
                 const isCurrent = currentStepId === step.id;
                 const isCompleted = step.isCompleted;
-                const isClickable = isCompleted && !isCurrent;
+                const isClickable = index <= highestStepIndex && !isCurrent;
 
                 return (
                     <React.Fragment key={step.id}>
@@ -61,7 +61,7 @@ const MobileStepper = ({ steps, currentStepId, onStepClick }) => {
                     {steps.map((step, index) => {
                         const isCurrent = currentStepId === step.id;
                         const isCompleted = step.isCompleted;
-                        const isClickable = isCompleted && !isCurrent;
+                        const isClickable = index <= highestStepIndex && !isCurrent;
 
                         return (
                             <button

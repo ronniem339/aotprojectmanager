@@ -37,6 +37,11 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
     const currentStepIndex = steps.findIndex(s => s.id === status);
     const stepProps = { video, settings, handlers, project };
 
+    const handleStepClick = (stepId) => {
+        const newBlueprint = { ...blueprint, workflowStatus: stepId };
+        handlers.updateVideo(video.id, { tasks: { ...video.tasks, scriptingV2_blueprint: newBlueprint } });
+    };
+
     const renderStepComponent = () => {
         switch (status) {
             case 'transcript_input': return <window.Step1_TranscriptInput {...stepProps} />;
@@ -63,7 +68,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
 
     return (
         <div className="scripting-v2-workspace">
-            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} video={video} handlers={handlers} highestStepIndex={highestStepIndex} />
+            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} video={video} handlers={handlers} highestStepIndex={highestStepIndex} onStepClick={handleStepClick} />
             <div className="mt-6">{renderStepComponent()}</div>
         </div>
     );
