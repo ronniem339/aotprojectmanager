@@ -1,5 +1,12 @@
 const { useState: useState2, useEffect: useEffect2, useRef: useRef2 } = React;
 
+const truncateString = (str, num) => {
+    if (str.length <= num) {
+        return str;
+    }
+    return str.slice(0, num) + '...';
+};
+
 window.Step2_DialogueMapper = ({ video, settings, handlers, project }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const [dialogueMap, setDialogueMap] = useState2(blueprint.dialogueMap || []);
@@ -89,7 +96,7 @@ window.Step2_DialogueMapper = ({ video, settings, handlers, project }) => {
                             onChange={(e) => handleLocationChange(index, e.target.value)}
                             className="p-2 border border-gray-600 rounded bg-gray-900 text-white w-full sm:w-auto"
                         >
-                            {locationTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                            {locationTags.map(tag => <option key={tag} value={tag}>{truncateString(tag, 30)}</option>)}
                         </select>
                     </div>
                 )) : <p className="text-center text-gray-500">No dialogue to map. Please go back and provide a transcript.</p>}
