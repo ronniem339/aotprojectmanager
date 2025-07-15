@@ -29,7 +29,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
     const getWorkflowStatus = () => {
         if (blueprint.workflowStatus) return blueprint.workflowStatus;
         if (blueprint.finalScript || blueprint.full_video_script_text) return 'legacy_view';
-        return 'transcript_input';
+        return 'location_review';
     };
 
     const status = getWorkflowStatus();
