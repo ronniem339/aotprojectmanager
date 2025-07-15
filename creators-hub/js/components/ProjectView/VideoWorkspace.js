@@ -128,6 +128,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     settings={settings} 
                     handlers={{...handlers, updateVideo}}
                     project={project}
+                    googleMapsLoaded={googleMapsLoaded}
                 />
             </React.Fragment>
         );
