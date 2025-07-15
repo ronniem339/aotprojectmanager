@@ -37,7 +37,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project, googleMaps
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
-    const stepProps = { video, settings, handlers: { ...handlers, updateVideo }, project, googleMapsLoaded };
+    const stepProps = { video, settings, handlers: { ...handlers, updateVideo, updateProject: handlers.updateProject }, project, googleMapsLoaded };
 
     const handleStepClick = (stepId) => {
         const newBlueprint = { ...blueprint, workflowStatus: stepId };

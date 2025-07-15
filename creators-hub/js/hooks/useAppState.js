@@ -548,6 +548,16 @@ window.useAppState = () => {
         setShowProjectSelection,
         setShowPublisherModal,
         setContentToView,
+        updateProject: useCallback(async (projectId, updates) => {
+            if (!user || !firebaseDb) return;
+            const projectRef = firebaseDb.collection(`artifacts/${APP_ID}/users/${user.uid}/projects`).doc(projectId);
+            try {
+                await projectRef.update(updates);
+            } catch (e) {
+                console.error(`Failed to update project ${projectId}:`, e);
+                handlers.displayNotification(`Failed to update project: ${e.message}`, 'error');
+            }
+        }, [user, firebaseDb, APP_ID]),
         handleRetryTask: (taskId) => {
             setTaskQueue(prevQueue => prevQueue.map(task => {
                 if (task.id === taskId && task.status === 'failed') {
