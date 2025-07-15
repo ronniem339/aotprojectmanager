@@ -105,6 +105,6 @@ window.BlueprintStepper = ({ steps, currentStepIndex, video, handlers, highestSt
     const isMobile = useMediaQuery('(max-width: 767px)');
     
     return isMobile
-        ? <MobileStepper steps={stepsWithStatus} currentStepId={currentStepId} onStepClick={handleStepClick} />
-        : <DesktopStepper steps={stepsWithStatus} currentStepId={currentStepId} onStepClick={handleStepClick} />;
+        ? <MobileStepper steps={stepsWithStatus} currentStepId={currentStepId} onStepClick={handleStepClick} highestStepIndex={highestStepIndex} />
+        : <DesktopStepper steps={stepsWithStatus} currentStepId={currentStepId} onStepClick={handleStepClick} highestStepIndex={highestStepIndex} />;
 };
