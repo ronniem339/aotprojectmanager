@@ -23,12 +23,14 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
     const status = getWorkflowStatus();
 
     const steps = [
+        { id: 'location_review', name: 'Locations' },
         { id: 'transcript_input', name: 'Transcript' },
         { id: 'dialogue_mapping', name: 'Dialogue' },
         { id: 'narrative_refinement', name: 'Narrative' },
         { id: 'research_approval', name: 'Research' },
         { id: 'draft_review', name: 'Draft VO' },
-        { id: 'final_review', name: 'Final Script' }
+        { id: 'final_review', name: 'Final Script' },
+        { id: 'final', name: 'Complete' }
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
@@ -41,6 +43,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project }) => {
 
     const renderStepComponent = () => {
         switch (status) {
+            case 'location_review': return <window.Step0_LocationReview {...stepProps} />;
             case 'transcript_input': return <window.Step1_TranscriptInput {...stepProps} />;
             case 'dialogue_mapping': return <window.Step2_DialogueMapper {...stepProps} />;
             case 'narrative_refinement': return <window.Step3_NarrativeRefiner {...stepProps} />;
