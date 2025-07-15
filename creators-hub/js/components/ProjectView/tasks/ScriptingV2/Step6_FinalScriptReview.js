@@ -73,6 +73,7 @@ window.Step6_FinalScriptReview = ({ video, settings, handlers, project }) => {
             }
         });
         handlers.displayNotification("Scripting workflow complete!", 'success');
+        handlers.handleCloseScriptingV2();
     };
 
     return (

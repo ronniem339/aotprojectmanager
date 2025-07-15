@@ -89,6 +89,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setActiveWorkspace('scriptingV2');
     };
 
+    const handleCloseScriptingV2 = () => {
+        setActiveWorkspace(null);
+    };
+
     const isTaskLocked = (task) => {
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
         return !task.dependsOn.every(dependencyId => video.tasks?.[dependencyId] === 'complete');
@@ -132,6 +136,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     updateVideo={updateVideo}
                     project={project}
                     googleMapsLoaded={googleMapsLoaded}
+                    handleCloseScriptingV2={handleCloseScriptingV2}
                 />
             </React.Fragment>
         );

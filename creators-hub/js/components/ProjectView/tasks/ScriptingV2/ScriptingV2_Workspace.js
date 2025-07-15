@@ -1,6 +1,6 @@
 const { useState, useEffect } = React;
 
-window.ScriptingV2_Workspace = ({ video, settings, handlers, project, googleMapsLoaded, updateVideo }) => {
+window.ScriptingV2_Workspace = ({ video, settings, handlers, project, googleMapsLoaded, updateVideo, handleCloseScriptingV2 }) => {
 
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
 
@@ -37,7 +37,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project, googleMaps
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
-    const stepProps = { video, settings, handlers: { ...handlers, updateVideo, updateProject: handlers.updateProject }, project, googleMapsLoaded };
+    const stepProps = { video, settings, handlers: { ...handlers, updateVideo, updateProject: handlers.updateProject, handleCloseScriptingV2 }, project, googleMapsLoaded };
 
     const handleStepClick = (stepId) => {
         const newBlueprint = { ...blueprint, workflowStatus: stepId };
