@@ -159,6 +159,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                                     status = 'in-progress';
                                 }
                             }
+                        }
                         const locked = isTaskLocked(task);
                         return (
                             <window.Accordion
