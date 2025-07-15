@@ -29,11 +29,11 @@ window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) =>
         <div className="p-4 border border-gray-700 rounded-lg">
             <h2 className="text-xl font-bold text-white mb-3">{task.title}</h2>
             <p className="mb-4 text-gray-400">Read the script below to record your voiceover. Once done, mark the task as complete.</p>
-            <pre
-                className="w-full h-96 p-4 border border-gray-600 rounded bg-gray-900 text-white font-mono text-lg leading-relaxed overflow-y-auto"
+            <div
+                className="w-full h-96 p-4 border border-gray-600 rounded bg-gray-900 text-white font-mono text-lg leading-relaxed overflow-y-auto whitespace-pre-wrap"
             >
                 {recordableVoiceover}
-            </pre>
+            </div>
             <div className="mt-4 flex justify-end">
                 <button
                     onClick={handleCompleteTask}
