@@ -126,7 +126,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     componentName="ScriptingV2_Workspace" 
                     video={video} 
                     settings={settings} 
-                    handlers={{...handlers, updateVideo}}
+                    handlers={handlers}
+                    updateVideo={updateVideo}
                     project={project}
                     googleMapsLoaded={googleMapsLoaded}
                 />
