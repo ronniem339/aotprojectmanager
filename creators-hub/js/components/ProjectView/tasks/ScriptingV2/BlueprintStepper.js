@@ -39,7 +39,7 @@ const DesktopStepper = ({ steps, currentStepId, onStepClick, highestStepIndex })
     );
 };
 
-const MobileStepper = ({ steps, currentStepId, onStepClick }) => {
+const MobileStepper = ({ steps, currentStepId, onStepClick, highestStepIndex }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const currentStepName = steps.find(s => s.id === currentStepId)?.name || 'Menu';
 
