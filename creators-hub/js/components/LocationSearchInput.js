@@ -2,13 +2,13 @@
 
 const { useEffect, useRef } = React;
 
-window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
+window.LocationSearchInput = ({ onLocationsChange, existingLocations, googleMapsLoaded }) => {
     const inputRef = useRef(null);
     const autoCompleteRef = useRef(null);
 
     useEffect(() => {
         // Ensure the Google Maps script and the new element are loaded.
-        if (!window.google || !window.google.maps.places || !customElements.get('gmp-place-autocomplete-element')) {
+        if (!googleMapsLoaded || !window.google || !window.google.maps.places || !customElements.get('gmp-place-autocomplete-element')) {
             return;
         }
 
@@ -72,7 +72,7 @@ window.LocationSearchInput = ({ onLocationsChange, existingLocations }) => {
             }
         };
 
-    }, [onLocationsChange, existingLocations]);
+    }, [onLocationsChange, existingLocations, googleMapsLoaded]);
 
     const handleRemoveLocation = (place_id_to_remove) => {
         const newLocations = existingLocations.filter(loc => loc.place_id !== place_id_to_remove);

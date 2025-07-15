@@ -143,7 +143,8 @@ window.Step0_LocationReview = ({ video, project, settings, handlers, googleMapsL
                      {googleMapsLoaded 
                         ? <window.LocationSearchInput 
                                 onLocationsChange={handleLocationsUpdateForVideo} 
-                                existingLocations={videoLocations} /> 
+                                existingLocations={videoLocations}
+                                googleMapsLoaded={googleMapsLoaded} /> 
                         : <p className="text-gray-400 text-center">Loading location search...</p>
                     }
                 </div>
