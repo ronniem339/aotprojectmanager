@@ -14,7 +14,7 @@ window.loadGoogleMapsScript = (apiKey, callback) => {
         return;
     }
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta&callback=initMap`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta`;
     script.id = 'googleMaps';
     script.async = true;
     script.defer = true;
