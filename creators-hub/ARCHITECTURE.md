@@ -21,6 +21,13 @@ Why: A single, monolithic custom hook, useAppState.js, manages nearly the entire
 
 Trade-offs: This pattern provides excellent traceability but leads to extensive prop-drilling, where state and handlers must be passed down through many component layers. It also means the root <App> component re-renders on almost any state change, requiring careful use of React.memo in child components to prevent performance bottlenecks.
 
+**Mobile Background Processing Limitations:**
+Why: Mobile operating systems aggressively manage background processes to conserve battery and memory. This means that long-running JavaScript tasks in a web application (like AI computations) may be suspended or terminated when the screen goes to sleep or the user switches to another app.
+
+Trade-offs: This limitation directly impacts the reliability of client-side AI task completion on mobile devices. The current architecture relies on the client remaining active for AI tasks to finish. 
+
+Future Update: The most robust solution for ensuring AI tasks complete reliably on mobile is to offload these computations to a server-side process (e.g., a Netlify function that triggers an asynchronous background task). The client would then poll for the task's status. This would improve reliability and responsiveness, but requires an architectural shift to asynchronous server-side processing.
+
 **Component Name Scoping & Collisions:**
 Why: A critical side-effect of the no-build-step architecture is that all scripts effectively share a single scope. We discovered a bug where components defined in different files but with the same name (e.g., DesktopStepper) would collide, causing the last-loaded version to overwrite all others and leading to unpredictable crashes.
 Solution: To mitigate this, components that are internal to a specific legacy workflow have been renamed with a Legacy prefix (e.g., LegacyDesktopStepper). This enforces a manual namespacing convention and prevents name collisions, ensuring that each part of the application uses its intended components.

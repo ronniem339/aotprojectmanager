@@ -65,7 +65,7 @@ window.ScriptingV2_Workspace = ({ video, settings, handlers, project, googleMaps
 
     return (
         <div className="scripting-v2-workspace">
-            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} video={video} handlers={handlers} highestStepIndex={highestStepIndex} onStepClick={handleStepClick} />
+            <window.BlueprintStepper steps={steps} currentStepIndex={currentStepIndex} video={video} handlers={{ ...handlers, updateVideo }} highestStepIndex={highestStepIndex} onStepClick={handleStepClick} />
             <div className="mt-6">{renderStepComponent()}</div>
         </div>
     );

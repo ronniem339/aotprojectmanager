@@ -87,7 +87,7 @@ window.TaskQueue = ({ tasks, onView, onRetry, onNavigateToTask }) => {
     };
     
     return (
-        React.createElement('div', { className: "fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl w-[500px] z-[60] animate-fade-in-up border border-gray-700" },
+        React.createElement('div', { className: "fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg shadow-2xl z-[60] animate-fade-in-up border border-gray-700 w-[calc(100vw-2rem)] max-w-md md:w-[500px] md:right-4 md:left-auto" },
             React.createElement('div', { className: "relative flex justify-between items-center p-3 bg-gray-900 rounded-t-lg" },
                 React.createElement('h4', { className: "font-bold text-base" }, "Task Queue"),
                 React.createElement('button', { 

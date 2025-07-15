@@ -17,6 +17,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     const [regenerationError, setRegenerationError] = useState(null);
     const [showAddSceneModal, setShowAddSceneModal] = useState(false);
     const [stagedScenes, setStagedScenes] = useState([]);
+    const [showConfirmRestartModal, setShowConfirmRestartModal] = useState(false);
+    const [taskToRestart, setTaskToRestart] = useState(null);
 
     const appId = window.CREATOR_HUB_CONFIG.APP_ID;
     const taskPipeline = window.CREATOR_HUB_CONFIG.TASK_PIPELINE;
@@ -173,7 +175,7 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                                 isOpen={openTask === task.id} onToggle={() => setOpenTask(openTask === task.id ? null : task.id)}
                                 status={locked ? 'locked' : status} isLocked={locked}
                                 onRevisit={status === 'complete' ? () => handleResetTask(task.id) : null}
-                                onRestart={status === 'in-progress' ? () => handleResetTask(task.id) : null}
+                                onRestart={status === 'in-progress' ? () => { setTaskToRestart(task); setShowConfirmRestartModal(true); } : null}
                             >
                                 {renderTaskComponent(task, index)}
                             </window.Accordion>
@@ -198,6 +200,22 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     googleMapsLoaded={googleMapsLoaded}
                 />,
                 document.body
+            )}
+
+            {showConfirmRestartModal && taskToRestart && (
+                <window.DeleteConfirmationModal
+                    itemType="task"
+                    itemName={taskToRestart.title || taskToRestart.name}
+                    onConfirm={async () => {
+                        await handleResetTask(taskToRestart.id);
+                        setShowConfirmRestartModal(false);
+                        setTaskToRestart(null);
+                    }}
+                    onCancel={() => {
+                        setShowConfirmRestartModal(false);
+                        setTaskToRestart(null);
+                    }}
+                />
             )}
         </React.Fragment>
     );
