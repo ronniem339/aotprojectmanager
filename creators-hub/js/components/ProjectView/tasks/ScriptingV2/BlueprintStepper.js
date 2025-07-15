@@ -1,6 +1,6 @@
 const { useMediaQuery } = window;
 
-const DesktopStepper = ({ steps, currentStepId, onStepClick }) => {
+const DesktopStepper = ({ steps, currentStepId, onStepClick, highestStepIndex }) => {
     return (
         <div className="flex items-center gap-x-1 sm:gap-x-2 mb-6 pb-4 border-b border-gray-700">
             {steps.map((step, index) => {
