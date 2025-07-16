@@ -3,6 +3,7 @@ const { useState: useStateVO, useEffect: useEffectVO } = React;
 window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const recordableVoiceover = blueprint.recordableVoiceover || 'No recordable voiceover found.';
+    console.log("Recordable Voiceover Content:", recordableVoiceover);
     const [isProcessing, setIsProcessing] = useStateVO(false);
 
     const handleCompleteTask = async () => {
