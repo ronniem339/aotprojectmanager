@@ -45,6 +45,18 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         }
     }, [userId, project.id, db, appId]);
 
+    // --- FIX Start ---
+    // Create a new handler to bridge the 3-argument call from task components
+    // to the 2-argument updateVideo function.
+    const handleUpdateTask = useCallback(async (taskId, status, data = {}) => {
+        const payload = {
+            ...data,
+            [`tasks.${taskId}`]: status,
+        };
+        await updateVideo(video.id, payload);
+    }, [updateVideo, video.id]);
+    // --- FIX End ---
+
     const handleResetTask = useCallback(async (taskId) => {
         let dataToReset = {};
         switch (taskId) {
@@ -100,7 +112,10 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
 
     const renderTaskComponent = (task, index) => {
         const locked = isTaskLocked(task);
-        const commonProps = { video, settings, updateVideo, isLocked: locked, project, handlers, onOpenWorkspace: handleOpenScriptingV2 };
+        // --- FIX Start ---
+        // Pass the new handleUpdateTask function as the onUpdateTask prop to all components.
+        const commonProps = { video, settings, isLocked: locked, project, handlers, onOpenWorkspace: handleOpenScriptingV2, onUpdateTask: handleUpdateTask };
+        // --- FIX End ---
         
         switch (task.id) {
             case 'scripting': {
@@ -112,10 +127,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                     return <SafeComponentRenderer componentName="ScriptingTask" {...componentProps} onStartV2Workflow={handleStartV2Workflow} />;
                 }
             }
-            case 'voiceoverRecorded': return <SafeComponentRenderer componentName="RecordVoiceoverProjectTask" {...commonProps} task={task} onUpdateTask={updateVideo} />;
+            // --- FIX Start ---
+            // The onUpdateTask prop is now correctly handled by the new handleUpdateTask function.
+            // The explicit `onUpdateTask={updateVideo}` is removed.
+            case 'voiceoverRecorded': 
+                return <SafeComponentRenderer componentName="RecordVoiceoverProjectTask" {...commonProps} task={task} />;
+            // --- FIX End ---
             // ... other task cases
             default:
-                return <SafeComponentRenderer componentName="SimpleConfirmationTask" {...commonProps} />;
+                return <SafeComponentRenderer componentName="SimpleConfirmationTask" {...commonProps} task={task} />;
         }
     };
 
