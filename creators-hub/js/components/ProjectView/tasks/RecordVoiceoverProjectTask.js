@@ -1,3 +1,5 @@
+// creators-hub/js/components/ProjectView/tasks/RecordVoiceoverProjectTask.js
+
 const { useState: useStateVO, useEffect: useEffectVO } = React;
 
 window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) => {
@@ -9,7 +11,8 @@ window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) =>
     const handleCompleteTask = async () => {
         setIsProcessing(true);
         try {
-            await onUpdateTask(task.id, 'complete');
+            // FIX: Pass an empty object {} as the third argument to prevent 'undefined' errors.
+            await onUpdateTask(task.id, 'complete', {});
             handlers.displayNotification("Voiceover recording task marked as complete!", 'success');
         } catch (error) {
             handlers.displayNotification(`Error marking task complete: ${error.message}`, 'error');
