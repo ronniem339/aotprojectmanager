@@ -1,20 +1,21 @@
 // creators-hub/js/components/ProjectView/tasks/RecordVoiceoverProjectTask.js
 
-const { useState: useStateVO, useEffect: useEffectVO } = React;
-
 window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) => {
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const recordableVoiceover = blueprint.recordableVoiceover || 'No recordable voiceover found.';
     console.log("Recordable Voiceover Content:", recordableVoiceover);
-    const [isProcessing, setIsProcessing] = useStateVO(false);
+    const [isProcessing, setIsProcessing] = React.useState(false);
 
     const handleCompleteTask = async () => {
         setIsProcessing(true);
         try {
-            // FIX: Pass an empty object {} as the third argument to prevent 'undefined' errors.
-            await onUpdateTask(task.id, 'complete', {});
+            // FIX: Pass the video ID and a correctly structured object for the update.
+            // This uses the task's ID to create a dynamic key like 'tasks.voiceoverRecorded'.
+            await onUpdateTask(video.id, { [`tasks.${task.id}`]: 'complete' });
+
             handlers.displayNotification("Voiceover recording task marked as complete!", 'success');
         } catch (error) {
+            console.error("Error in handleCompleteTask:", error);
             handlers.displayNotification(`Error marking task complete: ${error.message}`, 'error');
         } finally {
             setIsProcessing(false);
@@ -41,10 +42,10 @@ window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) =>
             <div className="mt-4 flex justify-end">
                 <button
                     onClick={handleCompleteTask}
-                    disabled={isProcessing || status === 'complete'}
+                    disabled={isProcessing}
                     className="btn btn-primary disabled:opacity-50"
                 >
-                    {isProcessing ? 'Completing...' : (status === 'complete' ? '✅ Task Completed' : 'Mark as Complete')}
+                    {isProcessing ? 'Completing...' : 'Mark as Complete'}
                 </button>
             </div>
         </div>
