@@ -49,11 +49,9 @@ window.aiUtils.assembleAndPolishScriptAI = async ({ draftScript, approvedNarrati
             throw new Error("AI returned an invalid response format for the final script.");
         }
         
-        // Normalize and ensure paragraph breaks for recordableVoiceover
+        // Normalize line endings for recordableVoiceover
         const processedRecordableVoiceover = response.recordableVoiceover
-            .replace(/\r\n/g, '\n') // Normalize line endings to \n
-            .replace(/\n\s*\n/g, '\n\n') // Replace multiple newlines with exactly two
-            .replace(/([^\n])\n([^\n])/g, '$1\n\n$2'); // Convert single newlines to double newlines
+            .replace(/\r\n/g, '\n'); // Normalize line endings to \n
 
         return { ...response, recordableVoiceover: processedRecordableVoiceover };
 
