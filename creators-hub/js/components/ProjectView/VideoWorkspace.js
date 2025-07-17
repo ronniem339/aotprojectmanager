@@ -106,8 +106,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     };
 
     const isTaskLocked = (task) => {
+        console.log(`Task: ${task.id}, DependsOn: ${task.dependsOn}`);
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
-        return !task.dependsOn.every(dependencyId => video.tasks?.[dependencyId] === 'complete');
+        const locked = !task.dependsOn.every(dependencyId => {
+            const dependencyStatus = video.tasks?.[dependencyId];
+            console.log(`  Dependency: ${dependencyId}, Status: ${dependencyStatus}`);
+            return dependencyStatus === 'complete';
+        });
+        console.log(`  Task ${task.id} isLocked: ${locked}`);
+        return locked;
     };
 
     const renderTaskComponent = (task, index) => {
@@ -132,6 +139,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             // The explicit `onUpdateTask={updateVideo}` is removed.
             case 'voiceoverRecorded': 
                 return <SafeComponentRenderer componentName="RecordVoiceoverProjectTask" {...commonProps} task={task} />;
+            case 'videoEdited':
+                return <SafeComponentRenderer componentName="EditVideoTask" {...commonProps} task={task} />;
             // --- FIX End ---
             // ... other task cases
             default:
