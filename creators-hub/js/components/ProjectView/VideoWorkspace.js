@@ -124,7 +124,20 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             case 'videoEdited':
                 return <SafeComponentRenderer componentName="EditVideoTask" {...commonProps} task={task} />;
             // --- FIX End ---
-            // ... other task cases
+            case 'titleGenerated':
+                return <SafeComponentRenderer componentName="TitleTask" {...commonProps} task={task} />;
+            case 'descriptionGenerated':
+                return <SafeComponentRenderer componentName="DescriptionTask" {...commonProps} task={task} />;
+            case 'tagsGenerated':
+                return <SafeComponentRenderer componentName="TagsTask" {...commonProps} task={task} />;
+            case 'chaptersGenerated':
+                return <SafeComponentRenderer componentName="ChaptersTask" {...commonProps} task={task} />;
+            case 'thumbnailsGenerated':
+                return <SafeComponentRenderer componentName="ThumbnailTask" {...commonProps} task={task} />;
+            case 'firstCommentGenerated':
+                return <SafeComponentRenderer componentName="FirstCommentTask" {...commonProps} task={task} />;
+            case 'videoUploaded':
+                return <SafeComponentRenderer componentName="UploadToYouTubeTask" {...commonProps} task={task} />;
             default:
                 return <SafeComponentRenderer componentName="SimpleConfirmationTask" {...commonProps} task={task} />;
         }
