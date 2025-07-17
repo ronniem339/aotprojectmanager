@@ -3,8 +3,6 @@
 window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings, project, handlers }) => {
     const { useState, useEffect } = React;
 
-    console.log('EditVideoTask handlers:', handlers);
-
     const [musicTrack, setMusicTrack] = useState('');
     const [changeLog, setChangeLog] = useState('');
     const [showLogChanges, setShowLogChanges] = useState(false);
@@ -13,6 +11,7 @@ window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings, project, hand
     const [error, setError] = useState('');
     const [editingShotList, setEditingShotList] = useState(video.tasks?.scriptingV2_blueprint?.editingShotList || []);
     const [isGeneratingShotList, setIsGeneratingShotList] = useState(false);
+    const [openSequenceIndex, setOpenSequenceIndex] = useState(null); // New state for accordion control
 
     // Sync local state with data from Firestore
     useEffect(() => {
@@ -24,6 +23,10 @@ window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings, project, hand
         // If the task is already in progress but logging isn't shown, reset the flag
         if (video.tasks?.videoEdited === 'in-progress') {
             setShowLogChanges(false);
+        }
+        // Open the first sequence by default if the list is not empty
+        if (video.tasks?.scriptingV2_blueprint?.editingShotList?.length > 0) {
+            setOpenSequenceIndex(0);
         }
     }, [video.id, video.tasks]);
 
@@ -216,8 +219,8 @@ IMPORTANT: Please provide only the complete, rewritten, raw text script as your 
                                 <window.Accordion
                                     key={index}
                                     title={`Sequence: ${sequence.name} (${sequence.type})`}
-                                    defaultOpen={true}
-                                    onToggle={() => { /* No-op, controlled by checkbox */ }}
+                                    isOpen={openSequenceIndex === index}
+                                    onToggle={() => setOpenSequenceIndex(openSequenceIndex === index ? null : index)}
                                     status={sequence.isComplete ? 'complete' : 'pending'}
                                     isLocked={false}
                                 >
