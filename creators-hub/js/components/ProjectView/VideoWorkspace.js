@@ -31,30 +31,15 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
         setStagedScenes([]);
     }, [video.id]);
 
-    const updateVideo = useCallback(async (videoId, dataToUpdate) => {
-        if (!db) {
-            console.error("Firestore DB not available for updateVideo.");
-            return;
-        }
-        const videoDocRef = db.collection(`artifacts/${appId}/users/${userId}/projects/${project.id}/videos`).doc(videoId);
-        try {
-            await videoDocRef.update(dataToUpdate);
-        } catch (e) {
-            console.error("Database transaction failed: ", e);
-            setRegenerationError(`Failed to save changes: ${e.message}`);
-        }
-    }, [userId, project.id, db, appId]);
-
     // --- FIX Start ---
-    // Create a new handler to bridge the 3-argument call from task components
-    // to the 2-argument updateVideo function.
+    // Use handlers.updateVideo directly
     const handleUpdateTask = useCallback(async (taskId, status, data = {}) => {
         const payload = {
             ...data,
             [`tasks.${taskId}`]: status,
         };
-        await updateVideo(video.id, payload);
-    }, [updateVideo, video.id]);
+        await handlers.updateVideo(video.id, payload);
+    }, [handlers.updateVideo, video.id]);
     // --- FIX End ---
 
     const handleResetTask = useCallback(async (taskId) => {
@@ -77,9 +62,9 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
             // ... other reset cases
         }
         if (Object.keys(dataToReset).length > 0) {
-            await updateVideo(video.id, dataToReset);
+            await handlers.updateVideo(video.id, dataToReset);
         }
-    }, [updateVideo, video.id]);
+    }, [handlers.updateVideo, video.id]);
     
     const handleStartV2Workflow = useCallback(async () => {
         const updatePayload = {
@@ -90,8 +75,8 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
                 migratedFromLegacy: true,
             }
         };
-        await updateVideo(video.id, updatePayload);
-    }, [updateVideo, video.id, video.tasks, video.concept]);
+        await handlers.updateVideo(video.id, updatePayload);
+    }, [handlers.updateVideo, video.id, video.tasks, video.concept]);
 
     const handleRegenerateShotList = async () => { /* ... existing code ... */ };
     const handleStageScene = async (sceneData) => { /* ... existing code ... */ };
@@ -106,14 +91,11 @@ window.VideoWorkspace = React.memo(({ video, settings, project, userId, db, allV
     };
 
     const isTaskLocked = (task) => {
-        console.log(`Task: ${task.id}, DependsOn: ${task.dependsOn}`);
         if (!task.dependsOn || task.dependsOn.length === 0) return false;
         const locked = !task.dependsOn.every(dependencyId => {
             const dependencyStatus = video.tasks?.[dependencyId];
-            console.log(`  Dependency: ${dependencyId}, Status: ${dependencyStatus}`);
             return dependencyStatus === 'complete';
         });
-        console.log(`  Task ${task.id} isLocked: ${locked}`);
         return locked;
     };
 

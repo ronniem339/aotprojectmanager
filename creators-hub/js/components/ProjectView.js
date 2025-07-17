@@ -372,7 +372,7 @@ window.ProjectView = ({ userId, project, handlers, onCloseProject, settings, onU
                                     allVideos={videos} 
                                     onNavigate={onNavigate}
                                     googleMapsLoaded={googleMapsLoaded}
-                                    handlers={handlers} 
+                                    handlers={{ ...handlers, updateVideo: updateVideo }} 
                                     taskQueue={taskQueue}
                                     initialStep={initialStep} // Pass down the initial step
                                 />
