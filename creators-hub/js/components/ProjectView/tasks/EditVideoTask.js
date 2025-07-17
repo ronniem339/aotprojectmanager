@@ -3,6 +3,13 @@
 window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings, project, handlers }) => {
     const { useState, useEffect } = React;
 
+    // Debugging logs
+    console.log('EditVideoTask: video.tasks?.videoEdited', video.tasks?.videoEdited);
+    console.log('EditVideoTask: showLogChanges', showLogChanges);
+    console.log('EditVideoTask: editingShotList.length', editingShotList.length);
+
+    const { useState, useEffect } = React;
+
     const [musicTrack, setMusicTrack] = useState('');
     const [changeLog, setChangeLog] = useState('');
     const [showLogChanges, setShowLogChanges] = useState(false);
