@@ -1,6 +1,7 @@
 // js/components/ProjectView/tasks/EditVideoTask.js
 
 window.EditVideoTask = ({ video, onUpdateTask, isLocked, settings, project, handlers }) => {
+    console.log('EditVideoTask component is rendering');
     const { useState, useEffect } = React;
 
     // Debugging logs
