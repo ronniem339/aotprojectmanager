@@ -2,7 +2,7 @@ window.RecordVoiceoverProjectTask = ({ video, handlers, task, onUpdateTask }) =>
     const { useState, useEffect } = React;
     const blueprint = video?.tasks?.scriptingV2_blueprint || {};
     const recordableVoiceover = blueprint.recordableVoiceover || 'No recordable voiceover found.';
-    console.log("Recordable Voiceover Content:", recordableVoiceover);
+    
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleCompleteTask = async () => {
